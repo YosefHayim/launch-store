@@ -10,8 +10,10 @@ import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { PlanContext } from '../../types/plan.ts';
 import type { AppleLocaleInfo } from '../../store/shared/store-config.ts';
+import type { ActionStatus } from '../../types/reconcile.ts';
+
 /** A fully-stubbed {@link AscCatalogApi}: reads default to "nothing exists yet", writes resolve to a created resource. */
-const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
+function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
   const base: AscCatalogApi = {
     getAppId: vi.fn().mockResolvedValue('app1'),
     findBundleId: vi.fn().mockResolvedValue({ id: 'bundle1', identifier: 'com.acme.alpha' }),
@@ -48,10 +50,10 @@ const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
     updateVersionLocalization: vi.fn().mockResolvedValue(undefined),
   };
   return { ...base, ...overrides };
-};
+}
 const tmpDirs: string[] = [];
 /** Create a temp app dir holding a `store.config.json` with the given en-US Apple listing, and return it. */
-const appDirWithListing = (localeListing: AppleLocaleInfo): string => {
+function appDirWithListing(localeListing: AppleLocaleInfo): string {
   const systemTemporaryDirectory = tmpdir();
   const planListingTestPath = join(systemTemporaryDirectory, 'plan-listing-test-');
   const dir = mkdtempSync(planListingTestPath);
@@ -60,11 +62,13 @@ const appDirWithListing = (localeListing: AppleLocaleInfo): string => {
   const serialized = JSON.stringify({ apple: { info: { 'en-US': localeListing } } });
   writeFileSync(storePath, serialized);
   return dir;
-};
-afterEach(() => {
+}
+function cleanup() {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-});
-const makeCtx = (api: AscCatalogApi | null, appDir: string): PlanContext => {
+}
+
+afterEach(cleanup);
+function makeCtx(api: AscCatalogApi | null, appDir: string): PlanContext {
   const config: LaunchConfig = {
     profiles: {},
     credentials: 'local',
@@ -83,21 +87,28 @@ const makeCtx = (api: AscCatalogApi | null, appDir: string): PlanContext => {
     apps: [app],
     // Widen the catalog-only fake to the full surface API the context now exposes; the listing methods
     // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
-    resolveAscApi: () => {
+    resolveAscApi() {
       if (api == null) return Promise.resolve(null);
       const ascApiFake = makeAscApiFake(api);
       return Promise.resolve(ascApiFake);
     },
-    resolvePlayApi: () => Promise.resolve(null),
+    resolvePlayApi() {
+      return Promise.resolve(null);
+    },
   };
-};
-describe('listingPlanner', () => {
-  it('omits itself when no app declares a store listing', async () => {
+}
+function describeListingPlanner() {
+  async function omitsItselfWhenNoAppDeclaresAStoreListing() {
     const api = makeApi();
     const plan = await runPlanner(listingPlanner, makeCtx(api, '/no/such/dir/alpha'));
     expect(plan.state).toBe('omitted');
-  });
-  it('skips with an actionable hint when no Apple account is active', async () => {
+  }
+
+  it(
+    'omits itself when no app declares a store listing',
+    omitsItselfWhenNoAppDeclaresAStoreListing,
+  );
+  async function skipsWithAnActionableHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(
       listingPlanner,
       makeCtx(null, appDirWithListing({ title: 'Acme' })),
@@ -106,8 +117,13 @@ describe('listingPlanner', () => {
     if (plan.state != 'skipped') return;
     expect(plan.reason).toMatch(/Apple account/);
     expect(plan.hint).toMatch(/creds/);
-  });
-  it('reports the per-app diff a fresh listing would create', async () => {
+  }
+
+  it(
+    'skips with an actionable hint when no Apple account is active',
+    skipsWithAnActionableHintWhenNoAppleAccountIsActive,
+  );
+  async function reportsThePerAppDiffAFreshListingWouldCreate() {
     const dir = appDirWithListing({ title: 'Acme', description: 'The best acme app.' });
     const api = makeApi();
     const plan = await runPlanner(listingPlanner, makeCtx(api, dir));
@@ -116,18 +132,33 @@ describe('listingPlanner', () => {
     if (plan.scope != 'app') return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
-    expect(
-      plan.apps[0]?.actions.some((a) =>
-        a.description.startsWith('create listing [en-US] App Info'),
-      ),
-    ).toBe(true);
-    expect(
-      plan.apps[0]?.actions.some((a) =>
-        a.description.startsWith('create listing [en-US] App Store version'),
-      ),
-    ).toBe(true);
-  });
-  it('captures a missing app record as a per-app error, not a thrown plan', async () => {
+    function someA(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.description.startsWith('create listing [en-US] App Info');
+    }
+
+    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+    function someA2(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.description.startsWith('create listing [en-US] App Store version');
+    }
+
+    expect(plan.apps[0]?.actions.some(someA2)).toBe(true);
+  }
+
+  it(
+    'reports the per-app diff a fresh listing would create',
+    reportsThePerAppDiffAFreshListingWouldCreate,
+  );
+  async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(
       listingPlanner,
@@ -138,8 +169,13 @@ describe('listingPlanner', () => {
     if (plan.scope != 'app') return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
-  });
-  it('is strictly read-only: never invokes a listing write endpoint', async () => {
+  }
+
+  it(
+    'captures a missing app record as a per-app error, not a thrown plan',
+    capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan,
+  );
+  async function isStrictlyReadOnlyNeverInvokesAListingWriteEndpoint() {
     const api = makeApi();
     await runPlanner(
       listingPlanner,
@@ -151,5 +187,12 @@ describe('listingPlanner', () => {
     expect(api.updateAppInfoLocalization).toHaveBeenCalledTimes(0);
     expect(api.createVersionLocalization).toHaveBeenCalledTimes(0);
     expect(api.updateVersionLocalization).toHaveBeenCalledTimes(0);
-  });
-});
+  }
+
+  it(
+    'is strictly read-only: never invokes a listing write endpoint',
+    isStrictlyReadOnlyNeverInvokesAListingWriteEndpoint,
+  );
+}
+
+describe('listingPlanner', describeListingPlanner);

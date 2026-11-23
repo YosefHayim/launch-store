@@ -11,10 +11,18 @@ function provideBuildHistoryCommand(commandInput: BuildHistoryCommandInput): Pro
 }
 
 /** Attach the build-history command family. */
-export const registerBuildsCommand = (program: Command): void => {
+export function registerBuildsCommand(program: Command): void {
   const buildsCommand = program
     .command('builds')
     .description('inspect and trim local build history (the artifact index)');
+  function runList(commandOptions: { app?: string; platform?: string; json: boolean }) {
+    const buildHistoryCommand = provideBuildHistoryCommand({
+      operation: 'list',
+      ...commandOptions,
+    });
+    return runCliProgram(buildHistoryCommand);
+  }
+
   buildsCommand
     .command('list')
     .description('list past builds, newest first')
@@ -24,26 +32,31 @@ export const registerBuildsCommand = (program: Command): void => {
       'only show builds for one platform (ios/android/tvos/macos/visionos)',
     )
     .option('--json', 'output machine-readable JSON', false)
-    .action((commandOptions: { app?: string; platform?: string; json: boolean }) => {
-      const buildHistoryCommand = provideBuildHistoryCommand({
-        operation: 'list',
-        ...commandOptions,
-      });
-      return runCliProgram(buildHistoryCommand);
+    .action(runList);
+  function runView(reference: string, commandOptions: { json: boolean }) {
+    const buildHistoryCommand = provideBuildHistoryCommand({
+      operation: 'view',
+      reference,
+      json: commandOptions.json,
     });
+    return runCliProgram(buildHistoryCommand);
+  }
+
   buildsCommand
     .command('view')
     .description('show full detail for one build')
     .argument('<id|latest>', 'a build id from `builds list`, a build number, or `latest`')
     .option('--json', 'output machine-readable JSON', false)
-    .action((reference: string, commandOptions: { json: boolean }) => {
-      const buildHistoryCommand = provideBuildHistoryCommand({
-        operation: 'view',
-        reference,
-        json: commandOptions.json,
-      });
-      return runCliProgram(buildHistoryCommand);
+    .action(runView);
+  function runLog(reference: string, commandOptions: { open: boolean }) {
+    const buildHistoryCommand = provideBuildHistoryCommand({
+      operation: 'log',
+      reference,
+      open: commandOptions.open,
     });
+    return runCliProgram(buildHistoryCommand);
+  }
+
   buildsCommand
     .command('log')
     .description(
@@ -51,14 +64,15 @@ export const registerBuildsCommand = (program: Command): void => {
     )
     .argument('<id|latest>', 'a build id from `builds list`, a build number, or `latest`')
     .option('--open', 'reveal the log in your editor / OS viewer instead of printing it', false)
-    .action((reference: string, commandOptions: { open: boolean }) => {
-      const buildHistoryCommand = provideBuildHistoryCommand({
-        operation: 'log',
-        reference,
-        open: commandOptions.open,
-      });
-      return runCliProgram(buildHistoryCommand);
+    .action(runLog);
+  function runPrune(commandOptions: PruneCommandOptions) {
+    const buildHistoryCommand = provideBuildHistoryCommand({
+      operation: 'prune',
+      options: commandOptions,
     });
+    return runCliProgram(buildHistoryCommand);
+  }
+
   buildsCommand
     .command('prune')
     .description(
@@ -76,11 +90,5 @@ export const registerBuildsCommand = (program: Command): void => {
     .option('--dry-run', 'show what would be deleted without deleting', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .option('--json', 'output machine-readable JSON', false)
-    .action((commandOptions: PruneCommandOptions) => {
-      const buildHistoryCommand = provideBuildHistoryCommand({
-        operation: 'prune',
-        options: commandOptions,
-      });
-      return runCliProgram(buildHistoryCommand);
-    });
-};
+    .action(runPrune);
+}

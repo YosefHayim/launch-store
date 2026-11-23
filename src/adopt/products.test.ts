@@ -81,9 +81,8 @@ function adoptTarget(overrides: Partial<AdoptTarget> = {}): AdoptTarget {
     ...overrides,
   };
 }
-
-describe('productsAdopter', () => {
-  it('imports an in-app purchase with its localizations, keyed by bundle id', async () => {
+function describeProductsAdopter() {
+  async function importsAnInAppPurchaseWithItsLocalizationsKeyedByBundleId() {
     const appleCatalog = emptyAdoptCatalog({
       listInAppPurchases() {
         return ready([
@@ -126,9 +125,13 @@ describe('productsAdopter', () => {
         },
       },
     });
-  });
+  }
 
-  it("notes a priced product whose amount the API won't cheaply return", async () => {
+  it(
+    'imports an in-app purchase with its localizations, keyed by bundle id',
+    importsAnInAppPurchaseWithItsLocalizationsKeyedByBundleId,
+  );
+  async function notesAPricedProductWhoseAmountTheAPIWonTCheaplyReturn() {
     const appleCatalog = emptyAdoptCatalog({
       listInAppPurchases() {
         return ready([
@@ -154,9 +157,13 @@ describe('productsAdopter', () => {
     }
 
     expect(firstWrite.note).toMatch(/priced on App Store Connect/);
-  });
+  }
 
-  it("skips an in-app purchase whose type Launch doesn't model", async () => {
+  it(
+    "notes a priced product whose amount the API won't cheaply return",
+    notesAPricedProductWhoseAmountTheAPIWonTCheaplyReturn,
+  );
+  async function skipsAnInAppPurchaseWhoseTypeLaunchDoesnTModel() {
     const appleCatalog = emptyAdoptCatalog({
       listInAppPurchases() {
         return ready([
@@ -166,9 +173,13 @@ describe('productsAdopter', () => {
     });
     const target = adoptTarget();
     expect(await productsAdopter.read(appleCatalog, target)).toEqual([]);
-  });
+  }
 
-  it('imports a subscription group with its levels and billing period', async () => {
+  it(
+    "skips an in-app purchase whose type Launch doesn't model",
+    skipsAnInAppPurchaseWhoseTypeLaunchDoesnTModel,
+  );
+  async function importsASubscriptionGroupWithItsLevelsAndBillingPeriod() {
     const appleCatalog = emptyAdoptCatalog({
       listSubscriptionGroups() {
         return ready([{ id: 'g1', referenceName: 'Pro' }]);
@@ -219,9 +230,13 @@ describe('productsAdopter', () => {
         },
       },
     });
-  });
+  }
 
-  it('drops a subscription group whose only level is missing its billing period', async () => {
+  it(
+    'imports a subscription group with its levels and billing period',
+    importsASubscriptionGroupWithItsLevelsAndBillingPeriod,
+  );
+  async function dropsASubscriptionGroupWhoseOnlyLevelIsMissingItsBillingPeriod() {
     const appleCatalog = emptyAdoptCatalog({
       listSubscriptionGroups() {
         return ready([{ id: 'g1', referenceName: 'Pro' }]);
@@ -232,5 +247,12 @@ describe('productsAdopter', () => {
     });
     const target = adoptTarget();
     expect(await productsAdopter.read(appleCatalog, target)).toEqual([]);
-  });
-});
+  }
+
+  it(
+    'drops a subscription group whose only level is missing its billing period',
+    dropsASubscriptionGroupWhoseOnlyLevelIsMissingItsBillingPeriod,
+  );
+}
+
+describe('productsAdopter', describeProductsAdopter);

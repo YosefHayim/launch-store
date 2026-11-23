@@ -18,16 +18,18 @@ function useTemporaryLaunchHome(): void {
     workingDirectory: workPath,
   });
 }
-
-beforeEach(() => {
+function prepare() {
   homeDirectory = createTemporaryHomeDirectory();
   useTemporaryLaunchHome();
-});
+}
 
-afterEach(() => {
+beforeEach(prepare);
+function cleanup() {
   resetLaunchDirectories();
   removeTemporaryHomeDirectory(homeDirectory);
-});
+}
+
+afterEach(cleanup);
 
 const coverage: AppCoverage = {
   version: 1,
@@ -42,30 +44,39 @@ const coverage: AppCoverage = {
     },
   },
 };
-
-describe('createEmptyAppCoverage', () => {
-  test('has no feeds', () => {
+function describeCreateEmptyAppCoverage() {
+  function hasNoFeeds() {
     const emptyAppCoverage = createEmptyAppCoverage('ios-1');
     expect(emptyAppCoverage).toEqual({ version: 1, appKey: 'ios-1', feeds: {} });
-  });
-});
+  }
 
-describe('loadAppCoverage', () => {
-  test('returns an empty coverage when the app was never synced', async () => {
+  test('has no feeds', hasNoFeeds);
+}
+
+describe('createEmptyAppCoverage', describeCreateEmptyAppCoverage);
+function describeLoadAppCoverage() {
+  async function returnsAnEmptyCoverageWhenTheAppWasNeverSynced() {
     const loaded = await loadAppCoverage('ios-1');
 
     const emptyAppCoverage = createEmptyAppCoverage('ios-1');
     expect(loaded).toEqual(emptyAppCoverage);
-  });
+  }
 
-  test('fails for an app key that is not valid', async () => {
+  test(
+    'returns an empty coverage when the app was never synced',
+    returnsAnEmptyCoverageWhenTheAppWasNeverSynced,
+  );
+  async function failsForAnAppKeyThatIsNotValid() {
     const appCoverage = loadAppCoverage('../x');
     await expect(appCoverage).rejects.toMatchObject({ _tag: 'InvalidAppKeyFailure' });
-  });
-});
+  }
 
-describe('loadAppCoverage with a file saved before lastNote existed', () => {
-  test('decodes it with a null lastNote', async () => {
+  test('fails for an app key that is not valid', failsForAnAppKeyThatIsNotValid);
+}
+
+describe('loadAppCoverage', describeLoadAppCoverage);
+function describeLoadAppCoverageWithAFileSavedBeforeLastNoteExisted() {
+  async function decodesItWithANullLastNote() {
     const oldFile = {
       version: 1,
       appKey: 'ios-1',
@@ -84,14 +95,24 @@ describe('loadAppCoverage with a file saved before lastNote existed', () => {
     const loaded = await loadAppCoverage('ios-1');
 
     expect(loaded.feeds['app-store']).toMatchObject({ lastError: null, lastNote: null });
-  });
-});
+  }
 
-describe('saveAppCoverage', () => {
-  test('saves the coverage so the next load returns it', async () => {
+  test('decodes it with a null lastNote', decodesItWithANullLastNote);
+}
+
+describe(
+  'loadAppCoverage with a file saved before lastNote existed',
+  describeLoadAppCoverageWithAFileSavedBeforeLastNoteExisted,
+);
+function describeSaveAppCoverage() {
+  async function savesTheCoverageSoTheNextLoadReturnsIt() {
     await saveAppCoverage(coverage);
     const loaded = await loadAppCoverage('ios-1');
 
     expect(loaded).toEqual(coverage);
-  });
-});
+  }
+
+  test('saves the coverage so the next load returns it', savesTheCoverageSoTheNextLoadReturnsIt);
+}
+
+describe('saveAppCoverage', describeSaveAppCoverage);

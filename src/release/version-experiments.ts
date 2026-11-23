@@ -30,7 +30,7 @@ const TRAFFIC_MESSAGE = 'experiments.config.json: trafficProportion must be a po
 const MINIMUM_EXPERIMENTS_MESSAGE =
   'experiments.config.json must declare at least one entry under "experiments".';
 
-interface TreatmentConfig {
+export interface TreatmentConfig {
   name: string;
   appIconName?: string;
   screenshots?: string;

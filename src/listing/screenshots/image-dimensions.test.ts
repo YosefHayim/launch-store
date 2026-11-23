@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readImageDimensions } from './image-dimensions.ts';
 
-const pngBytes = (width: number, height: number): Buffer => {
+function pngBytes(width: number, height: number): Buffer {
   const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const header = Buffer.alloc(16);
   header.writeUInt32BE(13, 0);
@@ -9,9 +9,9 @@ const pngBytes = (width: number, height: number): Buffer => {
   header.writeUInt32BE(width, 8);
   header.writeUInt32BE(height, 12);
   return Buffer.concat([signature, header]);
-};
+}
 
-const jpegBytes = (width: number, height: number, includeAppSegment = true): Buffer => {
+function jpegBytes(width: number, height: number, includeAppSegment: boolean = true): Buffer {
   const startOfImage = Buffer.from([0xff, 0xd8]);
   let appSegment = Buffer.alloc(0);
   if (includeAppSegment) appSegment = Buffer.from([0xff, 0xe0, 0x00, 0x04, 0x00, 0x00]);
@@ -22,48 +22,63 @@ const jpegBytes = (width: number, height: number, includeAppSegment = true): Buf
   frame.writeUInt16BE(height, 5);
   frame.writeUInt16BE(width, 7);
   return Buffer.concat([startOfImage, appSegment, frame]);
-};
-
-describe('readImageDimensions', () => {
-  it('reads PNG dimensions', () => {
+}
+function describeReadImageDimensions() {
+  function readsPNGDimensions() {
     const imageDimensions = readImageDimensions(pngBytes(1290, 2796));
     expect(imageDimensions).toEqual({ width: 1290, height: 2796 });
-  });
+  }
 
-  it('reads JPEG dimensions after an application segment', () => {
+  it('reads PNG dimensions', readsPNGDimensions);
+  function readsJPEGDimensionsAfterAnApplicationSegment() {
     const imageDimensions = readImageDimensions(jpegBytes(1080, 1920));
     expect(imageDimensions).toEqual({ width: 1080, height: 1920 });
-  });
+  }
 
-  it('reads a JPEG whose first segment contains the frame', () => {
+  it(
+    'reads JPEG dimensions after an application segment',
+    readsJPEGDimensionsAfterAnApplicationSegment,
+  );
+  function readsAJPEGWhoseFirstSegmentContainsTheFrame() {
     const imageDimensions = readImageDimensions(jpegBytes(2048, 2732, false));
     expect(imageDimensions).toEqual({
       width: 2048,
       height: 2732,
     });
-  });
+  }
 
-  it('rejects unsupported bytes', () => {
+  it(
+    'reads a JPEG whose first segment contains the frame',
+    readsAJPEGWhoseFirstSegmentContainsTheFrame,
+  );
+  function rejectsUnsupportedBytes() {
     const bufferBytes = Buffer.from('not an image');
     const imageDimensions = readImageDimensions(bufferBytes);
     expect(imageDimensions).toBeNull();
-  });
+  }
 
-  it('rejects a truncated PNG', () => {
+  it('rejects unsupported bytes', rejectsUnsupportedBytes);
+  function rejectsATruncatedPNG() {
     const bufferBytes = Buffer.from([0x89, 0x50, 0x4e]);
     const imageDimensions = readImageDimensions(bufferBytes);
     expect(imageDimensions).toBeNull();
-  });
+  }
 
-  it('rejects a JPEG without a frame', () => {
+  it('rejects a truncated PNG', rejectsATruncatedPNG);
+  function rejectsAJPEGWithoutAFrame() {
     const bufferBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0x00, 0x00]);
     const imageDimensions = readImageDimensions(bufferBytes);
     expect(imageDimensions).toBeNull();
-  });
+  }
 
-  it('rejects a JPEG truncated at a segment length', () => {
+  it('rejects a JPEG without a frame', rejectsAJPEGWithoutAFrame);
+  function rejectsAJPEGTruncatedAtASegmentLength() {
     const bufferBytes = Buffer.from([0xff, 0xd8, 0xff, 0xc0]);
     const imageDimensions = readImageDimensions(bufferBytes);
     expect(imageDimensions).toBeNull();
-  });
-});
+  }
+
+  it('rejects a JPEG truncated at a segment length', rejectsAJPEGTruncatedAtASegmentLength);
+}
+
+describe('readImageDimensions', describeReadImageDimensions);

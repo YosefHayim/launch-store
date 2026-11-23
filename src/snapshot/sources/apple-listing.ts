@@ -14,13 +14,13 @@ import { reconcileAppListing } from '../../store/apple/asc-sync.ts';
 import { iosApps } from '../../readiness/app-scopes.ts';
 import { readPlainObject } from '../../services/platform/plain-object.ts';
 /** One locale's merged listing fields -> a snapshot entity keyed by the locale (its natural, stable id). */
-const toEntity = (locale: string, fields: Record<string, string>): SnapshotEntity => {
+function toEntity(locale: string, fields: Record<string, string>): SnapshotEntity {
   return {
     key: locale,
     summary: `listing ${locale} (${Object.keys(fields).length} field(s))`,
     data: { locale, fields },
   };
-};
+}
 async function captureListing(api: SnapshotAscApi, appId: string): Promise<SnapshotEntity[]> {
   const localeFields = await readAppleLocaleFields(api, appId);
 
@@ -29,7 +29,7 @@ async function captureListing(api: SnapshotAscApi, appId: string): Promise<Snaps
   });
 }
 /** Rebuild the `AppleStoreConfig` listing from one app's captured per-locale entities (skips malformed ones). */
-const toListing = (saved: AppEntities): AppleStoreConfig => {
+function toListing(saved: AppEntities): AppleStoreConfig {
   const localeInfoByLocale: Record<string, AppleLocaleInfo> = {};
   for (const entity of saved.entities) {
     const capturedListing = readPlainObject(entity.data);
@@ -41,7 +41,7 @@ const toListing = (saved: AppEntities): AppleStoreConfig => {
     localeInfoByLocale[locale] = toLocaleInfo(fields as Readonly<{ [key: string]: JsonValue }>);
   }
   return { info: localeInfoByLocale };
-};
+}
 /** The App Store Connect store-listing snapshot source. */
 export const appleListingSource: SnapshotSource = {
   id: 'apple-listing',

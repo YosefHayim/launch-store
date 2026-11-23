@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderAccessibilityAction } from './accessibility-command.ts';
-describe('renderAction', () => {
-  it('marks a planned or applied change with +', () => {
+function describeRenderAction() {
+  function marksAPlannedOrAppliedChangeWith() {
     const accessibilityAction = renderAccessibilityAction({
       description: 'create accessibility declaration (IPHONE)',
       destructive: false,
@@ -15,8 +15,10 @@ describe('renderAction', () => {
         status: 'applied',
       }),
     ).toBe('+ update accessibility declaration (IPAD) + publish');
-  });
-  it("renders a failed action with x and Apple's error detail", () => {
+  }
+
+  it('marks a planned or applied change with +', marksAPlannedOrAppliedChangeWith);
+  function rendersAFailedActionWithXAndAppleSErrorDetail() {
     const accessibilityAction = renderAccessibilityAction({
       description: 'publish accessibility declaration (IPHONE)',
       destructive: false,
@@ -26,5 +28,12 @@ describe('renderAction', () => {
     expect(accessibilityAction).toBe(
       'x publish accessibility declaration (IPHONE) - declaration incomplete',
     );
-  });
-});
+  }
+
+  it(
+    "renders a failed action with x and Apple's error detail",
+    rendersAFailedActionWithXAndAppleSErrorDetail,
+  );
+}
+
+describe('renderAction', describeRenderAction);

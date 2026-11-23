@@ -5,15 +5,15 @@ import { makeProviderInputFailure } from '../../types/providers.ts';
 import { appleArtifactExtension, platformLabel } from '../stores/platform.ts';
 
 /** Convert an App Thinning size and unit into bytes. */
-const thinningBytes = (sizeAmount: number, unit: string): number => {
+function thinningBytes(sizeAmount: number, unit: string): number {
   const unitScales: Record<string, number> = { KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3 };
   let unitScale = unitScales[unit.toUpperCase()];
   if (unitScale == null) unitScale = 1;
   return Math.round(sizeAmount * unitScale);
-};
+}
 
 /** Parse Xcode's App Thinning report into per-device download and install sizes. */
-export const parseThinningReport = (reportText: string): SizeReportEntry[] => {
+export function parseThinningReport(reportText: string): SizeReportEntry[] {
   const entries: SizeReportEntry[] = [];
   const variants = reportText.split(/Variant:/).slice(1);
   for (const variant of variants) {
@@ -36,7 +36,7 @@ export const parseThinningReport = (reportText: string): SizeReportEntry[] => {
     });
   }
   return entries;
-};
+}
 
 /** Reject simulator, unpackaged, and empty Apple artifacts before storage or upload. */
 export function assertDeviceArtifact(
@@ -79,17 +79,19 @@ export function assertDeviceArtifact(
 }
 
 /** Render the manual-signing export plist used by local and remote Apple builds. */
-export const exportOptionsPlist = (
+export function exportOptionsPlist(
   signing: SigningAssets,
   method: 'app-store' | 'ad-hoc' = 'app-store',
-): string => {
+): string {
   const profiles: Record<string, string> = {
     [signing.bundleId]: signing.profileName,
     ...signing.extensionProfiles,
   };
-  const profileEntries = Object.entries(profiles).map(
-    ([bundleId, profileName]) => `<key>${bundleId}</key><string>${profileName}</string>`,
-  );
+  function mapPiece([bundleId, profileName]: [string, string]) {
+    return `<key>${bundleId}</key><string>${profileName}</string>`;
+  }
+
+  const profileEntries = Object.entries(profiles).map(mapPiece);
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
@@ -104,4 +106,4 @@ export const exportOptionsPlist = (
     '<key>thinning</key><string>&lt;thin-for-all-variants&gt;</string>',
     '</dict></plist>',
   ].join('\n');
-};
+}

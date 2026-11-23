@@ -47,7 +47,11 @@ export class ConnectPurchases {
     }>(
       `/apps/${appId}/inAppPurchasesV2?limit=200&fields[inAppPurchases]=productId,name,inAppPurchaseType,state`,
     );
-    return appleResources.map((purchase) => {
+    function mapPurchase(purchase: {
+      id: string;
+      attributes: { productId?: string; name?: string; inAppPurchaseType?: string; state?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let productId = purchase.attributes.productId;
       if (productId == null) productId = '';
       let purchaseName = purchase.attributes.name;
@@ -63,7 +67,9 @@ export class ConnectPurchases {
       if (purchase.attributes.state != null)
         Object.assign(inAppPurchase, { state: purchase.attributes.state });
       return inAppPurchase;
-    });
+    }
+
+    return appleResources.map(mapPurchase);
   }
 
   async createInAppPurchase(
@@ -116,11 +122,17 @@ export class ConnectPurchases {
     const appleResources = await this.client.requestAll<{
       referenceName?: string;
     }>(`/apps/${appId}/subscriptionGroups?limit=200&fields[subscriptionGroups]=referenceName`);
-    return appleResources.flatMap((group) => {
+    function flatMapGroup(group: {
+      id: string;
+      attributes: { referenceName?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const referenceName = group.attributes.referenceName;
       if (referenceName == null) return [];
       return [{ id: group.id, referenceName }];
-    });
+    }
+
+    return appleResources.flatMap(flatMapGroup);
   }
 
   async createSubscriptionGroup(
@@ -159,7 +171,16 @@ export class ConnectPurchases {
     }>(
       `/subscriptionGroups/${groupId}/subscriptions?limit=200&fields[subscriptions]=productId,name,subscriptionPeriod,state`,
     );
-    return appleResources.map((subscription) => {
+    function mapSubscription(subscription: {
+      id: string;
+      attributes: {
+        productId?: string;
+        name?: string;
+        subscriptionPeriod?: string;
+        state?: string;
+      };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let productId = subscription.attributes.productId;
       if (productId == null) productId = '';
       let subscriptionName = subscription.attributes.name;
@@ -176,7 +197,9 @@ export class ConnectPurchases {
       if (subscription.attributes.state != null)
         Object.assign(subscriptionResource, { state: subscription.attributes.state });
       return subscriptionResource;
-    });
+    }
+
+    return appleResources.map(mapSubscription);
   }
 
   async createSubscription(
@@ -256,16 +279,48 @@ export class ConnectPurchases {
       name?: string;
       active?: boolean;
     }>(`/subscriptions/${subscriptionId}/offerCodes?limit=200`);
-    return appleResources.map((offerCode) => {
+    function mapOfferCode(offerCode: {
+      id: string;
+      attributes: { name?: string; active?: boolean };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let offerName = offerCode.attributes.name;
       if (offerName == null) offerName = '';
       let active = offerCode.attributes.active;
       if (active == null) active = false;
       return { id: offerCode.id, name: offerName, active };
-    });
+    }
+
+    return appleResources.map(mapOfferCode);
   }
 
   async createSubscriptionOfferCode(input: OfferCodeCreate): Promise<OfferCodeResource> {
+    function mapPiece(
+      _: { readonly territory: string; readonly pricePointId: string },
+      index: number,
+    ) {
+      return {
+        type: 'subscriptionOfferCodePrices',
+        id: inlinePriceId(index),
+      } as const;
+    }
+
+    function mapPrice(
+      price: { readonly territory: string; readonly pricePointId: string },
+      index: number,
+    ) {
+      return {
+        type: 'subscriptionOfferCodePrices',
+        id: inlinePriceId(index),
+        relationships: {
+          territory: { data: { type: 'territories', id: price.territory } },
+          subscriptionPricePoint: {
+            data: { type: 'subscriptionPricePoints', id: price.pricePointId },
+          },
+        },
+      } as const;
+    }
+
     const requestDocument: components['schemas']['SubscriptionOfferCodeCreateRequest'] = {
       data: {
         type: 'subscriptionOfferCodes',
@@ -280,23 +335,11 @@ export class ConnectPurchases {
         relationships: {
           subscription: { data: { type: 'subscriptions', id: input.subscriptionId } },
           prices: {
-            data: input.prices.map((_, index) => ({
-              type: 'subscriptionOfferCodePrices',
-              id: inlinePriceId(index),
-            })),
+            data: input.prices.map(mapPiece),
           },
         },
       },
-      included: input.prices.map((price, index) => ({
-        type: 'subscriptionOfferCodePrices',
-        id: inlinePriceId(index),
-        relationships: {
-          territory: { data: { type: 'territories', id: price.territory } },
-          subscriptionPricePoint: {
-            data: { type: 'subscriptionPricePoints', id: price.pricePointId },
-          },
-        },
-      })),
+      included: input.prices.map(mapPrice),
     };
     const { data: appleResources } = await this.client.request<
       ResourceSingle<{
@@ -371,16 +414,48 @@ export class ConnectPurchases {
       name?: string;
       offerCode?: string;
     }>(`/subscriptions/${subscriptionId}/promotionalOffers?limit=200`);
-    return appleResources.map((offer) => {
+    function mapOffer(offer: {
+      id: string;
+      attributes: { name?: string; offerCode?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let offerName = offer.attributes.name;
       if (offerName == null) offerName = '';
       let offerCode = offer.attributes.offerCode;
       if (offerCode == null) offerCode = '';
       return { id: offer.id, name: offerName, offerCode };
-    });
+    }
+
+    return appleResources.map(mapOffer);
   }
 
   async createPromotionalOffer(input: PromotionalOfferCreate): Promise<PromotionalOfferResource> {
+    function mapPiece2(
+      _: { readonly territory: string; readonly pricePointId: string },
+      index: number,
+    ) {
+      return {
+        type: 'subscriptionPromotionalOfferPrices',
+        id: inlinePriceId(index),
+      } as const;
+    }
+
+    function mapPrice2(
+      price: { readonly territory: string; readonly pricePointId: string },
+      index: number,
+    ) {
+      return {
+        type: 'subscriptionPromotionalOfferPrices',
+        id: inlinePriceId(index),
+        relationships: {
+          territory: { data: { type: 'territories', id: price.territory } },
+          subscriptionPricePoint: {
+            data: { type: 'subscriptionPricePoints', id: price.pricePointId },
+          },
+        },
+      } as const;
+    }
+
     const requestDocument: components['schemas']['SubscriptionPromotionalOfferCreateRequest'] = {
       data: {
         type: 'subscriptionPromotionalOffers',
@@ -394,23 +469,11 @@ export class ConnectPurchases {
         relationships: {
           subscription: { data: { type: 'subscriptions', id: input.subscriptionId } },
           prices: {
-            data: input.prices.map((_, index) => ({
-              type: 'subscriptionPromotionalOfferPrices',
-              id: inlinePriceId(index),
-            })),
+            data: input.prices.map(mapPiece2),
           },
         },
       },
-      included: input.prices.map((price, index) => ({
-        type: 'subscriptionPromotionalOfferPrices',
-        id: inlinePriceId(index),
-        relationships: {
-          territory: { data: { type: 'territories', id: price.territory } },
-          subscriptionPricePoint: {
-            data: { type: 'subscriptionPricePoints', id: price.pricePointId },
-          },
-        },
-      })),
+      included: input.prices.map(mapPrice2),
     };
     const { data: appleResources } = await this.client.request<
       ResourceSingle<{
@@ -438,12 +501,17 @@ export class ConnectPurchases {
         };
       }[];
     }>('GET', `/subscriptions/${subscriptionId}/introductoryOffers?include=territory&limit=200`);
-    return appleResources.map((offer) => {
+    function mapOffer2(offer: {
+      id: string;
+      relationships?: { territory?: { data?: { id: string } | null } };
+    }) {
       let territoryId: string | null = null;
       const returnedTerritoryId = offer.relationships?.territory?.data?.id;
       if (returnedTerritoryId != null) territoryId = returnedTerritoryId;
       return { id: offer.id, territory: territoryId };
-    });
+    }
+
+    return appleResources.map(mapOffer2);
   }
 
   async createIntroductoryOffer(input: IntroductoryOfferCreate): Promise<void> {
@@ -483,11 +551,17 @@ export class ConnectPurchases {
     const appleResources = await this.client.requestAll<{
       offerId?: string;
     }>(`/subscriptions/${subscriptionId}/winBackOffers?limit=200`);
-    return appleResources.map((offer) => {
+    function mapOffer3(offer: {
+      id: string;
+      attributes: { offerId?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let offerId = offer.attributes.offerId;
       if (offerId == null) offerId = '';
       return { id: offer.id, offerId };
-    });
+    }
+
+    return appleResources.map(mapOffer3);
   }
 
   async createWinBackOffer(input: WinBackOfferCreate): Promise<void> {
@@ -512,21 +586,21 @@ export class ConnectPurchases {
     if (input.endDate != null) Object.assign(winBackAttributes, { endDate: input.endDate });
     if (input.promotionIntent != null)
       Object.assign(winBackAttributes, { promotionIntent: input.promotionIntent });
-    const requestDocument: components['schemas']['WinBackOfferCreateRequest'] = {
-      data: {
-        type: 'winBackOffers',
-        attributes: winBackAttributes,
-        relationships: {
-          subscription: { data: { type: 'subscriptions', id: input.subscriptionId } },
-          prices: {
-            data: input.prices.map((_, index) => ({
-              type: 'winBackOfferPrices',
-              id: inlinePriceId(index),
-            })),
-          },
-        },
-      },
-      included: input.prices.map((price, index) => ({
+    function mapPiece3(
+      _: { readonly territory: string; readonly pricePointId: string },
+      index: number,
+    ) {
+      return {
+        type: 'winBackOfferPrices',
+        id: inlinePriceId(index),
+      } as const;
+    }
+
+    function mapPrice3(
+      price: { readonly territory: string; readonly pricePointId: string },
+      index: number,
+    ) {
+      return {
         type: 'winBackOfferPrices',
         id: inlinePriceId(index),
         relationships: {
@@ -535,7 +609,21 @@ export class ConnectPurchases {
             data: { type: 'subscriptionPricePoints', id: price.pricePointId },
           },
         },
-      })),
+      } as const;
+    }
+
+    const requestDocument: components['schemas']['WinBackOfferCreateRequest'] = {
+      data: {
+        type: 'winBackOffers',
+        attributes: winBackAttributes,
+        relationships: {
+          subscription: { data: { type: 'subscriptions', id: input.subscriptionId } },
+          prices: {
+            data: input.prices.map(mapPiece3),
+          },
+        },
+      },
+      included: input.prices.map(mapPrice3),
     };
     await this.client.request<unknown>('POST', '/winBackOffers', requestDocument);
   }
@@ -610,8 +698,12 @@ export class ConnectPurchases {
   }
 
   async reorderPromotedPurchases(appId: string, orderedIds: readonly string[]): Promise<void> {
+    function mapId(id: string) {
+      return { type: 'promotedPurchases', id } as const;
+    }
+
     const requestDocument: components['schemas']['AppPromotedPurchasesLinkagesRequest'] = {
-      data: orderedIds.map((id) => ({ type: 'promotedPurchases', id })),
+      data: orderedIds.map(mapId),
     };
     await this.client.request<unknown>(
       'PATCH',
@@ -689,7 +781,11 @@ export class ConnectPurchases {
       name?: string;
       description?: string | null;
     }>(path);
-    return appleResources.flatMap((localization) => {
+    function flatMapLocalization(localization: {
+      id: string;
+      attributes: { locale?: string; name?: string; description?: string | null };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const locale = localization.attributes.locale;
       if (locale == null) return [];
       const localizationName = localization.attributes.name;
@@ -702,7 +798,9 @@ export class ConnectPurchases {
       if (typeof localization.attributes.description == 'string')
         Object.assign(localizedProduct, { description: localization.attributes.description });
       return [localizedProduct];
-    });
+    }
+
+    return appleResources.flatMap(flatMapLocalization);
   }
 
   private async listProductVersions(

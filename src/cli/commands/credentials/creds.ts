@@ -6,7 +6,22 @@ import { runCliProgram } from '../../run-cli-program.ts';
 type CredsOptions = CredentialsCommandOptions;
 
 /** Attach the credentials command and pass raw Commander input to the core schema boundary. */
-export const registerCredsCommand = (program: Command): void => {
+export function registerCredsCommand(program: Command): void {
+  function runCreds(
+    action: string,
+    firstArgument: string | undefined,
+    secondArgument: string | undefined,
+    commandOptions: CredsOptions,
+  ) {
+    const credentialsProgram = credentialsCommandProgram({
+      action,
+      firstArgument,
+      secondArgument,
+      options: commandOptions,
+    });
+    return runCliProgram(credentialsProgram);
+  }
+
   program
     .command('creds')
     .description(
@@ -37,20 +52,5 @@ export const registerCredsCommand = (program: Command): void => {
     .option('--out <path>', 'APNs export destination')
     .option('--force', 'overwrite an existing APNs export destination')
     .option('--yes', 'run without interactive prompts; allow adoption to replace app credentials')
-    .action(
-      (
-        action: string,
-        firstArgument: string | undefined,
-        secondArgument: string | undefined,
-        commandOptions: CredsOptions,
-      ) => {
-        const credentialsProgram = credentialsCommandProgram({
-          action,
-          firstArgument,
-          secondArgument,
-          options: commandOptions,
-        });
-        return runCliProgram(credentialsProgram);
-      },
-    );
-};
+    .action(runCreds);
+}

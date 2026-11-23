@@ -8,17 +8,21 @@ const SURFACE = 'wallet';
 export const walletPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  plan: (planContext) =>
-    planTeamSurface(planContext, {
+  plan(planContext) {
+    return planTeamSurface(planContext, {
       surface: SURFACE,
       direction: 'additive',
-      config: () =>
-        resolveSidecarConfig<WalletConfig>({
+      config() {
+        return resolveSidecarConfig<WalletConfig>({
           typed: planContext.config.wallet,
           configPath: 'wallet.config.json',
           explicitPath: false,
           load: loadWalletConfig,
-        }),
-      reconcile: (api, config) => reconcileWalletIds(api, config, true),
-    }),
+        });
+      },
+      reconcile(api, config) {
+        return reconcileWalletIds(api, config, true);
+      },
+    });
+  },
 };

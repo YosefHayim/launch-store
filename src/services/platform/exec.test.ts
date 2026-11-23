@@ -9,33 +9,35 @@ import {
   executeCommand,
   executeCommandQuietly,
 } from './exec.ts';
-
-describe('command execution', () => {
-  it('passes the UTF-8 locale to spawned children', async () => {
+function describeCommandExecution() {
+  async function passesTheUTF8LocaleToSpawnedChildren() {
     const localeText = await captureCommandOutput(process.execPath, [
       '-e',
       'process.stdout.write(`${process.env.LANG}|${process.env.LC_ALL}`)',
     ]);
     expect(localeText).toBe(`${UTF8_LOCALE.LANG}|${UTF8_LOCALE.LC_ALL}`);
-  });
+  }
 
-  it('captures trimmed stdout', async () => {
+  it('passes the UTF-8 locale to spawned children', passesTheUTF8LocaleToSpawnedChildren);
+  async function capturesTrimmedStdout() {
     const standardOutput = await captureCommandOutput(process.execPath, [
       '-e',
       'process.stdout.write("launch\\n")',
     ]);
     expect(standardOutput).toBe('launch');
-  });
+  }
 
-  it('closes stdin for captured commands', async () => {
+  it('captures trimmed stdout', capturesTrimmedStdout);
+  async function closesStdinForCapturedCommands() {
     const standardOutput = await captureCommandOutput(process.execPath, [
       '-e',
       'process.stdin.on("end", () => process.stdout.write("closed")); process.stdin.resume()',
     ]);
     expect(standardOutput).toBe('closed');
-  });
+  }
 
-  it('returns a tagged error for a non-zero exit', async () => {
+  it('closes stdin for captured commands', closesStdinForCapturedCommands);
+  async function returnsATaggedErrorForANonZeroExit() {
     let failure: unknown = null;
 
     try {
@@ -45,9 +47,10 @@ describe('command execution', () => {
     }
 
     expect(failure).toMatchObject({ _tag: 'CommandFailed', exitCode: 7 });
-  });
+  }
 
-  it('includes stdout in CommandFailed when a captured command fails', async () => {
+  it('returns a tagged error for a non-zero exit', returnsATaggedErrorForANonZeroExit);
+  async function includesStdoutInCommandFailedWhenACapturedCommandFails() {
     let failure: unknown = null;
 
     try {
@@ -64,9 +67,13 @@ describe('command execution', () => {
       exitCode: 1,
       stderr: expect.stringMatching(/totallyBogusKey is unknown/),
     });
-  });
+  }
 
-  it('includes both stdout and stderr in CommandFailed diagnostics', async () => {
+  it(
+    'includes stdout in CommandFailed when a captured command fails',
+    includesStdoutInCommandFailedWhenACapturedCommandFails,
+  );
+  async function includesBothStdoutAndStderrInCommandFailedDiagnostics() {
     let failure: unknown = null;
 
     try {
@@ -84,17 +91,24 @@ describe('command execution', () => {
       stderr: expect.stringMatching(/stdout-diag/),
     });
     expect(failure).toMatchObject({ stderr: expect.stringMatching(/stderr-diag/) });
-  });
+  }
 
-  it('checks PATH through which', async () => {
+  it(
+    'includes both stdout and stderr in CommandFailed diagnostics',
+    includesBothStdoutAndStderrInCommandFailedDiagnostics,
+  );
+  async function checksPATHThroughWhich() {
     const commandExists = checkCommandExists('node');
     await expect(commandExists).resolves.toBe(true);
     await expect(checkCommandExists('launch-command-that-does-not-exist')).resolves.toBe(false);
-  });
-});
+  }
 
-describe('redaction before log persistence', () => {
-  it('never persists a private-key body or a JSON password', async () => {
+  it('checks PATH through which', checksPATHThroughWhich);
+}
+
+describe('command execution', describeCommandExecution);
+function describeRedactionBeforeLogPersistence() {
+  async function neverPersistsAPrivateKeyPieceOrAJSONPassword() {
     const systemTemporaryDirectory = tmpdir();
     const launchLogRedactionPath = join(systemTemporaryDirectory, 'launch-log-redaction-');
     const directory = mkdtempSync(launchLogRedactionPath);
@@ -121,11 +135,17 @@ describe('redaction before log persistence', () => {
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
-  });
-});
+  }
 
-describe('child environment exclusions', () => {
-  it('drops excluded values inherited from the parent process', async () => {
+  it(
+    'never persists a private-key body or a JSON password',
+    neverPersistsAPrivateKeyPieceOrAJSONPassword,
+  );
+}
+
+describe('redaction before log persistence', describeRedactionBeforeLogPersistence);
+function describeChildEnvironmentExclusions() {
+  async function dropsExcludedValuesInheritedFromTheParentProcess() {
     const previous = process.env['LAUNCH_AUDIT_TOKEN'];
     process.env['LAUNCH_AUDIT_TOKEN'] = 'dummy-private-value';
 
@@ -152,5 +172,12 @@ describe('child environment exclusions', () => {
         process.env['LAUNCH_AUDIT_TOKEN'] = previous;
       }
     }
-  });
-});
+  }
+
+  it(
+    'drops excluded values inherited from the parent process',
+    dropsExcludedValuesInheritedFromTheParentProcess,
+  );
+}
+
+describe('child environment exclusions', describeChildEnvironmentExclusions);

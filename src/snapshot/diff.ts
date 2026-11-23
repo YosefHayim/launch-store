@@ -31,16 +31,16 @@ type FlatEntity = {
  * gives a collision-free key (quoting escapes any character a part might contain) without picking a
  * separator that could appear in an app handle or product id.
  */
-const compositeKey = (
+function compositeKey(
   store: SnapshotStore,
   sourceId: string,
   app: string,
   entityKey: string,
-): string => {
+): string {
   return JSON.stringify([store, sourceId, app, entityKey]);
-};
+}
 /** Flatten a snapshot's captured surfaces to entities keyed for pairing; skipped/errored surfaces hold none. */
-const flatten = (snapshot: Snapshot): Map<string, FlatEntity> => {
+function flatten(snapshot: Snapshot): Map<string, FlatEntity> {
   const flat = new Map<string, FlatEntity>();
   for (const report of snapshot.reports) {
     if (report.outcome.state != 'captured') continue;
@@ -57,19 +57,24 @@ const flatten = (snapshot: Snapshot): Map<string, FlatEntity> => {
     }
   }
   return flat;
-};
+}
 /** Canonical JSON with recursively sorted object keys, so field order never registers as a change. */
-export const stableStringify = (jsonNode: JsonValue): string => {
+export function stableStringify(jsonNode: JsonValue): string {
   if (jsonNode == null) return JSON.stringify(jsonNode);
   if (typeof jsonNode != 'object') return JSON.stringify(jsonNode);
   if (Array.isArray(jsonNode)) return `[${jsonNode.map(stableStringify).join(',')}]`;
-  const serializedFields = Object.entries(jsonNode)
-    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
-    .map(([key, fieldValue]) => `${JSON.stringify(key)}:${stableStringify(fieldValue)}`)
-    .join(',');
+  function sortPiece([leftKey]: [string, JsonValue], [rightKey]: [string, JsonValue]) {
+    return leftKey.localeCompare(rightKey);
+  }
+
+  function mapPiece([key, fieldValue]: [string, JsonValue]) {
+    return `${JSON.stringify(key)}:${stableStringify(fieldValue)}`;
+  }
+
+  const serializedFields = Object.entries(jsonNode).sort(sortPiece).map(mapPiece).join(',');
   return `{${serializedFields}}`;
-};
-const unavailableScopes = (snapshot: Snapshot) => {
+}
+function unavailableScopes(snapshot: Snapshot) {
   const sources = new Set<string>();
   const apps = new Set<string>();
   for (const report of snapshot.reports) {
@@ -85,13 +90,13 @@ const unavailableScopes = (snapshot: Snapshot) => {
     }
   }
   return { sources, apps };
-};
+}
 
 /**
  * Compare snapshot `a` (the baseline) against `b` (the newer / `live`). Entries are emitted in the
  * deterministic order the combined key space sorts to, so the rendered diff is stable run to run.
  */
-export const diffSnapshots = (a: Snapshot, b: Snapshot): SnapshotDiff => {
+export function diffSnapshots(a: Snapshot, b: Snapshot): SnapshotDiff {
   const before = flatten(a);
   const after = flatten(b);
   const unavailableBefore = unavailableScopes(a);
@@ -125,15 +130,51 @@ export const diffSnapshots = (a: Snapshot, b: Snapshot): SnapshotDiff => {
       entries.push(toEntry(next, 'changed'));
     }
   }
+  function filterPiece(entry: {
+    store: SnapshotStore;
+    sourceId: string;
+    sourceTitle: string;
+    app: string;
+    key: string;
+    change: DiffChange;
+    summary: string;
+  }) {
+    return entry.change == 'added';
+  }
+
+  function filterPiece2(entry: {
+    store: SnapshotStore;
+    sourceId: string;
+    sourceTitle: string;
+    app: string;
+    key: string;
+    change: DiffChange;
+    summary: string;
+  }) {
+    return entry.change == 'removed';
+  }
+
+  function filterPiece3(entry: {
+    store: SnapshotStore;
+    sourceId: string;
+    sourceTitle: string;
+    app: string;
+    key: string;
+    change: DiffChange;
+    summary: string;
+  }) {
+    return entry.change == 'changed';
+  }
+
   return {
     entries,
-    addedCount: entries.filter((entry) => entry.change == 'added').length,
-    removedCount: entries.filter((entry) => entry.change == 'removed').length,
-    changedCount: entries.filter((entry) => entry.change == 'changed').length,
+    addedCount: entries.filter(filterPiece).length,
+    removedCount: entries.filter(filterPiece2).length,
+    changedCount: entries.filter(filterPiece3).length,
   };
-};
+}
 /** Project a flattened entity to a diff entry under the given change kind. */
-const toEntry = (flat: FlatEntity, change: DiffChange): EntityDiff => {
+function toEntry(flat: FlatEntity, change: DiffChange): EntityDiff {
   return {
     store: flat.store,
     sourceId: flat.sourceId,
@@ -143,4 +184,4 @@ const toEntry = (flat: FlatEntity, change: DiffChange): EntityDiff => {
     change,
     summary: flat.entity.summary,
   };
-};
+}

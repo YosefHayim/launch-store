@@ -5,13 +5,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { runWithProgress } from '../../services/platform/progress.ts';
 import { makeGradleBuildEngine } from './gradle.ts';
 
-vi.mock('../../services/platform/progress.ts', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../services/platform/progress.ts')>()),
-  runWithProgress: vi.fn(() => Promise.reject(new Error('stop after invocation'))),
-}));
-
-describe('Gradle signing transport', () => {
-  it('puts signing passwords in the environment, not arguments', async () => {
+vi.mock(
+  '../../services/platform/progress.ts',
+  async function mockProgress(importOriginal: <T = unknown>() => Promise<T>) {
+    return {
+      ...(await importOriginal<typeof import('../../services/platform/progress.ts')>()),
+      runWithProgress: vi.fn(() => Promise.reject(new Error('stop after invocation'))),
+    };
+  },
+);
+function describeGradleSigningTransport() {
+  async function putsSigningPasswordsInTheEnvironmentNotArguments() {
     const systemTemporaryDirectory = tmpdir();
     const launchGradleSigningPath = join(systemTemporaryDirectory, 'launch-gradle-signing-');
     const directory = mkdtempSync(launchGradleSigningPath);
@@ -66,5 +70,12 @@ describe('Gradle signing transport', () => {
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
-  });
-});
+  }
+
+  it(
+    'puts signing passwords in the environment, not arguments',
+    putsSigningPasswordsInTheEnvironmentNotArguments,
+  );
+}
+
+describe('Gradle signing transport', describeGradleSigningTransport);

@@ -8,12 +8,16 @@ import { makeAscApiFake } from '../../testkit/asc-api-fake-testkit.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
+import type { ActionStatus } from '../../types/reconcile.ts';
+
 const tmpDirs: string[] = [];
-afterEach(() => {
+function cleanup() {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-});
+}
+
+afterEach(cleanup);
 /** Make a fresh app dir, optionally seeding one en-US 6.7" iPhone screenshot, and return its descriptor. */
-const makeApp = (withScreenshot: boolean): AppDescriptor => {
+function makeApp(withScreenshot: boolean): AppDescriptor {
   const systemTemporaryDirectory = tmpdir();
   const launchShotsPath = join(systemTemporaryDirectory, 'launch-shots-');
   const dir = mkdtempSync(launchShotsPath);
@@ -25,9 +29,9 @@ const makeApp = (withScreenshot: boolean): AppDescriptor => {
     writeFileSync(homePath, 'not-a-real-image-but-enough-to-hash');
   }
   return { name: 'alpha', dir, configPath: join(dir, 'app.json'), bundleId: 'com.acme.alpha' };
-};
+}
 /** Encode a minimal valid PNG (8-byte signature + IHDR) carrying the given pixel size. */
-const pngBytes = (width: number, height: number): Buffer => {
+function pngBytes(width: number, height: number): Buffer {
   const head = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const ihdr = Buffer.alloc(16);
   ihdr.writeUInt32BE(13, 0);
@@ -35,9 +39,9 @@ const pngBytes = (width: number, height: number): Buffer => {
   ihdr.writeUInt32BE(width, 8);
   ihdr.writeUInt32BE(height, 12);
   return Buffer.concat([head, ihdr]);
-};
+}
 /** Make an app dir seeding one en-US 6.7" iPhone screenshot of the given real pixel size. */
-const makeAppWithShot = (width: number, height: number): AppDescriptor => {
+function makeAppWithShot(width: number, height: number): AppDescriptor {
   const systemTemporaryDirectory = tmpdir();
   const launchShotsPath = join(systemTemporaryDirectory, 'launch-shots-');
   const dir = mkdtempSync(launchShotsPath);
@@ -47,8 +51,8 @@ const makeAppWithShot = (width: number, height: number): AppDescriptor => {
   const homePath = join(shotDir, 'home.png');
   writeFileSync(homePath, pngBytes(width, height));
   return { name: 'alpha', dir, configPath: join(dir, 'app.json'), bundleId: 'com.acme.alpha' };
-};
-const makeCtx = (api: AscSurfacesApi | null, app: AppDescriptor): PlanContext => {
+}
+function makeCtx(api: AscSurfacesApi | null, app: AppDescriptor): PlanContext {
   const config: LaunchConfig = {
     profiles: {},
     credentials: 'local',
@@ -59,61 +63,102 @@ const makeCtx = (api: AscSurfacesApi | null, app: AppDescriptor): PlanContext =>
   return {
     config,
     apps: [app],
-    resolveAscApi: () => Promise.resolve(api),
-    resolvePlayApi: () => Promise.resolve(null),
+    resolveAscApi() {
+      return Promise.resolve(api);
+    },
+    resolvePlayApi() {
+      return Promise.resolve(null);
+    },
   };
-};
+}
 /** A fake whose editable version carries an en-US localization, so a local screenshot plans an upload. */
-const apiWithLocale = (overrides: Partial<AscSurfacesApi> = {}): AscSurfacesApi => {
+function apiWithLocale(overrides: Partial<AscSurfacesApi> = {}): AscSurfacesApi {
   return makeAscApiFake({
     listVersionLocalizations: vi.fn().mockResolvedValue([{ id: 'loc1', locale: 'en-US' }]),
     ...overrides,
   });
-};
-describe('screenshotsPlanner', () => {
-  it('omits itself when no in-scope app has on-disk assets', async () => {
+}
+function describeScreenshotsPlanner() {
+  async function omitsItselfWhenNoInScopeAppHasOnDiskAssets() {
     const plan = await runPlanner(screenshotsPlanner, makeCtx(apiWithLocale(), makeApp(false)));
     expect(plan.state).toBe('omitted');
-  });
-  it('skips with a creds hint when no Apple account is active', async () => {
+  }
+
+  it(
+    'omits itself when no in-scope app has on-disk assets',
+    omitsItselfWhenNoInScopeAppHasOnDiskAssets,
+  );
+  async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(screenshotsPlanner, makeCtx(null, makeApp(true)));
     expect(plan.state).toBe('skipped');
     if (plan.state != 'skipped') return;
     expect(plan.hint).toMatch(/creds/);
-  });
-  it("reports an additive plan to upload a local screenshot Apple doesn't have", async () => {
+  }
+
+  it(
+    'skips with a creds hint when no Apple account is active',
+    skipsWithACredsHintWhenNoAppleAccountIsActive,
+  );
+  async function reportsAnAdditivePlanToUploadALocalScreenshotAppleDoesnTHave() {
     const plan = await runPlanner(screenshotsPlanner, makeCtx(apiWithLocale(), makeApp(true)));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;
     expect(plan.direction).toBe('additive');
-    expect(
-      plan.apps[0]?.actions.some(
-        (a) => a.description.includes('upload screenshot') && a.description.includes('[en-US]'),
-      ),
-    ).toBe(true);
-  });
-  it('is strictly read-only: never invokes an upload endpoint', async () => {
+    function someA(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.description.includes('upload screenshot') && a.description.includes('[en-US]');
+    }
+
+    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+  }
+
+  it(
+    "reports an additive plan to upload a local screenshot Apple doesn't have",
+    reportsAnAdditivePlanToUploadALocalScreenshotAppleDoesnTHave,
+  );
+  async function isStrictlyReadOnlyNeverInvokesAnUploadEndpoint() {
     const api = apiWithLocale();
     await runPlanner(screenshotsPlanner, makeCtx(api, makeApp(true)));
     expect(api.createScreenshotSet).toHaveBeenCalledTimes(0);
     expect(api.uploadScreenshot).toHaveBeenCalledTimes(0);
     expect(api.uploadPreview).toHaveBeenCalledTimes(0);
-  });
-  it('flags an off-spec screenshot whose pixels fall outside its display type', async () => {
+  }
+
+  it(
+    'is strictly read-only: never invokes an upload endpoint',
+    isStrictlyReadOnlyNeverInvokesAnUploadEndpoint,
+  );
+  async function flagsAnOffSpecScreenshotWhosePixelsFallOutsideItsDisplayType() {
     const appWithShot = makeAppWithShot(1080, 1920);
     const plan = await runPlanner(screenshotsPlanner, makeCtx(apiWithLocale(), appWithShot));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;
-    const advisory = plan.apps[0]?.actions.find((a) =>
-      a.description.includes('off-spec screenshot'),
-    );
+    function findA(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.description.includes('off-spec screenshot');
+    }
+
+    const advisory = plan.apps[0]?.actions.find(findA);
     expect(advisory).toBeDefined();
     expect(advisory?.status).toBe('skipped');
     expect(advisory?.description).toContain('[en-US/APP_IPHONE_67]');
-  });
-  it('does not flag an in-spec screenshot, nor an unmeasurable (non-image) one', async () => {
+  }
+
+  it(
+    'flags an off-spec screenshot whose pixels fall outside its display type',
+    flagsAnOffSpecScreenshotWhosePixelsFallOutsideItsDisplayType,
+  );
+  async function doesNotFlagAnInSpecScreenshotNorAnUnmeasurableNonImageOne() {
     const appWithShot = makeAppWithShot(1290, 2796);
     const inSpec = await runPlanner(screenshotsPlanner, makeCtx(apiWithLocale(), appWithShot));
     const unmeasurable = await runPlanner(
@@ -123,9 +168,23 @@ describe('screenshotsPlanner', () => {
     for (const plan of [inSpec, unmeasurable]) {
       if (plan.state != 'planned') throw new Error('expected an app-scoped plan');
       if (plan.scope != 'app') throw new Error('expected an app-scoped plan');
-      expect(plan.apps[0]?.actions.some((a) => a.description.includes('off-spec screenshot'))).toBe(
-        false,
-      );
+      function someA2(a: {
+        readonly description: string;
+        readonly destructive: boolean;
+        status: ActionStatus;
+        error?: string;
+      }) {
+        return a.description.includes('off-spec screenshot');
+      }
+
+      expect(plan.apps[0]?.actions.some(someA2)).toBe(false);
     }
-  });
-});
+  }
+
+  it(
+    'does not flag an in-spec screenshot, nor an unmeasurable (non-image) one',
+    doesNotFlagAnInSpecScreenshotNorAnUnmeasurableNonImageOne,
+  );
+}
+
+describe('screenshotsPlanner', describeScreenshotsPlanner);

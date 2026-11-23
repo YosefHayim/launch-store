@@ -1,21 +1,23 @@
 import { describe, expect, test } from 'vitest';
 import { findAppSkus, summarizeSalesLines } from './app-store-sales-report.ts';
+import type { DailyStat } from '../../types/stats.ts';
 
 const APP_ID = '6802289557';
 
-const makeLine = (fields: Record<string, string>): Record<string, string> => ({
-  'Apple Identifier': APP_ID,
-  SKU: 'calfriend',
-  'Parent Identifier': '',
-  'Product Type Identifier': '1',
-  Units: '1',
-  'Developer Proceeds': '0',
-  'Currency of Proceeds': 'USD',
-  ...fields,
-});
-
-describe('findAppSkus', () => {
-  test('collects the SKUs of the app only', () => {
+function makeLine(fields: Record<string, string>): Record<string, string> {
+  return {
+    'Apple Identifier': APP_ID,
+    SKU: 'calfriend',
+    'Parent Identifier': '',
+    'Product Type Identifier': '1',
+    Units: '1',
+    'Developer Proceeds': '0',
+    'Currency of Proceeds': 'USD',
+    ...fields,
+  };
+}
+function describeFindAppSkus() {
+  function collectsTheSKUsOfTheAppOnly() {
     const skus = findAppSkus(
       [
         makeLine({ SKU: 'calfriend' }),
@@ -26,13 +28,15 @@ describe('findAppSkus', () => {
     );
 
     expect([...skus]).toEqual(['calfriend']);
-  });
-});
+  }
 
-describe('summarizeSalesLines', () => {
+  test('collects the SKUs of the app only', collectsTheSKUsOfTheAppOnly);
+}
+
+describe('findAppSkus', describeFindAppSkus);
+function describeSummarizeSalesLines() {
   const day = { date: '2026-10-20', storeId: APP_ID, appSkus: new Set(['calfriend']) };
-
-  test('counts units per kind and sums proceeds per currency', () => {
+  function countsUnitsPerKindAndSumsProceedsPerCurrency() {
     const stats = summarizeSalesLines(
       [
         makeLine({ Units: '3' }),
@@ -62,9 +66,13 @@ describe('summarizeSalesLines', () => {
       { date: '2026-10-20', feed: 'app-store', metric: 'proceeds', value: 4.2, currency: 'USD' },
       { date: '2026-10-20', feed: 'app-store', metric: 'proceeds', value: 3, currency: 'EUR' },
     ]);
-  });
+  }
 
-  test('skips other apps, unknown product types and In-App Purchases of other apps', () => {
+  test(
+    'counts units per kind and sums proceeds per currency',
+    countsUnitsPerKindAndSumsProceedsPerCurrency,
+  );
+  function skipsOtherAppsUnknownProductTypesAndInAppPurchasesOfOtherApps() {
     const stats = summarizeSalesLines(
       [
         makeLine({ 'Apple Identifier': '1' }),
@@ -75,9 +83,13 @@ describe('summarizeSalesLines', () => {
     );
 
     expect(stats).toEqual([]);
-  });
+  }
 
-  test('nets a refund against its sale and skips zero proceeds', () => {
+  test(
+    'skips other apps, unknown product types and In-App Purchases of other apps',
+    skipsOtherAppsUnknownProductTypesAndInAppPurchasesOfOtherApps,
+  );
+  function netsARefundAgainstItsSaleAndSkipsZeroProceeds() {
     const stats = summarizeSalesLines(
       [
         makeLine({
@@ -97,19 +109,31 @@ describe('summarizeSalesLines', () => {
     );
 
     expect(stats).toEqual([]);
-  });
+  }
 
-  test('skips proceeds that have no currency', () => {
+  test(
+    'nets a refund against its sale and skips zero proceeds',
+    netsARefundAgainstItsSaleAndSkipsZeroProceeds,
+  );
+  function skipsProceedsThatHaveNoCurrency() {
     const stats = summarizeSalesLines(
       [makeLine({ 'Developer Proceeds': '2', 'Currency of Proceeds': '' })],
       day,
     );
+    function readMetric(stat: DailyStat) {
+      return stat.metric;
+    }
 
-    expect(stats.map((stat) => stat.metric)).toEqual(['downloads']);
-  });
+    expect(stats.map(readMetric)).toEqual(['downloads']);
+  }
 
-  test('is empty for no lines', () => {
+  test('skips proceeds that have no currency', skipsProceedsThatHaveNoCurrency);
+  function isEmptyForNoLines() {
     const salesLines = summarizeSalesLines([], day);
     expect(salesLines).toEqual([]);
-  });
-});
+  }
+
+  test('is empty for no lines', isEmptyForNoLines);
+}
+
+describe('summarizeSalesLines', describeSummarizeSalesLines);

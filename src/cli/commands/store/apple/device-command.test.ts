@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DeviceCommandInputSchema, renderRegisteredDevice } from './device-command.ts';
-
-describe('DeviceCommandInputSchema', () => {
-  it('decodes add and list inputs', () => {
+function describeDeviceCommandPieceSchema() {
+  function decodesAddAndListInputs() {
     const deviceCommandSchema = DeviceCommandInputSchema({
       operation: 'add',
       udid: 'ABC123',
@@ -12,21 +11,30 @@ describe('DeviceCommandInputSchema', () => {
     expect(DeviceCommandInputSchema({ operation: 'list' })).toEqual({
       operation: 'list',
     });
-  });
+  }
 
-  it('rejects an explicit undefined exact optional name', () => {
-    expect(() =>
-      DeviceCommandInputSchema({
+  it('decodes add and list inputs', decodesAddAndListInputs);
+  function rejectsAnExplicitUndefinedExactOptionalName() {
+    function callDeviceCommandPieceSchema() {
+      return DeviceCommandInputSchema({
         operation: 'add',
         udid: 'ABC123',
         name: undefined,
-      }),
-    ).toThrow();
-  });
-});
+      });
+    }
 
-describe('renderRegisteredDevice', () => {
-  it('marks disabled devices with inline ASCII text', () => {
+    expect(callDeviceCommandPieceSchema).toThrow();
+  }
+
+  it(
+    'rejects an explicit undefined exact optional name',
+    rejectsAnExplicitUndefinedExactOptionalName,
+  );
+}
+
+describe('DeviceCommandInputSchema', describeDeviceCommandPieceSchema);
+function describeRenderRegisteredDevice() {
+  function marksDisabledDevicesWithInlineASCIIPiece() {
     const registeredDevice = renderRegisteredDevice({
       id: 'device-1',
       udid: 'ABC123',
@@ -34,5 +42,9 @@ describe('renderRegisteredDevice', () => {
       status: 'DISABLED',
     });
     expect(registeredDevice).toBe('- Test iPhone - ABC123 (disabled)');
-  });
-});
+  }
+
+  it('marks disabled devices with inline ASCII text', marksDisabledDevicesWithInlineASCIIPiece);
+}
+
+describe('renderRegisteredDevice', describeRenderRegisteredDevice);

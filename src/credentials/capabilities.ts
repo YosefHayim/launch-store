@@ -119,21 +119,21 @@ const capabilityToEntitlementLookup = new Map<string, string>(ownEntries);
 const ownValues = Object.values(ENTITLEMENT_TO_CAPABILITY);
 const capabilityTypes = new Set<string>(ownValues);
 /** Narrow a raw App Store Connect `capabilityType` string to a {@link CapabilityType} Launch recognizes. */
-export const isCapabilityType = (capabilityText: string): capabilityText is CapabilityType => {
+export function isCapabilityType(capabilityText: string): capabilityText is CapabilityType {
   return capabilityTypes.has(capabilityText);
-};
+}
 /** Whether an entitlement key is one Launch maps to an App Store Connect capability (vs. signing plumbing). */
-export const isCapabilityEntitlement = (key: string): boolean => {
+export function isCapabilityEntitlement(key: string): boolean {
   return key in ENTITLEMENT_TO_CAPABILITY;
-};
+}
 /**
  * The canonical `app.json` entitlement key for a capability type, or `undefined` for an always-on /
  * value-less capability that needs no entitlement. Accepts a raw `capabilityType` string (Apple's wire
  * value) so `launch-store adopt` can look up a gap without first narrowing to {@link CapabilityType}.
  */
-export const entitlementForCapability = (capabilityType: string): string | undefined => {
+export function entitlementForCapability(capabilityType: string): string | undefined {
   return capabilityToEntitlementLookup.get(capabilityType);
-};
+}
 /** The outcome of mapping entitlements: capabilities to enable, plus keys we didn't recognize. */
 type CapabilityMapping = {
   enable: CapabilityType[];
@@ -145,9 +145,9 @@ type CapabilityMapping = {
  * presence, and the concrete container is out of API scope). De-dupes collapsing iCloud entitlements
  * and returns the enable list sorted for a deterministic plan/diff.
  */
-export const mapEntitlementsToCapabilities = (
+export function mapEntitlementsToCapabilities(
   entitlements: Record<string, unknown> | undefined,
-): CapabilityMapping => {
+): CapabilityMapping {
   const enable = new Set<CapabilityType>();
   const unmapped: string[] = [];
   let configuredEntitlements = entitlements;
@@ -161,11 +161,11 @@ export const mapEntitlementsToCapabilities = (
     }
   }
   return { enable: [...enable].sort(), unmapped: unmapped.sort() };
-};
-export const staleProfileCapabilities = (
+}
+export function staleProfileCapabilities(
   enabledOnAppId: string[],
   profileEntitlements: Record<string, unknown> | null,
-): CapabilityType[] => {
+): CapabilityType[] {
   if (!profileEntitlements) return [];
   const profileCapabilities = new Set(mapEntitlementsToCapabilities(profileEntitlements).enable);
   const missing = new Set<CapabilityType>();
@@ -175,7 +175,7 @@ export const staleProfileCapabilities = (
     if (!profileCapabilities.has(capabilityType)) missing.add(capabilityType);
   }
   return [...missing].sort();
-};
+}
 /**
  * The `group.*` App Group container ids declared by one bundle's entitlements. The
  * {@link APP_GROUPS_ENTITLEMENT} value is an array of group ids in a normal Expo config; this reads it
@@ -201,9 +201,13 @@ export const APP_GROUP_PORTAL_URL =
  * to-do: which groups, where to create them, and which bundle ids must join. Pure - for the build path to
  * warn before archiving and for unit tests.
  */
-export const appGroupPortalNotice = (containers: readonly string[]): string | null => {
+export function appGroupPortalNotice(containers: readonly string[]): string | null {
   if (containers.length == 0) return null;
-  const groups = containers.map((id) => `"${id}"`).join(', ');
+  function mapId(id: string) {
+    return `"${id}"`;
+  }
+
+  const groups = containers.map(mapId).join(', ');
   let plural = 'App Groups';
   if (containers.length == 1) plural = 'App Group';
   return (
@@ -213,4 +217,4 @@ export const appGroupPortalNotice = (containers: readonly string[]): string | nu
     `that shares it (the main app and each extension) at ${APP_GROUP_PORTAL_URL}, or xcodebuild will fail ` +
     `to export (exit 65).`
   );
-};
+}

@@ -21,12 +21,13 @@ async function withStorage(
   });
   await check(storage, directory);
 }
-
-afterEach(() => {
+function cleanup() {
   for (const directory of temporaryRoots.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
   }
-});
+}
+
+afterEach(cleanup);
 
 describe('local storage containment', () => {
   it('round-trips normal nested keys and returns null for a missing object', async () => {

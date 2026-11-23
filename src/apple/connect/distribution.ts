@@ -16,14 +16,20 @@ export class ConnectDistribution {
       domain?: string;
       referenceName?: string;
     }>('/alternativeDistributionDomains?limit=200');
-    return appleResources.map((domain) => {
+    function mapDomain(domain: {
+      id: string;
+      attributes: { domain?: string; referenceName?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const distributionDomain: AlternativeDistributionDomainResource = { id: domain.id };
       if (domain.attributes.domain != null)
         Object.assign(distributionDomain, { domain: domain.attributes.domain });
       if (domain.attributes.referenceName != null)
         Object.assign(distributionDomain, { referenceName: domain.attributes.referenceName });
       return distributionDomain;
-    });
+    }
+
+    return appleResources.map(mapDomain);
   }
 
   async createAlternativeDistributionDomain(domain: string, referenceName: string): Promise<void> {
@@ -37,12 +43,18 @@ export class ConnectDistribution {
     const appleResources = await this.client.requestAll<{
       publicKey?: string;
     }>('/alternativeDistributionKeys?limit=200');
-    return appleResources.map((distributionKey) => {
+    function mapDistributionKey(distributionKey: {
+      id: string;
+      attributes: { publicKey?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const keyResource: AlternativeDistributionKeyResource = { id: distributionKey.id };
       if (distributionKey.attributes.publicKey != null)
         Object.assign(keyResource, { publicKey: distributionKey.attributes.publicKey });
       return keyResource;
-    });
+    }
+
+    return appleResources.map(mapDistributionKey);
   }
 
   async createAlternativeDistributionKey(publicKey: string): Promise<{
@@ -64,14 +76,20 @@ export class ConnectDistribution {
       identifier?: string;
       name?: string;
     }>('/merchantIds?limit=200');
-    return appleResources.map((merchant) => {
+    function mapMerchant(merchant: {
+      id: string;
+      attributes: { identifier?: string; name?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const merchantId: MerchantIdResource = { id: merchant.id };
       if (merchant.attributes.identifier != null)
         Object.assign(merchantId, { identifier: merchant.attributes.identifier });
       if (merchant.attributes.name != null)
         Object.assign(merchantId, { name: merchant.attributes.name });
       return merchantId;
-    });
+    }
+
+    return appleResources.map(mapMerchant);
   }
 
   async createMerchantId(identifier: string, name: string): Promise<void> {
@@ -86,14 +104,20 @@ export class ConnectDistribution {
       identifier?: string;
       name?: string;
     }>('/passTypeIds?limit=200');
-    return appleResources.map((passType) => {
+    function mapPassType(passType: {
+      id: string;
+      attributes: { identifier?: string; name?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const passTypeId: PassTypeIdResource = { id: passType.id };
       if (passType.attributes.identifier != null)
         Object.assign(passTypeId, { identifier: passType.attributes.identifier });
       if (passType.attributes.name != null)
         Object.assign(passTypeId, { name: passType.attributes.name });
       return passTypeId;
-    });
+    }
+
+    return appleResources.map(mapPassType);
   }
 
   async createPassTypeId(identifier: string, name: string): Promise<void> {

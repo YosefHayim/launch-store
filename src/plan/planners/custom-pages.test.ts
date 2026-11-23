@@ -8,6 +8,8 @@ import { makeAscApiFake } from '../../testkit/asc-api-fake-testkit.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
+import type { ActionStatus } from '../../types/reconcile.ts';
+
 const alpha: AppDescriptor = {
   name: 'alpha',
   dir: '/no/such/dir/alpha',
@@ -15,11 +17,13 @@ const alpha: AppDescriptor = {
   bundleId: 'com.acme.alpha',
 };
 const tmpDirs: string[] = [];
-afterEach(() => {
+function cleanup() {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-});
+}
+
+afterEach(cleanup);
 /** Write a sidecar config to a fresh temp file and return its path. */
-const writeConfig = (json: unknown): string => {
+function writeConfig(json: unknown): string {
   const systemTemporaryDirectory = tmpdir();
   const launchPagesPath = join(systemTemporaryDirectory, 'launch-pages-');
   const dir = mkdtempSync(launchPagesPath);
@@ -28,8 +32,8 @@ const writeConfig = (json: unknown): string => {
   const serialized = JSON.stringify(json);
   writeFileSync(path, serialized);
   return path;
-};
-const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext => {
+}
+function makeCtx(api: AscSurfacesApi | null, configPath: string): PlanContext {
   const config: LaunchConfig = {
     profiles: {},
     credentials: 'local',
@@ -41,38 +45,64 @@ const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext =>
   return {
     config,
     apps: [alpha],
-    resolveAscApi: () => Promise.resolve(api),
-    resolvePlayApi: () => Promise.resolve(null),
+    resolveAscApi() {
+      return Promise.resolve(api);
+    },
+    resolvePlayApi() {
+      return Promise.resolve(null);
+    },
   };
-};
+}
 const DECLARED = { pages: [{ name: 'page1' }] };
-describe('customPagesPlanner', () => {
-  it('omits itself when no custom-pages sidecar is present', async () => {
+function describeCustomPagesPlanner() {
+  async function omitsItselfWhenNoCustomPagesSidecarIsPresent() {
     const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(
       customPagesPlanner,
       makeCtx(ascApiFake, '/no/such/custom-pages.config.json'),
     );
     expect(plan.state).toBe('omitted');
-  });
-  it('skips with a creds hint when no Apple account is active', async () => {
+  }
+
+  it(
+    'omits itself when no custom-pages sidecar is present',
+    omitsItselfWhenNoCustomPagesSidecarIsPresent,
+  );
+  async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(customPagesPlanner, makeCtx(null, writeConfig(DECLARED)));
     expect(plan.state).toBe('skipped');
     if (plan.state != 'skipped') return;
     expect(plan.hint).toMatch(/creds/);
-  });
-  it('reports the page a fresh config would create (two-way)', async () => {
+  }
+
+  it(
+    'skips with a creds hint when no Apple account is active',
+    skipsWithACredsHintWhenNoAppleAccountIsActive,
+  );
+  async function reportsThePageAFreshPieceWouldCreateTwoWay() {
     const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(customPagesPlanner, makeCtx(ascApiFake, writeConfig(DECLARED)));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;
     expect(plan.direction).toBe('two-way');
-    expect(plan.apps[0]?.actions.some((a) => a.description.includes('custom product page'))).toBe(
-      true,
-    );
-  });
-  it('renders in sync when the live page already exists', async () => {
+    function someA(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.description.includes('custom product page');
+    }
+
+    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+  }
+
+  it(
+    'reports the page a fresh config would create (two-way)',
+    reportsThePageAFreshPieceWouldCreateTwoWay,
+  );
+  async function rendersInSyncWhenTheLivePageAlreadyExists() {
     const api = makeAscApiFake({
       listCustomProductPages: vi.fn().mockResolvedValue([{ id: 'pg1', name: 'page1' }]),
     });
@@ -81,19 +111,36 @@ describe('customPagesPlanner', () => {
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;
     expect(plan.apps[0]?.actions).toHaveLength(0);
-  });
-  it('captures a missing app record as a per-app error, not a thrown plan', async () => {
+  }
+
+  it(
+    'renders in sync when the live page already exists',
+    rendersInSyncWhenTheLivePageAlreadyExists,
+  );
+  async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(customPagesPlanner, makeCtx(api, writeConfig(DECLARED)));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'app') return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
-  });
-  it('is strictly read-only: never invokes a write endpoint', async () => {
+  }
+
+  it(
+    'captures a missing app record as a per-app error, not a thrown plan',
+    capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan,
+  );
+  async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
     await runPlanner(customPagesPlanner, makeCtx(api, writeConfig(DECLARED)));
     expect(api.createCustomProductPage).toHaveBeenCalledTimes(0);
     expect(api.createCustomProductPageLocalization).toHaveBeenCalledTimes(0);
-  });
-});
+  }
+
+  it(
+    'is strictly read-only: never invokes a write endpoint',
+    isStrictlyReadOnlyNeverInvokesAWriteEndpoint,
+  );
+}
+
+describe('customPagesPlanner', describeCustomPagesPlanner);

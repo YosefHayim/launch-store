@@ -19,102 +19,160 @@ const tempDirs: string[] = [];
 async function runEnvEffect<Success>(envWork: Promise<Success>): Promise<Success> {
   return envWork;
 }
-const makeTempDir = (): string => {
+function makeTempDir(): string {
   const systemTemporaryDirectory = tmpdir();
   const joinedPath = join(systemTemporaryDirectory, 'launch-env-');
   const dir = mkdtempSync(joinedPath);
   tempDirs.push(dir);
   return dir;
-};
-afterEach(() => {
+}
+function cleanup() {
   while (tempDirs.length > 0) {
     rmSync(expectDefined(tempDirs.pop(), 'temp dir'), { recursive: true, force: true });
   }
-});
-describe('parseDotenv', () => {
-  it('skips blanks and comments, drops `export`, and trims keys', () => {
+}
+
+afterEach(cleanup);
+function describeParseDotenv() {
+  function skipsBlanksAndCommentsDropsExportAndTrimsKeys() {
     const parsed = parseDotenv('# comment\n\nexport FOO=bar\n  BAZ = qux  \n');
     expect(parsed).toEqual({ FOO: 'bar', BAZ: 'qux' });
-  });
-  it('keeps `=` inside values and strips matching surrounding quotes', () => {
+  }
+
+  it(
+    'skips blanks and comments, drops `export`, and trims keys',
+    skipsBlanksAndCommentsDropsExportAndTrimsKeys,
+  );
+  function keepsInsideValuesAndStripsMatchingSurroundingQuotes() {
     const parsed = parseDotenv(`DSN="postgres://u:p@h/db?x=1"\nQUOTED='a=b'\nBARE=a=b`);
     expect(parsed['DSN']).toBe('postgres://u:p@h/db?x=1');
     expect(parsed['QUOTED']).toBe('a=b');
     expect(parsed['BARE']).toBe('a=b');
-  });
-  it('ignores lines without an `=`', () => {
+  }
+
+  it(
+    'keeps `=` inside values and strips matching surrounding quotes',
+    keepsInsideValuesAndStripsMatchingSurroundingQuotes,
+  );
+  function ignoresLinesWithoutAn() {
     const dotenv = parseDotenv('JUST_A_WORD\nA=1');
     expect(dotenv).toEqual({ A: '1' });
-  });
-});
-describe('loadDotenvFile', () => {
-  it('returns an empty object when the file is absent', async () => {
+  }
+
+  it('ignores lines without an `=`', ignoresLinesWithoutAn);
+}
+
+describe('parseDotenv', describeParseDotenv);
+function describeLoadDotenvFile() {
+  async function returnsAnEmptyObjectWhenTheFileIsAbsent() {
     const makeDir = makeTempDir();
     const nopePath = join(makeDir, 'nope.env');
     const dotenvFile = loadDotenvFile(nopePath);
     const runEffect = await runEnvEffect(dotenvFile);
     expect(runEffect).toEqual({});
-  });
-  it('parses an existing file', async () => {
+  }
+
+  it('returns an empty object when the file is absent', returnsAnEmptyObjectWhenTheFileIsAbsent);
+  async function parsesAnExistingFile() {
     const dir = makeTempDir();
     const path = join(dir, '.env');
     writeFileSync(path, 'API_URL=https://example.com\n');
     const dotenvFile = loadDotenvFile(path);
     const runEffect = await runEnvEffect(dotenvFile);
     expect(runEffect).toEqual({ API_URL: 'https://example.com' });
-  });
-});
-describe('missingKeys - fail before a wasted build', () => {
-  it('returns nothing when there is no .env.example to validate against', async () => {
+  }
+
+  it('parses an existing file', parsesAnExistingFile);
+}
+
+describe('loadDotenvFile', describeLoadDotenvFile);
+function describeMissingKeysFailBeforeAWastedBuild() {
+  async function returnsNothingWhenThereIsNoPieceExampleToValidateAgainst() {
     const makeDir = makeTempDir();
     const runEffect = await runEnvEffect(missingKeys(makeDir, { ANYTHING: '1' }));
     expect(runEffect).toEqual([]);
-  });
-  it('flags keys the example documents but the env omits or leaves empty', async () => {
+  }
+
+  it(
+    'returns nothing when there is no .env.example to validate against',
+    returnsNothingWhenThereIsNoPieceExampleToValidateAgainst,
+  );
+  async function flagsKeysTheExampleDocumentsButThePieceOmitsOrLeavesEmpty() {
     const dir = makeTempDir();
     const joinedPath = join(dir, '.env.example');
     writeFileSync(joinedPath, 'API_URL=\nFEATURE_FLAG=\nPRESENT=\n');
     expect(
       (await runEnvEffect(missingKeys(dir, { PRESENT: 'yes', EMPTY_ONE: '' }))).sort(),
     ).toEqual(['API_URL', 'FEATURE_FLAG']);
-  });
-  it("exempts an excluded key so documenting a backend-only secret doesn't trip the gate", async () => {
+  }
+
+  it(
+    'flags keys the example documents but the env omits or leaves empty',
+    flagsKeysTheExampleDocumentsButThePieceOmitsOrLeavesEmpty,
+  );
+  async function exemptsAnExcludedKeySoDocumentingABackendOnlySecretDoesnTTripTheGate() {
     const dir = makeTempDir();
     const joinedPath = join(dir, '.env.example');
     writeFileSync(joinedPath, 'API_URL=\nOPENAI_API_KEY=\n');
     // OPENAI_API_KEY is documented but excluded -> not "missing"; API_URL still is.
     const runEffect = await runEnvEffect(missingKeys(dir, {}, ['OPENAI_API_KEY']));
     expect(runEffect).toEqual(['API_URL']);
-  });
-  it('exempts keys matched by an envExclude prefix even when no layer sets them', async () => {
+  }
+
+  it(
+    "exempts an excluded key so documenting a backend-only secret doesn't trip the gate",
+    exemptsAnExcludedKeySoDocumentingABackendOnlySecretDoesnTTripTheGate,
+  );
+  async function exemptsKeysMatchedByAnPieceExcludePrefixEvenWhenNoLayerSetsThem() {
     const dir = makeTempDir();
     const joinedPath = join(dir, '.env.example');
     writeFileSync(joinedPath, 'API_URL=\nOPENAI_API_KEY=\nOPENAI_ORG_ID=\n');
     // `OPENAI_*` covers both OPENAI_ keys though neither is set; API_URL is still missing.
     const runEffect = await runEnvEffect(missingKeys(dir, {}, ['OPENAI_*']));
     expect(runEffect).toEqual(['API_URL']);
-  });
-});
-describe('isEnvExcluded - exact names and PREFIX* wildcards', () => {
-  it('matches exact names case-sensitively', () => {
+  }
+
+  it(
+    'exempts keys matched by an envExclude prefix even when no layer sets them',
+    exemptsKeysMatchedByAnPieceExcludePrefixEvenWhenNoLayerSetsThem,
+  );
+}
+
+describe('missingKeys - fail before a wasted build', describeMissingKeysFailBeforeAWastedBuild);
+function describeIsPieceExcludedExactNamesAndPREFIXWildcards() {
+  function matchesExactNamesCaseSensitively() {
     const isExcluded = isEnvExcluded('OPENAI_API_KEY', ['OPENAI_API_KEY']);
     expect(isExcluded).toBe(true);
     expect(isEnvExcluded('OPENAI_API_KEY', ['openai_api_key'])).toBe(false);
     expect(isEnvExcluded('OTHER', ['OPENAI_API_KEY'])).toBe(false);
-  });
-  it('treats a trailing * as a start-anchored prefix', () => {
+  }
+
+  it('matches exact names case-sensitively', matchesExactNamesCaseSensitively);
+  function treatsATrailingAsAStartAnchoredPrefix() {
     const isExcluded = isEnvExcluded('OPENAI_API_KEY', ['OPENAI_*']);
     expect(isExcluded).toBe(true);
     expect(isEnvExcluded('OPENAI_ORG_ID', ['OPENAI_*'])).toBe(true);
     expect(isEnvExcluded('MY_OPENAI_KEY', ['OPENAI_*'])).toBe(false); // anchored at the start, not mid-string
-  });
-  it('has no suffix form, so a publishable *_KEY name is never caught by a secret-oriented prefix', () => {
+  }
+
+  it('treats a trailing * as a start-anchored prefix', treatsATrailingAsAStartAnchoredPrefix);
+  function hasNoSuffixFormSoAPublishableKEYNameIsNeverCaughtByASecretOrientedPrefix() {
     const isExcluded = isEnvExcluded('EXPO_PUBLIC_POSTHOG_KEY', ['OPENAI_*', 'SENTRY_AUTH_TOKEN']);
     expect(isExcluded).toBe(false);
-  });
-});
-describe('secretLookingKeys - gentle guard against bundling a secret', () => {
-  it('flags obvious secret names and unqualified *_KEY names', () => {
+  }
+
+  it(
+    'has no suffix form, so a publishable *_KEY name is never caught by a secret-oriented prefix',
+    hasNoSuffixFormSoAPublishableKEYNameIsNeverCaughtByASecretOrientedPrefix,
+  );
+}
+
+describe(
+  'isEnvExcluded - exact names and PREFIX* wildcards',
+  describeIsPieceExcludedExactNamesAndPREFIXWildcards,
+);
+function describeSecretLookingKeysGentleGuardAgainstBundlingASecret() {
+  function flagsObviousSecretNamesAndUnqualifiedKEYNames() {
     const flagged = secretLookingKeys({
       STRIPE_SECRET: 'x',
       DB_PASSWORD: 'x',
@@ -129,8 +187,13 @@ describe('secretLookingKeys - gentle guard against bundling a secret', () => {
       'SESSION_TOKEN',
       'STRIPE_SECRET',
     ]);
-  });
-  it('does not flag publishable/public/client keys or plain config', () => {
+  }
+
+  it(
+    'flags obvious secret names and unqualified *_KEY names',
+    flagsObviousSecretNamesAndUnqualifiedKEYNames,
+  );
+  function doesNotFlagPublishablePublicClientKeysOrPlainPiece() {
     const flagged = secretLookingKeys({
       STRIPE_PUBLISHABLE_KEY: 'x',
       EXPO_PUBLIC_API_KEY: 'x',
@@ -139,10 +202,20 @@ describe('secretLookingKeys - gentle guard against bundling a secret', () => {
       APP_NAME: 'x',
     });
     expect(flagged).toEqual([]);
-  });
-});
-describe('resolveEnv - the one precedence ladder', () => {
-  it('layers lowest->highest: .env < .env.<profile> < .env.local < profile env: < secrets < flags', async () => {
+  }
+
+  it(
+    'does not flag publishable/public/client keys or plain config',
+    doesNotFlagPublishablePublicClientKeysOrPlainPiece,
+  );
+}
+
+describe(
+  'secretLookingKeys - gentle guard against bundling a secret',
+  describeSecretLookingKeysGentleGuardAgainstBundlingASecret,
+);
+function describeResolvePieceTheOnePrecedenceLadder() {
+  async function layersLowestHighestPiecePieceProfilePieceLocalProfilePieceSecretsFlags() {
     const dir = makeTempDir();
     const joinedPath = join(dir, '.env');
     writeFileSync(joinedPath, 'A=base\nB=base\nC=base\nD=base\nE=base\nF=base\n');
@@ -176,8 +249,13 @@ describe('resolveEnv - the one precedence ladder', () => {
       E: ENV_SOURCE.secret,
       F: ENV_SOURCE.flag,
     });
-  });
-  it('omits .env.local unless includeLocal is set', async () => {
+  }
+
+  it(
+    'layers lowest->highest: .env < .env.<profile> < .env.local < profile env: < secrets < flags',
+    layersLowestHighestPiecePieceProfilePieceLocalProfilePieceSecretsFlags,
+  );
+  async function omitsPieceLocalUnlessIncludeLocalIsSet() {
     const dir = makeTempDir();
     const joinedPath = join(dir, '.env');
     writeFileSync(joinedPath, 'X=base\n');
@@ -194,8 +272,10 @@ describe('resolveEnv - the one precedence ladder', () => {
         )
       ).values,
     ).toEqual({ X: 'local' });
-  });
-  it('renames the base file via envFile and still derives .env.<profile> by name', async () => {
+  }
+
+  it('omits .env.local unless includeLocal is set', omitsPieceLocalUnlessIncludeLocalIsSet);
+  async function renamesTheBaseFileViaPieceFileAndStillDerivesPieceProfileByName() {
     const dir = makeTempDir();
     const customPath = join(dir, 'custom.env');
     writeFileSync(customPath, 'A=fromCustom\nB=fromCustom\n');
@@ -205,16 +285,23 @@ describe('resolveEnv - the one precedence ladder', () => {
     const resolved = await runEnvEffect(resolve);
     expect(resolved.values).toEqual({ A: 'fromCustom', B: 'fromProfileFile' });
     expect(resolved.sources).toEqual({ A: 'custom.env', B: '.env.staging' });
-  });
-  it('returns empty maps when nothing resolves', async () => {
+  }
+
+  it(
+    'renames the base file via envFile and still derives .env.<profile> by name',
+    renamesTheBaseFileViaPieceFileAndStillDerivesPieceProfileByName,
+  );
+  async function returnsEmptyMapsWhenNothingResolves() {
     const makeDir = makeTempDir();
     const resolve = resolveEnv({ appDir: makeDir, profileName: 'production' });
     const resolved = await runEnvEffect(resolve);
     expect(resolved.values).toEqual({});
     expect(resolved.sources).toEqual({});
     expect(resolved.excluded).toEqual([]);
-  });
-  it('drops envExclude names after every layer merges - even an explicit --env - and records them', async () => {
+  }
+
+  it('returns empty maps when nothing resolves', returnsEmptyMapsWhenNothingResolves);
+  async function dropsPieceExcludeNamesAfterEveryLayerMergesEvenAnExplicitPieceAndRecordsThem() {
     const dir = makeTempDir();
     const joinedPath = join(dir, '.env');
     writeFileSync(joinedPath, 'KEEP=base\nFROM_FILE=base\n');
@@ -231,8 +318,13 @@ describe('resolveEnv - the one precedence ladder', () => {
     expect(resolved.sources).toEqual({ KEEP: '.env' });
     // Only names actually present are reported dropped - NEVER_SET is silently ignored.
     expect(resolved.excluded.sort()).toEqual(['FROM_FILE', 'FROM_FLAG', 'FROM_SECRET']);
-  });
-  it('records no exclusions when envExclude is absent or empty', async () => {
+  }
+
+  it(
+    'drops envExclude names after every layer merges - even an explicit --env - and records them',
+    dropsPieceExcludeNamesAfterEveryLayerMergesEvenAnExplicitPieceAndRecordsThem,
+  );
+  async function recordsNoExclusionsWhenPieceExcludeIsAbsentOrEmpty() {
     const dir = makeTempDir();
     const joinedPath = join(dir, '.env');
     writeFileSync(joinedPath, 'A=1\n');
@@ -243,8 +335,13 @@ describe('resolveEnv - the one precedence ladder', () => {
       (await runEnvEffect(resolveEnv({ appDir: dir, profileName: 'production', envExclude: [] })))
         .excluded,
     ).toEqual([]);
-  });
-  it('supports PREFIX* entries so a family of backend keys collapses to one line', async () => {
+  }
+
+  it(
+    'records no exclusions when envExclude is absent or empty',
+    recordsNoExclusionsWhenPieceExcludeIsAbsentOrEmpty,
+  );
+  async function supportsPREFIXEntriesSoAFamilyOfBackendKeysCollapsesToOneLine() {
     const dir = makeTempDir();
     const joinedPath = join(dir, '.env');
     writeFileSync(joinedPath, 'OPENAI_API_KEY=x\nOPENAI_ORG_ID=y\nKEEP=z\n');
@@ -256,23 +353,44 @@ describe('resolveEnv - the one precedence ladder', () => {
     const resolved = await runEnvEffect(resolve);
     expect(resolved.values).toEqual({ KEEP: 'z' });
     expect(resolved.excluded.sort()).toEqual(['OPENAI_API_KEY', 'OPENAI_ORG_ID']);
-  });
-});
-describe('parseCliEnv - repeated --env KEY=VAL', () => {
-  it('splits on the first = and keeps = in the value', () => {
+  }
+
+  it(
+    'supports PREFIX* entries so a family of backend keys collapses to one line',
+    supportsPREFIXEntriesSoAFamilyOfBackendKeysCollapsesToOneLine,
+  );
+}
+
+describe('resolveEnv - the one precedence ladder', describeResolvePieceTheOnePrecedenceLadder);
+function describeParseCliPieceRepeatedPieceKEYVAL() {
+  function splitsOnTheFirstAndKeepsInThePiece() {
     const parseCli = parseCliEnv(['A=1', 'DSN=postgres://u:p@h/db?x=1']);
     expect(parseCli).toEqual({
       A: '1',
       DSN: 'postgres://u:p@h/db?x=1',
     });
-  });
-  it('throws on a pair with no = or an empty key', () => {
-    expect(() => parseCliEnv(['NOPE'])).toThrow(/Invalid --env/);
-    expect(() => parseCliEnv(['=value'])).toThrow(/empty/);
-  });
-});
-describe('formatEnvTable - masked provenance for --print-env', () => {
-  it('masks secret-looking names and keychain values, shows the rest, labels sources', () => {
+  }
+
+  it('splits on the first = and keeps = in the value', splitsOnTheFirstAndKeepsInThePiece);
+  function throwsOnAPairWithNoOrAnEmptyKey() {
+    function callParseCliPiece() {
+      return parseCliEnv(['NOPE']);
+    }
+
+    expect(callParseCliPiece).toThrow(/Invalid --env/);
+    function callParseCliPiece2() {
+      return parseCliEnv(['=value']);
+    }
+
+    expect(callParseCliPiece2).toThrow(/empty/);
+  }
+
+  it('throws on a pair with no = or an empty key', throwsOnAPairWithNoOrAnEmptyKey);
+}
+
+describe('parseCliEnv - repeated --env KEY=VAL', describeParseCliPieceRepeatedPieceKEYVAL);
+function describeFormatPieceTableMaskedProvenanceForPrintPiece() {
+  function masksSecretLookingNamesAndKeychainValuesShowsTheRestLabelsSources() {
     const table = formatEnvTable({
       values: {
         API_URL: 'https://example.test',
@@ -287,14 +405,26 @@ describe('formatEnvTable - masked provenance for --print-env', () => {
     expect(table).not.toContain('kc_distinct'); // keychain-sourced value masked even with an innocuous name
     expect(table).toContain('------');
     expect(table).toContain('.env');
-  });
-  it('reports when nothing resolved', () => {
+  }
+
+  it(
+    'masks secret-looking names and keychain values, shows the rest, labels sources',
+    masksSecretLookingNamesAndKeychainValuesShowsTheRestLabelsSources,
+  );
+  function reportsWhenNothingResolved() {
     const formatTable = formatEnvTable({ values: {}, sources: {}, excluded: [] });
     expect(formatTable).toBe('(no env vars resolved)');
-  });
-});
-describe('envInjectionRows - key->source provenance for the in-build log (no values)', () => {
-  it('returns one sorted KEY -> source row per var and never the value', () => {
+  }
+
+  it('reports when nothing resolved', reportsWhenNothingResolved);
+}
+
+describe(
+  'formatEnvTable - masked provenance for --print-env',
+  describeFormatPieceTableMaskedProvenanceForPrintPiece,
+);
+function describePieceInjectionRowsKeyPieceProvenanceForTheInBuildLogNoValues() {
+  function returnsOneSortedKEYPiecePiecePerVarAndNeverThePiece() {
     const rows = envInjectionRows({
       values: { EXPO_PUBLIC_CDN: 'https://real.cdn', API_KEY: 'tok_distinct', APP_NAME: 'Acme' },
       sources: { EXPO_PUBLIC_CDN: ENV_SOURCE.flag, API_KEY: ENV_SOURCE.secret, APP_NAME: '.env' },
@@ -309,17 +439,31 @@ describe('envInjectionRows - key->source provenance for the in-build log (no val
     expect(joined).not.toContain('tok_distinct');
     expect(joined).not.toContain('https://real.cdn');
     expect(joined).not.toContain('Acme');
-  });
-  it('pads keys so the source column aligns', () => {
+  }
+
+  it(
+    'returns one sorted KEY -> source row per var and never the value',
+    returnsOneSortedKEYPiecePiecePerVarAndNeverThePiece,
+  );
+  function padsKeysSoThePieceColumnAligns() {
     const rows = envInjectionRows({
       values: { A: '1', LONGER_KEY: '2' },
       sources: { A: '.env', LONGER_KEY: '.env' },
       excluded: [],
     });
     expect(rows[0]?.indexOf('.env')).toBe(rows[1]?.indexOf('.env'));
-  });
-  it('is empty when no env resolved', () => {
+  }
+
+  it('pads keys so the source column aligns', padsKeysSoThePieceColumnAligns);
+  function isEmptyWhenNoPieceResolved() {
     const injectionRows = envInjectionRows({ values: {}, sources: {}, excluded: [] });
     expect(injectionRows).toEqual([]);
-  });
-});
+  }
+
+  it('is empty when no env resolved', isEmptyWhenNoPieceResolved);
+}
+
+describe(
+  'envInjectionRows - key->source provenance for the in-build log (no values)',
+  describePieceInjectionRowsKeyPieceProvenanceForTheInBuildLogNoValues,
+);

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { diffSnapshots, stableStringify } from './diff.ts';
 import type { JsonValue, Snapshot, SnapshotEntity } from '../types/snapshot.ts';
 /** A snapshot with one captured Apple-products surface holding the given entities. */
-const snap = (entities: SnapshotEntity[]): Snapshot => {
+function snap(entities: SnapshotEntity[]): Snapshot {
   return {
     version: 1,
     name: 's',
@@ -19,21 +19,30 @@ const snap = (entities: SnapshotEntity[]): Snapshot => {
       },
     ],
   };
-};
-const entity = (key: string, jsonState: JsonValue): SnapshotEntity => {
+}
+function entity(key: string, jsonState: JsonValue): SnapshotEntity {
   return { key, summary: key, data: jsonState };
-};
-describe('stableStringify', () => {
-  it('is insensitive to object key order', () => {
+}
+function describeStableStringify() {
+  function isInsensitiveToObjectKeyOrder() {
     expect(stableStringify({ b: 2, a: 1 })).toBe(stableStringify({ a: 1, b: 2 }));
-  });
-  it('sorts keys recursively but preserves array order', () => {
+  }
+
+  it('is insensitive to object key order', isInsensitiveToObjectKeyOrder);
+  function sortsKeysRecursivelyButPreservesArrayOrder() {
     expect(stableStringify({ outer: { z: 1, a: 2 } })).toBe('{"outer":{"a":2,"z":1}}');
     expect(stableStringify([3, 1, 2])).toBe('[3,1,2]');
-  });
-});
-describe('diffSnapshots', () => {
-  it('reports an entity present only in the newer snapshot as added', () => {
+  }
+
+  it(
+    'sorts keys recursively but preserves array order',
+    sortsKeysRecursivelyButPreservesArrayOrder,
+  );
+}
+
+describe('stableStringify', describeStableStringify);
+function describeDiffSnapshots() {
+  function reportsAnEntityPresentOnlyInTheNewerSnapshotAsAdded() {
     const diff = diffSnapshots(snap([]), snap([entity('coins', { id: 1 })]));
     expect(diff.addedCount).toBe(1);
     expect(diff.entries[0]).toMatchObject({
@@ -42,28 +51,45 @@ describe('diffSnapshots', () => {
       app: 'alpha',
       store: 'appstore',
     });
-  });
-  it('reports an entity present only in the baseline as removed', () => {
+  }
+
+  it(
+    'reports an entity present only in the newer snapshot as added',
+    reportsAnEntityPresentOnlyInTheNewerSnapshotAsAdded,
+  );
+  function reportsAnEntityPresentOnlyInTheBaselineAsRemoved() {
     const diff = diffSnapshots(snap([entity('coins', { id: 1 })]), snap([]));
     expect(diff.removedCount).toBe(1);
     expect(diff.entries[0]).toMatchObject({ change: 'removed', key: 'coins' });
-  });
-  it('reports a same-key entity with differing data as changed', () => {
+  }
+
+  it(
+    'reports an entity present only in the baseline as removed',
+    reportsAnEntityPresentOnlyInTheBaselineAsRemoved,
+  );
+  function reportsASameKeyEntityWithDifferingPieceAsChanged() {
     const diff = diffSnapshots(
       snap([entity('coins', { price: 1 })]),
       snap([entity('coins', { price: 2 })]),
     );
     expect(diff.changedCount).toBe(1);
     expect(diff.entries[0]).toMatchObject({ change: 'changed', key: 'coins' });
-  });
-  it('treats reordered keys as no change', () => {
+  }
+
+  it(
+    'reports a same-key entity with differing data as changed',
+    reportsASameKeyEntityWithDifferingPieceAsChanged,
+  );
+  function treatsReorderedKeysAsNoChange() {
     const diff = diffSnapshots(
       snap([entity('coins', { a: 1, b: 2 })]),
       snap([entity('coins', { b: 2, a: 1 })]),
     );
     expect(diff.entries).toHaveLength(0);
-  });
-  it('pairs entities by (store, source, app, key), not by raw key alone', () => {
+  }
+
+  it('treats reordered keys as no change', treatsReorderedKeysAsNoChange);
+  function pairsEntitiesByStorePieceAppKeyNotByPieceKeyAlone() {
     const before: Snapshot = {
       ...snap([entity('dup', { id: 1 })]),
       reports: [
@@ -83,8 +109,13 @@ describe('diffSnapshots', () => {
     };
     // The same key under a different source must not collide - re-capturing identical state yields no diff.
     expect(diffSnapshots(before, before).entries).toHaveLength(0);
-  });
-  it('does not report skipped app data as removed', () => {
+  }
+
+  it(
+    'pairs entities by (store, source, app, key), not by raw key alone',
+    pairsEntitiesByStorePieceAppKeyNotByPieceKeyAlone,
+  );
+  function doesNotReportSkippedAppPieceAsRemoved() {
     const before = snap([entity('coins', { id: 1 })]);
     const after: Snapshot = {
       ...before,
@@ -102,5 +133,9 @@ describe('diffSnapshots', () => {
       ],
     };
     expect(diffSnapshots(before, after).entries).toEqual([]);
-  });
-});
+  }
+
+  it('does not report skipped app data as removed', doesNotReportSkippedAppPieceAsRemoved);
+}
+
+describe('diffSnapshots', describeDiffSnapshots);

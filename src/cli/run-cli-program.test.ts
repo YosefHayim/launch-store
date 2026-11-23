@@ -8,31 +8,50 @@ import { runJsonCliProgram } from './run-cli-program.ts';
 
 const SUMMARY = { command: 'build', platform: 'ios', dryRun: true, profile: 'production' } as const;
 
-const captureStdoutLines = () => {
+function captureStdoutLines() {
   const writtenText: string[] = [];
-  vi.spyOn(process.stdout, 'write').mockImplementation((chunk, ...writeArguments) => {
+  function mockImplementationChunk(
+    chunk: string | Uint8Array<ArrayBufferLike>,
+    ...writeArguments: [
+      encoding?: BufferEncoding | undefined,
+      cb?: ((err?: Error | null) => void) | undefined,
+    ]
+  ) {
     const asString = String(chunk);
     writtenText.push(asString);
-    const writeDone = writeArguments.find((writeArgument) => typeof writeArgument == 'function');
+    function findWriteArgument(
+      writeArgument: BufferEncoding | ((err?: Error | null) => void) | undefined,
+    ) {
+      return typeof writeArgument == 'function';
+    }
+
+    const writeDone = writeArguments.find(findWriteArgument);
     writeDone?.();
     return true;
-  });
-  const readEvents = () =>
-    writtenText
-      .join('')
-      .split('\n')
-      .filter((outputLine) => outputLine.length > 0)
-      .map((outputLine) => JSON.parse(outputLine));
-  return readEvents;
-};
+  }
 
-afterEach(() => {
+  vi.spyOn(process.stdout, 'write').mockImplementation(mockImplementationChunk);
+  function filterPieceLine(outputLine: string) {
+    return outputLine.length > 0;
+  }
+
+  function mapPieceLine(outputLine: string) {
+    return JSON.parse(outputLine);
+  }
+
+  function readEvents() {
+    return writtenText.join('').split('\n').filter(filterPieceLine).map(mapPieceLine);
+  }
+  return readEvents;
+}
+function cleanup() {
   vi.restoreAllMocks();
   setJsonOutput(false);
-});
+}
 
-describe('runJsonCliProgram - the final result line', () => {
-  it('streams events and ends with an ok result carrying the run summary', async () => {
+afterEach(cleanup);
+function describeRunPieceCliProgramThePiecePieceLine() {
+  async function streamsEventsAndEndsWithAnOkPieceCarryingTheRunSummary() {
     const readEvents = captureStdoutLines();
     async function sampleStep(): Promise<void> {
       const logger = createLogger(false);
@@ -45,9 +64,13 @@ describe('runJsonCliProgram - the final result line', () => {
       { event: 'step', step: 'config', detail: 'sampleapp' },
       { event: 'result', ok: true, ...SUMMARY },
     ]);
-  });
+  }
 
-  it('ends a tagged failure with its readable message and rejects for a non-zero exit', async () => {
+  it(
+    'streams events and ends with an ok result carrying the run summary',
+    streamsEventsAndEndsWithAnOkPieceCarryingTheRunSummary,
+  );
+  async function endsATaggedFailureWithItsReadableMessageAndRejectsForANonZeroExit() {
     const readEvents = captureStdoutLines();
     async function failBuild(): Promise<void> {
       throw makeBuildCommandExecutionError({
@@ -67,9 +90,13 @@ describe('runJsonCliProgram - the final result line', () => {
         message: 'No build engine named "missing-engine".',
       },
     ]);
-  });
+  }
 
-  it('reports a requested exit code in the failure message', async () => {
+  it(
+    'ends a tagged failure with its readable message and rejects for a non-zero exit',
+    endsATaggedFailureWithItsReadableMessageAndRejectsForANonZeroExit,
+  );
+  async function reportsARequestedExitCodeInTheFailureMessage() {
     async function exitWithoutReason(): Promise<void> {
       throw makeCommandExit({ exitCode: 3 });
     }
@@ -81,9 +108,13 @@ describe('runJsonCliProgram - the final result line', () => {
     expect(events).toEqual([
       { event: 'result', ok: false, ...SUMMARY, message: 'The command ended with exit code 3.' },
     ]);
-  });
+  }
 
-  it('reports the reason a command gave for its exit code', async () => {
+  it(
+    'reports a requested exit code in the failure message',
+    reportsARequestedExitCodeInTheFailureMessage,
+  );
+  async function reportsTheReasonACommandGaveForItsExitCode() {
     async function exitWithReason(): Promise<void> {
       completeCommand(1, 'No App Store Connect app record yet.');
     }
@@ -95,9 +126,13 @@ describe('runJsonCliProgram - the final result line', () => {
     expect(events).toEqual([
       { event: 'result', ok: false, ...SUMMARY, message: 'No App Store Connect app record yet.' },
     ]);
-  });
+  }
 
-  it('turns a prompt into a failure that names the flag to pass', async () => {
+  it(
+    'reports the reason a command gave for its exit code',
+    reportsTheReasonACommandGaveForItsExitCode,
+  );
+  async function turnsAPromptIntoAFailureThatNamesTheFlagToPass() {
     const readEvents = captureStdoutLines();
     async function confirmUpload(): Promise<boolean> {
       return LaunchPrompt.confirm('Upload?');
@@ -108,5 +143,12 @@ describe('runJsonCliProgram - the final result line', () => {
     const [resultEvent] = readEvents();
     expect(resultEvent.ok).toBe(false);
     expect(resultEvent.message).toContain('--yes');
-  });
-});
+  }
+
+  it(
+    'turns a prompt into a failure that names the flag to pass',
+    turnsAPromptIntoAFailureThatNamesTheFlagToPass,
+  );
+}
+
+describe('runJsonCliProgram - the final result line', describeRunPieceCliProgramThePiecePieceLine);

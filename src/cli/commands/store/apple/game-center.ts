@@ -10,10 +10,10 @@ type GameCenterOptions = Readonly<{
 }>;
 
 /** Map Commander values without explicit undefined optionals. */
-const gameCenterInputFromOptions = (
+function gameCenterInputFromOptions(
   commandOptions: GameCenterOptions,
   explicitConfig: boolean,
-): GameCenterCommandInput => {
+): GameCenterCommandInput {
   let gameCenterInput: GameCenterCommandInput = {
     config: commandOptions.config,
     explicitConfig,
@@ -24,10 +24,17 @@ const gameCenterInputFromOptions = (
     gameCenterInput = { ...gameCenterInput, app: commandOptions.app };
   }
   return gameCenterInput;
-};
+}
 
 /** Attach the game-center command. */
-export const registerGameCenterCommand = (program: Command): void => {
+export function registerGameCenterCommand(program: Command): void {
+  function runGameCenter(commandOptions: GameCenterOptions, registeredCommand: Command) {
+    const explicitConfig = registeredCommand.getOptionValueSource('config') == 'cli';
+    const gameCenterFrom = gameCenterInputFromOptions(commandOptions, explicitConfig);
+    const gameCenterProgram = gameCenterCommandProgram(gameCenterFrom);
+    return runCliProgram(gameCenterProgram);
+  }
+
   program
     .command('game-center')
     .description('reconcile Game Center achievements & leaderboards from gamecenter.config.json')
@@ -35,10 +42,5 @@ export const registerGameCenterCommand = (program: Command): void => {
     .option('--config <path>', 'path to the Game Center config file', 'gamecenter.config.json')
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: GameCenterOptions, registeredCommand: Command) => {
-      const explicitConfig = registeredCommand.getOptionValueSource('config') == 'cli';
-      const gameCenterFrom = gameCenterInputFromOptions(commandOptions, explicitConfig);
-      const gameCenterProgram = gameCenterCommandProgram(gameCenterFrom);
-      return runCliProgram(gameCenterProgram);
-    });
-};
+    .action(runGameCenter);
+}

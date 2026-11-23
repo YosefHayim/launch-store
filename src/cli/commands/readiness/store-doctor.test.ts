@@ -1,16 +1,35 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from '../../command.ts';
+import { Command, type CommandOption } from '../../command.ts';
 import { registerStoreCommand } from './store-doctor.ts';
-describe('registerStoreCommand', () => {
-  it('attaches a `store` group with a `doctor` subcommand and its options', () => {
+function describeRegisterStoreCommand() {
+  function attachesAStoreGroupWithADoctorSubcommandAndItsPiece() {
     const program = new Command();
     registerStoreCommand(program);
-    const store = program.commands.find((command) => command.name() == 'store');
+    function findCommand(command: Command) {
+      return command.name() == 'store';
+    }
+
+    const store = program.commands.find(findCommand);
     expect(store).toBeDefined();
-    const doctor = store?.commands.find((command) => command.name() == 'doctor');
+    function findCommand2(command: Command) {
+      return command.name() == 'doctor';
+    }
+
+    const doctor = store?.commands.find(findCommand2);
     expect(doctor).toBeDefined();
-    const options = doctor?.options.map((option) => option.long);
+    function readLong(option: CommandOption) {
+      return option.long;
+    }
+
+    const options = doctor?.options.map(readLong);
     expect(options).toContain('--app');
     expect(options).toContain('--json');
-  });
-});
+  }
+
+  it(
+    'attaches a `store` group with a `doctor` subcommand and its options',
+    attachesAStoreGroupWithADoctorSubcommandAndItsPiece,
+  );
+}
+
+describe('registerStoreCommand', describeRegisterStoreCommand);

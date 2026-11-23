@@ -9,10 +9,15 @@ type PrivacyScanOptions = {
 };
 
 /** Attach the read-only privacy scan command group. */
-export const registerPrivacyCommand = (program: Command): void => {
+export function registerPrivacyCommand(program: Command): void {
   const privacyCommand = program
     .command('privacy')
     .description('reconcile your permission/data surface against your privacy declarations');
+  function runScan(commandOptions: PrivacyScanOptions) {
+    const privacyProgram = privacyCommandProgram(commandOptions);
+    return runCliProgram(privacyProgram);
+  }
+
   privacyCommand
     .command('scan')
     .description(
@@ -20,8 +25,5 @@ export const registerPrivacyCommand = (program: Command): void => {
     )
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((commandOptions: PrivacyScanOptions) => {
-      const privacyProgram = privacyCommandProgram(commandOptions);
-      return runCliProgram(privacyProgram);
-    });
-};
+    .action(runScan);
+}

@@ -3,8 +3,8 @@ import { buildCommandProgram } from '../../../build/build-command-program.ts';
 import type { BuildCommandOptions } from '../../../build/build-command-input.ts';
 import { addEnvFlags } from '../../options.ts';
 import { runCliProgram, runJsonCliProgram } from '../../run-cli-program.ts';
-const addAppleBuildOptions = (command: Command): Command =>
-  command
+function addAppleBuildOptions(command: Command): Command {
+  return command
     .option(
       '--account <name>',
       'iOS only - Apple account to build with: label or Key ID (default: active)',
@@ -17,8 +17,9 @@ const addAppleBuildOptions = (command: Command): Command =>
       '--bump <kind>',
       "iOS only - version bump: patch|minor|major|keep (default: last used, else prompt) or 'ask' to force the prompt",
     );
-const addAndroidBuildOptions = (command: Command): Command =>
-  command
+}
+function addAndroidBuildOptions(command: Command): Command {
+  return command
     .option(
       '--track <track>',
       'Android only - Play track: internal|closed|open|production (default: internal)',
@@ -31,8 +32,9 @@ const addAndroidBuildOptions = (command: Command): Command =>
       '--notes <path>',
       'Android only - JSON file mapping language codes to Play release notes (Whats new); overrides config when set',
     );
-const addSharedBuildOptions = (command: Command): Command =>
-  command
+}
+function addSharedBuildOptions(command: Command): Command {
+  return command
     .option(
       '--distribution <mode>',
       'store (default, TestFlight/Play) or internal (ad-hoc install link)',
@@ -60,7 +62,8 @@ const addSharedBuildOptions = (command: Command): Command =>
       'stream progress as NDJSON events on stdout and end with one result line (never prompts)',
       false,
     );
-export const registerBuildCommand = (program: Command): void => {
+}
+export function registerBuildCommand(program: Command): void {
   const buildCommand = program
     .command('build')
     .description(
@@ -74,7 +77,7 @@ export const registerBuildCommand = (program: Command): void => {
   const appleBuildCommand = addAppleBuildOptions(buildCommand);
   const androidBuildCommand = addAndroidBuildOptions(appleBuildCommand);
   const command = addSharedBuildOptions(androidBuildCommand);
-  addEnvFlags(command).action((platformArgument: string, commandOptions: BuildCommandOptions) => {
+  function runCommand(platformArgument: string, commandOptions: BuildCommandOptions) {
     function startBuild(): ReturnType<typeof buildCommandProgram> {
       return buildCommandProgram(platformArgument, commandOptions);
     }
@@ -93,5 +96,7 @@ export const registerBuildCommand = (program: Command): void => {
       },
       startBuild,
     );
-  });
-};
+  }
+
+  addEnvFlags(command).action(runCommand);
+}

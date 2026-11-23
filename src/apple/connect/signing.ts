@@ -27,7 +27,11 @@ export class ConnectSigning {
         seedId?: string;
       }>
     >('GET', `/bundleIds?filter[identifier]=${uRIComponent}&limit=200`);
-    const exact = appleResources.find((entry) => entry.attributes.identifier == identifier);
+    function findPiece(entry: { id: string; attributes: { identifier: string; seedId?: string } }) {
+      return entry.attributes.identifier == identifier;
+    }
+
+    const exact = appleResources.find(findPiece);
     if (!exact) return null;
     return {
       id: exact.id,
@@ -61,12 +65,20 @@ export class ConnectSigning {
       certificateContent: string;
       expirationDate?: string;
     }>(`/certificates?filter[certificateType]=${DISTRIBUTION_CERT_TYPE}&limit=200`);
-    return appleResources.map((entry) => ({
-      id: entry.id,
-      serialNumber: entry.attributes.serialNumber,
-      certificateContent: entry.attributes.certificateContent,
-      expirationDate: entry.attributes.expirationDate,
-    }));
+    function mapPiece(entry: {
+      id: string;
+      attributes: { serialNumber: string; certificateContent: string; expirationDate?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
+      return {
+        id: entry.id,
+        serialNumber: entry.attributes.serialNumber,
+        certificateContent: entry.attributes.certificateContent,
+        expirationDate: entry.attributes.expirationDate,
+      };
+    }
+
+    return appleResources.map(mapPiece);
   }
 
   async createCertificate(csrContent: string): Promise<CertificateResource> {
@@ -141,19 +153,34 @@ export class ConnectSigning {
       name: string;
       status?: string;
     }>('/devices?limit=200');
-    return appleResources.map((entry) => ({
-      id: entry.id,
-      udid: entry.attributes.udid,
-      name: entry.attributes.name,
-      status: entry.attributes.status,
-    }));
+    function mapPiece2(entry: {
+      id: string;
+      attributes: { udid: string; name: string; status?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
+      return {
+        id: entry.id,
+        udid: entry.attributes.udid,
+        name: entry.attributes.name,
+        status: entry.attributes.status,
+      };
+    }
+
+    return appleResources.map(mapPiece2);
   }
 
   async findDeviceByUdid(udid: string): Promise<DeviceResource | null> {
     const wanted = udid.toLowerCase();
-    const matchingDevice = (await this.listDevices()).find(
-      (device) => device.udid.toLowerCase() == wanted,
-    );
+    function findDevice(device: {
+      readonly id: string;
+      readonly udid: string;
+      readonly name: string;
+      readonly status?: string | undefined | undefined;
+    }) {
+      return device.udid.toLowerCase() == wanted;
+    }
+
+    const matchingDevice = (await this.listDevices()).find(findDevice);
     if (matchingDevice == null) return null;
     return matchingDevice;
   }
@@ -182,6 +209,10 @@ export class ConnectSigning {
     deviceIds: readonly string[],
     profileType: ProvisioningProfileType = AD_HOC_PROFILE_TYPE,
   ): Promise<ProfileResource> {
+    function mapId(id: string) {
+      return { type: 'devices', id };
+    }
+
     const appleResources = await this.client.createResource<{
       name: string;
       uuid: string;
@@ -192,7 +223,7 @@ export class ConnectSigning {
       relationships: {
         bundleId: { data: { type: 'bundleIds', id: bundleIdResourceId } },
         certificates: { data: [{ type: 'certificates', id: certificateId }] },
-        devices: { data: deviceIds.map((id) => ({ type: 'devices', id })) },
+        devices: { data: deviceIds.map(mapId) },
       },
     });
     return {
@@ -214,7 +245,11 @@ export class ConnectSigning {
       // parameter") unlike most collections; pagination still works through links.next in requestAll.
       `/bundleIds/${bundleIdResourceId}/bundleIdCapabilities?fields[bundleIdCapabilities]=capabilityType,settings`,
     );
-    return appleResources.flatMap((capability) => {
+    function flatMapCapability(capability: {
+      id: string;
+      attributes: { capabilityType?: string; settings?: CapabilitySetting[] | null };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const capabilityType = capability.attributes.capabilityType;
       if (capabilityType == null) return [];
       const enabledCapability: BundleIdCapabilityResource = {
@@ -224,7 +259,9 @@ export class ConnectSigning {
       if (capability.attributes.settings != null && capability.attributes.settings != null)
         Object.assign(enabledCapability, { settings: capability.attributes.settings });
       return [enabledCapability];
-    });
+    }
+
+    return appleResources.flatMap(flatMapCapability);
   }
 
   async listProfilesForBundleId(bundleIdResourceId: string): Promise<ProfileResource[]> {
@@ -235,7 +272,11 @@ export class ConnectSigning {
     }>(
       `/bundleIds/${bundleIdResourceId}/profiles?limit=200&fields[profiles]=name,uuid,profileContent`,
     );
-    return appleResources.flatMap((profile) => {
+    function flatMapProfile(profile: {
+      id: string;
+      attributes: { name?: string; uuid?: string; profileContent?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const profileName = profile.attributes.name;
       if (profileName == null) return [];
       const profileUuid = profile.attributes.uuid;
@@ -243,7 +284,9 @@ export class ConnectSigning {
       const profileContent = profile.attributes.profileContent;
       if (profileContent == null) return [];
       return [{ id: profile.id, name: profileName, uuid: profileUuid, profileContent }];
-    });
+    }
+
+    return appleResources.flatMap(flatMapProfile);
   }
 
   async enableCapability(

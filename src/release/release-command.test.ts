@@ -28,49 +28,65 @@ import {
   resolveVersionString,
   shouldNudgeRelease,
 } from './release-command.ts';
-const storeBuild = (overrides: Partial<BuildResource> = {}): BuildResource => ({
-  id: 'b-1',
-  version: '42',
-  processingState: 'VALID',
-  expired: false,
-  ...overrides,
-});
+function storeBuild(overrides: Partial<BuildResource> = {}): BuildResource {
+  return {
+    id: 'b-1',
+    version: '42',
+    processingState: 'VALID',
+    expired: false,
+    ...overrides,
+  };
+}
 
-const releaseAction = (overrides: Partial<ReleaseAction> = {}): ReleaseAction => ({
-  description: 'attach build 42',
-  status: 'applied',
-  ...overrides,
-});
+function releaseAction(overrides: Partial<ReleaseAction> = {}): ReleaseAction {
+  return {
+    description: 'attach build 42',
+    status: 'applied',
+    ...overrides,
+  };
+}
 
-const releaseReport = (actions: ReleaseAction[]): ReleaseReport => ({
-  bundleId: 'com.acme.app',
-  versionId: 'v-1',
-  versionString: '1.2.0',
-  appStoreState: 'WAITING_FOR_REVIEW',
-  submitted: true,
-  alreadyInReview: false,
-  actions,
-});
-
-describe('shouldNudgeRelease - second confirm only for incremental artifacts', () => {
-  it('does not nudge a clean (from-scratch) artifact', () => {
+function releaseReport(actions: ReleaseAction[]): ReleaseReport {
+  return {
+    bundleId: 'com.acme.app',
+    versionId: 'v-1',
+    versionString: '1.2.0',
+    appStoreState: 'WAITING_FOR_REVIEW',
+    submitted: true,
+    alreadyInReview: false,
+    actions,
+  };
+}
+function describeShouldNudgeReleaseSecondConfirmOnlyForIncrementalArtifacts() {
+  function doesNotNudgeACleanFromScratchArtifact() {
     expect(shouldNudgeRelease({ clean: true })).toBe(false);
-  });
+  }
 
-  it('nudges an incrementally-built artifact before public release', () => {
+  it('does not nudge a clean (from-scratch) artifact', doesNotNudgeACleanFromScratchArtifact);
+  function nudgesAnIncrementallyBuiltArtifactBeforePublicRelease() {
     expect(shouldNudgeRelease({ clean: false })).toBe(true);
-  });
-});
+  }
 
-describe('isVerifiedStoreBuild / newestValidBuild', () => {
-  it('accepts only processed, non-expired builds', () => {
+  it(
+    'nudges an incrementally-built artifact before public release',
+    nudgesAnIncrementallyBuiltArtifactBeforePublicRelease,
+  );
+}
+
+describe(
+  'shouldNudgeRelease - second confirm only for incremental artifacts',
+  describeShouldNudgeReleaseSecondConfirmOnlyForIncrementalArtifacts,
+);
+function describeIsVerifiedStoreBuildNewestValidBuild() {
+  function acceptsOnlyProcessedNonExpiredBuilds() {
     const buildProgram = storeBuild();
     expect(isVerifiedStoreBuild(buildProgram)).toBe(true);
     expect(isVerifiedStoreBuild(storeBuild({ processingState: 'PROCESSING' }))).toBe(false);
     expect(isVerifiedStoreBuild(storeBuild({ expired: true }))).toBe(false);
-  });
+  }
 
-  it('returns the first verified build in list order', () => {
+  it('accepts only processed, non-expired builds', acceptsOnlyProcessedNonExpiredBuilds);
+  function returnsTheFirstVerifiedBuildInListOrder() {
     const builds = [
       storeBuild({ id: 'processing', processingState: 'PROCESSING', version: '40' }),
       storeBuild({ id: 'expired', expired: true, version: '41' }),
@@ -79,30 +95,41 @@ describe('isVerifiedStoreBuild / newestValidBuild', () => {
     ];
     const buildProgram = newestValidBuild(builds);
     expect(buildProgram?.id).toBe('valid');
-  });
+  }
 
-  it('returns null when nothing is promotable', () => {
+  it('returns the first verified build in list order', returnsTheFirstVerifiedBuildInListOrder);
+  function returnsNullWhenNothingIsPromotable() {
     const buildProgram = storeBuild({ processingState: 'FAILED' });
     expect(newestValidBuild([buildProgram])).toBeNull();
     expect(newestValidBuild([])).toBeNull();
-  });
-});
+  }
 
-describe('parseAppStoreBuildSelector', () => {
-  it('parses latest and numeric selectors', () => {
+  it('returns null when nothing is promotable', returnsNullWhenNothingIsPromotable);
+}
+
+describe('isVerifiedStoreBuild / newestValidBuild', describeIsVerifiedStoreBuildNewestValidBuild);
+function describeParseAppStoreBuildSelector() {
+  function parsesLatestAndNumericSelectors() {
     const appStoreBuildSelector = parseAppStoreBuildSelector('latest');
     expect(appStoreBuildSelector).toEqual({ kind: 'latest' });
     expect(parseAppStoreBuildSelector('42')).toEqual({ kind: 'number', buildNumber: 42 });
-  });
+  }
 
-  it('rejects non-numeric selectors that are not latest', () => {
+  it('parses latest and numeric selectors', parsesLatestAndNumericSelectors);
+  function rejectsNonNumericSelectorsThatAreNotLatest() {
     const appStoreBuildSelector = parseAppStoreBuildSelector('main');
     expect(appStoreBuildSelector).toEqual({ kind: 'invalid', selector: 'main' });
     expect(parseAppStoreBuildSelector('')).toEqual({ kind: 'invalid', selector: '' });
-  });
-});
+  }
 
-describe('resolveVersionString', () => {
+  it(
+    'rejects non-numeric selectors that are not latest',
+    rejectsNonNumericSelectorsThatAreNotLatest,
+  );
+}
+
+describe('parseAppStoreBuildSelector', describeParseAppStoreBuildSelector);
+function describeResolveVersionString() {
   const appDescriptor: AppDescriptor = {
     name: 'acme',
     dir: '.',
@@ -114,8 +141,7 @@ describe('resolveVersionString', () => {
       return Promise.resolve('5.2');
     }),
   };
-
-  it("uses a promoted build's own marketing version over app.json", async () => {
+  async function usesAPromotedBuildSOwnMarketingVersionOverAppPiece() {
     const promotedBuild = storeBuild({ version: '591', marketingVersion: '6.11.77' });
     const versionString = await resolveVersionString(
       ascClient,
@@ -124,8 +150,13 @@ describe('resolveVersionString', () => {
       promotedBuild,
     );
     expect(versionString).toBe('6.11.77');
-  });
-  it('falls back to app.json when the build has no marketing version', async () => {
+  }
+
+  it(
+    "uses a promoted build's own marketing version over app.json",
+    usesAPromotedBuildSOwnMarketingVersionOverAppPiece,
+  );
+  async function fallsBackToAppPieceWhenTheBuildHasNoMarketingVersion() {
     const buildProgram = storeBuild();
     const versionString = await resolveVersionString(
       ascClient,
@@ -135,37 +166,52 @@ describe('resolveVersionString', () => {
     );
     expect(versionString).toBe('6.11.78');
     expect(ascClient.getLatestMarketingVersion).not.toHaveBeenCalled();
-  });
-});
+  }
 
-describe('resolveAndroidRollout', () => {
-  it('prefers the CLI flag over the profile default', () => {
+  it(
+    'falls back to app.json when the build has no marketing version',
+    fallsBackToAppPieceWhenTheBuildHasNoMarketingVersion,
+  );
+}
+
+describe('resolveVersionString', describeResolveVersionString);
+function describeResolveAndroidRollout() {
+  function prefersTheCLIFlagOverTheProfileDefault() {
     const androidRollout = resolveAndroidRollout(0.25, 0.5);
     expect(androidRollout).toBe(0.5);
-  });
+  }
 
-  it('uses the profile fraction when no flag is passed', () => {
+  it('prefers the CLI flag over the profile default', prefersTheCLIFlagOverTheProfileDefault);
+  function usesTheProfileFractionWhenNoFlagIsPassed() {
     const androidRollout = resolveAndroidRollout(0.1, undefined);
     expect(androidRollout).toBe(0.1);
-  });
+  }
 
-  it('defaults to a full production rollout', () => {
+  it('uses the profile fraction when no flag is passed', usesTheProfileFractionWhenNoFlagIsPassed);
+  function defaultsToAFullProductionRollout() {
     const androidRollout = resolveAndroidRollout(undefined, undefined);
     expect(androidRollout).toBe(1);
-  });
-});
+  }
 
-describe('androidReleasePlanLines', () => {
-  it('names the build, the production track and the rollout', () => {
+  it('defaults to a full production rollout', defaultsToAFullProductionRollout);
+}
+
+describe('resolveAndroidRollout', describeResolveAndroidRollout);
+function describeAndroidReleasePlanLines() {
+  function namesTheBuildTheProductionTrackAndTheRollout() {
     expect(
       androidReleasePlanLines({ version: '1.2.0', buildNumber: 42, clean: true }, 0.2),
     ).toEqual([
       'submit 1.2.0 (42) to the PUBLIC Play production track',
       'roll out to 20% of users',
     ]);
-  });
+  }
 
-  it('flags an incremental build', () => {
+  it(
+    'names the build, the production track and the rollout',
+    namesTheBuildTheProductionTrackAndTheRollout,
+  );
+  function flagsAnIncrementalBuild() {
     const planLines = androidReleasePlanLines(
       { version: '1.2.0', buildNumber: 42, clean: false },
       1,
@@ -173,27 +219,32 @@ describe('androidReleasePlanLines', () => {
     expect(planLines).toContain(
       'incremental build - run `launch-store build android --clean` first for a from-scratch artifact',
     );
-  });
-});
+  }
 
-describe('formatReleaseActionLine / countFailedReleaseActions', () => {
-  it('renders plan lines with skipped notes', () => {
+  it('flags an incremental build', flagsAnIncrementalBuild);
+}
+
+describe('androidReleasePlanLines', describeAndroidReleasePlanLines);
+function describeFormatReleaseActionLineCountFailedReleaseActions() {
+  function rendersPlanLinesWithSkippedNotes() {
     const releaseActionLine = formatReleaseActionLine(
       releaseAction({ status: 'skipped', note: 'already attached' }),
       'plan',
     );
     expect(releaseActionLine).toBe('- attach build 42 (already attached)');
-  });
+  }
 
-  it('renders receipt failures with an error suffix', () => {
+  it('renders plan lines with skipped notes', rendersPlanLinesWithSkippedNotes);
+  function rendersReceiptFailuresWithAnErrorSuffix() {
     const releaseActionLine = formatReleaseActionLine(
       releaseAction({ status: 'failed', error: 'ASC 409' }),
       'receipt',
     );
     expect(releaseActionLine).toBe('x attach build 42 - ASC 409');
-  });
+  }
 
-  it('counts only failed steps for the exit code', () => {
+  it('renders receipt failures with an error suffix', rendersReceiptFailuresWithAnErrorSuffix);
+  function countsOnlyFailedStepsForTheExitCode() {
     const failedReleaseActions = countFailedReleaseActions(
       releaseReport([
         releaseAction({ status: 'applied' }),
@@ -204,11 +255,17 @@ describe('formatReleaseActionLine / countFailedReleaseActions', () => {
     );
     expect(failedReleaseActions).toBe(2);
     expect(countFailedReleaseActions(releaseReport([]))).toBe(0);
-  });
-});
+  }
 
-describe('makeReleaseCommandFailure', () => {
-  it('tags command failures for the Effect channel', () => {
+  it('counts only failed steps for the exit code', countsOnlyFailedStepsForTheExitCode);
+}
+
+describe(
+  'formatReleaseActionLine / countFailedReleaseActions',
+  describeFormatReleaseActionLineCountFailedReleaseActions,
+);
+function describeMakeReleaseCommandFailure() {
+  function tagsCommandFailuresForTheEffectChannel() {
     const failure = makeReleaseCommandFailure({
       operation: 'upload App Store build',
       message: 'network down',
@@ -217,8 +274,12 @@ describe('makeReleaseCommandFailure', () => {
     expect(failure._tag).toBe('ReleaseCommandFailure');
     expect(failure.operation).toBe('upload App Store build');
     expect(failure.message).toBe('network down');
-  });
-});
+  }
+
+  it('tags command failures for the Effect channel', tagsCommandFailuresForTheEffectChannel);
+}
+
+describe('makeReleaseCommandFailure', describeMakeReleaseCommandFailure);
 
 const ASC_KEY_ID = 'KEY123';
 const p8Secret = Buffer.from('-----BEGIN PRIVATE KEY-----').toString('base64');
@@ -414,9 +475,8 @@ afterEach(function resetReleaseDoubles() {
   resetLogger();
   useAppleStoreClientFactory(null);
 });
-
-describe('releaseCommandProgram - attach-only', () => {
-  it('fails on Android before any App Store call', async () => {
+function describeReleaseCommandProgramAttachOnly() {
+  async function failsOnAndroidBeforeAnyAppStoreCall() {
     const releaseApi = makeReleaseApiFake();
     const outcome = await runInTemporaryHome(function runAndroidAttach(homeDirectory) {
       const commandFor = commandOptionsFor({ attachOnly: true });
@@ -432,9 +492,10 @@ describe('releaseCommandProgram - attach-only', () => {
       message: expect.stringContaining('--attach-only is iOS only'),
     });
     expect(releaseApi.getAppId).not.toHaveBeenCalled();
-  });
+  }
 
-  it('attaches the build to the editable version and never submits it', async () => {
+  it('fails on Android before any App Store call', failsOnAndroidBeforeAnyAppStoreCall);
+  async function attachesTheBuildToTheEditableVersionAndNeverSubmitsIt() {
     const releaseApi = makeReleaseApiFake();
     const outcome = await runInTemporaryHome(function runAttach(homeDirectory) {
       const commandFor = commandOptionsFor({ build: '42', attachOnly: true });
@@ -452,9 +513,13 @@ describe('releaseCommandProgram - attach-only', () => {
       expect.stringMatching(/^Attach build 42 to .+ without submitting for review\?$/),
     );
     expect(releaseApi.createReviewSubmission).not.toHaveBeenCalled();
-  });
+  }
 
-  it('titles the receipt with the failed step count when an attach step fails', async () => {
+  it(
+    'attaches the build to the editable version and never submits it',
+    attachesTheBuildToTheEditableVersionAndNeverSubmitsIt,
+  );
+  async function titlesTheReceiptWithTheFailedStepCountWhenAnAttachStepFails() {
     const releaseApi = makeReleaseApiFake({
       selectBuildForVersion: vi.fn(function rejectBuild() {
         throw new Error('Apple rejected the build');
@@ -473,9 +538,13 @@ describe('releaseCommandProgram - attach-only', () => {
     expect(outcome.logLines.join('\n')).toContain('Attached with 1 failed step(s) - see below');
     expect(outcome.failure).toMatchObject({ _tag: 'CommandExit', exitCode: 1 });
     expect(releaseApi.createReviewSubmission).not.toHaveBeenCalled();
-  });
+  }
 
-  it('asks to submit and submits for review when attach-only is off', async () => {
+  it(
+    'titles the receipt with the failed step count when an attach step fails',
+    titlesTheReceiptWithTheFailedStepCountWhenAnAttachStepFails,
+  );
+  async function asksToSubmitAndSubmitsForReviewWhenAttachOnlyIsOff() {
     const releaseApi = makeReleaseApiFake();
     const outcome = await runInTemporaryHome(function runSubmit(homeDirectory) {
       const commandFor = commandOptionsFor({ build: '42' });
@@ -492,5 +561,12 @@ describe('releaseCommandProgram - attach-only', () => {
       expect.stringMatching(/^Submit .+ \(build 42\) for App Store review\?$/),
     );
     expect(releaseApi.createReviewSubmission).toHaveBeenCalled();
-  });
-});
+  }
+
+  it(
+    'asks to submit and submits for review when attach-only is off',
+    asksToSubmitAndSubmitsForReviewWhenAttachOnlyIsOff,
+  );
+}
+
+describe('releaseCommandProgram - attach-only', describeReleaseCommandProgramAttachOnly);

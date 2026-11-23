@@ -142,22 +142,28 @@ const signatures: DiagnosticSignature[] = [
  * Scan a build log and return the distinct diagnoses whose signatures matched, in table order. Returns
  * an empty array when nothing is recognized - the caller then falls back to the raw log tail.
  */
-export const diagnoseBuildLog = (log: string): BuildDiagnosis[] => {
+export function diagnoseBuildLog(log: string): BuildDiagnosis[] {
   const matched: BuildDiagnosis[] = [];
   for (const signature of signatures) {
-    if (signature.match.some((pattern) => pattern.test(log))) {
+    function somePattern(pattern: RegExp) {
+      return pattern.test(log);
+    }
+
+    if (signature.match.some(somePattern)) {
       matched.push({ title: signature.title, cause: signature.cause, fix: signature.fix });
     }
   }
   return matched;
-};
+}
 /** Render diagnoses as an indented, human-readable block for the terminal. Empty input -> empty string. */
-export const formatDiagnoses = (diagnoses: readonly BuildDiagnosis[]): string => {
+export function formatDiagnoses(diagnoses: readonly BuildDiagnosis[]): string {
   if (diagnoses.length == 0) return '';
   let header = 'Likely causes:';
   if (diagnoses.length == 1) header = 'Likely cause:';
-  const blocks = diagnoses.map(
-    (diagnosis) => `  - ${diagnosis.title}\n    Why: ${diagnosis.cause}\n    Fix: ${diagnosis.fix}`,
-  );
+  function mapDiagnosis(diagnosis: { title: string; cause: string; fix: string }) {
+    return `  - ${diagnosis.title}\n    Why: ${diagnosis.cause}\n    Fix: ${diagnosis.fix}`;
+  }
+
+  const blocks = diagnoses.map(mapDiagnosis);
   return [header, ...blocks].join('\n');
-};
+}

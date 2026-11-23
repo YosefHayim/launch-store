@@ -12,31 +12,39 @@ import { READINESS_EXIT } from './orchestrator.ts';
  */
 let selectedCategory: string | undefined;
 /** A fake probe that returns a fixed result with no network - same idiom as `orchestrator.test.ts`. */
-const probe = (id: string, probeOutcome: ProbeResult): ReadinessProbe => {
+function probe(id: string, probeOutcome: ProbeResult): ReadinessProbe {
   return {
     id,
     title: id,
     store: 'appstore',
     categories: ['submit'],
-    check: () => Promise.resolve(probeOutcome),
+    check() {
+      return Promise.resolve(probeOutcome);
+    },
   };
-};
+}
 /** The probe slice the mocked registry hands back; swapped per test to drive the outcome. */
 let probes: ReadinessProbe[] = [];
-vi.mock('../config/config.ts', () => ({
-  loadConfig: () => Promise.resolve({ config: {}, apps: [] }),
-}));
-vi.mock('../store/shared/store-clients.ts', () => ({
-  createAscClientResolver: () => async () => null,
-  createPlayClientResolver: () => async () => null,
-}));
-vi.mock('./registry.ts', () => ({
-  registerBuiltinProbes: () => {},
-  selectReadinessProbes: (category: string) => {
-    selectedCategory = category;
-    return probes;
-  },
-}));
+vi.mock('../config/config.ts', function mockPiece() {
+  return {
+    loadConfig: () => Promise.resolve({ config: {}, apps: [] }),
+  };
+});
+vi.mock('../store/shared/store-clients.ts', function mockStoreClients() {
+  return {
+    createAscClientResolver: () => async () => null,
+    createPlayClientResolver: () => async () => null,
+  };
+});
+vi.mock('./registry.ts', function mockRegistry() {
+  return {
+    registerBuiltinProbes: () => {},
+    selectReadinessProbes: (category: string) => {
+      selectedCategory = category;
+      return probes;
+    },
+  };
+});
 const { readinessCommandProgram } = await import('./command.ts');
 const LABELS = { summary: 'Test readiness', empty: 'No checks ran.' };
 
@@ -68,31 +76,40 @@ async function runReadinessCommand(
   }
 }
 
-const emptyOutcome = (overrides: Partial<ReadinessOutcome> = {}): ReadinessOutcome => ({
-  reports: [],
-  okCount: 0,
-  warnCount: 0,
-  blockerCount: 0,
-  errorCount: 0,
-  skippedCount: 0,
-  exitCode: READINESS_EXIT.ok,
-  ...overrides,
-});
-
-describe('readinessStoreLabel', () => {
-  it('names App Store and Google Play for section headers', () => {
+function emptyOutcome(overrides: Partial<ReadinessOutcome> = {}): ReadinessOutcome {
+  return {
+    reports: [],
+    okCount: 0,
+    warnCount: 0,
+    blockerCount: 0,
+    errorCount: 0,
+    skippedCount: 0,
+    exitCode: READINESS_EXIT.ok,
+    ...overrides,
+  };
+}
+function describeReadinessStoreLabel() {
+  function namesAppStoreAndGooglePlayForSectionHeaders() {
     expect(readinessStoreLabel('appstore')).toBe('App Store');
     expect(readinessStoreLabel('play')).toBe('Google Play');
-  });
-});
+  }
 
-describe('formatReadinessSummaryDetail', () => {
-  it('returns all clear when every tally is zero', () => {
+  it(
+    'names App Store and Google Play for section headers',
+    namesAppStoreAndGooglePlayForSectionHeaders,
+  );
+}
+
+describe('readinessStoreLabel', describeReadinessStoreLabel);
+function describeFormatReadinessSummaryDetail() {
+  function returnsAllClearWhenEveryTallyIsZero() {
     const empty = emptyOutcome();
     const readinessSummaryDetail = formatReadinessSummaryDetail(empty);
     expect(readinessSummaryDetail).toBe('all clear');
-  });
-  it('joins blocker, unreadable, warning, and skipped tallies in priority order', () => {
+  }
+
+  it('returns all clear when every tally is zero', returnsAllClearWhenEveryTallyIsZero);
+  function joinsBlockerUnreadableWarningAndSkippedTalliesInPriorityOrder() {
     const empty = emptyOutcome({
       blockerCount: 2,
       errorCount: 1,
@@ -102,21 +119,34 @@ describe('formatReadinessSummaryDetail', () => {
     });
     const readinessSummaryDetail = formatReadinessSummaryDetail(empty);
     expect(readinessSummaryDetail).toBe('2 blocker(s) - 1 unreadable - 3 warning(s) - 4 skipped');
-  });
-});
+  }
 
-describe('readinessCommandProgram', () => {
-  afterEach(() => {
+  it(
+    'joins blocker, unreadable, warning, and skipped tallies in priority order',
+    joinsBlockerUnreadableWarningAndSkippedTalliesInPriorityOrder,
+  );
+}
+
+describe('formatReadinessSummaryDetail', describeFormatReadinessSummaryDetail);
+function describeReadinessCommandProgram() {
+  function cleanupReadinessCommandProgram() {
     vi.restoreAllMocks();
     probes = [];
     selectedCategory = undefined;
-  });
-  it('passes its category through to the probe selector', async () => {
+  }
+
+  afterEach(cleanupReadinessCommandProgram);
+  async function passesItsCategoryThroughToTheProbeSelector() {
     probes = [];
     await runReadinessCommand({ category: 'iap', labels: LABELS });
     expect(selectedCategory).toBe('iap');
-  });
-  it('sets exit code 0 when every probe is clear', async () => {
+  }
+
+  it(
+    'passes its category through to the probe selector',
+    passesItsCategoryThroughToTheProbeSelector,
+  );
+  async function setsExitCode0WhenEveryProbeIsClear() {
     probes = [
       probe('clear', {
         state: 'checked',
@@ -125,8 +155,10 @@ describe('readinessCommandProgram', () => {
     ];
     const exitCode = await runReadinessCommand({ category: 'submit', labels: LABELS });
     expect(exitCode).toBe(READINESS_EXIT.ok);
-  });
-  it('sets exit code 2 when a probe reports a blocker', async () => {
+  }
+
+  it('sets exit code 0 when every probe is clear', setsExitCode0WhenEveryProbeIsClear);
+  async function setsExitCode2WhenAProbeReportsABlocker() {
     probes = [
       probe('blocked', {
         state: 'checked',
@@ -135,8 +167,10 @@ describe('readinessCommandProgram', () => {
     ];
     const exitCode = await runReadinessCommand({ category: 'account', labels: LABELS });
     expect(exitCode).toBe(READINESS_EXIT.blocker);
-  });
-  it('emits the raw outcome as JSON under --json', async () => {
+  }
+
+  it('sets exit code 2 when a probe reports a blocker', setsExitCode2WhenAProbeReportsABlocker);
+  async function emitsThePiecePieceAsJSONUnderPiece() {
     probes = [
       probe('clear', {
         state: 'checked',
@@ -152,8 +186,10 @@ describe('readinessCommandProgram', () => {
     const printedOutcome: unknown = JSON.parse(printedText);
     expect(printedOutcome).toMatchObject({ exitCode: READINESS_EXIT.ok });
     expect(printedOutcome).toMatchObject({ reports: [expect.any(Object)] });
-  });
-  it('renders human summary with command labels when not in JSON mode', async () => {
+  }
+
+  it('emits the raw outcome as JSON under --json', emitsThePiecePieceAsJSONUnderPiece);
+  async function rendersHumanSummaryWithCommandLabelsWhenNotInJSONMode() {
     probes = [
       probe('clear', {
         state: 'checked',
@@ -162,6 +198,17 @@ describe('readinessCommandProgram', () => {
     ];
     const terminalWrites: string[] = [];
     await runReadinessCommand({ category: 'submit', labels: LABELS }, terminalWrites);
-    expect(terminalWrites.some((line) => line.includes('Test readiness: all clear'))).toBe(true);
-  });
-});
+    function someLine(line: string) {
+      return line.includes('Test readiness: all clear');
+    }
+
+    expect(terminalWrites.some(someLine)).toBe(true);
+  }
+
+  it(
+    'renders human summary with command labels when not in JSON mode',
+    rendersHumanSummaryWithCommandLabelsWhenNotInJSONMode,
+  );
+}
+
+describe('readinessCommandProgram', describeReadinessCommandProgram);

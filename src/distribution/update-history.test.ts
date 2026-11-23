@@ -32,15 +32,21 @@ function makeMemoryStorage(): MemoryStorage {
   return {
     objects,
     name: 'memory',
-    put: () => Promise.reject(new Error('unused')),
-    list: () => Promise.resolve([]),
-    url: () => Promise.resolve(''),
-    putObject: (objectKey, objectContents) => {
+    put() {
+      return Promise.reject(new Error('unused'));
+    },
+    list() {
+      return Promise.resolve([]);
+    },
+    url() {
+      return Promise.resolve('');
+    },
+    putObject(objectKey, objectContents) {
       objects.set(objectKey, objectContents.toString());
 
       return Promise.resolve({ id: objectKey, location: `memory://${objectKey}` });
     },
-    getObject: (objectKey) => {
+    getObject(objectKey) {
       const storedText = objects.get(objectKey);
 
       if (storedText == null) {
@@ -50,13 +56,17 @@ function makeMemoryStorage(): MemoryStorage {
       const bufferBytes = Buffer.from(storedText);
       return Promise.resolve(bufferBytes);
     },
-    publicUrl: (objectKey) => `https://cdn/${objectKey}`,
+    publicUrl(objectKey) {
+      return `https://cdn/${objectKey}`;
+    },
   };
 }
 
 const fixedSigner: CodeSigner = {
   certPath: '/tmp/cert.pem',
-  sign: () => 'sig="FAKE", keyid="main", alg="rsa-v1_5-sha256"',
+  sign() {
+    return 'sig="FAKE", keyid="main", alg="rsa-v1_5-sha256"';
+  },
 };
 
 function makeHistoryEntry(overrides: Partial<UpdateHistoryEntry> = {}): UpdateHistoryEntry {
@@ -86,41 +96,98 @@ function makeManifest(manifestId: string): UpdateManifest {
     extra: {},
   };
 }
-
-describe('history lookup', () => {
-  it('deactivates only active entries for the selected runtime version', () => {
+function describeHistoryLookup() {
+  function deactivatesOnlyActiveEntriesForTheSelectedRuntimeVersion() {
     const historyEntries = [
       makeHistoryEntry({ id: 'one' }),
       makeHistoryEntry({ id: 'two', runtimeVersion: '2.0.0' }),
       makeHistoryEntry({ id: 'three', active: false }),
     ];
     const updatedEntries = deactivateRuntimeVersion(historyEntries, '1.0.0');
-    expect(updatedEntries.map((historyEntry) => historyEntry.active)).toEqual([false, true, false]);
-  });
+    function readActive(historyEntry: {
+      id: string;
+      runtimeVersion: string;
+      createdAt: string;
+      active: boolean;
+      signed: boolean;
+      kind: 'publish' | 'rollback';
+    }) {
+      return historyEntry.active;
+    }
 
-  it('resolves latest, exact, and short identifier references', () => {
+    expect(updatedEntries.map(readActive)).toEqual([false, true, false]);
+  }
+
+  it(
+    'deactivates only active entries for the selected runtime version',
+    deactivatesOnlyActiveEntriesForTheSelectedRuntimeVersion,
+  );
+  function resolvesLatestExactAndShortIdentifierReferences() {
     const historyEntries = [makeHistoryEntry({ id: 'abcdef' }), makeHistoryEntry({ id: '123456' })];
     const findHistory = findHistoryEntry(historyEntries, 'latest');
     expect(findHistory?.id).toBe('abcdef');
     expect(findHistoryEntry(historyEntries, '123456')?.id).toBe('123456');
     expect(findHistoryEntry(historyEntries, 'abc')?.id).toBe('abcdef');
     expect(findHistoryEntry(historyEntries, 'missing')).toBeUndefined();
-  });
-});
+  }
 
-describe('recordPublish', () => {
-  it('prepends the publish and deactivates the previous matching runtime', async () => {
+  it(
+    'resolves latest, exact, and short identifier references',
+    resolvesLatestExactAndShortIdentifierReferences,
+  );
+}
+
+describe('history lookup', describeHistoryLookup);
+function describePiecePublish() {
+  async function prependsThePublishAndDeactivatesThePreviousMatchingRuntime() {
     const storage = makeMemoryStorage();
     const makeHistory = makeHistoryEntry({ id: 'first' });
     await recordPublish(storage, 'production', 'ios', makeHistory);
     await recordPublish(storage, 'production', 'ios', makeHistoryEntry({ id: 'second' }));
     const historyEntries = await readHistory(storage, 'production', 'ios');
-    expect(historyEntries.map((historyEntry) => historyEntry.id)).toEqual(['second', 'first']);
-    expect(historyEntries.find((historyEntry) => historyEntry.id == 'second')?.active).toBe(true);
-    expect(historyEntries.find((historyEntry) => historyEntry.id == 'first')?.active).toBe(false);
-  });
+    function readId(historyEntry: {
+      id: string;
+      runtimeVersion: string;
+      createdAt: string;
+      active: boolean;
+      signed: boolean;
+      kind: 'publish' | 'rollback';
+    }) {
+      return historyEntry.id;
+    }
 
-  it('keeps active entries for other runtime versions', async () => {
+    expect(historyEntries.map(readId)).toEqual(['second', 'first']);
+    function findHistoryPiece(historyEntry: {
+      id: string;
+      runtimeVersion: string;
+      createdAt: string;
+      active: boolean;
+      signed: boolean;
+      kind: 'publish' | 'rollback';
+    }) {
+      return historyEntry.id == 'second';
+    }
+
+    expect(historyEntries.find(findHistoryPiece)?.active).toBe(true);
+    function findHistoryPiece2(historyEntry: {
+      id: string;
+      runtimeVersion: string;
+      createdAt: string;
+      active: boolean;
+      signed: boolean;
+      kind: 'publish' | 'rollback';
+    }) {
+      return historyEntry.id == 'first';
+    }
+
+    expect(historyEntries.find(findHistoryPiece2)?.active).toBe(false);
+  }
+
+  it(
+    'prepends the publish and deactivates the previous matching runtime',
+    prependsThePublishAndDeactivatesThePreviousMatchingRuntime,
+  );
+  async function keepsActiveEntriesForOtherRuntimeVersions() {
     const storage = makeMemoryStorage();
     const makeHistory = makeHistoryEntry({ id: 'runtime-one' });
     await recordPublish(storage, 'production', 'ios', makeHistory);
@@ -131,21 +198,39 @@ describe('recordPublish', () => {
       makeHistoryEntry({ id: 'runtime-two', runtimeVersion: '2.0.0' }),
     );
     const historyEntries = await readHistory(storage, 'production', 'ios');
-    expect(historyEntries.every((historyEntry) => historyEntry.active)).toBe(true);
-  });
+    function isActive(historyEntry: {
+      id: string;
+      runtimeVersion: string;
+      createdAt: string;
+      active: boolean;
+      signed: boolean;
+      kind: 'publish' | 'rollback';
+    }) {
+      return historyEntry.active;
+    }
 
-  it('preserves malformed history and refuses to overwrite it', async () => {
+    expect(historyEntries.every(isActive)).toBe(true);
+  }
+
+  it('keeps active entries for other runtime versions', keepsActiveEntriesForOtherRuntimeVersions);
+  async function preservesMalformedHistoryAndRefusesToOverwriteIt() {
     const storage = makeMemoryStorage();
     storage.objects.set('updates/production/ios/history.json', '{broken');
     const makeHistory = makeHistoryEntry();
     const publish = recordPublish(storage, 'production', 'ios', makeHistory);
     await expect(publish).rejects.toThrow();
     expect(storage.objects.get('updates/production/ios/history.json')).toBe('{broken');
-  });
-});
+  }
 
-describe('activateUpdate', () => {
-  it('leaves the active manifest untouched when history is malformed', async () => {
+  it(
+    'preserves malformed history and refuses to overwrite it',
+    preservesMalformedHistoryAndRefusesToOverwriteIt,
+  );
+}
+
+describe('recordPublish', describePiecePublish);
+function describeActivateUpdate() {
+  async function leavesTheActiveManifestUntouchedWhenHistoryIsMalformed() {
     const storage = makeMemoryStorage();
     storage.objects.set('updates/production/ios/history.json', '{broken');
     const manifest = makeManifest('new-id');
@@ -160,11 +245,17 @@ describe('activateUpdate', () => {
       }),
     ).rejects.toThrow();
     expect(storage.objects.has(manifestKey('production', 'ios', '1.0.0'))).toBe(false);
-  });
-});
+  }
 
-describe('republishUpdate', () => {
-  it('writes a fresh active snapshot, signature, and rollback history entry', async () => {
+  it(
+    'leaves the active manifest untouched when history is malformed',
+    leavesTheActiveManifestUntouchedWhenHistoryIsMalformed,
+  );
+}
+
+describe('activateUpdate', describeActivateUpdate);
+function describeRepublishUpdate() {
+  async function writesAFreshActiveSnapshotSignatureAndRollbackHistoryPiece() {
     const storage = makeMemoryStorage();
     const channel = 'production';
     const platform = 'ios';
@@ -202,10 +293,25 @@ describe('republishUpdate', () => {
     );
     const historyEntries = await readHistory(storage, channel, platform);
     expect(historyEntries[0]?.id).toBe('rollback-id');
-    expect(historyEntries.find((historyEntry) => historyEntry.id == 'bad-id')?.active).toBe(false);
-  });
+    function findHistoryPiece3(historyEntry: {
+      id: string;
+      runtimeVersion: string;
+      createdAt: string;
+      active: boolean;
+      signed: boolean;
+      kind: 'publish' | 'rollback';
+    }) {
+      return historyEntry.id == 'bad-id';
+    }
 
-  it('fails with a typed error when the target snapshot is absent', async () => {
+    expect(historyEntries.find(findHistoryPiece3)?.active).toBe(false);
+  }
+
+  it(
+    'writes a fresh active snapshot, signature, and rollback history entry',
+    writesAFreshActiveSnapshotSignatureAndRollbackHistoryPiece,
+  );
+  async function failsWithATypedErrorWhenTheTargetSnapshotIsAbsent() {
     const storage = makeMemoryStorage();
     const makeHistory = makeHistoryEntry({ id: 'ghost' });
     await expect(
@@ -219,11 +325,17 @@ describe('republishUpdate', () => {
         signer: null,
       }),
     ).rejects.toMatchObject({ _tag: 'UpdateHistoryFailure' });
-  });
-});
+  }
 
-describe('rollback directive', () => {
-  it('writes an active signed directive', async () => {
+  it(
+    'fails with a typed error when the target snapshot is absent',
+    failsWithATypedErrorWhenTheTargetSnapshotIsAbsent,
+  );
+}
+
+describe('republishUpdate', describeRepublishUpdate);
+function describeRollbackDirective() {
+  async function writesAnActiveSignedDirective() {
     const storage = makeMemoryStorage();
     await setRollbackToEmbedded({
       storage,
@@ -249,9 +361,10 @@ describe('rollback directive', () => {
       type: 'rollBackToEmbedded',
       parameters: { commitTime: '2026-06-14T12:00:00.000Z' },
     });
-  });
+  }
 
-  it('deactivates an active directive and does nothing when absent', async () => {
+  it('writes an active signed directive', writesAnActiveSignedDirective);
+  async function deactivatesAnActiveDirectiveAndDoesNothingWhenAbsent() {
     const storage = makeMemoryStorage();
     await clearRollbackDirective(storage, 'production', 'ios', '1.0.0');
     const directiveKey = rollbackDirectiveKey('production', 'ios', '1.0.0');
@@ -269,5 +382,12 @@ describe('rollback directive', () => {
     const clearedText = expectDefined(storage.objects.get(directiveKey), 'cleared directive');
     const clearedDirective = JSON.parse(clearedText) as { active: boolean };
     expect(clearedDirective.active).toBe(false);
-  });
-});
+  }
+
+  it(
+    'deactivates an active directive and does nothing when absent',
+    deactivatesAnActiveDirectiveAndDoesNothingWhenAbsent,
+  );
+}
+
+describe('rollback directive', describeRollbackDirective);

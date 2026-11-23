@@ -12,11 +12,17 @@ export class ConnectCustomProductPages {
     const appleResources = await this.client.requestAll<{
       name?: string;
     }>(`/apps/${appId}/appCustomProductPages?limit=200&fields[appCustomProductPages]=name`);
-    return appleResources.flatMap((customPage) => {
+    function flatMapCustomPage(customPage: {
+      id: string;
+      attributes: { name?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const pageName = customPage.attributes.name;
       if (pageName == null) return [];
       return [{ id: customPage.id, name: pageName }];
-    });
+    }
+
+    return appleResources.flatMap(flatMapCustomPage);
   }
 
   async createCustomProductPage(appId: string, name: string): Promise<CustomProductPageResource> {
@@ -37,11 +43,17 @@ export class ConnectCustomProductPages {
     }>(
       `/appCustomProductPages/${pageId}/appCustomProductPageVersions?limit=200&fields[appCustomProductPageVersions]=state`,
     );
-    return appleResources.map((version) => {
+    function mapVersion(version: {
+      id: string;
+      attributes: { state?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let state = version.attributes.state;
       if (state == null) state = '';
       return { id: version.id, state };
-    });
+    }
+
+    return appleResources.map(mapVersion);
   }
 
   async listCustomProductPageLocalizations(
@@ -53,7 +65,11 @@ export class ConnectCustomProductPages {
     }>(
       `/appCustomProductPageVersions/${versionId}/appCustomProductPageLocalizations?limit=200&fields[appCustomProductPageLocalizations]=locale,promotionalText`,
     );
-    return appleResources.flatMap((localization) => {
+    function flatMapLocalization(localization: {
+      id: string;
+      attributes: { locale?: string; promotionalText?: string | null };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const locale = localization.attributes.locale;
       if (locale == null) return [];
       const customPageLocalization: CustomProductPageLocalizationResource = {
@@ -65,7 +81,9 @@ export class ConnectCustomProductPages {
           promotionalText: localization.attributes.promotionalText,
         });
       return [customPageLocalization];
-    });
+    }
+
+    return appleResources.flatMap(flatMapLocalization);
   }
 
   async createCustomProductPageLocalization(

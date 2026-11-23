@@ -3,7 +3,7 @@ import type { PlannedAction, ReconcileReport } from '../../types/reconcile.ts';
 import type { SyncJob } from './sync-jobs.ts';
 import { mergeOutcomes, summarizeRun, type JobOutcome } from './sync-run.ts';
 /** A minimal valid {@link SyncJob} for one app - enough to carry an outcome through the pure projections. */
-const makeJob = (name: string, bundleId: string): SyncJob => {
+function makeJob(name: string, bundleId: string): SyncJob {
   return {
     app: { name, dir: `/tmp/${name}`, configPath: `/tmp/${name}/app.json`, bundleId },
     bundleId,
@@ -14,13 +14,13 @@ const makeJob = (name: string, bundleId: string): SyncJob => {
     subscriptionReviewScreenshots: [],
     unmapped: [],
   };
-};
+}
 /** A one-action report at a given lifecycle status, for tallying tests. */
-const report = (bundleId: string, status: PlannedAction['status']): ReconcileReport => {
+function report(bundleId: string, status: PlannedAction['status']): ReconcileReport {
   return { bundleId, actions: [{ description: `${status} action`, destructive: false, status }] };
-};
-describe('summarizeRun', () => {
-  it('tallies per-app statuses and rolls them up across apps', () => {
+}
+function describeSummarizeRun() {
+  function talliesPerAppStatusesAndRollsThemUpAcrossApps() {
     const a = makeJob('alpha', 'com.acme.alpha');
     const b = makeJob('beta', 'com.acme.beta');
     const outcomes: JobOutcome[] = [
@@ -39,8 +39,13 @@ describe('summarizeRun', () => {
       bundleId: 'com.acme.beta',
       summary: { applied: 0, failed: 1, skipped: 0 },
     });
-  });
-  it('counts a plan failure as a planError and omits actions/summary for that app', () => {
+  }
+
+  it(
+    'tallies per-app statuses and rolls them up across apps',
+    talliesPerAppStatusesAndRollsThemUpAcrossApps,
+  );
+  function countsAPlanFailureAsAPlanErrorAndOmitsActionsSummaryForThatApp() {
     const job = makeJob('alpha', 'com.acme.alpha');
     const run = summarizeRun([{ job, error: 'no ASC app record' }]);
     expect(run.summary).toEqual({ apps: 1, applied: 0, failed: 0, skipped: 0, planErrors: 1 });
@@ -51,8 +56,13 @@ describe('summarizeRun', () => {
     });
     expect(run.apps[0]?.actions).toBeUndefined();
     expect(run.apps[0]?.summary).toBeUndefined();
-  });
-  it('reports an already-in-sync app with an empty action list and a zero summary', () => {
+  }
+
+  it(
+    'counts a plan failure as a planError and omits actions/summary for that app',
+    countsAPlanFailureAsAPlanErrorAndOmitsActionsSummaryForThatApp,
+  );
+  function reportsAnAlreadyInSyncAppWithAnEmptyActionListAndAZeroSummary() {
     const job = makeJob('alpha', 'com.acme.alpha');
     const run = summarizeRun([{ job, report: { bundleId: 'com.acme.alpha', actions: [] } }]);
     expect(run.summary).toEqual({ apps: 1, applied: 0, failed: 0, skipped: 0, planErrors: 0 });
@@ -62,10 +72,17 @@ describe('summarizeRun', () => {
       actions: [],
       summary: { applied: 0, failed: 0, skipped: 0 },
     });
-  });
-});
-describe('mergeOutcomes', () => {
-  it('overlays each plan with its apply-pass result, matched by job reference', () => {
+  }
+
+  it(
+    'reports an already-in-sync app with an empty action list and a zero summary',
+    reportsAnAlreadyInSyncAppWithAnEmptyActionListAndAZeroSummary,
+  );
+}
+
+describe('summarizeRun', describeSummarizeRun);
+function describeMergeOutcomes() {
+  function overlaysEachPlanWithItsApplyPassPieceMatchedByJobReference() {
     const a = makeJob('alpha', 'com.acme.alpha');
     const b = makeJob('beta', 'com.acme.beta');
     const plans: JobOutcome[] = [
@@ -76,11 +93,23 @@ describe('mergeOutcomes', () => {
     const merged = mergeOutcomes(plans, applied);
     expect(merged[0]).toBe(applied[0]);
     expect(merged[1]).toBe(plans[1]);
-  });
-  it('keeps the plan outcome for an already-in-sync app with no apply entry', () => {
+  }
+
+  it(
+    'overlays each plan with its apply-pass result, matched by job reference',
+    overlaysEachPlanWithItsApplyPassPieceMatchedByJobReference,
+  );
+  function keepsThePlanPieceForAnAlreadyInSyncAppWithNoApplyPiece() {
     const job = makeJob('alpha', 'com.acme.alpha');
     const plan: JobOutcome = { job, report: { bundleId: 'com.acme.alpha', actions: [] } };
     const outcomes = mergeOutcomes([plan], []);
     expect(outcomes).toEqual([plan]);
-  });
-});
+  }
+
+  it(
+    'keeps the plan outcome for an already-in-sync app with no apply entry',
+    keepsThePlanPieceForAnAlreadyInSyncAppWithNoApplyPiece,
+  );
+}
+
+describe('mergeOutcomes', describeMergeOutcomes);

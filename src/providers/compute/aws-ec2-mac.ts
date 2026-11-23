@@ -48,74 +48,85 @@ function sleep(milliseconds: number): Promise<void> {
 }
 
 /** Prefer public DNS, then public IP; empty strings are treated as missing. */
-export const publicAddress = (
+export function publicAddress(
   publicDnsName: string | undefined,
   publicIpAddress: string | undefined,
-): string | undefined => {
+): string | undefined {
   if (publicDnsName != null && publicDnsName.length > 0) return publicDnsName;
   if (publicIpAddress != null && publicIpAddress.length > 0) return publicIpAddress;
   return undefined;
-};
+}
 
-export const configuredInstanceType = (
-  awsConfiguration: Pick<AwsConfig, 'instanceType'>,
-): string => {
+export function configuredInstanceType(awsConfiguration: Pick<AwsConfig, 'instanceType'>): string {
   if (awsConfiguration.instanceType != null) return awsConfiguration.instanceType;
   return DEFAULT_INSTANCE_TYPE;
-};
+}
 
 /** Amazon macOS AMI architecture for an EC2 Mac instance family (`mac2*` is arm64). */
-export const macosArchitectureFor = (instanceType: string): string => {
+export function macosArchitectureFor(instanceType: string): string {
   if (instanceType.startsWith('mac2')) return 'arm64_mac';
   return 'x86_64_mac';
-};
+}
 
-export const isDedicatedHostQuotaFailure = (failureMessage: string): boolean =>
-  /quota|limit|exceeded|insufficient/i.test(failureMessage);
+export function isDedicatedHostQuotaFailure(failureMessage: string): boolean {
+  return /quota|limit|exceeded|insufficient/i.test(failureMessage);
+}
 
 type DatedAmiImage = Readonly<{
   readonly id: string;
   readonly date: string;
 }>;
+function flatMapImageDescription(imageDescription: {
+  ImageId?: string | undefined;
+  CreationDate?: string | undefined;
+}) {
+  if (imageDescription.ImageId == null) return [];
+  if (imageDescription.CreationDate == null) return [];
+  return [{ id: imageDescription.ImageId, date: imageDescription.CreationDate }];
+}
 
-export const datedMacImages = (
+export function datedMacImages(
   catalogImages: ReadonlyArray<{
     ImageId?: string | undefined;
     CreationDate?: string | undefined;
   }>,
-): DatedAmiImage[] =>
-  catalogImages.flatMap((imageDescription) => {
-    if (imageDescription.ImageId == null) return [];
-    if (imageDescription.CreationDate == null) return [];
-    return [{ id: imageDescription.ImageId, date: imageDescription.CreationDate }];
-  });
+): DatedAmiImage[] {
+  return catalogImages.flatMap(flatMapImageDescription);
+}
 
 /** Newest by CreationDate; stable for equal dates. */
-export const newestImageId = (datedImages: readonly DatedAmiImage[]): string | undefined => {
+export function newestImageId(datedImages: readonly DatedAmiImage[]): string | undefined {
   if (datedImages.length == 0) return undefined;
-  const sortedImages = datedImages.slice().sort((firstImage, secondImage) => {
+  function sortFirstImage(
+    firstImage: { readonly id: string; readonly date: string },
+    secondImage: { readonly id: string; readonly date: string },
+  ) {
     if (firstImage.date < secondImage.date) return 1;
     if (firstImage.date > secondImage.date) return -1;
     return 0;
-  });
-  return sortedImages[0]?.id;
-};
+  }
 
-export const countLiveDedicatedHosts = (
+  const sortedImages = datedImages.slice().sort(sortFirstImage);
+  return sortedImages[0]?.id;
+}
+function filterDescribedHost(describedHost: { State?: string | undefined }) {
+  if (describedHost.State == null) return false;
+  return !describedHost.State.startsWith('released');
+}
+
+export function countLiveDedicatedHosts(
   describedHosts: ReadonlyArray<{ State?: string | undefined }>,
-): number =>
-  describedHosts.filter((describedHost) => {
-    if (describedHost.State == null) return false;
-    return !describedHost.State.startsWith('released');
-  }).length;
+): number {
+  return describedHosts.filter(filterDescribedHost).length;
+}
 
 /** Missing or already-released hosts are not billable status targets. */
-export const hostIsReleasedOrMissing = (hostState: string | undefined): boolean => {
+export function hostIsReleasedOrMissing(hostState: string | undefined): boolean {
   if (hostState == null) return true;
   return hostState.startsWith('released');
-};
+}
 
-export const releaseFailureDetail = (
+export function releaseFailureDetail(
   failedRelease:
     | {
         Error?:
@@ -125,14 +136,15 @@ export const releaseFailureDetail = (
           | undefined;
       }
     | undefined,
-): string | undefined => {
+): string | undefined {
   if (failedRelease == null) return undefined;
   if (failedRelease.Error?.Message != null) return failedRelease.Error.Message;
   return 'unknown';
-};
+}
 
-export const bootstrapReportsMissingXcode = (bootstrapOutput: string): boolean =>
-  bootstrapOutput.includes('LAUNCH_NO_XCODE');
+export function bootstrapReportsMissingXcode(bootstrapOutput: string): boolean {
+  return bootstrapOutput.includes('LAUNCH_NO_XCODE');
+}
 
 type Ec2Pair = Readonly<{ ec2: Ec2Module; client: Ec2Client }>;
 
@@ -550,13 +562,19 @@ async function waitForSsh(
 
   throw awsFailure('wait for SSH', message, message);
 }
-
-const bootstrapBrewLines = AWS_BOOTSTRAP_TOOLS.flatMap((requiredTool) => {
+function flatMapRequiredTool(requiredTool: {
+  label: string;
+  command: string;
+  tier: 'required' | 'recommended';
+  install: { kind: 'brew'; formula: string } | { kind: 'guide'; how: string };
+}) {
   if (requiredTool.install.kind != 'brew') return [];
   return [
     `command -v ${requiredTool.command} >/dev/null || brew install ${requiredTool.install.formula} || true`,
   ];
-});
+}
+
+const bootstrapBrewLines = AWS_BOOTSTRAP_TOOLS.flatMap(flatMapRequiredTool);
 
 const bootstrapScript = [
   'set -e',

@@ -13,13 +13,16 @@ import type { AppCoverage, FeedFetchReply, StatsFeedFailure } from '../types/sta
 import type { StatsCredentialsApi } from './stats-credentials.ts';
 import { makeStatsCredentialsTest, useStatsCredentials } from './stats-credentials.ts';
 import { syncStats } from './sync-stats.ts';
+import type { AppFeedSyncReport } from '../types/stats.ts';
 
-const fakeFeed = vi.hoisted(() => ({
-  reply: null as unknown,
-  askedRanges: [] as unknown[],
-}));
+const fakeFeed = vi.hoisted(function hoistFakeFeed() {
+  return {
+    reply: null as unknown,
+    askedRanges: [] as unknown[],
+  };
+});
 
-vi.mock('./feed-registry.ts', () => {
+vi.mock('./feed-registry.ts', function mockFeedRegistry() {
   function isTaggedFailure(reply: unknown): boolean {
     if (reply == null) {
       return false;
@@ -101,11 +104,9 @@ const FETCHED_REPLY: FeedFetchReply = {
   coveredThrough: '2026-10-28',
   notes: [],
 };
-
-describe('syncStats', () => {
+function describeSyncStats() {
   let homeDirectory: string;
-
-  beforeEach(() => {
+  function prepareSyncStats() {
     homeDirectory = createTemporaryHomeDirectory();
     const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
@@ -117,31 +118,33 @@ describe('syncStats', () => {
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
     fakeFeed.reply = FETCHED_REPLY;
     fakeFeed.askedRanges = [];
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareSyncStats);
+  function cleanupSyncStats() {
     useStatsCredentials(null);
     resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
-  });
+  }
 
-  const sync = (
+  afterEach(cleanupSyncStats);
+
+  function sync(
     appName: string | null,
     days: number,
     credentials: Partial<StatsCredentialsApi> = {},
-  ) => {
+  ) {
     makeStatsCredentialsTest(credentials);
 
     return syncStats({ appName, days });
-  };
+  }
 
-  const readCoverage = (appKey: string): AppCoverage => {
+  function readCoverage(appKey: string): AppCoverage {
     const coveragePath = join(homeDirectory, '.launch', 'stats', appKey, 'coverage.json');
     const loadedFile = readFileSync(coveragePath, 'utf8');
     return JSON.parse(loadedFile);
-  };
-
-  test('writes the fetched days and records the coverage', async () => {
+  }
+  async function writesTheFetchedDaysAndRecordsTheCoverage() {
     const report = await sync('cal friend', 30);
 
     expect(report.appFeeds).toEqual([
@@ -157,19 +160,30 @@ describe('syncStats', () => {
       lastError: null,
       lastSyncedAt: report.syncedAt,
     });
-  });
+  }
 
-  test('syncs every app when no name is given and reports the skipped feed', async () => {
+  test(
+    'writes the fetched days and records the coverage',
+    writesTheFetchedDaysAndRecordsTheCoverage,
+  );
+  async function syncsEveryAppWhenNoNameIsGivenAndReportsTheSkippedFeed() {
     const report = await sync(null, 5);
+    function mapAppFeed(appFeed: AppFeedSyncReport) {
+      return [appFeed.appKey, appFeed.status];
+    }
 
-    expect(report.appFeeds.map((appFeed) => [appFeed.appKey, appFeed.status])).toEqual([
+    expect(report.appFeeds.map(mapAppFeed)).toEqual([
       ['ios-1', 'synced'],
       ['android-com.fit', 'skipped'],
     ]);
     expect(report.appFeeds[1]?.message).toBe('not built yet');
-  });
+  }
 
-  test('joins the feed notes into the report message', async () => {
+  test(
+    'syncs every app when no name is given and reports the skipped feed',
+    syncsEveryAppWhenNoNameIsGivenAndReportsTheSkippedFeed,
+  );
+  async function joinsTheFeedNotesIntoTheReportMessage() {
     fakeFeed.reply = { ...FETCHED_REPLY, notes: ['month 2026-09 missing', 'currency mixed'] };
 
     const report = await sync('cal friend', 30);
@@ -177,9 +191,10 @@ describe('syncStats', () => {
     expect(report.appFeeds[0]?.message).toBe('month 2026-09 missing; currency mixed');
     const coverage = readCoverage('ios-1');
     expect(coverage.feeds['app-store']?.lastNote).toBe('month 2026-09 missing; currency mixed');
-  });
+  }
 
-  test('records a skipped feed as checked so the next read does not sync again', async () => {
+  test('joins the feed notes into the report message', joinsTheFeedNotesIntoTheReportMessage);
+  async function recordsASkippedFeedAsCheckedSoTheNextReadDoesNotSyncAgain() {
     const report = await sync('fit', 5);
 
     expect(report.appFeeds[0]?.status).toBe('skipped');
@@ -189,9 +204,13 @@ describe('syncStats', () => {
       lastError: null,
       lastNote: 'not built yet',
     });
-  });
+  }
 
-  test('asks only for the days that are not covered yet on the second run', async () => {
+  test(
+    'records a skipped feed as checked so the next read does not sync again',
+    recordsASkippedFeedAsCheckedSoTheNextReadDoesNotSyncAgain,
+  );
+  async function asksOnlyForTheDaysThatAreNotCoveredYetOnTheSecondRun() {
     await sync('cal friend', 30);
     fakeFeed.askedRanges = [];
 
@@ -199,9 +218,13 @@ describe('syncStats', () => {
 
     expect(fakeFeed.askedRanges).toHaveLength(1);
     expect(secondReport.appFeeds[0]?.status).toBe('synced');
-  });
+  }
 
-  test('reports up-to-date and does not call the feed when everything is covered', async () => {
+  test(
+    'asks only for the days that are not covered yet on the second run',
+    asksOnlyForTheDaysThatAreNotCoveredYetOnTheSecondRun,
+  );
+  async function reportsUpToDateAndDoesNotCallTheFeedWhenEverythingIsCovered() {
     const coverage: AppCoverage = {
       version: 1,
       appKey: 'ios-1',
@@ -222,9 +245,13 @@ describe('syncStats', () => {
 
     expect(report.appFeeds[0]).toMatchObject({ status: 'up-to-date', statsWritten: 0 });
     expect(fakeFeed.askedRanges).toHaveLength(0);
-  });
+  }
 
-  test('records a failing feed as failed with its message and keeps going', async () => {
+  test(
+    'reports up-to-date and does not call the feed when everything is covered',
+    reportsUpToDateAndDoesNotCallTheFeedWhenEverythingIsCovered,
+  );
+  async function recordsAFailingFeedAsFailedWithItsMessageAndKeepsGoing() {
     fakeFeed.reply = {
       _tag: 'StatsFeedFailure',
       feed: 'app-store',
@@ -234,14 +261,21 @@ describe('syncStats', () => {
     } satisfies StatsFeedFailure;
 
     const report = await sync(null, 5);
+    function readStatus(appFeed: AppFeedSyncReport) {
+      return appFeed.status;
+    }
 
-    expect(report.appFeeds.map((appFeed) => appFeed.status)).toEqual(['failed', 'skipped']);
+    expect(report.appFeeds.map(readStatus)).toEqual(['failed', 'skipped']);
     expect(report.appFeeds[0]?.message).toBe('report not ready');
     const coverage = readCoverage('ios-1');
     expect(coverage.feeds['app-store']?.lastError).toBe('report not ready');
-  });
+  }
 
-  test('finds an app that is not in the saved portfolio by discovering again', async () => {
+  test(
+    'records a failing feed as failed with its message and keeps going',
+    recordsAFailingFeedAsFailedWithItsMessageAndKeepsGoing,
+  );
+  async function findsAnAppThatIsNotInTheSavedPortfolioByDiscoveringAgain() {
     const serialized = JSON.stringify({ ...PORTFOLIO_FILE, apps: [] });
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
 
@@ -250,11 +284,18 @@ describe('syncStats', () => {
         return makeFakeAscClient([{ id: '9', name: 'Fresh App', bundleId: null }]);
       },
     });
+    function readAppKey(appFeed: AppFeedSyncReport) {
+      return appFeed.appKey;
+    }
 
-    expect(report.appFeeds.map((appFeed) => appFeed.appKey)).toEqual(['ios-9']);
-  });
+    expect(report.appFeeds.map(readAppKey)).toEqual(['ios-9']);
+  }
 
-  test('fails with the known app names when the app does not exist anywhere', async () => {
+  test(
+    'finds an app that is not in the saved portfolio by discovering again',
+    findsAnAppThatIsNotInTheSavedPortfolioByDiscoveringAgain,
+  );
+  async function failsWithTheKnownAppNamesWhenTheAppDoesNotExistAnywhere() {
     makeStatsCredentialsTest();
 
     var failure: unknown;
@@ -268,5 +309,12 @@ describe('syncStats', () => {
 
     expect(failure).toMatchObject({ _tag: 'StatsAppNotFoundFailure' });
     expect((failure as { message: string }).message).toContain('No app matched "zzz".');
-  });
-});
+  }
+
+  test(
+    'fails with the known app names when the app does not exist anywhere',
+    failsWithTheKnownAppNamesWhenTheAppDoesNotExistAnywhere,
+  );
+}
+
+describe('syncStats', describeSyncStats);

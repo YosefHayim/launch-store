@@ -18,26 +18,30 @@ function snapshotContext(over: Partial<SnapshotContext> = {}): SnapshotContext {
   return {
     config: sampleLaunchConfig,
     apps: [],
-    resolveAscApi: () => Promise.resolve(null),
-    resolvePlayApi: () => Promise.resolve(null),
+    resolveAscApi() {
+      return Promise.resolve(null);
+    },
+    resolvePlayApi() {
+      return Promise.resolve(null);
+    },
     ...over,
   };
 }
-
-describe('captureAutoSnapshot', () => {
+function describeCaptureAutoSnapshot() {
   let dir: string;
-
-  beforeEach(() => {
+  function prepareCaptureAutoSnapshot() {
     const systemTemporaryDirectory = tmpdir();
     const launchAutoSnapPath = join(systemTemporaryDirectory, 'launch-auto-snap-');
     dir = mkdtempSync(launchAutoSnapPath);
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareCaptureAutoSnapshot);
+  function cleanupCaptureAutoSnapshot() {
     rmSync(dir, { recursive: true, force: true });
-  });
+  }
 
-  it('saves a reserved-prefix baseline even when no store is configured', async () => {
+  afterEach(cleanupCaptureAutoSnapshot);
+  async function savesAReservedPrefixBaselineEvenWhenNoStoreIsConfigured() {
     const capturedAt = '2026-06-17T08:00:00.000Z';
     const snapshot = snapshotContext();
     const savedSnapshot = await captureAutoSnapshot(snapshot, { capturedAt, dir });
@@ -45,9 +49,13 @@ describe('captureAutoSnapshot', () => {
     expect(savedSnapshot.name.startsWith(AUTO_SNAPSHOT_PREFIX)).toBe(true);
     expect(savedSnapshot.pruned).toEqual([]);
     expect(readdirSync(dir)).toHaveLength(1);
-  });
+  }
 
-  it('prunes older baselines beyond the retention window', async () => {
+  it(
+    'saves a reserved-prefix baseline even when no store is configured',
+    savesAReservedPrefixBaselineEvenWhenNoStoreIsConfigured,
+  );
+  async function prunesOlderBaselinesBeyondTheRetentionWindow() {
     const snapshot = snapshotContext();
     await captureAutoSnapshot(snapshot, {
       capturedAt: '2026-06-15T00:00:00.000Z',
@@ -61,5 +69,12 @@ describe('captureAutoSnapshot', () => {
     });
     expect(second.pruned).toEqual([autoSnapshotName('2026-06-15T00:00:00.000Z')]);
     expect(readdirSync(dir)).toHaveLength(1);
-  });
-});
+  }
+
+  it(
+    'prunes older baselines beyond the retention window',
+    prunesOlderBaselinesBeyondTheRetentionWindow,
+  );
+}
+
+describe('captureAutoSnapshot', describeCaptureAutoSnapshot);

@@ -9,28 +9,32 @@ import { clockSkewHint, describeErrors, parseErrorCodes } from './connect/shared
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /** A real P-256 PKCS#8 key so the client can mint a genuine ES256 JWT. */
-const makeKey = (): AscKey => {
+function makeKey(): AscKey {
   const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
   return {
     keyId: 'KEY123',
     issuerId: 'issuer-uuid',
     p8: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
   };
-};
-const fakeResponse = (
+}
+function fakeResponse(
   status: number,
   responseText: string,
   headers: Record<string, string> = {},
-): Response => {
+): Response {
   let responseBody: string | null = responseText;
   if (status == 204) responseBody = null;
   return new Response(responseBody, { status, headers });
-};
-const fakeBinaryResponse = (status: number, bytes: string, errorResponseText = ''): Response => {
+}
+function fakeBinaryResponse(
+  status: number,
+  bytes: string,
+  errorResponseText: string = '',
+): Response {
   let responseBody = errorResponseText;
   if (status >= 200 && status < 300) responseBody = bytes;
   return new Response(responseBody, { status });
-};
+}
 function readRequestDocument(requestInit: RequestInit): unknown {
   const requestBody = requestInit.body;
 
@@ -38,8 +42,10 @@ function readRequestDocument(requestInit: RequestInit): unknown {
 
   throw new Error('expected a JSON request body');
 }
-const requestHeaders = (requestInit: RequestInit): Headers => new Headers(requestInit.headers);
-const documentValueAt = (document: unknown, path: readonly (number | string)[]): unknown => {
+function requestHeaders(requestInit: RequestInit): Headers {
+  return new Headers(requestInit.headers);
+}
+function documentValueAt(document: unknown, path: readonly (number | string)[]): unknown {
   let currentValue = document;
   for (const pathPart of path) {
     if (typeof pathPart == 'number') {
@@ -52,12 +58,12 @@ const documentValueAt = (document: unknown, path: readonly (number | string)[]):
     currentValue = Reflect.get(currentValue, pathPart);
   }
   return currentValue;
-};
-const numberClaim = (claims: Record<string, unknown>, claimName: string): number => {
+}
+function numberClaim(claims: Record<string, unknown>, claimName: string): number {
   const claim = claims[claimName];
   if (typeof claim != 'number') throw new Error(`expected numeric JWT claim ${claimName}`);
   return claim;
-};
+}
 function decodeJwt(token: string): {
   header: Record<string, unknown>;
   claims: Record<string, unknown>;
@@ -86,16 +92,20 @@ function readObjectText(objectText: string): Record<string, unknown> {
 
 const fetchMock = vi.fn();
 let client: AppStoreConnectClient;
-beforeEach(() => {
+function prepare() {
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
   client = new AppStoreConnectClient(makeKey());
-});
-afterEach(() => {
+}
+
+beforeEach(prepare);
+function cleanup() {
   vi.unstubAllGlobals();
-});
+}
+
+afterEach(cleanup);
 describe('AppStoreConnectClient - auth + request building', () => {
-  it('signs each request with a short-lived ES256 JWT bound to the key', async () => {
+  async function signsEachRequestWithAShortLivedES256JWTBoundToTheKey() {
     const serialized = JSON.stringify({ data: [{ id: '42', attributes: {} }] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -111,14 +121,24 @@ describe('AppStoreConnectClient - auth + request building', () => {
     expect(jwtClaims['aud']).toBe('appstoreconnect-v1');
     // Apple rejects tokens older than 20 minutes; the client stays at 19.
     expect(numberClaim(jwtClaims, 'exp') - numberClaim(jwtClaims, 'iat')).toBe(19 * 60);
-  });
-  it('returns null when no app record exists for the bundle id', async () => {
+  }
+
+  it(
+    'signs each request with a short-lived ES256 JWT bound to the key',
+    signsEachRequestWithAShortLivedES256JWTBoundToTheKey,
+  );
+  async function returnsNullWhenNoAppPieceExistsForTheBundleId() {
     const serialized = JSON.stringify({ data: [] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.getAppId('com.example.missing')).toBeNull();
-  });
-  it('authenticates only with a Bearer API-key JWT - never a password or session cookie (the EAS 2FA dodge)', async () => {
+  }
+
+  it(
+    'returns null when no app record exists for the bundle id',
+    returnsNullWhenNoAppPieceExistsForTheBundleId,
+  );
+  async function authenticatesOnlyWithABearerAPIKeyJWTNeverAPasswordOrSessionCookieTheEAS2FADodge() {
     const serialized = JSON.stringify({ data: [] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -128,8 +148,13 @@ describe('AppStoreConnectClient - auth + request building', () => {
     // Bearer <JWT> (JWTs start `eyJ`) - Apple-ID 2FA can't enter the loop, so EAS's 2FA failures can't either.
     expect(headers.get('Authorization')).toMatch(/^Bearer eyJ/);
     expect(headers.get('Cookie')).toBeNull();
-  });
-  it('resolves the app id then the latest build number', async () => {
+  }
+
+  it(
+    'authenticates only with a Bearer API-key JWT - never a password or session cookie (the EAS 2FA dodge)',
+    authenticatesOnlyWithABearerAPIKeyJWTNeverAPasswordOrSessionCookieTheEAS2FADodge,
+  );
+  async function resolvesTheAppIdThenTheLatestBuildNumber() {
     const serialized = JSON.stringify({ data: [{ id: 'app1', attributes: {} }] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock
@@ -140,19 +165,23 @@ describe('AppStoreConnectClient - auth + request building', () => {
     expect(await client.getLatestBuildNumber('com.example.hello')).toBe(7);
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 1, 'mock call');
     expect(arrayElement[0]).toContain('/builds?filter[app]=app1');
-  });
-  it('reports zero builds when the app record is missing', async () => {
+  }
+
+  it('resolves the app id then the latest build number', resolvesTheAppIdThenTheLatestBuildNumber);
+  async function reportsZeroBuildsWhenTheAppPieceIsMissing() {
     const serialized = JSON.stringify({ data: [] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.getLatestBuildNumber('com.example.missing')).toBe(0);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
+  }
+
+  it(
+    'reports zero builds when the app record is missing',
+    reportsZeroBuildsWhenTheAppPieceIsMissing,
+  );
   it('folds App Store + TestFlight versions and picks the highest numerically', async () => {
-    // Route by URL, not call order: getLatestMarketingVersion fires the App Store + TestFlight
-    // lookups through Promise.all, so which fetch lands first is a race (each awaits JWT signing).
-    // Keying the mock on the path keeps the test deterministic regardless of dispatch order.
-    fetchMock.mockImplementation((url: string | URL) => {
+    function mockImplementationUrl(url: string | URL) {
       const path = String(url);
       if (path.includes('/appStoreVersions')) {
         const serialized = JSON.stringify({
@@ -171,21 +200,39 @@ describe('AppStoreConnectClient - auth + request building', () => {
       return Promise.resolve(
         fakeResponse(200, JSON.stringify({ data: [{ id: 'app1', attributes: {} }] })),
       );
-    });
+    }
+
+    // Route by URL, not call order: getLatestMarketingVersion fires the App Store + TestFlight
+    // lookups through Promise.all, so which fetch lands first is a race (each awaits JWT signing).
+    // Keying the mock on the path keeps the test deterministic regardless of dispatch order.
+    fetchMock.mockImplementation(mockImplementationUrl);
     // 1.10.0 (TestFlight) beats 1.9.0 (App Store) - a lexical sort would wrongly pick 1.9.0.
     expect(await client.getLatestMarketingVersion('com.example.hello')).toBe('1.10.0');
     const urls = fetchMock.mock.calls.map((call) => String(call[0]));
-    expect(urls.some((path) => path.includes('/apps/app1/appStoreVersions'))).toBe(true);
-    expect(urls.some((path) => path.includes('/apps/app1/preReleaseVersions'))).toBe(true);
+    function somePath(path: string) {
+      return path.includes('/apps/app1/appStoreVersions');
+    }
+
+    expect(urls.some(somePath)).toBe(true);
+    function somePath2(path: string) {
+      return path.includes('/apps/app1/preReleaseVersions');
+    }
+
+    expect(urls.some(somePath2)).toBe(true);
   });
-  it('returns null for marketing version when the app record is missing', async () => {
+  async function returnsNullForMarketingVersionWhenTheAppPieceIsMissing() {
     const serialized = JSON.stringify({ data: [] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.getLatestMarketingVersion('com.example.missing')).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-  it('returns null when the app exists but has no versions yet', async () => {
+  }
+
+  it(
+    'returns null for marketing version when the app record is missing',
+    returnsNullForMarketingVersionWhenTheAppPieceIsMissing,
+  );
+  async function returnsNullWhenTheAppExistsButHasNoVersionsYet() {
     const serialized = JSON.stringify({ data: [{ id: 'app1', attributes: {} }] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock
@@ -193,8 +240,13 @@ describe('AppStoreConnectClient - auth + request building', () => {
       .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })))
       .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })));
     expect(await client.getLatestMarketingVersion('com.example.hello')).toBeNull();
-  });
-  it("surfaces Apple's error detail (not a bare status) on failure", async () => {
+  }
+
+  it(
+    'returns null when the app exists but has no versions yet',
+    returnsNullWhenTheAppExistsButHasNoVersionsYet,
+  );
+  async function surfacesAppleSErrorDetailNotABareStatusOnFailure() {
     const serialized = JSON.stringify({
       errors: [
         {
@@ -208,8 +260,13 @@ describe('AppStoreConnectClient - auth + request building', () => {
     const fakeReply = fakeResponse(403, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     await expect(client.assertReady()).rejects.toThrow(/403.*A required agreement is missing\./);
-  });
-  it('checkRequiredAgreements: true on a clean read, false on the agreements 403, rethrows otherwise', async () => {
+  }
+
+  it(
+    "surfaces Apple's error detail (not a bare status) on failure",
+    surfacesAppleSErrorDetailNotABareStatusOnFailure,
+  );
+  async function checkRequiredAgreementsTrueOnACleanReadFalseOnTheAgreements403RethrowsOtherwise() {
     const serialized = JSON.stringify({ data: [] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -237,8 +294,13 @@ describe('AppStoreConnectClient - auth + request building', () => {
       ),
     );
     await expect(client.checkRequiredAgreements()).rejects.toThrow(/403/);
-  });
-  it('POSTs a correctly-shaped bundle-id registration with a JSON content type', async () => {
+  }
+
+  it(
+    'checkRequiredAgreements: true on a clean read, false on the agreements 403, rethrows otherwise',
+    checkRequiredAgreementsTrueOnACleanReadFalseOnTheAgreements403RethrowsOtherwise,
+  );
+  async function pOSTsACorrectlyShapedBundleIdRegistrationWithAJSONPieceType() {
     const serialized = JSON.stringify({
       data: { id: 'b1', attributes: { identifier: 'com.x', seedId: 'SEED' } },
     });
@@ -256,8 +318,13 @@ describe('AppStoreConnectClient - auth + request building', () => {
         attributes: { identifier: 'com.x', name: 'X App', platform: 'IOS' },
       },
     });
-  });
-  it('registers a macOS bundle id under MAC_OS when the platform is passed', async () => {
+  }
+
+  it(
+    'POSTs a correctly-shaped bundle-id registration with a JSON content type',
+    pOSTsACorrectlyShapedBundleIdRegistrationWithAJSONPieceType,
+  );
+  async function registersAMacOSBundleIdUnderMACOSWhenThePlatformIsPassed() {
     const serialized = JSON.stringify({
       data: { id: 'b2', attributes: { identifier: 'com.x.mac', seedId: 'SEED' } },
     });
@@ -269,8 +336,13 @@ describe('AppStoreConnectClient - auth + request building', () => {
     expect(requestDocument).toMatchObject({
       data: { type: 'bundleIds', attributes: { platform: 'MAC_OS' } },
     });
-  });
-  it("creates an App Store profile with the platform's profile type (tvOS)", async () => {
+  }
+
+  it(
+    'registers a macOS bundle id under MAC_OS when the platform is passed',
+    registersAMacOSBundleIdUnderMACOSWhenThePlatformIsPassed,
+  );
+  async function createsAnAppStoreProfileWithThePlatformSProfileTypeTvOS() {
     const serialized = JSON.stringify({
       data: { id: 'pf2', attributes: { name: 'TV', uuid: 'U2', profileContent: 'B64' } },
     });
@@ -287,8 +359,13 @@ describe('AppStoreConnectClient - auth + request building', () => {
         id: 'bundle1',
       },
     );
-  });
-  it("resolves the Team ID from the first bundle id's seedId", async () => {
+  }
+
+  it(
+    "creates an App Store profile with the platform's profile type (tvOS)",
+    createsAnAppStoreProfileWithThePlatformSProfileTypeTvOS,
+  );
+  async function resolvesTheTeamIDFromTheFirstBundleIdSSeedId() {
     const serialized = JSON.stringify({
       data: [{ id: 'b1', attributes: { seedId: 'ABCDE12345' } }],
     });
@@ -297,14 +374,24 @@ describe('AppStoreConnectClient - auth + request building', () => {
     expect(await client.resolveTeamId()).toBe('ABCDE12345');
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(arrayElement[0]).toContain('/bundleIds?limit=1&fields[bundleIds]=seedId');
-  });
-  it('returns null for the Team ID when the account has no bundle ids yet', async () => {
+  }
+
+  it(
+    "resolves the Team ID from the first bundle id's seedId",
+    resolvesTheTeamIDFromTheFirstBundleIdSSeedId,
+  );
+  async function returnsNullForTheTeamIDWhenTheAccountHasNoBundleIdsYet() {
     const serialized = JSON.stringify({ data: [] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.resolveTeamId()).toBeNull();
-  });
-  it('lists accessible app names, dropping any without a name', async () => {
+  }
+
+  it(
+    'returns null for the Team ID when the account has no bundle ids yet',
+    returnsNullForTheTeamIDWhenTheAccountHasNoBundleIdsYet,
+  );
+  async function listsAccessibleAppNamesDroppingAnyWithoutAName() {
     const serialized = JSON.stringify({
       data: [
         { attributes: { name: 'Mapleleaf' } },
@@ -317,8 +404,13 @@ describe('AppStoreConnectClient - auth + request building', () => {
     expect(await client.listAppNames()).toEqual(['Mapleleaf', 'SampleApp']);
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(arrayElement[0]).toContain('/apps?fields[apps]=name');
-  });
-  it('lists apps with id, name and bundle id, using the id when a name is missing', async () => {
+  }
+
+  it(
+    'lists accessible app names, dropping any without a name',
+    listsAccessibleAppNamesDroppingAnyWithoutAName,
+  );
+  async function listsAppsWithIdNameAndBundleIdUsingTheIdWhenANameIsMissing() {
     const serialized = JSON.stringify({
       data: [
         { id: '1', attributes: { name: 'Mapleleaf', bundleId: 'com.acme.maple' } },
@@ -333,8 +425,13 @@ describe('AppStoreConnectClient - auth + request building', () => {
     ]);
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(arrayElement[0]).toContain('/apps?fields[apps]=name,bundleId&limit=200');
-  });
-  it('treats a 204 as success with no body (profile deletion)', async () => {
+  }
+
+  it(
+    'lists apps with id, name and bundle id, using the id when a name is missing',
+    listsAppsWithIdNameAndBundleIdUsingTheIdWhenANameIsMissing,
+  );
+  async function treatsA204AsSuccessWithNoPieceProfileDeletion() {
     const fakeReply = fakeResponse(204, '');
     fetchMock.mockResolvedValueOnce(fakeReply);
     await expect(client.deleteProfile('p1')).resolves.toBeUndefined();
@@ -342,20 +439,29 @@ describe('AppStoreConnectClient - auth + request building', () => {
     expect(init.method).toBe('DELETE');
     expect(url).toContain('/profiles/p1');
     expect(requestHeaders(init).get('Content-Type')).toBeNull();
-  });
+  }
+
+  it(
+    'treats a 204 as success with no body (profile deletion)',
+    treatsA204AsSuccessWithNoPieceProfileDeletion,
+  );
 });
 describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
-  afterEach(() => {
+  function cleanupAppStoreConnectClientTokenReuseParallelAssetUpload() {
     vi.useRealTimers();
-  });
+  }
+
+  afterEach(cleanupAppStoreConnectClientTokenReuseParallelAssetUpload);
   it('signs once per 15 minutes instead of once per request', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2030-01-01T00:00:00.000Z'));
-    fetchMock.mockImplementation(() => {
+    function mockImplementationPiece() {
       const serialized = JSON.stringify({ data: [] });
       const fakeReply = fakeResponse(200, serialized);
       return Promise.resolve(fakeReply);
-    });
+    }
+
+    fetchMock.mockImplementation(mockImplementationPiece);
     await client.getAppId('com.example.one');
     await client.getAppId('com.example.two');
     vi.setSystemTime(new Date('2030-01-01T00:16:00.000Z'));
@@ -369,18 +475,26 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
   it('uploads asset parts a few at a time', async () => {
     let inFlightUploads = 0;
     let peakInFlightUploads = 0;
-    const uploadOperations = Array.from({ length: 6 }, (_, partIndex) => ({
-      method: 'PUT',
-      url: `https://upload.example/part-${partIndex}`,
-      offset: partIndex,
-      length: 1,
-      requestHeaders: [],
-    }));
-    fetchMock.mockImplementation(async (url: string, requestInit: RequestInit) => {
+    function fromPiece(_: unknown, partIndex: number) {
+      return {
+        method: 'PUT',
+        url: `https://upload.example/part-${partIndex}`,
+        offset: partIndex,
+        length: 1,
+        requestHeaders: [],
+      };
+    }
+
+    const uploadOperations = Array.from({ length: 6 }, fromPiece);
+    async function mockImplementationUrl7(url: string, requestInit: RequestInit) {
       if (url.startsWith('https://upload.example/')) {
         inFlightUploads += 1;
         peakInFlightUploads = Math.max(peakInFlightUploads, inFlightUploads);
-        await new Promise((resumeUpload) => setTimeout(resumeUpload, 20));
+        function createPromiseWork(resumeUpload: (value: unknown) => void) {
+          return setTimeout(resumeUpload, 20);
+        }
+
+        await new Promise(createPromiseWork);
         inFlightUploads -= 1;
         return fakeResponse(200, '');
       }
@@ -391,7 +505,9 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
       }
       const serialized = JSON.stringify({ data: { id: 'shot-1', attributes: {} } });
       return fakeResponse(200, serialized);
-    });
+    }
+
+    fetchMock.mockImplementation(mockImplementationUrl7);
     const fileUrltoPath = fileURLToPath(import.meta.url);
     expect(await client.uploadScreenshot('set-1', 'shot.png', fileUrltoPath)).toBe('shot-1');
     const partUploads = fetchMock.mock.calls.filter(([url]) =>
@@ -401,12 +517,12 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
     expect(peakInFlightUploads).toBeGreaterThan(1);
     expect(peakInFlightUploads).toBeLessThanOrEqual(4);
   });
-  it('retries a part after a dropped connection', async () => {
+  async function retriesAPartAfterADroppedConnection() {
     const uploadOperations = [
       { method: 'PUT', url: 'https://upload.example/part-0', offset: 0, length: 1 },
     ];
     let partAttempts = 0;
-    fetchMock.mockImplementation((url: string, requestInit: RequestInit) => {
+    function mockImplementationUrl2(url: string, requestInit: RequestInit) {
       if (url.startsWith('https://upload.example/')) {
         partAttempts += 1;
         if (partAttempts == 1) return Promise.reject(new TypeError('fetch failed'));
@@ -422,21 +538,29 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
       const serialized = JSON.stringify({ data: { id: 'shot-1', attributes: {} } });
       const fakeReply = fakeResponse(200, serialized);
       return Promise.resolve(fakeReply);
-    });
+    }
+
+    fetchMock.mockImplementation(mockImplementationUrl2);
     const fileUrltoPath = fileURLToPath(import.meta.url);
     await client.uploadScreenshot('set-1', 'shot.png', fileUrltoPath);
     expect(partAttempts).toBe(2);
-  });
-  it('lets every part in a batch finish before reporting a failed part', async () => {
+  }
+
+  it('retries a part after a dropped connection', retriesAPartAfterADroppedConnection);
+  async function letsEveryPartInABatchFinishBeforeReportingAFailedPart() {
     const uploadOperations = [
       { method: 'PUT', url: 'https://upload.example/part-0', offset: 0, length: 1 },
       { method: 'PUT', url: 'https://upload.example/part-1', offset: 1, length: 1 },
     ];
     let slowPartFinished = false;
-    fetchMock.mockImplementation(async (url: string, requestInit: RequestInit) => {
+    async function mockImplementationUrl8(url: string, requestInit: RequestInit) {
       if (url == 'https://upload.example/part-0') return fakeResponse(400, '');
       if (url == 'https://upload.example/part-1') {
-        await new Promise((resumeUpload) => setTimeout(resumeUpload, 10));
+        function createPromiseWork2(resumeUpload: (value: unknown) => void) {
+          return setTimeout(resumeUpload, 10);
+        }
+
+        await new Promise(createPromiseWork2);
         slowPartFinished = true;
         return fakeResponse(200, '');
       }
@@ -447,16 +571,23 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
       }
       const serialized = JSON.stringify({ data: { id: 'shot-1', attributes: {} } });
       return fakeResponse(200, serialized);
-    });
+    }
+
+    fetchMock.mockImplementation(mockImplementationUrl8);
     const fileUrltoPath = fileURLToPath(import.meta.url);
     await expect(client.uploadScreenshot('set-1', 'shot.png', fileUrltoPath)).rejects.toThrow(
       /asset upload chunk failed \(400\)/,
     );
     expect(slowPartFinished).toBe(true);
-  });
+  }
+
+  it(
+    'lets every part in a batch finish before reporting a failed part',
+    letsEveryPartInABatchFinishBeforeReportingAFailedPart,
+  );
 });
 describe('AppStoreConnectClient - build uploads', () => {
-  it('opens a build upload for the app, version, build number and platform', async () => {
+  async function opensABuildUploadForTheAppVersionBuildNumberAndPlatform() {
     const serialized = JSON.stringify({ data: { id: 'upload-1', type: 'buildUploads' } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValue(fakeReply);
@@ -472,7 +603,12 @@ describe('AppStoreConnectClient - build uploads', () => {
         relationships: { app: { data: { type: 'apps', id: 'app-1' } } },
       },
     });
-  });
+  }
+
+  it(
+    'opens a build upload for the app, version, build number and platform',
+    opensABuildUploadForTheAppVersionBuildNumberAndPlatform,
+  );
   it('fails clearly when the file is shorter than a part Apple asks for', async () => {
     const ipaPath = fileURLToPath(import.meta.url);
     const ipaBytes = readFileSync(ipaPath);
@@ -480,7 +616,7 @@ describe('AppStoreConnectClient - build uploads', () => {
     const uploadOperations = [
       { method: 'PUT', url: 'https://upload.example/part-0', offset: pastTheEnd, length: 5 },
     ];
-    fetchMock.mockImplementation((url: string, requestInit: RequestInit) => {
+    function mockImplementationUrl3(url: string, requestInit: RequestInit) {
       if (url.startsWith('https://upload.example/')) {
         const fakeReply = fakeResponse(200, '');
         return Promise.resolve(fakeReply);
@@ -494,7 +630,9 @@ describe('AppStoreConnectClient - build uploads', () => {
       const serialized = JSON.stringify({ data: { id: 'file-1', attributes: {} } });
       const fakeReply = fakeResponse(200, serialized);
       return Promise.resolve(fakeReply);
-    });
+    }
+
+    fetchMock.mockImplementation(mockImplementationUrl3);
     await expect(client.uploadBuildFile('upload-1', 'App.ipa', ipaPath)).rejects.toMatchObject({
       _tag: 'StoreUploadFailure',
       provider: 'app-store-connect',
@@ -510,7 +648,7 @@ describe('AppStoreConnectClient - build uploads', () => {
       { method: 'PUT', url: 'https://upload.example/part-0', offset: 0, length: 5 },
       { method: 'PUT', url: 'https://upload.example/part-1', offset: 5, length: 7 },
     ];
-    fetchMock.mockImplementation((url: string, requestInit: RequestInit) => {
+    function mockImplementationUrl4(url: string, requestInit: RequestInit) {
       if (url.startsWith('https://upload.example/')) {
         const fakeReply = fakeResponse(200, '');
         return Promise.resolve(fakeReply);
@@ -524,7 +662,9 @@ describe('AppStoreConnectClient - build uploads', () => {
       const serialized = JSON.stringify({ data: { id: 'file-1', attributes: {} } });
       const fakeReply = fakeResponse(200, serialized);
       return Promise.resolve(fakeReply);
-    });
+    }
+
+    fetchMock.mockImplementation(mockImplementationUrl4);
     await client.uploadBuildFile('upload-1', 'App.ipa', ipaPath);
     const [reserveUrl, reserveInit] = expectArrayElement(fetchMock.mock.calls, 0, 'reserve call');
     expect(reserveUrl).toBe('https://api.appstoreconnect.apple.com/v1/buildUploadFiles');
@@ -553,7 +693,7 @@ describe('AppStoreConnectClient - build uploads', () => {
       data: { type: 'buildUploadFiles', id: 'file-1', attributes: { uploaded: true } },
     });
   });
-  it('reads the upload state with the delivery errors of its IPA', async () => {
+  async function readsTheUploadPieceWithTheDeliveryErrorsOfItsIPA() {
     const serialized = JSON.stringify({
       data: {
         id: 'upload-1',
@@ -592,8 +732,13 @@ describe('AppStoreConnectClient - build uploads', () => {
     expect(url).toBe(
       'https://api.appstoreconnect.apple.com/v1/buildUploads/upload-1?include=assetFile&fields[buildUploads]=state,assetFile&fields[buildUploadFiles]=assetDeliveryState',
     );
-  });
-  it('treats an upload with no state yet as awaiting upload', async () => {
+  }
+
+  it(
+    'reads the upload state with the delivery errors of its IPA',
+    readsTheUploadPieceWithTheDeliveryErrorsOfItsIPA,
+  );
+  async function treatsAnUploadWithNoPieceYetAsAwaitingUpload() {
     const serialized = JSON.stringify({ data: { id: 'upload-1', type: 'buildUploads' } });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValue(fakeReply);
@@ -602,10 +747,15 @@ describe('AppStoreConnectClient - build uploads', () => {
       fileState: '',
       errors: [],
     });
-  });
+  }
+
+  it(
+    'treats an upload with no state yet as awaiting upload',
+    treatsAnUploadWithNoPieceYetAsAwaitingUpload,
+  );
 });
-describe('AppStoreConnectClient - pagination (links.next)', () => {
-  it('follows the absolute links.next URL verbatim, without the /v1/v1 double-prefix', async () => {
+function describeAppStoreConnectClientPaginationLinksNext() {
+  async function followsTheAbsoluteLinksNextURLVerbatimWithoutTheV1V1DoublePrefix() {
     const page2Url = 'https://api.appstoreconnect.apple.com/v1/devices?cursor=PAGE2';
     const serialized = JSON.stringify({
       data: [{ id: 'd1', attributes: { udid: 'AAAA', name: 'Phone A', status: 'ENABLED' } }],
@@ -621,8 +771,17 @@ describe('AppStoreConnectClient - pagination (links.next)', () => {
         ),
       );
     const devices = await client.listDevices();
+    function readUdid(d: {
+      readonly id: string;
+      readonly udid: string;
+      readonly name: string;
+      readonly status?: string | undefined | undefined;
+    }) {
+      return d.udid;
+    }
+
     // Both pages folded into one list - reading only page 1 would silently truncate the team.
-    expect(devices.map((d) => d.udid)).toEqual(['AAAA', 'BBBB']);
+    expect(devices.map(readUdid)).toEqual(['AAAA', 'BBBB']);
     // The crux of the #3764 regression: the second request hits the absolute next URL exactly,
     // NOT https://.../v1/v1/devices?... (which is what re-prefixing BASE_URL would produce).
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 1, 'mock call');
@@ -630,8 +789,13 @@ describe('AppStoreConnectClient - pagination (links.next)', () => {
     expect(asString).toBe(page2Url);
     const string = String(expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[0]);
     expect(string).not.toContain('/v1/v1');
-  });
-  it('stops after one page when there is no links.next', async () => {
+  }
+
+  it(
+    'follows the absolute links.next URL verbatim, without the /v1/v1 double-prefix',
+    followsTheAbsoluteLinksNextURLVerbatimWithoutTheV1V1DoublePrefix,
+  );
+  async function stopsAfterOnePageWhenThereIsNoLinksNext() {
     const serialized = JSON.stringify({
       data: [{ id: 'd1', attributes: { udid: 'AAAA', name: 'Phone A' } }],
     });
@@ -639,10 +803,17 @@ describe('AppStoreConnectClient - pagination (links.next)', () => {
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.listDevices()).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-});
-describe('AppStoreConnectClient - device registration + ad-hoc profile', () => {
-  it('finds a registered device by UDID case-insensitively', async () => {
+  }
+
+  it('stops after one page when there is no links.next', stopsAfterOnePageWhenThereIsNoLinksNext);
+}
+
+describe(
+  'AppStoreConnectClient - pagination (links.next)',
+  describeAppStoreConnectClientPaginationLinksNext,
+);
+function describeAppStoreConnectClientDeviceRegistrationAdHocProfile() {
+  async function findsARegisteredDeviceByUDIDCaseInsensitively() {
     const serialized = JSON.stringify({
       data: [{ id: 'd1', attributes: { udid: 'abcd1234', name: 'Phone' } }],
     });
@@ -650,8 +821,13 @@ describe('AppStoreConnectClient - device registration + ad-hoc profile', () => {
     fetchMock.mockResolvedValueOnce(fakeReply);
     const found = await client.findDeviceByUdid('ABCD1234');
     expect(found?.id).toBe('d1');
-  });
-  it('POSTs a correctly-shaped device registration', async () => {
+  }
+
+  it(
+    'finds a registered device by UDID case-insensitively',
+    findsARegisteredDeviceByUDIDCaseInsensitively,
+  );
+  async function pOSTsACorrectlyShapedDeviceRegistration() {
     const serialized = JSON.stringify({
       data: { id: 'd9', attributes: { udid: 'UDID9', name: "Dana's iPhone" } },
     });
@@ -668,8 +844,10 @@ describe('AppStoreConnectClient - device registration + ad-hoc profile', () => {
         attributes: { udid: 'UDID9', name: "Dana's iPhone", platform: 'IOS' },
       },
     });
-  });
-  it('creates an ad-hoc profile linking the bundle, cert, and every listed device', async () => {
+  }
+
+  it('POSTs a correctly-shaped device registration', pOSTsACorrectlyShapedDeviceRegistration);
+  async function createsAnAdHocProfileLinkingTheBundleCertAndEveryListedDevice() {
     const serialized = JSON.stringify({
       data: { id: 'pf1', attributes: { name: 'AdHoc', uuid: 'U', profileContent: 'B64' } },
     });
@@ -685,8 +863,13 @@ describe('AppStoreConnectClient - device registration + ad-hoc profile', () => {
       { type: 'devices', id: 'd1' },
       { type: 'devices', id: 'd2' },
     ]);
-  });
-  it('creates a tvOS ad-hoc profile with the TVOS_APP_ADHOC type when passed', async () => {
+  }
+
+  it(
+    'creates an ad-hoc profile linking the bundle, cert, and every listed device',
+    createsAnAdHocProfileLinkingTheBundleCertAndEveryListedDevice,
+  );
+  async function createsATvOSAdHocProfileWithTheTVOSAPPADHOCTypeWhenPassed() {
     const serialized = JSON.stringify({
       data: { id: 'pf3', attributes: { name: 'TVAdHoc', uuid: 'U3', profileContent: 'B64' } },
     });
@@ -697,10 +880,20 @@ describe('AppStoreConnectClient - device registration + ad-hoc profile', () => {
     const requestDocument = readRequestDocument(arrayElement[1]);
     const documentAt = documentValueAt(requestDocument, ['data', 'attributes', 'profileType']);
     expect(documentAt).toBe('TVOS_APP_ADHOC');
-  });
-});
+  }
+
+  it(
+    'creates a tvOS ad-hoc profile with the TVOS_APP_ADHOC type when passed',
+    createsATvOSAdHocProfileWithTheTVOSAPPADHOCTypeWhenPassed,
+  );
+}
+
+describe(
+  'AppStoreConnectClient - device registration + ad-hoc profile',
+  describeAppStoreConnectClientDeviceRegistrationAdHocProfile,
+);
 describe('AppStoreConnectClient - transient-failure retry', () => {
-  it('retries a 429 then succeeds, surfacing the eventual result', async () => {
+  async function retriesA429ThenSucceedsSurfacingTheEventualPiece() {
     const serialized = JSON.stringify({ errors: [{ title: 'Rate limited' }] });
     const fakeReply = fakeResponse(429, serialized);
     fetchMock
@@ -710,21 +903,33 @@ describe('AppStoreConnectClient - transient-failure retry', () => {
       );
     expect(await client.getAppId('com.example.hello')).toBe('42');
     expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-  it('does NOT retry a 4xx (a permanent failure surfaces immediately)', async () => {
+  }
+
+  it(
+    'retries a 429 then succeeds, surfacing the eventual result',
+    retriesA429ThenSucceedsSurfacingTheEventualPiece,
+  );
+  async function doesNOTRetryA4xxAPermanentFailureSurfacesImmediately() {
     const serialized = JSON.stringify({ errors: [{ detail: 'Forbidden' }] });
     const fakeReply = fakeResponse(403, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     await expect(client.assertReady()).rejects.toThrow(/403.*Forbidden/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-  it('retries a read after a dropped connection', async () => {
+  }
+
+  it(
+    'does NOT retry a 4xx (a permanent failure surfaces immediately)',
+    doesNOTRetryA4xxAPermanentFailureSurfacesImmediately,
+  );
+  async function retriesAReadAfterADroppedConnection() {
     const serialized = JSON.stringify({ data: [{ id: '42', attributes: {} }] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockRejectedValueOnce(new TypeError('fetch failed')).mockResolvedValueOnce(fakeReply);
     expect(await client.getAppId('com.example.hello')).toBe('42');
     expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
+  }
+
+  it('retries a read after a dropped connection', retriesAReadAfterADroppedConnection);
   it('retries a refused token once with a newly signed one, writes included', async () => {
     const serialized = JSON.stringify({ errors: [{ detail: 'signed bearer token' }] });
     const fakeReply = fakeResponse(401, serialized);
@@ -736,23 +941,32 @@ describe('AppStoreConnectClient - transient-failure retry', () => {
     expect(authorizations).toHaveLength(2);
     expect(authorizations[1]).not.toBe(authorizations[0]);
   });
-  it('surfaces a 401 that a new token does not fix', async () => {
-    fetchMock.mockImplementation(() => {
+  async function surfacesA401ThatANewTokenDoesNotFix() {
+    function mockImplementationPiece2() {
       const serialized = JSON.stringify({ errors: [{ detail: 'signed bearer token' }] });
       const fakeReply = fakeResponse(401, serialized);
       return Promise.resolve(fakeReply);
-    });
+    }
+
+    fetchMock.mockImplementation(mockImplementationPiece2);
     await expect(client.assertReady()).rejects.toThrow(/401/);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-  it('does NOT repeat a write after a dropped connection (it may already have landed)', async () => {
+  }
+
+  it('surfaces a 401 that a new token does not fix', surfacesA401ThatANewTokenDoesNotFix);
+  async function doesNOTRepeatAWriteAfterADroppedConnectionItMayAlreadyHaveLanded() {
     fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'));
     await expect(client.registerDevice('UDID9', "Dana's iPhone")).rejects.toThrow(/fetch failed/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
+  }
+
+  it(
+    'does NOT repeat a write after a dropped connection (it may already have landed)',
+    doesNOTRepeatAWriteAfterADroppedConnectionItMayAlreadyHaveLanded,
+  );
 });
-describe('AppStoreConnectClient - product catalog', () => {
-  it('enables a capability with the bundleId relationship', async () => {
+function describeAppStoreConnectClientProductCatalog() {
+  async function enablesACapabilityWithTheBundleIdRelationship() {
     const serialized = JSON.stringify({
       data: { id: 'cap1', attributes: { capabilityType: 'PUSH_NOTIFICATIONS' } },
     });
@@ -770,8 +984,13 @@ describe('AppStoreConnectClient - product catalog', () => {
         relationships: { bundleId: { data: { type: 'bundleIds', id: 'bundle1' } } },
       },
     });
-  });
-  it('creates an in-app purchase against the /v2 endpoint with the app relationship', async () => {
+  }
+
+  it(
+    'enables a capability with the bundleId relationship',
+    enablesACapabilityWithTheBundleIdRelationship,
+  );
+  async function createsAnInAppPurchaseAgainstTheV2EndpointWithTheAppRelationship() {
     const serialized = JSON.stringify({
       data: {
         id: 'iap1',
@@ -805,8 +1024,13 @@ describe('AppStoreConnectClient - product catalog', () => {
         relationships: { app: { data: { type: 'apps', id: 'app1' } } },
       },
     });
-  });
-  it('creates a version experiment and lists its treatments on the v2 paths', async () => {
+  }
+
+  it(
+    'creates an in-app purchase against the /v2 endpoint with the app relationship',
+    createsAnInAppPurchaseAgainstTheV2EndpointWithTheAppRelationship,
+  );
+  async function createsAVersionExperimentAndListsItsTreatmentsOnTheV2Paths() {
     const serialized = JSON.stringify({ data: { id: 'exp1', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock
@@ -832,14 +1056,24 @@ describe('AppStoreConnectClient - product catalog', () => {
     expect(string).toContain(
       'https://api.appstoreconnect.apple.com/v2/appStoreVersionExperiments/exp1/appStoreVersionExperimentTreatments?',
     );
-  });
-  it('treats a screenshot Apple no longer has as deleted', async () => {
+  }
+
+  it(
+    'creates a version experiment and lists its treatments on the v2 paths',
+    createsAVersionExperimentAndListsItsTreatmentsOnTheV2Paths,
+  );
+  async function treatsAScreenshotAppleNoLongerHasAsDeleted() {
     const serialized = JSON.stringify({ errors: [{ detail: 'There is no resource' }] });
     const fakeReply = fakeResponse(404, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     await expect(client.deleteScreenshot('gone')).resolves.toBeUndefined();
-  });
-  it('deletes a screenshot and reorders a screenshot set', async () => {
+  }
+
+  it(
+    'treats a screenshot Apple no longer has as deleted',
+    treatsAScreenshotAppleNoLongerHasAsDeleted,
+  );
+  async function deletesAScreenshotAndReordersAScreenshotSet() {
     const fakeReply = fakeResponse(204, '');
     fetchMock.mockResolvedValueOnce(fakeReply).mockResolvedValueOnce(fakeResponse(204, ''));
     await client.deleteScreenshot('shot1');
@@ -861,8 +1095,13 @@ describe('AppStoreConnectClient - product catalog', () => {
         { type: 'appScreenshots', id: 'shot2' },
       ],
     });
-  });
-  it('creates a subscription with its billing period and group relationship', async () => {
+  }
+
+  it(
+    'deletes a screenshot and reorders a screenshot set',
+    deletesAScreenshotAndReordersAScreenshotSet,
+  );
+  async function createsASubscriptionWithItsBillingPeriodAndGroupRelationship() {
     const serialized = JSON.stringify({
       data: { id: 'sub1', attributes: { productId: 'com.x.pro', name: 'Pro' } },
     });
@@ -886,8 +1125,13 @@ describe('AppStoreConnectClient - product catalog', () => {
       type: 'subscriptionGroups',
       id: 'group1',
     });
-  });
-  it('writes a subscription localization onto the existing draft version', async () => {
+  }
+
+  it(
+    'creates a subscription with its billing period and group relationship',
+    createsASubscriptionWithItsBillingPeriodAndGroupRelationship,
+  );
+  async function writesASubscriptionLocalizationOntoTheExistingDraftVersion() {
     const serialized = JSON.stringify({
       data: [{ id: 'sv1', attributes: { state: 'PREPARE_FOR_SUBMISSION', version: 1 } }],
     });
@@ -926,8 +1170,13 @@ describe('AppStoreConnectClient - product catalog', () => {
         relationships: { version: { data: { type: 'subscriptionVersions', id: 'sv1' } } },
       },
     });
-  });
-  it('creates the subscription draft version first when the subscription has none', async () => {
+  }
+
+  it(
+    'writes a subscription localization onto the existing draft version',
+    writesASubscriptionLocalizationOntoTheExistingDraftVersion,
+  );
+  async function createsTheSubscriptionDraftVersionFirstWhenTheSubscriptionHasNone() {
     const serialized = JSON.stringify({ data: [] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock
@@ -963,8 +1212,13 @@ describe('AppStoreConnectClient - product catalog', () => {
       'relationships',
     ]);
     expect(documentAt).toEqual({ version: { data: { type: 'subscriptionVersions', id: 'sv2' } } });
-  });
-  it('omits description on a group localization (groups carry a name only)', async () => {
+  }
+
+  it(
+    'creates the subscription draft version first when the subscription has none',
+    createsTheSubscriptionDraftVersionFirstWhenTheSubscriptionHasNone,
+  );
+  async function omitsDescriptionOnAGroupLocalizationGroupsCarryANameOnly() {
     const serialized = JSON.stringify({
       data: [{ id: 'gv1', attributes: { state: 'PREPARE_FOR_SUBMISSION', version: 1 } }],
     });
@@ -995,8 +1249,13 @@ describe('AppStoreConnectClient - product catalog', () => {
     expect(documentValueAt(requestDocument, ['data', 'attributes'])).not.toHaveProperty(
       'description',
     );
-  });
-  it('resolves a subscription price point by exact customer price', async () => {
+  }
+
+  it(
+    'omits description on a group localization (groups carry a name only)',
+    omitsDescriptionOnAGroupLocalizationGroupsCarryANameOnly,
+  );
+  async function resolvesASubscriptionPricePointByExactCustomerPrice() {
     const serialized = JSON.stringify({
       data: [
         { id: 'pp1', attributes: { customerPrice: '4.99', territory: 'USA' } },
@@ -1009,16 +1268,26 @@ describe('AppStoreConnectClient - product catalog', () => {
     expect(point).toEqual({ id: 'pp2', customerPrice: '9.99', territory: 'USA' });
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(arrayElement[0]).toContain('/subscriptions/sub1/pricePoints?filter[territory]=USA');
-  });
-  it('returns null when no price point matches the requested amount', async () => {
+  }
+
+  it(
+    'resolves a subscription price point by exact customer price',
+    resolvesASubscriptionPricePointByExactCustomerPrice,
+  );
+  async function returnsNullWhenNoPricePointMatchesTheRequestedAmount() {
     const serialized = JSON.stringify({
       data: [{ id: 'pp1', attributes: { customerPrice: '4.99', territory: 'USA' } }],
     });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.findSubscriptionPricePoint('sub1', 'USA', 9.99)).toBeNull();
-  });
-  it('sets a subscription price by linking the resolved price point', async () => {
+  }
+
+  it(
+    'returns null when no price point matches the requested amount',
+    returnsNullWhenNoPricePointMatchesTheRequestedAmount,
+  );
+  async function setsASubscriptionPriceByLinkingTheResolvedPricePoint() {
     const serialized = JSON.stringify({ data: { id: 'spr1', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -1031,8 +1300,13 @@ describe('AppStoreConnectClient - product catalog', () => {
       subscription: { data: { type: 'subscriptions', id: 'sub1' } },
       subscriptionPricePoint: { data: { type: 'subscriptionPricePoints', id: 'pp2' } },
     });
-  });
-  it('builds an IAP price schedule with a base territory and a temp-id included price', async () => {
+  }
+
+  it(
+    'sets a subscription price by linking the resolved price point',
+    setsASubscriptionPriceByLinkingTheResolvedPricePoint,
+  );
+  async function buildsAnIAPPriceScheduleWithABaseTerritoryAndAPieceIdIncludedPrice() {
     const serialized = JSON.stringify({ data: { id: 'sched1', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -1064,8 +1338,13 @@ describe('AppStoreConnectClient - product catalog', () => {
         inAppPurchasePricePoint: { data: { type: 'inAppPurchasePricePoints', id: 'pp9' } },
       },
     });
-  });
-  it('reports an unpriced in-app purchase when the price-schedule relationship is empty/404', async () => {
+  }
+
+  it(
+    'builds an IAP price schedule with a base territory and a temp-id included price',
+    buildsAnIAPPriceScheduleWithABaseTerritoryAndAPieceIdIncludedPrice,
+  );
+  async function reportsAnUnpricedInAppPurchaseWhenThePriceScheduleRelationshipIsEmpty404() {
     const serialized = JSON.stringify({ errors: [{ title: 'Not Found' }] });
     const fakeReply = fakeResponse(404, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -1076,8 +1355,13 @@ describe('AppStoreConnectClient - product catalog', () => {
     expect(asString).toBe(
       'https://api.appstoreconnect.apple.com/v2/inAppPurchases/iap1/iapPriceSchedule',
     );
-  });
-  it('reads IAP localizations from the draft version, not the deprecated parent collection', async () => {
+  }
+
+  it(
+    'reports an unpriced in-app purchase when the price-schedule relationship is empty/404',
+    reportsAnUnpricedInAppPurchaseWhenThePriceScheduleRelationshipIsEmpty404,
+  );
+  async function readsIAPLocalizationsFromTheDraftVersionNotTheDeprecatedParentCollection() {
     const serialized = JSON.stringify({
       data: [{ id: 'iapv1', attributes: { state: 'PREPARE_FOR_SUBMISSION', version: 1 } }],
     });
@@ -1108,15 +1392,25 @@ describe('AppStoreConnectClient - product catalog', () => {
     expect(string).toBe(
       'https://api.appstoreconnect.apple.com/v1/inAppPurchaseVersions/iapv1/localizations?limit=200',
     );
-  });
-  it('lists no IAP localizations and makes no localization read when the product has no version at all', async () => {
+  }
+
+  it(
+    'reads IAP localizations from the draft version, not the deprecated parent collection',
+    readsIAPLocalizationsFromTheDraftVersionNotTheDeprecatedParentCollection,
+  );
+  async function listsNoIAPLocalizationsAndMakesNoLocalizationReadWhenTheProductHasNoVersionAtAll() {
     const serialized = JSON.stringify({ data: [] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.listInAppPurchaseLocalizations('iap1')).toEqual([]);
     expect(fetchMock.mock.calls).toHaveLength(1);
-  });
-  it('lists the newest approved version when the product has no draft, so an approved product is not shown empty', async () => {
+  }
+
+  it(
+    'lists no IAP localizations and makes no localization read when the product has no version at all',
+    listsNoIAPLocalizationsAndMakesNoLocalizationReadWhenTheProductHasNoVersionAtAll,
+  );
+  async function listsTheNewestApprovedVersionWhenTheProductHasNoDraftSoAnApprovedProductIsNotShownEmpty() {
     const serialized = JSON.stringify({
       data: [
         { id: 'iapv1', attributes: { state: 'APPROVED', version: 1 } },
@@ -1140,8 +1434,13 @@ describe('AppStoreConnectClient - product catalog', () => {
     expect(asString).toBe(
       'https://api.appstoreconnect.apple.com/v1/inAppPurchaseVersions/iapv2/localizations?limit=200',
     );
-  });
-  it('reads a subscription fixture from its draft version into the rows the sync diff compares', async () => {
+  }
+
+  it(
+    'lists the newest approved version when the product has no draft, so an approved product is not shown empty',
+    listsTheNewestApprovedVersionWhenTheProductHasNoDraftSoAnApprovedProductIsNotShownEmpty,
+  );
+  async function readsASubscriptionFixtureFromItsDraftVersionIntoTheRowsTheSyncDiffCompares() {
     const serialized = JSON.stringify({
       data: [{ id: 'sv1', attributes: { state: 'PREPARE_FOR_SUBMISSION', version: 1 } }],
     });
@@ -1169,8 +1468,13 @@ describe('AppStoreConnectClient - product catalog', () => {
     expect(asString).toBe(
       'https://api.appstoreconnect.apple.com/v1/subscriptionVersions/sv1/localizations?limit=200',
     );
-  });
-  it('lists bundle id capabilities without a limit param (the related endpoint rejects it)', async () => {
+  }
+
+  it(
+    'reads a subscription fixture from its draft version into the rows the sync diff compares',
+    readsASubscriptionFixtureFromItsDraftVersionIntoTheRowsTheSyncDiffCompares,
+  );
+  async function listsBundleIdCapabilitiesWithoutALimitParamTheRelatedEndpointRejectsIt() {
     const serialized = JSON.stringify({
       data: [{ id: 'cap1', attributes: { capabilityType: 'PUSH_NOTIFICATIONS' } }],
     });
@@ -1183,12 +1487,17 @@ describe('AppStoreConnectClient - product catalog', () => {
     expect(url).toContain('/bundleIds/bundle1/bundleIdCapabilities');
     expect(url).not.toContain('limit');
     expect(url).toContain('fields[bundleIdCapabilities]=capabilityType,settings');
-  });
+  }
+
+  it(
+    'lists bundle id capabilities without a limit param (the related endpoint rejects it)',
+    listsBundleIdCapabilitiesWithoutALimitParamTheRelatedEndpointRejectsIt,
+  );
   const OFFER_PRICES = [
     { territory: 'ISR', pricePointId: 'pp-isr' },
     { territory: 'USA', pricePointId: 'pp-usa' },
   ];
-  const expectInlinePriceIds = (requestInit: RequestInit) => {
+  function expectInlinePriceIds(requestInit: RequestInit) {
     const requestDocument = readRequestDocument(requestInit);
     for (const [index, localId] of ['${price-0}', '${price-1}'].entries()) {
       const documentAt = documentValueAt(requestDocument, [
@@ -1202,8 +1511,8 @@ describe('AppStoreConnectClient - product catalog', () => {
       expect(documentAt).toBe(localId);
       expect(documentValueAt(requestDocument, ['included', index, 'id'])).toBe(localId);
     }
-  };
-  it('creates an offer-code campaign with ${local-id} inline price ids', async () => {
+  }
+  async function createsAnOfferCodeCampaignWithLocalIdInlinePriceIds() {
     const serialized = JSON.stringify({ data: { id: 'offer-1', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -1219,8 +1528,13 @@ describe('AppStoreConnectClient - product catalog', () => {
     });
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expectInlinePriceIds(arrayElement[1]);
-  });
-  it('creates a promotional offer with ${local-id} inline price ids', async () => {
+  }
+
+  it(
+    'creates an offer-code campaign with ${local-id} inline price ids',
+    createsAnOfferCodeCampaignWithLocalIdInlinePriceIds,
+  );
+  async function createsAPromotionalOfferWithLocalIdInlinePriceIds() {
     const serialized = JSON.stringify({ data: { id: 'promo-1', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -1235,8 +1549,13 @@ describe('AppStoreConnectClient - product catalog', () => {
     });
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expectInlinePriceIds(arrayElement[1]);
-  });
-  it('creates a win-back offer with ${local-id} inline price ids', async () => {
+  }
+
+  it(
+    'creates a promotional offer with ${local-id} inline price ids',
+    createsAPromotionalOfferWithLocalIdInlinePriceIds,
+  );
+  async function createsAWinBackOfferWithLocalIdInlinePriceIds() {
     const serialized = JSON.stringify({ data: { id: 'win-back-1', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -1255,10 +1574,17 @@ describe('AppStoreConnectClient - product catalog', () => {
     });
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expectInlinePriceIds(arrayElement[1]);
-  });
-});
-describe('AppStoreConnectClient - export compliance', () => {
-  it("resolves a build's id and export-compliance answer by build number", async () => {
+  }
+
+  it(
+    'creates a win-back offer with ${local-id} inline price ids',
+    createsAWinBackOfferWithLocalIdInlinePriceIds,
+  );
+}
+
+describe('AppStoreConnectClient - product catalog', describeAppStoreConnectClientProductCatalog);
+function describeAppStoreConnectClientExportCompliance() {
+  async function resolvesABuildSIdAndExportComplianceAnswerByBuildNumber() {
     const serialized = JSON.stringify({ data: [{ id: 'app1', attributes: {} }] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply).mockResolvedValueOnce(
@@ -1275,8 +1601,13 @@ describe('AppStoreConnectClient - export compliance', () => {
     });
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 1, 'mock call');
     expect(arrayElement[0]).toContain('/builds?filter[app]=app1&filter[version]=9');
-  });
-  it("reports null usesNonExemptEncryption when the build hasn't answered yet", async () => {
+  }
+
+  it(
+    "resolves a build's id and export-compliance answer by build number",
+    resolvesABuildSIdAndExportComplianceAnswerByBuildNumber,
+  );
+  async function reportsNullUsesNonExemptEncryptionWhenTheBuildHasnTAnsweredYet() {
     const serialized = JSON.stringify({ data: [{ id: 'app1', attributes: {} }] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock
@@ -1288,14 +1619,24 @@ describe('AppStoreConnectClient - export compliance', () => {
       id: 'build9',
       usesNonExemptEncryption: null,
     });
-  });
-  it('returns null for findBuild when the app record is missing', async () => {
+  }
+
+  it(
+    "reports null usesNonExemptEncryption when the build hasn't answered yet",
+    reportsNullUsesNonExemptEncryptionWhenTheBuildHasnTAnsweredYet,
+  );
+  async function returnsNullForFindBuildWhenTheAppPieceIsMissing() {
     const serialized = JSON.stringify({ data: [] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.findBuild('com.example.missing', 9)).toBeNull();
-  });
-  it("PATCHes the build's usesNonExemptEncryption attribute", async () => {
+  }
+
+  it(
+    'returns null for findBuild when the app record is missing',
+    returnsNullForFindBuildWhenTheAppPieceIsMissing,
+  );
+  async function pATCHesTheBuildSUsesNonExemptEncryptionAttribute() {
     const serialized = JSON.stringify({ data: { id: 'build9', attributes: {} } });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -1308,8 +1649,13 @@ describe('AppStoreConnectClient - export compliance', () => {
     expect(requestDocument).toEqual({
       data: { type: 'builds', id: 'build9', attributes: { usesNonExemptEncryption: false } },
     });
-  });
-  it("lists an app's encryption declarations with their review state", async () => {
+  }
+
+  it(
+    "PATCHes the build's usesNonExemptEncryption attribute",
+    pATCHesTheBuildSUsesNonExemptEncryptionAttribute,
+  );
+  async function listsAnAppSEncryptionDeclarationsWithTheirReviewPiece() {
     const serialized = JSON.stringify({ data: [{ id: 'app1', attributes: {} }] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply).mockResolvedValueOnce(
@@ -1323,8 +1669,13 @@ describe('AppStoreConnectClient - export compliance', () => {
     expect(await client.listEncryptionDeclarations('com.example.hello')).toEqual([
       { id: 'decl1', state: 'APPROVED' },
     ]);
-  });
-  it('links a build to a declaration via the relationships endpoint', async () => {
+  }
+
+  it(
+    "lists an app's encryption declarations with their review state",
+    listsAnAppSEncryptionDeclarationsWithTheirReviewPiece,
+  );
+  async function linksABuildToADeclarationViaTheRelationshipsEndpoint() {
     const fakeReply = fakeResponse(204, '');
     fetchMock.mockResolvedValueOnce(fakeReply);
     await client.linkBuildToDeclaration('decl1', 'build9');
@@ -1334,10 +1685,20 @@ describe('AppStoreConnectClient - export compliance', () => {
     expect(init.method).toBe('POST');
     const requestDocument = readRequestDocument(init);
     expect(requestDocument).toEqual({ data: [{ type: 'builds', id: 'build9' }] });
-  });
-});
-describe('AppStoreConnectClient - listing localizations', () => {
-  it('picks the editable App Store version, ignoring a live one', async () => {
+  }
+
+  it(
+    'links a build to a declaration via the relationships endpoint',
+    linksABuildToADeclarationViaTheRelationshipsEndpoint,
+  );
+}
+
+describe(
+  'AppStoreConnectClient - export compliance',
+  describeAppStoreConnectClientExportCompliance,
+);
+function describeAppStoreConnectClientListingLocalizations() {
+  async function picksTheEditableAppStoreVersionIgnoringALiveOne() {
     const serialized = JSON.stringify({
       data: [
         { id: 'v-live', attributes: { appStoreState: 'READY_FOR_SALE' } },
@@ -1349,16 +1710,26 @@ describe('AppStoreConnectClient - listing localizations', () => {
     expect(await client.getEditableVersionId('app1')).toBe('v-edit');
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(arrayElement[0]).toContain('/apps/app1/appStoreVersions');
-  });
-  it('returns null when no App Store version is editable', async () => {
+  }
+
+  it(
+    'picks the editable App Store version, ignoring a live one',
+    picksTheEditableAppStoreVersionIgnoringALiveOne,
+  );
+  async function returnsNullWhenNoAppStoreVersionIsEditable() {
     const serialized = JSON.stringify({
       data: [{ id: 'v-live', attributes: { appStoreState: 'READY_FOR_SALE' } }],
     });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.getEditableVersionId('app1')).toBeNull();
-  });
-  it('picks the editable appInfo by state', async () => {
+  }
+
+  it(
+    'returns null when no App Store version is editable',
+    returnsNullWhenNoAppStoreVersionIsEditable,
+  );
+  async function picksTheEditableAppPieceByPiece() {
     const serialized = JSON.stringify({
       data: [
         { id: 'ai-live', attributes: { state: 'READY_FOR_DISTRIBUTION' } },
@@ -1368,8 +1739,10 @@ describe('AppStoreConnectClient - listing localizations', () => {
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.getEditableAppInfoId('app1')).toBe('ai-edit');
-  });
-  it('reads the live appInfo and version when nothing is editable', async () => {
+  }
+
+  it('picks the editable appInfo by state', picksTheEditableAppPieceByPiece);
+  async function readsTheLiveAppPieceAndVersionWhenNothingIsEditable() {
     const serialized = JSON.stringify({
       data: [
         { id: 'ai-live', attributes: { state: 'READY_FOR_DISTRIBUTION' } },
@@ -1390,16 +1763,23 @@ describe('AppStoreConnectClient - listing localizations', () => {
     );
     expect(await client.getCurrentAppInfoId('app1')).toBe('ai-live');
     expect(await client.getCurrentVersionId('app1')).toBe('v-live');
-  });
-  it('reads a pre-order version as the live one', async () => {
+  }
+
+  it(
+    'reads the live appInfo and version when nothing is editable',
+    readsTheLiveAppPieceAndVersionWhenNothingIsEditable,
+  );
+  async function readsAPreOrderVersionAsTheLiveOne() {
     const serialized = JSON.stringify({
       data: [{ id: 'v-preorder', attributes: { appStoreState: 'PREORDER_READY_FOR_SALE' } }],
     });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.getCurrentVersionId('app1')).toBe('v-preorder');
-  });
-  it('prefers the editable appInfo and version over the live ones', async () => {
+  }
+
+  it('reads a pre-order version as the live one', readsAPreOrderVersionAsTheLiveOne);
+  async function prefersTheEditableAppPieceAndVersionOverTheLiveOnes() {
     const serialized = JSON.stringify({
       data: [
         { id: 'ai-live', attributes: { state: 'READY_FOR_DISTRIBUTION' } },
@@ -1420,8 +1800,13 @@ describe('AppStoreConnectClient - listing localizations', () => {
     );
     expect(await client.getCurrentAppInfoId('app1')).toBe('ai-edit');
     expect(await client.getCurrentVersionId('app1')).toBe('v-edit');
-  });
-  it('lists version localizations, keeping only present non-empty fields', async () => {
+  }
+
+  it(
+    'prefers the editable appInfo and version over the live ones',
+    prefersTheEditableAppPieceAndVersionOverTheLiveOnes,
+  );
+  async function listsVersionLocalizationsKeepingOnlyPresentNonEmptyFields() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -1441,8 +1826,13 @@ describe('AppStoreConnectClient - listing localizations', () => {
     expect(await client.listVersionLocalizations('v-edit')).toEqual([
       { id: 'vl1', locale: 'en-US', fields: { description: 'Copy', keywords: 'a,b' } },
     ]);
-  });
-  it('reads a null privacyChoicesUrl as an unset account-deletion URL', async () => {
+  }
+
+  it(
+    'lists version localizations, keeping only present non-empty fields',
+    listsVersionLocalizationsKeepingOnlyPresentNonEmptyFields,
+  );
+  async function readsANullPrivacyChoicesUrlAsAnUnsetAccountDeletionURL() {
     const serialized = JSON.stringify({
       data: [
         { id: 'ail-en', attributes: { locale: 'en-US', privacyChoicesUrl: null } },
@@ -1460,8 +1850,13 @@ describe('AppStoreConnectClient - listing localizations', () => {
     ]);
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(arrayElement[0]).toContain('/appInfos/ai-edit/appInfoLocalizations');
-  });
-  it('omits null promotional text, product description and What to Test copy', async () => {
+  }
+
+  it(
+    'reads a null privacyChoicesUrl as an unset account-deletion URL',
+    readsANullPrivacyChoicesUrlAsAnUnsetAccountDeletionURL,
+  );
+  async function omitsNullPromotionalPieceProductDescriptionAndWhatToTestCopy() {
     const serialized = JSON.stringify({
       data: [{ id: 'cpl1', attributes: { locale: 'en-US', promotionalText: null } }],
     });
@@ -1501,8 +1896,13 @@ describe('AppStoreConnectClient - listing localizations', () => {
     expect(await client.listBetaBuildLocalizations('b1')).toEqual([
       { id: 'bbl1', locale: 'en-US' },
     ]);
-  });
-  it('omits null optional fields from in-app events and their localizations', async () => {
+  }
+
+  it(
+    'omits null promotional text, product description and What to Test copy',
+    omitsNullPromotionalPieceProductDescriptionAndWhatToTestCopy,
+  );
+  async function omitsNullOptionalFieldsFromInAppEventsAndTheirLocalizations() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -1546,8 +1946,13 @@ describe('AppStoreConnectClient - listing localizations', () => {
     ]);
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 1, 'mock call');
     expect(arrayElement[0]).toContain('/appEvents/ev1/localizations?');
-  });
-  it('POSTs a new version localization with the appStoreVersion relationship', async () => {
+  }
+
+  it(
+    'omits null optional fields from in-app events and their localizations',
+    omitsNullOptionalFieldsFromInAppEventsAndTheirLocalizations,
+  );
+  async function pOSTsANewVersionLocalizationWithTheAppStoreVersionRelationship() {
     const serialized = JSON.stringify({ data: { id: 'vl-new', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -1564,8 +1969,13 @@ describe('AppStoreConnectClient - listing localizations', () => {
         relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: 'v-edit' } } },
       },
     });
-  });
-  it('PATCHes only the changed fields on an app-level localization', async () => {
+  }
+
+  it(
+    'POSTs a new version localization with the appStoreVersion relationship',
+    pOSTsANewVersionLocalizationWithTheAppStoreVersionRelationship,
+  );
+  async function pATCHesOnlyTheChangedFieldsOnAnAppLevelLocalization() {
     const serialized = JSON.stringify({ data: { id: 'ail1', attributes: {} } });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -1578,10 +1988,20 @@ describe('AppStoreConnectClient - listing localizations', () => {
     expect(requestDocument).toEqual({
       data: { type: 'appInfoLocalizations', id: 'ail1', attributes: { name: 'New' } },
     });
-  });
-});
-describe('AppStoreConnectClient - TestFlight beta groups + testers', () => {
-  it('creates an external beta group with the app relationship', async () => {
+  }
+
+  it(
+    'PATCHes only the changed fields on an app-level localization',
+    pATCHesOnlyTheChangedFieldsOnAnAppLevelLocalization,
+  );
+}
+
+describe(
+  'AppStoreConnectClient - listing localizations',
+  describeAppStoreConnectClientListingLocalizations,
+);
+function describeAppStoreConnectClientTestFlightBetaGroupsTesters() {
+  async function createsAnExternalBetaGroupWithTheAppRelationship() {
     const serialized = JSON.stringify({
       data: { id: 'bg1', attributes: { name: 'External Testers' } },
     });
@@ -1600,8 +2020,13 @@ describe('AppStoreConnectClient - TestFlight beta groups + testers', () => {
         relationships: { app: { data: { type: 'apps', id: 'app1' } } },
       },
     });
-  });
-  it('lists beta groups, dropping a nameless row and surfacing internal/public-link', async () => {
+  }
+
+  it(
+    'creates an external beta group with the app relationship',
+    createsAnExternalBetaGroupWithTheAppRelationship,
+  );
+  async function listsBetaGroupsDroppingANamelessPieceAndSurfacingInternalPublicLink() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -1620,16 +2045,23 @@ describe('AppStoreConnectClient - TestFlight beta groups + testers', () => {
     ]);
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(arrayElement[0]).toContain('/apps/app1/betaGroups');
-  });
-  it('finds a beta group by name case-insensitively', async () => {
+  }
+
+  it(
+    'lists beta groups, dropping a nameless row and surfacing internal/public-link',
+    listsBetaGroupsDroppingANamelessPieceAndSurfacingInternalPublicLink,
+  );
+  async function findsABetaGroupByNameCaseInsensitively() {
     const serialized = JSON.stringify({
       data: [{ id: 'bg1', attributes: { name: 'External Testers' } }],
     });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect((await client.findBetaGroupByName('app1', 'external testers'))?.id).toBe('bg1');
-  });
-  it('creates a tester with the betaGroups relationship (the invite-sending path)', async () => {
+  }
+
+  it('finds a beta group by name case-insensitively', findsABetaGroupByNameCaseInsensitively);
+  async function createsATesterWithTheBetaGroupsRelationshipTheInviteSendingPath() {
     const serialized = JSON.stringify({
       data: { id: 't1', attributes: { email: 'a@x.com', firstName: 'Dana', state: 'INVITED' } },
     });
@@ -1652,8 +2084,13 @@ describe('AppStoreConnectClient - TestFlight beta groups + testers', () => {
         relationships: { betaGroups: { data: [{ type: 'betaGroups', id: 'bg1' }] } },
       },
     });
-  });
-  it('keeps a public-link tester with a null email and omits null names', async () => {
+  }
+
+  it(
+    'creates a tester with the betaGroups relationship (the invite-sending path)',
+    createsATesterWithTheBetaGroupsRelationshipTheInviteSendingPath,
+  );
+  async function keepsAPublicLinkTesterWithANullEmailAndOmitsNullNames() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -1672,16 +2109,26 @@ describe('AppStoreConnectClient - TestFlight beta groups + testers', () => {
       { id: 't-public', email: '', state: 'INSTALLED' },
       { id: 't-invited', email: 'a@x.com', state: 'INVITED' },
     ]);
-  });
-  it('finds a tester by email via the filter, matching case-insensitively', async () => {
+  }
+
+  it(
+    'keeps a public-link tester with a null email and omits null names',
+    keepsAPublicLinkTesterWithANullEmailAndOmitsNullNames,
+  );
+  async function findsATesterByEmailViaTheFilterMatchingCaseInsensitively() {
     const serialized = JSON.stringify({ data: [{ id: 't1', attributes: { email: 'A@X.com' } }] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect((await client.findBetaTesterByEmail('a@x.com'))?.id).toBe('t1');
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(arrayElement[0]).toContain('/betaTesters?filter[email]=a%40x.com');
-  });
-  it('bulk-adds existing testers to a group via the relationship endpoint', async () => {
+  }
+
+  it(
+    'finds a tester by email via the filter, matching case-insensitively',
+    findsATesterByEmailViaTheFilterMatchingCaseInsensitively,
+  );
+  async function bulkAddsExistingTestersToAGroupViaTheRelationshipEndpoint() {
     const fakeReply = fakeResponse(204, '');
     fetchMock.mockResolvedValueOnce(fakeReply);
     await client.addTestersToGroup('bg1', ['t1', 't2']);
@@ -1695,8 +2142,13 @@ describe('AppStoreConnectClient - TestFlight beta groups + testers', () => {
         { type: 'betaTesters', id: 't2' },
       ],
     });
-  });
-  it('removes testers from a group with a DELETE carrying the relationship body', async () => {
+  }
+
+  it(
+    'bulk-adds existing testers to a group via the relationship endpoint',
+    bulkAddsExistingTestersToAGroupViaTheRelationshipEndpoint,
+  );
+  async function removesTestersFromAGroupWithADELETECarryingTheRelationshipPiece() {
     const fakeReply = fakeResponse(204, '');
     fetchMock.mockResolvedValueOnce(fakeReply);
     await client.removeTestersFromGroup('bg1', ['t1']);
@@ -1705,10 +2157,20 @@ describe('AppStoreConnectClient - TestFlight beta groups + testers', () => {
     expect(init.method).toBe('DELETE');
     const requestDocument = readRequestDocument(init);
     expect(requestDocument).toEqual({ data: [{ type: 'betaTesters', id: 't1' }] });
-  });
-});
-describe('AppStoreConnectClient - customer reviews', () => {
-  it('lists reviews with include=response, computing `answered` from the response relationship', async () => {
+  }
+
+  it(
+    'removes testers from a group with a DELETE carrying the relationship body',
+    removesTestersFromAGroupWithADELETECarryingTheRelationshipPiece,
+  );
+}
+
+describe(
+  'AppStoreConnectClient - TestFlight beta groups + testers',
+  describeAppStoreConnectClientTestFlightBetaGroupsTesters,
+);
+function describeAppStoreConnectClientCustomerReviews() {
+  async function listsReviewsWithIncludePieceComputingAnsweredFromThePieceRelationship() {
     const page2 = 'https://api.appstoreconnect.apple.com/v1/apps/app1/customerReviews?cursor=P2';
     const serialized = JSON.stringify({
       data: [
@@ -1758,14 +2220,24 @@ describe('AppStoreConnectClient - customer reviews', () => {
     // Page 2 follows the absolute cursor verbatim - no /v1/v1 double-prefix.
     const asString = String(expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[0]);
     expect(asString).toBe(page2);
-  });
-  it('returns null for a review with no developer response (Apple 404s)', async () => {
+  }
+
+  it(
+    'lists reviews with include=response, computing `answered` from the response relationship',
+    listsReviewsWithIncludePieceComputingAnsweredFromThePieceRelationship,
+  );
+  async function returnsNullForAReviewWithNoDeveloperPieceApple404s() {
     const serialized = JSON.stringify({ errors: [{ title: 'Not Found' }] });
     const fakeReply = fakeResponse(404, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.getCustomerReviewResponse('r1')).toBeNull();
-  });
-  it('creates/replaces a response with the review relationship', async () => {
+  }
+
+  it(
+    'returns null for a review with no developer response (Apple 404s)',
+    returnsNullForAReviewWithNoDeveloperPieceApple404s,
+  );
+  async function createsReplacesAPieceWithTheReviewRelationship() {
     const serialized = JSON.stringify({
       data: { id: 'resp1', attributes: { responseBody: 'Thanks!', state: 'PENDING_PUBLISH' } },
     });
@@ -1788,18 +2260,27 @@ describe('AppStoreConnectClient - customer reviews', () => {
         relationships: { review: { data: { type: 'customerReviews', id: 'r1' } } },
       },
     });
-  });
-  it('deletes a response by id', async () => {
+  }
+
+  it(
+    'creates/replaces a response with the review relationship',
+    createsReplacesAPieceWithTheReviewRelationship,
+  );
+  async function deletesAPieceById() {
     const fakeReply = fakeResponse(204, '');
     fetchMock.mockResolvedValueOnce(fakeReply);
     await client.deleteCustomerReviewResponse('resp1');
     const [url, init] = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(init.method).toBe('DELETE');
     expect(url).toContain('/customerReviewResponses/resp1');
-  });
-});
-describe('AppStoreConnectClient - reports', () => {
-  it('downloads a sales report with the right filters and gzip Accept header', async () => {
+  }
+
+  it('deletes a response by id', deletesAPieceById);
+}
+
+describe('AppStoreConnectClient - customer reviews', describeAppStoreConnectClientCustomerReviews);
+function describeAppStoreConnectClientReports() {
+  async function downloadsASalesReportWithTheRightFiltersAndGzipAcceptHeader() {
     const fakeBinary = fakeBinaryResponse(200, 'gzip-bytes');
     fetchMock.mockResolvedValueOnce(fakeBinary);
     const bytes = await client.getSalesReport({
@@ -1821,8 +2302,13 @@ describe('AppStoreConnectClient - reports', () => {
     expect(path).toContain('filter[reportDate]=2026-06-01');
     expect(path).toContain('filter[version]=1_0');
     expect(requestHeaders(init).get('Accept')).toBe('application/a-gzip, application/json');
-  });
-  it('defaults the finance report type to FINANCE_DETAIL', async () => {
+  }
+
+  it(
+    'downloads a sales report with the right filters and gzip Accept header',
+    downloadsASalesReportWithTheRightFiltersAndGzipAcceptHeader,
+  );
+  async function defaultsTheFinanceReportTypeToFINANCEDETAIL() {
     const fakeBinary = fakeBinaryResponse(200, 'fin');
     fetchMock.mockResolvedValueOnce(fakeBinary);
     await client.getFinanceReport({
@@ -1835,8 +2321,13 @@ describe('AppStoreConnectClient - reports', () => {
     expect(path).toContain('/financeReports?');
     expect(path).toContain('filter[regionCode]=ZZ');
     expect(path).toContain('filter[reportType]=FINANCE_DETAIL');
-  });
-  it("surfaces Apple's 'no sales' detail on a report 404", async () => {
+  }
+
+  it(
+    'defaults the finance report type to FINANCE_DETAIL',
+    defaultsTheFinanceReportTypeToFINANCEDETAIL,
+  );
+  async function surfacesAppleSNoSalesDetailOnAReport404() {
     const serialized = JSON.stringify({
       errors: [{ detail: 'There were no sales for the date specified.' }],
     });
@@ -1851,8 +2342,10 @@ describe('AppStoreConnectClient - reports', () => {
         reportDate: '2026-06-01',
       }),
     ).rejects.toThrow(/404.*no sales/);
-  });
-  it('creates an analytics report request with the app relationship', async () => {
+  }
+
+  it("surfaces Apple's 'no sales' detail on a report 404", surfacesAppleSNoSalesDetailOnAReport404);
+  async function createsAnAnalyticsReportRequestWithTheAppRelationship() {
     const serialized = JSON.stringify({
       data: { id: 'req1', attributes: { accessType: 'ONGOING' } },
     });
@@ -1870,8 +2363,13 @@ describe('AppStoreConnectClient - reports', () => {
         relationships: { app: { data: { type: 'apps', id: 'app1' } } },
       },
     });
-  });
-  it('filters reports by category and instances by granularity/date', async () => {
+  }
+
+  it(
+    'creates an analytics report request with the app relationship',
+    createsAnAnalyticsReportRequestWithTheAppRelationship,
+  );
+  async function filtersReportsByCategoryAndInstancesByGranularityDate() {
     const serialized = JSON.stringify({
       data: [{ id: 'rep1', attributes: { name: 'App Sessions', category: 'APP_USAGE' } }],
     });
@@ -1905,8 +2403,13 @@ describe('AppStoreConnectClient - reports', () => {
       '/analyticsReports/rep1/instances?limit=200&filter[granularity]=DAILY',
     );
     expect(instUrl).toContain('filter[processingDate]=2026-06-01');
-  });
-  it('lists segments (dropping any without a url) and downloads one unauthenticated', async () => {
+  }
+
+  it(
+    'filters reports by category and instances by granularity/date',
+    filtersReportsByCategoryAndInstancesByGranularityDate,
+  );
+  async function listsSegmentsDroppingAnyWithoutAUrlAndDownloadsOneUnauthenticated() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -1933,10 +2436,17 @@ describe('AppStoreConnectClient - reports', () => {
     // Presigned URL -> no init (and therefore no Authorization), so the storage backend doesn't 400 on dual auth.
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 1, 'mock call');
     expect(arrayElement[1]).toBeUndefined();
-  });
-});
-describe('app-level release attributes', () => {
-  it('resolves the editable app info and its current category ids', async () => {
+  }
+
+  it(
+    'lists segments (dropping any without a url) and downloads one unauthenticated',
+    listsSegmentsDroppingAnyWithoutAUrlAndDownloadsOneUnauthenticated,
+  );
+}
+
+describe('AppStoreConnectClient - reports', describeAppStoreConnectClientReports);
+function describeAppLevelReleaseAttributes() {
+  async function resolvesTheEditableAppPieceAndItsCurrentCategoryIds() {
     const serialized = JSON.stringify({
       data: [
         { id: 'live', attributes: { state: 'READY_FOR_DISTRIBUTION' }, relationships: {} },
@@ -1963,8 +2473,13 @@ describe('app-level release attributes', () => {
       primaryCategoryId: 'PRODUCTIVITY',
       secondaryCategoryId: 'BUSINESS',
     });
-  });
-  it('PATCHes only the categories provided, as appCategories relationships', async () => {
+  }
+
+  it(
+    'resolves the editable app info and its current category ids',
+    resolvesTheEditableAppPieceAndItsCurrentCategoryIds,
+  );
+  async function pATCHesOnlyTheCategoriesProvidedAsAppCategoriesRelationships() {
     const serialized = JSON.stringify({ data: { id: 'editable', attributes: {} } });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -1986,8 +2501,13 @@ describe('app-level release attributes', () => {
     expect(
       documentValueAt(requestDocument, ['data', 'relationships', 'secondaryCategory']),
     ).toBeUndefined();
-  });
-  it('PATCHes secondaryCategory to null when clearing the stale secondary category', async () => {
+  }
+
+  it(
+    'PATCHes only the categories provided, as appCategories relationships',
+    pATCHesOnlyTheCategoriesProvidedAsAppCategoriesRelationships,
+  );
+  async function pATCHesSecondaryCategoryToNullWhenClearingTheStaleSecondaryCategory() {
     const serialized = JSON.stringify({ data: { id: 'editable', attributes: {} } });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2001,8 +2521,13 @@ describe('app-level release attributes', () => {
       'data',
     ]);
     expect(documentAt).toBeNull();
-  });
-  it('reads an age-rating declaration and treats a 404 as none', async () => {
+  }
+
+  it(
+    'PATCHes secondaryCategory to null when clearing the stale secondary category',
+    pATCHesSecondaryCategoryToNullWhenClearingTheStaleSecondaryCategory,
+  );
+  async function readsAnAgeRatingDeclarationAndTreatsA404AsNone() {
     const serialized = JSON.stringify({
       data: { id: 'age1', attributes: { violenceCartoonOrFantasy: 'NONE' } },
     });
@@ -2016,8 +2541,13 @@ describe('app-level release attributes', () => {
       fakeResponse(404, JSON.stringify({ errors: [{ title: 'Not Found' }] })),
     );
     expect(await client.getAgeRatingDeclaration('editable')).toBeNull();
-  });
-  it('PATCHes age-rating answers verbatim', async () => {
+  }
+
+  it(
+    'reads an age-rating declaration and treats a 404 as none',
+    readsAnAgeRatingDeclarationAndTreatsA404AsNone,
+  );
+  async function pATCHesAgeRatingAnswersVerbatim() {
     const serialized = JSON.stringify({ data: { id: 'age1', attributes: {} } });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2033,8 +2563,10 @@ describe('app-level release attributes', () => {
       id: 'age1',
       attributes: { gambling: false, violenceRealistic: 'INFREQUENT' },
     });
-  });
-  it('matches an app price point by territory and customer price', async () => {
+  }
+
+  it('PATCHes age-rating answers verbatim', pATCHesAgeRatingAnswersVerbatim);
+  async function matchesAnAppPricePointByTerritoryAndCustomerPrice() {
     const serialized = JSON.stringify({
       data: [
         { id: 'pp1', attributes: { customerPrice: '4.99', territory: 'USA' } },
@@ -2047,8 +2579,13 @@ describe('app-level release attributes', () => {
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(arrayElement[0]).toContain('/apps/app1/appPricePoints?filter[territory]=USA');
     expect(point).toEqual({ id: 'pp2', customerPrice: '9.99', territory: 'USA' });
-  });
-  it('reads the open-interval manual app price and skips scheduled future prices', async () => {
+  }
+
+  it(
+    'matches an app price point by territory and customer price',
+    matchesAnAppPricePointByTerritoryAndCustomerPrice,
+  );
+  async function readsTheOpenIntervalManualAppPriceAndSkipsScheduledFuturePrices() {
     const serialized = JSON.stringify({
       data: [
         // A future scheduled change for USA - must be ignored, not mistaken for the current price.
@@ -2082,14 +2619,24 @@ describe('app-level release attributes', () => {
     expect(arrayElement[0]).toContain(
       '/apps/app1/appPriceSchedule/manualPrices?include=appPricePoint',
     );
-  });
-  it('returns null for the current app price when the schedule is absent (404)', async () => {
+  }
+
+  it(
+    'reads the open-interval manual app price and skips scheduled future prices',
+    readsTheOpenIntervalManualAppPriceAndSkipsScheduledFuturePrices,
+  );
+  async function returnsNullForTheCurrentAppPriceWhenTheScheduleIsAbsent404() {
     const serialized = JSON.stringify({ errors: [{ title: 'Not Found' }] });
     const fakeReply = fakeResponse(404, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.getCurrentAppPrice('app1', 'USA')).toBeNull();
-  });
-  it('builds an app price schedule with a base territory and a temp-id included price', async () => {
+  }
+
+  it(
+    'returns null for the current app price when the schedule is absent (404)',
+    returnsNullForTheCurrentAppPriceWhenTheScheduleIsAbsent404,
+  );
+  async function buildsAnAppPriceScheduleWithABaseTerritoryAndAPieceIdIncludedPrice() {
     const serialized = JSON.stringify({ data: { id: 'sched1', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2124,8 +2671,13 @@ describe('app-level release attributes', () => {
       id: tempId,
       relationships: { appPricePoint: { data: { type: 'appPricePoints', id: 'pp2' } } },
     });
-  });
-  it('finds the editable App Store version and skips frozen ones', async () => {
+  }
+
+  it(
+    'builds an app price schedule with a base territory and a temp-id included price',
+    buildsAnAppPriceScheduleWithABaseTerritoryAndAPieceIdIncludedPrice,
+  );
+  async function findsTheEditableAppStoreVersionAndSkipsFrozenOnes() {
     const serialized = JSON.stringify({
       data: [
         { id: 'v-live', attributes: { appVersionState: 'READY_FOR_DISTRIBUTION' } },
@@ -2144,8 +2696,13 @@ describe('app-level release attributes', () => {
     const requestUrl = expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[0];
     expect(requestUrl).toContain('/apps/app1/appStoreVersions?filter[platform]=IOS');
     expect(requestUrl).toContain('copyright');
-  });
-  it("reads the editable version's copyright", async () => {
+  }
+
+  it(
+    'finds the editable App Store version and skips frozen ones',
+    findsTheEditableAppStoreVersionAndSkipsFrozenOnes,
+  );
+  async function readsTheEditableVersionSCopyright() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -2160,8 +2717,10 @@ describe('app-level release attributes', () => {
       id: 'v-edit',
       copyright: '2026 Acme',
     });
-  });
-  it('sends copyright in the App Store version PATCH', async () => {
+  }
+
+  it("reads the editable version's copyright", readsTheEditableVersionSCopyright);
+  async function sendsCopyrightInTheAppStoreVersionPATCH() {
     const serialized = JSON.stringify({ data: { id: 'v-edit' } });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2177,16 +2736,23 @@ describe('app-level release attributes', () => {
       releaseType: 'AFTER_APPROVAL',
       copyright: '2026 Acme',
     });
-  });
-  it('returns null when no App Store version is editable', async () => {
+  }
+
+  it('sends copyright in the App Store version PATCH', sendsCopyrightInTheAppStoreVersionPATCH);
+  async function returnsNullWhenNoAppStoreVersionIsEditable2() {
     const serialized = JSON.stringify({
       data: [{ id: 'v-live', attributes: { appVersionState: 'REPLACED_WITH_NEW_VERSION' } }],
     });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.findEditableAppStoreVersion('app1', 'IOS')).toBeNull();
-  });
-  it('reads review details, creates them with the version relationship, and patches updates', async () => {
+  }
+
+  it(
+    'returns null when no App Store version is editable',
+    returnsNullWhenNoAppStoreVersionIsEditable2,
+  );
+  async function readsReviewDetailsCreatesThemWithTheVersionRelationshipAndPatchesUpdates() {
     const serialized = JSON.stringify({
       data: { id: 'rd1', attributes: { contactEmail: 'a@b.co' } },
     });
@@ -2227,16 +2793,25 @@ describe('app-level release attributes', () => {
     const [patchUrl, patchInit] = expectArrayElement(fetchMock.mock.calls, 2, 'mock call');
     expect(patchInit.method).toBe('PATCH');
     expect(patchUrl).toContain('/appStoreReviewDetails/rd2');
-  });
-  it('returns null review details on a 404', async () => {
+  }
+
+  it(
+    'reads review details, creates them with the version relationship, and patches updates',
+    readsReviewDetailsCreatesThemWithTheVersionRelationshipAndPatchesUpdates,
+  );
+  async function returnsNullReviewDetailsOnA404() {
     const serialized = JSON.stringify({ errors: [{ title: 'Not Found' }] });
     const fakeReply = fakeResponse(404, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.getAppStoreReviewDetail('v-edit')).toBeNull();
-  });
-});
+  }
+
+  it('returns null review details on a 404', returnsNullReviewDetailsOnA404);
+}
+
+describe('app-level release attributes', describeAppLevelReleaseAttributes);
 describe('AppStoreConnectClient - app availability', () => {
-  it('reads available territories only when the territory relationship is present', async () => {
+  async function readsAvailableTerritoriesOnlyWhenTheTerritoryRelationshipIsPresent() {
     const serialized = JSON.stringify({
       data: {
         id: 'availability-1',
@@ -2286,14 +2861,24 @@ describe('AppStoreConnectClient - app availability', () => {
     );
     expect(territoryListUrl).toContain('include=territory');
     expect(territoryListUrl).not.toContain('fields[territoryAvailabilities]');
-  });
-  it('returns null when the app has no availability singleton', async () => {
+  }
+
+  it(
+    'reads available territories only when the territory relationship is present',
+    readsAvailableTerritoriesOnlyWhenTheTerritoryRelationshipIsPresent,
+  );
+  async function returnsNullWhenTheAppHasNoAvailabilitySingleton() {
     const serialized = JSON.stringify({ errors: [{ title: 'Not Found' }] });
     const fakeReply = fakeResponse(404, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     await expect(client.getAppAvailability('app-1')).resolves.toBeNull();
-  });
-  it('creates the singleton with POST and the complete inline territory set', async () => {
+  }
+
+  it(
+    'returns null when the app has no availability singleton',
+    returnsNullWhenTheAppHasNoAvailabilitySingleton,
+  );
+  async function createsTheSingletonWithPOSTAndTheCompleteInlineTerritorySet() {
     const serialized = JSON.stringify({ data: { id: 'availability-1', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2334,9 +2919,14 @@ describe('AppStoreConnectClient - app availability', () => {
         },
       ],
     });
-  });
+  }
+
+  it(
+    'creates the singleton with POST and the complete inline territory set',
+    createsTheSingletonWithPOSTAndTheCompleteInlineTerritorySet,
+  );
   it('PATCHes only changed territory rows when the singleton already exists', async () => {
-    fetchMock.mockImplementation((_url: string | URL, init?: RequestInit) => {
+    function mockImplementationUrl5(_url: string | URL, init?: RequestInit) {
       if (init?.method == 'GET') {
         const serialized = JSON.stringify({
           data: [
@@ -2363,7 +2953,9 @@ describe('AppStoreConnectClient - app availability', () => {
       }
       const fakeReply = fakeResponse(204, '');
       return Promise.resolve(fakeReply);
-    });
+    }
+
+    fetchMock.mockImplementation(mockImplementationUrl5);
     await client.updateAppAvailabilityTerritories('availability-1', ['USA']);
     const [readUrl] = expectArrayElement(fetchMock.mock.calls, 0, 'territory availability read');
     expect(readUrl).toContain('/v2/appAvailabilities/availability-1/territoryAvailabilities');
@@ -2399,7 +2991,7 @@ describe('AppStoreConnectClient - app availability', () => {
       ]),
     );
   });
-  it('accepts an empty desired set and disables every currently available territory', async () => {
+  async function acceptsAnEmptyDesiredSetAndDisablesEveryCurrentlyAvailableTerritory() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -2427,8 +3019,13 @@ describe('AppStoreConnectClient - app availability', () => {
     expect(documentAt).toEqual({
       available: false,
     });
-  });
-  it('fails before PATCHing when Apple omits a desired territory row', async () => {
+  }
+
+  it(
+    'accepts an empty desired set and disables every currently available territory',
+    acceptsAnEmptyDesiredSetAndDisablesEveryCurrentlyAvailableTerritory,
+  );
+  async function failsBeforePATCHingWhenAppleOmitsADesiredTerritoryPiece() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -2449,9 +3046,14 @@ describe('AppStoreConnectClient - app availability', () => {
       missingTerritories: ['GBR'],
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
+  }
+
+  it(
+    'fails before PATCHing when Apple omits a desired territory row',
+    failsBeforePATCHingWhenAppleOmitsADesiredTerritoryPiece,
+  );
   it('never POSTs a second singleton when updating an existing availability', async () => {
-    fetchMock.mockImplementation((_url: string | URL, init?: RequestInit) => {
+    function mockImplementationUrl6(_url: string | URL, init?: RequestInit) {
       if (init?.method == 'GET') {
         const serialized = JSON.stringify({
           data: [
@@ -2473,7 +3075,9 @@ describe('AppStoreConnectClient - app availability', () => {
       const serialized = JSON.stringify({ errors: [{ title: 'unexpected' }] });
       const fakeReply = fakeResponse(500, serialized);
       return Promise.resolve(fakeReply);
-    });
+    }
+
+    fetchMock.mockImplementation(mockImplementationUrl6);
     await client.updateAppAvailabilityTerritories('availability-1', []);
     const methods = fetchMock.mock.calls.map(([, requestInit]) => {
       if (requestInit?.method == null) return 'GET';
@@ -2488,8 +3092,8 @@ describe('AppStoreConnectClient - app availability', () => {
     expect(createSingletonCalls).toHaveLength(0);
   });
 });
-describe('App Clips', () => {
-  it('lists default experiences with the version each releases with (from the relationship)', async () => {
+function describeAppClips() {
+  async function listsDefaultExperiencesWithTheVersionEachReleasesWithFromTheRelationship() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -2514,8 +3118,13 @@ describe('App Clips', () => {
       { id: 'exp-1', action: 'OPEN', versionId: 'ver-1' },
       { id: 'exp-2' },
     ]);
-  });
-  it('creates a default experience with the appClip + version relationships and the action', async () => {
+  }
+
+  it(
+    'lists default experiences with the version each releases with (from the relationship)',
+    listsDefaultExperiencesWithTheVersionEachReleasesWithFromTheRelationship,
+  );
+  async function createsADefaultExperienceWithTheAppClipVersionRelationshipsAndTheAction() {
     const serialized = JSON.stringify({ data: { id: 'exp-new', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2542,8 +3151,13 @@ describe('App Clips', () => {
       id: 'ver-1',
     });
     expect(created).toEqual({ id: 'exp-new' });
-  });
-  it('omits the attributes block when no action is given on create', async () => {
+  }
+
+  it(
+    'creates a default experience with the appClip + version relationships and the action',
+    createsADefaultExperienceWithTheAppClipVersionRelationshipsAndTheAction,
+  );
+  async function omitsTheAttributesBlockWhenNoActionIsGivenOnCreate() {
     const serialized = JSON.stringify({ data: { id: 'exp-new', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2552,8 +3166,13 @@ describe('App Clips', () => {
     const requestDocument = readRequestDocument(arrayElement[1]);
     const documentAt = documentValueAt(requestDocument, ['data', 'attributes']);
     expect(documentAt).toBeUndefined();
-  });
-  it('creates a card localization with locale + subtitle under the experience', async () => {
+  }
+
+  it(
+    'omits the attributes block when no action is given on create',
+    omitsTheAttributesBlockWhenNoActionIsGivenOnCreate,
+  );
+  async function createsACardLocalizationWithLocaleSubtitleUnderTheExperience() {
     const serialized = JSON.stringify({ data: { id: 'loc-new', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2577,10 +3196,17 @@ describe('App Clips', () => {
       type: 'appClipDefaultExperiences',
       id: 'exp-1',
     });
-  });
-});
-describe('EU alternative distribution', () => {
-  it('lists authorized distribution domains with their reference names', async () => {
+  }
+
+  it(
+    'creates a card localization with locale + subtitle under the experience',
+    createsACardLocalizationWithLocaleSubtitleUnderTheExperience,
+  );
+}
+
+describe('App Clips', describeAppClips);
+function describeEUAlternativeDistribution() {
+  async function listsAuthorizedDistributionDomainsWithTheirReferenceNames() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -2599,8 +3225,13 @@ describe('EU alternative distribution', () => {
       { id: 'd1', domain: 'downloads.acme.com', referenceName: 'Acme Downloads' },
       { id: 'd2', domain: 'cdn.acme.com' },
     ]);
-  });
-  it('creates a distribution domain with the domain + reference name', async () => {
+  }
+
+  it(
+    'lists authorized distribution domains with their reference names',
+    listsAuthorizedDistributionDomainsWithTheirReferenceNames,
+  );
+  async function createsADistributionDomainWithTheDomainReferenceName() {
     const serialized = JSON.stringify({ data: { id: 'd-new', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2614,8 +3245,13 @@ describe('EU alternative distribution', () => {
       type: 'alternativeDistributionDomains',
       attributes: { domain: 'cdn.acme.com', referenceName: 'Acme CDN' },
     });
-  });
-  it('registers the package-signing public key', async () => {
+  }
+
+  it(
+    'creates a distribution domain with the domain + reference name',
+    createsADistributionDomainWithTheDomainReferenceName,
+  );
+  async function registersThePackageSigningPublicKey() {
     const serialized = JSON.stringify({ data: { id: 'k-new', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2630,10 +3266,14 @@ describe('EU alternative distribution', () => {
       'BEGIN PUBLIC KEY',
     );
     expect(created).toEqual({ id: 'k-new' });
-  });
-});
-describe('Apple Pay / Wallet identifiers', () => {
-  it('lists merchant ids with their identifier + name', async () => {
+  }
+
+  it('registers the package-signing public key', registersThePackageSigningPublicKey);
+}
+
+describe('EU alternative distribution', describeEUAlternativeDistribution);
+function describeApplePayWalletIdentifiers() {
+  async function listsMerchantIdsWithTheirIdentifierName() {
     const serialized = JSON.stringify({
       data: [
         { id: 'm1', attributes: { identifier: 'merchant.com.acme.app', name: 'Acme Pay' } },
@@ -2649,8 +3289,10 @@ describe('Apple Pay / Wallet identifiers', () => {
       { id: 'm1', identifier: 'merchant.com.acme.app', name: 'Acme Pay' },
       { id: 'm2', identifier: 'merchant.com.acme.b2b' },
     ]);
-  });
-  it('registers a merchant id with name + identifier', async () => {
+  }
+
+  it('lists merchant ids with their identifier + name', listsMerchantIdsWithTheirIdentifierName);
+  async function registersAMerchantIdWithNameIdentifier() {
     const serialized = JSON.stringify({ data: { id: 'm-new', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2664,8 +3306,10 @@ describe('Apple Pay / Wallet identifiers', () => {
       type: 'merchantIds',
       attributes: { name: 'Acme Pay', identifier: 'merchant.com.acme.app' },
     });
-  });
-  it('registers a pass type id with name + identifier', async () => {
+  }
+
+  it('registers a merchant id with name + identifier', registersAMerchantIdWithNameIdentifier);
+  async function registersAPassTypeIdWithNameIdentifier() {
     const serialized = JSON.stringify({ data: { id: 'p-new', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2678,18 +3322,27 @@ describe('Apple Pay / Wallet identifiers', () => {
       type: 'passTypeIds',
       attributes: { name: 'Acme Coupon', identifier: 'pass.com.acme.coupon' },
     });
-  });
-});
-describe('Game Center', () => {
-  it('returns null when the app has no Game Center detail yet (404)', async () => {
+  }
+
+  it('registers a pass type id with name + identifier', registersAPassTypeIdWithNameIdentifier);
+}
+
+describe('Apple Pay / Wallet identifiers', describeApplePayWalletIdentifiers);
+function describeGameCenter() {
+  async function returnsNullWhenTheAppHasNoGameCenterDetailYet404() {
     const serialized = JSON.stringify({ errors: [{ title: 'Not Found' }] });
     const fakeReply = fakeResponse(404, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.getGameCenterDetail('app-1')).toBeNull();
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(arrayElement[0]).toContain('/apps/app-1/gameCenterDetail');
-  });
-  it('enables Game Center by creating a detail with the app relationship', async () => {
+  }
+
+  it(
+    'returns null when the app has no Game Center detail yet (404)',
+    returnsNullWhenTheAppHasNoGameCenterDetailYet404,
+  );
+  async function enablesGameCenterByCreatingADetailWithTheAppRelationship() {
     const serialized = JSON.stringify({ data: { id: 'gc-1', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2702,8 +3355,13 @@ describe('Game Center', () => {
       id: 'app-1',
     });
     expect(detail).toEqual({ id: 'gc-1' });
-  });
-  it('lists achievements and leaderboards through the non-deprecated V2 relationship paths', async () => {
+  }
+
+  it(
+    'enables Game Center by creating a detail with the app relationship',
+    enablesGameCenterByCreatingADetailWithTheAppRelationship,
+  );
+  async function listsAchievementsAndLeaderboardsThroughTheNonDeprecatedV2RelationshipPaths() {
     const serialized = JSON.stringify({ data: [] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2714,8 +3372,13 @@ describe('Game Center', () => {
     const [leaderboardsUrl] = expectArrayElement(fetchMock.mock.calls, 1, 'mock call');
     expect(achievementsUrl).toContain('/gameCenterDetails/gc-1/gameCenterAchievementsV2?');
     expect(leaderboardsUrl).toContain('/gameCenterDetails/gc-1/gameCenterLeaderboardsV2?');
-  });
-  it('creates a V2 achievement with an inline version and returns the real version id', async () => {
+  }
+
+  it(
+    'lists achievements and leaderboards through the non-deprecated V2 relationship paths',
+    listsAchievementsAndLeaderboardsThroughTheNonDeprecatedV2RelationshipPaths,
+  );
+  async function createsAV2AchievementWithAnInlineVersionAndReturnsTheRealVersionId() {
     const serialized = JSON.stringify({
       data: {
         id: 'ach-1',
@@ -2757,8 +3420,13 @@ describe('Game Center', () => {
       id: 'gc-1',
     });
     expect(createdResource).toEqual({ id: 'ach-1', versionId: 'ver-real' });
-  });
-  it("returns a null version id when Apple's create response omits the versions relationship", async () => {
+  }
+
+  it(
+    'creates a V2 achievement with an inline version and returns the real version id',
+    createsAV2AchievementWithAnInlineVersionAndReturnsTheRealVersionId,
+  );
+  async function returnsANullVersionIdWhenAppleSCreatePieceOmitsTheVersionsRelationship() {
     const serialized = JSON.stringify({ data: { id: 'ach-2', relationships: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2770,8 +3438,13 @@ describe('Game Center', () => {
       repeatable: false,
     });
     expect(createdResource.versionId).toBeNull();
-  });
-  it('attaches an achievement localization to the version', async () => {
+  }
+
+  it(
+    "returns a null version id when Apple's create response omits the versions relationship",
+    returnsANullVersionIdWhenAppleSCreatePieceOmitsTheVersionsRelationship,
+  );
+  async function attachesAnAchievementLocalizationToTheVersion() {
     const serialized = JSON.stringify({ data: { id: 'loc-1', attributes: {} } });
     const fakeReply = fakeResponse(201, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -2795,8 +3468,13 @@ describe('Game Center', () => {
       type: 'gameCenterAchievementVersions',
       id: 'ver-real',
     });
-  });
-  it('creates a V2 leaderboard with its attributes and an inline version', async () => {
+  }
+
+  it(
+    'attaches an achievement localization to the version',
+    attachesAnAchievementLocalizationToTheVersion,
+  );
+  async function createsAV2LeaderboardWithItsAttributesAndAnInlineVersion() {
     const serialized = JSON.stringify({
       data: {
         id: 'lb-1',
@@ -2827,20 +3505,37 @@ describe('Game Center', () => {
       id: '${version-0}',
     });
     expect(createdResource).toEqual({ id: 'lb-1', versionId: 'lv-real' });
-  });
-});
-describe('describeErrors', () => {
-  it("joins Apple's error details, falling back to titles", () => {
+  }
+
+  it(
+    'creates a V2 leaderboard with its attributes and an inline version',
+    createsAV2LeaderboardWithItsAttributesAndAnInlineVersion,
+  );
+}
+
+describe('Game Center', describeGameCenter);
+function describeDescribeErrors() {
+  function joinsAppleSErrorDetailsFallingBackToTitles() {
     const serialized = JSON.stringify({ errors: [{ detail: 'd1' }, { title: 't2' }] });
     const errors = describeErrors(serialized);
     expect(errors).toBe('d1; t2');
-  });
-  it("returns the raw body when it isn't JSON, and a placeholder when empty", () => {
+  }
+
+  it(
+    "joins Apple's error details, falling back to titles",
+    joinsAppleSErrorDetailsFallingBackToTitles,
+  );
+  function returnsThePiecePieceWhenItIsnTJSONAndAPlaceholderWhenEmpty() {
     const errors = describeErrors('plain text failure');
     expect(errors).toBe('plain text failure');
     expect(describeErrors('')).toBe('no response body');
-  });
-  it("includes Apple's associated validation errors with their resource path", () => {
+  }
+
+  it(
+    "returns the raw body when it isn't JSON, and a placeholder when empty",
+    returnsThePiecePieceWhenItIsnTJSONAndAPlaceholderWhenEmpty,
+  );
+  function includesAppleSAssociatedValidationErrorsWithTheirResourcePath() {
     const requestDocument = JSON.stringify({
       errors: [
         {
@@ -2867,28 +3562,44 @@ describe('describeErrors', () => {
     expect(errors).toBe(
       "This resource cannot be reviewed, please check associated errors to see why.; associated /v1/appInfos/info1: You must provide a value for the relationship 'primaryCategory'.; associated /v1/appEncryptionDeclarations/decl1: You must answer the regulated medical device declaration.",
     );
-  });
-});
-describe('parseErrorCodes', () => {
-  it("extracts Apple's machine-readable error codes", () => {
+  }
+
+  it(
+    "includes Apple's associated validation errors with their resource path",
+    includesAppleSAssociatedValidationErrorsWithTheirResourcePath,
+  );
+}
+
+describe('describeErrors', describeDescribeErrors);
+function describeParseErrorCodes() {
+  function extractsAppleSMachineReadableErrorCodes() {
     const requestDocument = JSON.stringify({
       errors: [{ code: 'FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED' }, { code: 'X' }],
     });
     const errorCodes = parseErrorCodes(requestDocument);
     expect(errorCodes).toEqual(['FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED', 'X']);
-  });
-  it('returns an empty list for a non-JSON or errorless body', () => {
+  }
+
+  it("extracts Apple's machine-readable error codes", extractsAppleSMachineReadableErrorCodes);
+  function returnsAnEmptyListForANonJSONOrErrorlessPiece() {
     const errorCodes = parseErrorCodes('not json');
     expect(errorCodes).toEqual([]);
     const serialized = JSON.stringify({ data: [] });
     expect(parseErrorCodes(serialized)).toEqual([]);
-  });
-});
-describe('clockSkewHint', () => {
+  }
+
+  it(
+    'returns an empty list for a non-JSON or errorless body',
+    returnsAnEmptyListForANonJSONOrErrorlessPiece,
+  );
+}
+
+describe('parseErrorCodes', describeParseErrorCodes);
+function describeClockSkewHint() {
   // A fixed reference instant so the skew math is deterministic regardless of when the suite runs.
   const APPLE_DATE = 'Sun, 15 Jun 2026 12:00:00 GMT';
   const APPLE_MS = Date.parse(APPLE_DATE);
-  it('flags a fast Mac clock with the drift and the resync command', () => {
+  function flagsAFastMacClockWithTheDriftAndTheResyncCommand() {
     const hint = clockSkewHint({
       appleDate: APPLE_DATE,
       nowMs: APPLE_MS + 5 * 60000,
@@ -2896,58 +3607,91 @@ describe('clockSkewHint', () => {
     });
     expect(hint).toContain('~5 minutes');
     expect(hint).toContain('sudo sntp -sS time.apple.com');
-  });
-  it('flags a slow clock too (drift is absolute), in seconds under two minutes', () => {
+  }
+
+  it(
+    'flags a fast Mac clock with the drift and the resync command',
+    flagsAFastMacClockWithTheDriftAndTheResyncCommand,
+  );
+  function flagsASlowClockTooDriftIsAbsoluteInSecondsUnderTwoMinutes() {
     const hint = clockSkewHint({
       appleDate: APPLE_DATE,
       nowMs: APPLE_MS - 90000,
       platform: 'darwin',
     });
     expect(hint).toContain('~90 seconds');
-  });
-  it('stays silent when the drift is within tolerance', () => {
+  }
+
+  it(
+    'flags a slow clock too (drift is absolute), in seconds under two minutes',
+    flagsASlowClockTooDriftIsAbsoluteInSecondsUnderTwoMinutes,
+  );
+  function staysSilentWhenTheDriftIsWithinTolerance() {
     expect(
       clockSkewHint({ appleDate: APPLE_DATE, nowMs: APPLE_MS + 30000, platform: 'darwin' }),
     ).toBe('');
-  });
-  it('stays silent off macOS, even with a wild clock - no sntp spam on other platforms', () => {
+  }
+
+  it('stays silent when the drift is within tolerance', staysSilentWhenTheDriftIsWithinTolerance);
+  function staysSilentOffMacOSEvenWithAWildClockNoSntpSpamOnOtherPlatforms() {
     const wild = APPLE_MS + 60 * 60000;
     expect(clockSkewHint({ appleDate: APPLE_DATE, nowMs: wild, platform: 'linux' })).toBe('');
     expect(clockSkewHint({ appleDate: APPLE_DATE, nowMs: wild, platform: 'win32' })).toBe('');
-  });
-  it('stays silent when Apple sent no usable Date header', () => {
+  }
+
+  it(
+    'stays silent off macOS, even with a wild clock - no sntp spam on other platforms',
+    staysSilentOffMacOSEvenWithAWildClockNoSntpSpamOnOtherPlatforms,
+  );
+  function staysSilentWhenAppleSentNoUsableDateHeader() {
     expect(
       clockSkewHint({ appleDate: null, nowMs: APPLE_MS + 60 * 60000, platform: 'darwin' }),
     ).toBe('');
     expect(clockSkewHint({ appleDate: 'not-a-date', nowMs: APPLE_MS, platform: 'darwin' })).toBe(
       '',
     );
-  });
-});
-describe('AppStoreConnectClient - 401 clock-skew enrichment', () => {
-  it('appends the resync hint when a 401 coincides with a skewed clock (on macOS)', async () => {
+  }
+
+  it(
+    'stays silent when Apple sent no usable Date header',
+    staysSilentWhenAppleSentNoUsableDateHeader,
+  );
+}
+
+describe('clockSkewHint', describeClockSkewHint);
+function describeAppStoreConnectClient401ClockSkewEnrichment() {
+  async function appendsTheResyncHintWhenA401CoincidesWithASkewedClockOnMacOS() {
     client = new AppStoreConnectClient(makeKey(), 'darwin');
     const skewedDate = new Date(Date.now() + 10 * 60000).toUTCString();
-    fetchMock.mockImplementation(() => {
+    function mockImplementationPiece3() {
       const serialized = JSON.stringify({ errors: [{ detail: 'token expired' }] });
       const fakeReply = fakeResponse(401, serialized, {
         date: skewedDate,
       });
       return Promise.resolve(fakeReply);
-    });
+    }
+
+    fetchMock.mockImplementation(mockImplementationPiece3);
     await expect(client.assertReady()).rejects.toThrow(
       /401.*token expired.*sudo sntp -sS time\.apple\.com/,
     );
-  });
-  it("surfaces only Apple's 401 detail when the clock is fine - no false alarm", async () => {
+  }
+
+  it(
+    'appends the resync hint when a 401 coincides with a skewed clock (on macOS)',
+    appendsTheResyncHintWhenA401CoincidesWithASkewedClockOnMacOS,
+  );
+  async function surfacesOnlyAppleS401DetailWhenTheClockIsFineNoFalseAlarm() {
     client = new AppStoreConnectClient(makeKey(), 'darwin');
-    fetchMock.mockImplementation(() => {
+    function mockImplementationPiece4() {
       const serialized = JSON.stringify({ errors: [{ detail: 'token expired' }] });
       const fakeReply = fakeResponse(401, serialized, {
         date: new Date().toUTCString(),
       });
       return Promise.resolve(fakeReply);
-    });
+    }
+
+    fetchMock.mockImplementation(mockImplementationPiece4);
     let message = '';
     try {
       await client.assertReady();
@@ -2957,10 +3701,20 @@ describe('AppStoreConnectClient - 401 clock-skew enrichment', () => {
     }
     expect(message).toContain('token expired');
     expect(message).not.toContain('sudo sntp');
-  });
-});
-describe('AppStoreConnectClient - App Store release lifecycle', () => {
-  it('lists recent builds with processing state and expiry, newest upload first', async () => {
+  }
+
+  it(
+    "surfaces only Apple's 401 detail when the clock is fine - no false alarm",
+    surfacesOnlyAppleS401DetailWhenTheClockIsFineNoFalseAlarm,
+  );
+}
+
+describe(
+  'AppStoreConnectClient - 401 clock-skew enrichment',
+  describeAppStoreConnectClient401ClockSkewEnrichment,
+);
+function describeAppStoreConnectClientAppStoreReleaseLifecycle() {
+  async function listsRecentBuildsWithProcessingPieceAndExpiryNewestUploadFirst() {
     const serialized = JSON.stringify({
       data: [{ id: 'b1', attributes: { version: '42', processingState: 'VALID', expired: false } }],
     });
@@ -2975,8 +3729,13 @@ describe('AppStoreConnectClient - App Store release lifecycle', () => {
     });
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(arrayElement[0]).toContain('/builds?filter[app]=app1&sort=-uploadedDate');
-  });
-  it("reads each build's marketing version from its included pre-release version", async () => {
+  }
+
+  it(
+    'lists recent builds with processing state and expiry, newest upload first',
+    listsRecentBuildsWithProcessingPieceAndExpiryNewestUploadFirst,
+  );
+  async function readsEachBuildSMarketingVersionFromItsIncludedPreReleaseVersion() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -3003,8 +3762,13 @@ describe('AppStoreConnectClient - App Store release lifecycle', () => {
     expect(arrayElement[0]).toContain(
       'filter[version]=591&sort=-uploadedDate&limit=1&fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&include=preReleaseVersion',
     );
-  });
-  it('declares export compliance with a PATCH to the build', async () => {
+  }
+
+  it(
+    "reads each build's marketing version from its included pre-release version",
+    readsEachBuildSMarketingVersionFromItsIncludedPreReleaseVersion,
+  );
+  async function declaresExportComplianceWithAPATCHToTheBuild() {
     const fakeReply = fakeResponse(204, '');
     fetchMock.mockResolvedValueOnce(fakeReply);
     await client.setBuildUsesNonExemptEncryption('b1', false);
@@ -3015,8 +3779,13 @@ describe('AppStoreConnectClient - App Store release lifecycle', () => {
     expect(requestDocument).toMatchObject({
       data: { type: 'builds', id: 'b1', attributes: { usesNonExemptEncryption: false } },
     });
-  });
-  it('creates an App Store version with the app relationship and release type', async () => {
+  }
+
+  it(
+    'declares export compliance with a PATCH to the build',
+    declaresExportComplianceWithAPATCHToTheBuild,
+  );
+  async function createsAnAppStoreVersionWithTheAppRelationshipAndReleaseType() {
     const serialized = JSON.stringify({
       data: {
         id: 'v1',
@@ -3044,8 +3813,13 @@ describe('AppStoreConnectClient - App Store release lifecycle', () => {
         relationships: { app: { data: { type: 'apps', id: 'app1' } } },
       },
     });
-  });
-  it('attaches a build via the relationships/build PATCH', async () => {
+  }
+
+  it(
+    'creates an App Store version with the app relationship and release type',
+    createsAnAppStoreVersionWithTheAppRelationshipAndReleaseType,
+  );
+  async function attachesABuildViaTheRelationshipsBuildPATCH() {
     const fakeReply = fakeResponse(204, '');
     fetchMock.mockResolvedValueOnce(fakeReply);
     await client.selectBuildForVersion('v1', 'b1');
@@ -3054,8 +3828,13 @@ describe('AppStoreConnectClient - App Store release lifecycle', () => {
     expect(url).toContain('/appStoreVersions/v1/relationships/build');
     const requestDocument = readRequestDocument(init);
     expect(requestDocument).toEqual({ data: { type: 'builds', id: 'b1' } });
-  });
-  it('opens a review submission, adds the version as an item, and submits it', async () => {
+  }
+
+  it(
+    'attaches a build via the relationships/build PATCH',
+    attachesABuildViaTheRelationshipsBuildPATCH,
+  );
+  async function opensAReviewSubmissionAddsTheVersionAsAnPieceAndSubmitsIt() {
     const serialized = JSON.stringify({
       data: { id: 'rs1', attributes: { state: 'READY_FOR_REVIEW' } },
     });
@@ -3095,16 +3874,26 @@ describe('AppStoreConnectClient - App Store release lifecycle', () => {
     ).toMatchObject({
       data: { type: 'reviewSubmissions', id: 'rs1', attributes: { submitted: true } },
     });
-  });
-  it("returns null for a phased release that doesn't exist (404 or empty relationship)", async () => {
+  }
+
+  it(
+    'opens a review submission, adds the version as an item, and submits it',
+    opensAReviewSubmissionAddsTheVersionAsAnPieceAndSubmitsIt,
+  );
+  async function returnsNullForAPhasedReleaseThatDoesnTExist404OrEmptyRelationship() {
     const serialized = JSON.stringify({ errors: [{ title: 'Not Found' }] });
     const fakeReply = fakeResponse(404, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.getPhasedRelease('v1')).toBeNull();
     fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: null })));
     expect(await client.getPhasedRelease('v2')).toBeNull();
-  });
-  it("propagates a non-404 failure on an optional read instead of swallowing it as 'absent'", async () => {
+  }
+
+  it(
+    "returns null for a phased release that doesn't exist (404 or empty relationship)",
+    returnsNullForAPhasedReleaseThatDoesnTExist404OrEmptyRelationship,
+  );
+  async function propagatesANon404FailureOnAnOptionalReadInsteadOfSwallowingItAsAbsent() {
     // The shared 404-as-absent path (getOptional) must only catch 404s - any other status is a real failure
     // that has to surface, not be misread as "no phased release". A 403 is non-retryable (isRetryableAscError
     // covers only 429/5xx), so it rejects on the first attempt with no backoff and still carries the status.
@@ -3112,8 +3901,13 @@ describe('AppStoreConnectClient - App Store release lifecycle', () => {
     const fakeReply = fakeResponse(403, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     await expect(client.getPhasedRelease('v3')).rejects.toThrow(/403/);
-  });
-  it('steers a phased release with a state PATCH', async () => {
+  }
+
+  it(
+    "propagates a non-404 failure on an optional read instead of swallowing it as 'absent'",
+    propagatesANon404FailureOnAnOptionalReadInsteadOfSwallowingItAsAbsent,
+  );
+  async function steersAPhasedReleaseWithAPiecePATCH() {
     const fakeReply = fakeResponse(204, '');
     fetchMock.mockResolvedValueOnce(fakeReply);
     await client.updatePhasedRelease('ph1', 'PAUSE');
@@ -3128,10 +3922,17 @@ describe('AppStoreConnectClient - App Store release lifecycle', () => {
         attributes: { phasedReleaseState: 'PAUSE' },
       },
     });
-  });
-});
-describe('AppStoreConnectClient - TestFlight beta feedback', () => {
-  it('parses crash submissions and resolves the build version from the included builds', async () => {
+  }
+
+  it('steers a phased release with a state PATCH', steersAPhasedReleaseWithAPiecePATCH);
+}
+
+describe(
+  'AppStoreConnectClient - App Store release lifecycle',
+  describeAppStoreConnectClientAppStoreReleaseLifecycle,
+);
+function describeAppStoreConnectClientTestFlightBetaFeedback() {
+  async function parsesCrashSubmissionsAndResolvesTheBuildVersionFromTheIncludedBuilds() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -3167,8 +3968,13 @@ describe('AppStoreConnectClient - TestFlight beta feedback', () => {
     expect(asString).toContain('/apps/app1/betaFeedbackCrashSubmissions?include=build');
     const string = String(url);
     expect(string).toContain('sort=-createdDate');
-  });
-  it('parses screenshot submissions, keeping only attachments with a usable URL', async () => {
+  }
+
+  it(
+    'parses crash submissions and resolves the build version from the included builds',
+    parsesCrashSubmissionsAndResolvesTheBuildVersionFromTheIncludedBuilds,
+  );
+  async function parsesScreenshotSubmissionsKeepingOnlyAttachmentsWithAUsableURL() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -3194,8 +4000,13 @@ describe('AppStoreConnectClient - TestFlight beta feedback', () => {
         screenshots: [{ url: 'https://a/1.png', width: 100, height: 200 }],
       },
     ]);
-  });
-  it('omits the null comment, email and device fields of an anonymous submission', async () => {
+  }
+
+  it(
+    'parses screenshot submissions, keeping only attachments with a usable URL',
+    parsesScreenshotSubmissionsKeepingOnlyAttachmentsWithAUsableURL,
+  );
+  async function omitsTheNullCommentEmailAndDeviceFieldsOfAnAnonymousSubmission() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -3216,8 +4027,13 @@ describe('AppStoreConnectClient - TestFlight beta feedback', () => {
     expect(await client.listBetaFeedbackScreenshotSubmissions('app1')).toEqual([
       { id: 's2', createdDate: '2026-06-21T00:00:00Z', screenshots: [] },
     ]);
-  });
-  it('pushes filter[build] when a build id is given', async () => {
+  }
+
+  it(
+    'omits the null comment, email and device fields of an anonymous submission',
+    omitsTheNullCommentEmailAndDeviceFieldsOfAnAnonymousSubmission,
+  );
+  async function pushesFilterBuildWhenABuildIdIsGiven() {
     const serialized = JSON.stringify({ data: [] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -3225,8 +4041,10 @@ describe('AppStoreConnectClient - TestFlight beta feedback', () => {
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     const asString = String(arrayElement[0]);
     expect(asString).toContain('filter[build]=b9');
-  });
-  it('downloads a screenshot from its presigned URL without an Authorization header', async () => {
+  }
+
+  it('pushes filter[build] when a build id is given', pushesFilterBuildWhenABuildIdIsGiven);
+  async function downloadsAScreenshotFromItsPresignedURLWithoutAnAuthorizationHeader() {
     const fakeBinary = fakeBinaryResponse(200, 'imgbytes');
     fetchMock.mockResolvedValueOnce(fakeBinary);
     const bytes = await client.downloadBetaFeedbackScreenshot('https://apple.example/shot.png');
@@ -3234,10 +4052,20 @@ describe('AppStoreConnectClient - TestFlight beta feedback', () => {
     const [url, init] = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(url).toBe('https://apple.example/shot.png');
     expect(init).toBeUndefined();
-  });
-});
-describe('findBundleId - exact identifier, not substring (#291)', () => {
-  it('selects the exact identifier when the substring filter also returns child bundle ids', async () => {
+  }
+
+  it(
+    'downloads a screenshot from its presigned URL without an Authorization header',
+    downloadsAScreenshotFromItsPresignedURLWithoutAnAuthorizationHeader,
+  );
+}
+
+describe(
+  'AppStoreConnectClient - TestFlight beta feedback',
+  describeAppStoreConnectClientTestFlightBetaFeedback,
+);
+function describeFindBundleIdExactIdentifierNotSubstring291() {
+  async function selectsTheExactIdentifierWhenTheSubstringFilterAlsoReturnsChildBundleIds() {
     // Apple's filter[identifier] is a substring match, so a query for the main bundle also returns its
     // widget - and it can come back first. The exact row must win, never data[0].
     const serialized = JSON.stringify({
@@ -3261,19 +4089,34 @@ describe('findBundleId - exact identifier, not substring (#291)', () => {
     const url = String(fetchMock.mock.calls[0]?.[0]);
     expect(url).toContain('filter[identifier]=com.example.sampleapp');
     expect(url).toContain('limit=200');
-  });
-  it('returns null when only substring siblings match (the bundle itself is unregistered)', async () => {
+  }
+
+  it(
+    'selects the exact identifier when the substring filter also returns child bundle ids',
+    selectsTheExactIdentifierWhenTheSubstringFilterAlsoReturnsChildBundleIds,
+  );
+  async function returnsNullWhenOnlySubstringSiblingsPieceTheBundleItselfIsUnregistered() {
     const serialized = JSON.stringify({
       data: [{ id: 'widget-res', attributes: { identifier: 'com.example.sampleapp.widget' } }],
     });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
     expect(await client.findBundleId('com.example.sampleapp')).toBeNull();
-  });
-});
+  }
+
+  it(
+    'returns null when only substring siblings match (the bundle itself is unregistered)',
+    returnsNullWhenOnlySubstringSiblingsPieceTheBundleItselfIsUnregistered,
+  );
+}
+
+describe(
+  'findBundleId - exact identifier, not substring (#291)',
+  describeFindBundleIdExactIdentifierNotSubstring291,
+);
 
 describe('AppStoreConnectClient - app store versions', () => {
-  it('reads the attached build id from the build relationship, and asks Apple for it', async () => {
+  async function readsTheAttachedBuildIdFromTheBuildRelationshipAndAsksAppleForIt() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -3299,9 +4142,13 @@ describe('AppStoreConnectClient - app store versions', () => {
     const arrayElement = expectArrayElement(versions, 0, 'version');
     expect(arrayElement.attachedBuildId).toBe('b-42');
     expect(expectArrayElement(versions, 1, 'version').attachedBuildId).toBeUndefined();
-  });
+  }
 
-  it('reads the attached build number and processing state from the included build', async () => {
+  it(
+    'reads the attached build id from the build relationship, and asks Apple for it',
+    readsTheAttachedBuildIdFromTheBuildRelationshipAndAsksAppleForIt,
+  );
+  async function readsTheAttachedBuildNumberAndProcessingPieceFromTheIncludedBuild() {
     const serialized = JSON.stringify({
       data: [
         {
@@ -3322,7 +4169,12 @@ describe('AppStoreConnectClient - app store versions', () => {
       attachedBuildNumber: '42',
       attachedBuildProcessingState: 'VALID',
     });
-  });
+  }
+
+  it(
+    'reads the attached build number and processing state from the included build',
+    readsTheAttachedBuildNumberAndProcessingPieceFromTheIncludedBuild,
+  );
 
   it('keeps each attached build number when the versions span two pages', async () => {
     const page2Url =
@@ -3374,8 +4226,7 @@ describe('AppStoreConnectClient - app store versions', () => {
     const asString = String(arrayElement[0]);
     expect(asString).toBe(page2Url);
   });
-
-  it('asks Apple for the build of one marketing version, newest upload first', async () => {
+  async function asksAppleForTheBuildOfOneMarketingVersionNewestUploadFirst() {
     const serialized = JSON.stringify({ data: [] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
@@ -3388,5 +4239,10 @@ describe('AppStoreConnectClient - app store versions', () => {
       'filter[version]=9&filter[preReleaseVersion.version]=1.2.0&sort=-uploadedDate&limit=1',
     );
     expect(storeBuild).toBeNull();
-  });
+  }
+
+  it(
+    'asks Apple for the build of one marketing version, newest upload first',
+    asksAppleForTheBuildOfOneMarketingVersionNewestUploadFirst,
+  );
 });

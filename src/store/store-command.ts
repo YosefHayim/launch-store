@@ -97,7 +97,7 @@ export class StoreCommand {
     });
   };
 
-  adopt = async (flags: AdoptFlags): Promise<void> => {
+  async adopt(flags: AdoptFlags): Promise<void> {
     const directory = process.cwd();
     const expoApp = await readExpoApp(directory);
     const adopt = new StoreAdopt();
@@ -109,7 +109,7 @@ export class StoreCommand {
       bundleId: expoApp.bundleId,
       packageName: expoApp.packageName,
     });
-  };
+  }
 
   private async showPlan(shouldCheck: boolean, hasJson: boolean): Promise<void> {
     const loaded = await this.load();

@@ -4,9 +4,8 @@ import {
   AvailabilityCommandInputSchema,
   renderAvailabilityAction,
 } from './availability-command.ts';
-
-describe('AvailabilityCommandInputSchema', () => {
-  it('decodes required defaults and rejects explicit undefined selectors', () => {
+function describeAvailabilityCommandPieceSchema() {
+  function decodesRequiredDefaultsAndRejectsExplicitUndefinedSelectors() {
     const availabilityCommandSchema = AvailabilityCommandInputSchema({
       config: 'availability.config.json',
       dryRun: true,
@@ -17,19 +16,27 @@ describe('AvailabilityCommandInputSchema', () => {
       dryRun: true,
       yes: false,
     });
-    expect(() =>
-      AvailabilityCommandInputSchema({
+    function callAvailabilityCommandPieceSchema() {
+      return AvailabilityCommandInputSchema({
         app: undefined,
         config: 'availability.config.json',
         dryRun: false,
         yes: true,
-      }),
-    ).toThrow();
-  });
-});
+      });
+    }
 
-describe('availability rendering', () => {
-  it('uses ASCII markers for additive, destructive, and failed actions', () => {
+    expect(callAvailabilityCommandPieceSchema).toThrow();
+  }
+
+  it(
+    'decodes required defaults and rejects explicit undefined selectors',
+    decodesRequiredDefaultsAndRejectsExplicitUndefinedSelectors,
+  );
+}
+
+describe('AvailabilityCommandInputSchema', describeAvailabilityCommandPieceSchema);
+function describeAvailabilityRendering() {
+  function usesASCIIMarkersForAdditiveDestructiveAndFailedActions() {
     const availabilityAction = renderAvailabilityAction({
       description: 'set store availability -> 3 territories',
       destructive: false,
@@ -51,9 +58,13 @@ describe('availability rendering', () => {
         error: 'territory XYZ not eligible',
       }),
     ).toBe('x set store availability -> 3 territories - territory XYZ not eligible');
-  });
+  }
 
-  it('warns explicitly before removing territories', () => {
+  it(
+    'uses ASCII markers for additive, destructive, and failed actions',
+    usesASCIIMarkersForAdditiveDestructiveAndFailedActions,
+  );
+  function warnsExplicitlyBeforeRemovingTerritories() {
     expect(
       availabilityConfirmationMessage({
         description: 'remove FRA',
@@ -62,5 +73,9 @@ describe('availability rendering', () => {
       }),
     ).toMatch(/removes the app from sale/);
     expect(availabilityConfirmationMessage(undefined)).toBe('Apply the new store availability?');
-  });
-});
+  }
+
+  it('warns explicitly before removing territories', warnsExplicitlyBeforeRemovingTerritories);
+}
+
+describe('availability rendering', describeAvailabilityRendering);

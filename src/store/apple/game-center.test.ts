@@ -13,6 +13,7 @@ import {
 } from './game-center.ts';
 import type { GameCenterConfig } from '../../types/store-surface.ts';
 import { expectArrayElement, expectDefined } from '../../testkit/assertions-testkit.ts';
+import type { ActionStatus } from '../../types/reconcile.ts';
 
 /** Records every write the reconciler makes, so a test can assert what was (and wasn't) sent. */
 type RecordedWrites = {
@@ -52,12 +53,10 @@ type FakeGameCenterState = {
 };
 
 /** A hand-rolled {@link AscGameCenterApi} - no network - returning fake state and recording writes. */
-const makeGameCenterApi = (
-  stateOverrides: Partial<FakeGameCenterState>,
-): {
+function makeGameCenterApi(stateOverrides: Partial<FakeGameCenterState>): {
   api: AscGameCenterApi;
   writes: RecordedWrites;
-} => {
+} {
   const fakeState: FakeGameCenterState = {
     appId: 'app-1',
     detailId: 'detail-1',
@@ -77,22 +76,26 @@ const makeGameCenterApi = (
     leaderboardLocales: [],
   };
   const api: AscGameCenterApi = {
-    getAppId: () => Promise.resolve(fakeState.appId),
-    getGameCenterDetail: () => {
+    getAppId() {
+      return Promise.resolve(fakeState.appId);
+    },
+    getGameCenterDetail() {
       if (fakeState.detailId == null) return Promise.resolve(null);
       return Promise.resolve({ id: fakeState.detailId });
     },
-    createGameCenterDetail: () => {
+    createGameCenterDetail() {
       if (fakeState.enableFailure != null) return Promise.reject(fakeState.enableFailure);
       writes.detailCreated++;
       return Promise.resolve({ id: 'detail-new' });
     },
-    listGameCenterAchievements: () => Promise.resolve(fakeState.achievements),
-    createGameCenterAchievement: (detailId, achievement) => {
+    listGameCenterAchievements() {
+      return Promise.resolve(fakeState.achievements);
+    },
+    createGameCenterAchievement(detailId, achievement) {
       writes.achievements.push({ detailId, achievement });
       return Promise.resolve({ id: 'ach-new', versionId: fakeState.achievementVersionId });
     },
-    createGameCenterAchievementLocalization: (versionId, localization) => {
+    createGameCenterAchievementLocalization(versionId, localization) {
       if (fakeState.achievementLocalizationFailure != null) {
         return Promise.reject(fakeState.achievementLocalizationFailure);
       }
@@ -105,12 +108,14 @@ const makeGameCenterApi = (
       });
       return Promise.resolve();
     },
-    listGameCenterLeaderboards: () => Promise.resolve(fakeState.leaderboards),
-    createGameCenterLeaderboard: (detailId, leaderboard) => {
+    listGameCenterLeaderboards() {
+      return Promise.resolve(fakeState.leaderboards);
+    },
+    createGameCenterLeaderboard(detailId, leaderboard) {
       writes.leaderboards.push({ detailId, leaderboard });
       return Promise.resolve({ id: 'lb-new', versionId: fakeState.leaderboardVersionId });
     },
-    createGameCenterLeaderboardLocalization: (versionId, localization) => {
+    createGameCenterLeaderboardLocalization(versionId, localization) {
       writes.leaderboardLocales.push({
         versionId,
         locale: localization.locale,
@@ -120,13 +125,15 @@ const makeGameCenterApi = (
     },
   };
   return { api, writes };
-};
+}
 
 /** Execute the Game Center reconciler at the test boundary. */
-const runReconcile = (
+function runReconcile(
   api: AscGameCenterApi,
   reconcileInput: Parameters<typeof reconcileGameCenter>[1],
-) => reconcileGameCenter(api, reconcileInput);
+) {
+  return reconcileGameCenter(api, reconcileInput);
+}
 
 const SAMPLE_CONFIG: GameCenterConfig = {
   achievements: [
@@ -151,10 +158,11 @@ const SAMPLE_CONFIG: GameCenterConfig = {
   ],
 };
 
-const decodeGameCenterConfig = (rawDocument: unknown) => parseGameCenterConfig(rawDocument);
-
-describe('parseGameCenterConfig', () => {
-  it('parses achievements and leaderboards', () => {
+function decodeGameCenterConfig(rawDocument: unknown) {
+  return parseGameCenterConfig(rawDocument);
+}
+function describeParseGameCenterPiece() {
+  function parsesAchievementsAndLeaderboards() {
     const gameCenterConfig = decodeGameCenterConfig(SAMPLE_CONFIG);
     const firstAchievement = expectArrayElement(
       expectDefined(gameCenterConfig.achievements, 'achievements'),
@@ -166,19 +174,38 @@ describe('parseGameCenterConfig', () => {
     );
     expect(firstAchievement.vendorIdentifier).toBe('first_win');
     expect(firstLeaderboard.defaultFormatter).toBe('INTEGER');
-  });
+  }
 
-  it('rejects a non-object, an array, and a file declaring neither list', () => {
-    expect(() => decodeGameCenterConfig('nope')).toThrow(/must be a JSON object/);
-    expect(() => decodeGameCenterConfig([])).toThrow(/must be a JSON object/);
-    expect(() => decodeGameCenterConfig({})).toThrow(/at least one entry/);
-    expect(() => decodeGameCenterConfig({ achievements: [], leaderboards: [] })).toThrow(
-      /at least one entry/,
-    );
-  });
+  it('parses achievements and leaderboards', parsesAchievementsAndLeaderboards);
+  function rejectsANonObjectAnArrayAndAFileDeclaringNeitherList() {
+    function callDecodeGameCenterPiece() {
+      return decodeGameCenterConfig('nope');
+    }
 
-  it('rejects bad points and bad enum values', () => {
-    expect(() => {
+    expect(callDecodeGameCenterPiece).toThrow(/must be a JSON object/);
+    function callDecodeGameCenterPiece2() {
+      return decodeGameCenterConfig([]);
+    }
+
+    expect(callDecodeGameCenterPiece2).toThrow(/must be a JSON object/);
+    function callDecodeGameCenterPiece3() {
+      return decodeGameCenterConfig({});
+    }
+
+    expect(callDecodeGameCenterPiece3).toThrow(/at least one entry/);
+    function callDecodeGameCenterPiece4() {
+      return decodeGameCenterConfig({ achievements: [], leaderboards: [] });
+    }
+
+    expect(callDecodeGameCenterPiece4).toThrow(/at least one entry/);
+  }
+
+  it(
+    'rejects a non-object, an array, and a file declaring neither list',
+    rejectsANonObjectAnArrayAndAFileDeclaringNeitherList,
+  );
+  function rejectsBadPointsAndBadEnumValues() {
+    function expectCall() {
       const arrayElement = expectArrayElement(
         expectDefined(SAMPLE_CONFIG.achievements, 'achievements'),
         0,
@@ -191,8 +218,10 @@ describe('parseGameCenterConfig', () => {
           },
         ],
       });
-    }).toThrow(/points must be a non-negative integer/);
-    expect(() => {
+    }
+
+    expect(expectCall).toThrow(/points must be a non-negative integer/);
+    function expectCall2() {
       const arrayElement = expectArrayElement(
         expectDefined(SAMPLE_CONFIG.leaderboards, 'leaderboards'),
         0,
@@ -205,8 +234,10 @@ describe('parseGameCenterConfig', () => {
           },
         ],
       });
-    }).toThrow(/defaultFormatter/);
-    expect(() => {
+    }
+
+    expect(expectCall2).toThrow(/defaultFormatter/);
+    function expectCall3() {
       const arrayElement = expectArrayElement(
         expectDefined(SAMPLE_CONFIG.leaderboards, 'leaderboards'),
         0,
@@ -219,23 +250,34 @@ describe('parseGameCenterConfig', () => {
           },
         ],
       });
-    }).toThrow(/scoreSortType/);
-  });
+    }
 
-  it('rejects an achievement missing required localization text', () => {
+    expect(expectCall3).toThrow(/scoreSortType/);
+  }
+
+  it('rejects bad points and bad enum values', rejectsBadPointsAndBadEnumValues);
+  function rejectsAnAchievementMissingRequiredLocalizationPiece() {
     const achievement = expectArrayElement(
       expectDefined(SAMPLE_CONFIG.achievements, 'achievements'),
       0,
     );
     const { afterEarnedDescription: _omit, ...partialAchievement } = achievement;
-    expect(() => decodeGameCenterConfig({ achievements: [partialAchievement] })).toThrow(
-      /afterEarnedDescription/,
-    );
-  });
-});
+    function callDecodeGameCenterPiece5() {
+      return decodeGameCenterConfig({ achievements: [partialAchievement] });
+    }
 
-describe('reconcileGameCenter', () => {
-  it('throws when the app has no App Store Connect record', async () => {
+    expect(callDecodeGameCenterPiece5).toThrow(/afterEarnedDescription/);
+  }
+
+  it(
+    'rejects an achievement missing required localization text',
+    rejectsAnAchievementMissingRequiredLocalizationPiece,
+  );
+}
+
+describe('parseGameCenterConfig', describeParseGameCenterPiece);
+function describeReconcileGameCenter() {
+  async function throwsWhenTheAppHasNoAppStoreConnectPiece() {
     const { api } = makeGameCenterApi({ appId: null });
     const reconcile = runReconcile(api, {
       bundleId: 'com.acme.app',
@@ -243,9 +285,13 @@ describe('reconcileGameCenter', () => {
       dryRun: true,
     });
     await expect(reconcile).rejects.toThrow(/No App Store Connect app record/);
-  });
+  }
 
-  it('enables Game Center, then creates each achievement & leaderboard with its localization (apply)', async () => {
+  it(
+    'throws when the app has no App Store Connect record',
+    throwsWhenTheAppHasNoAppStoreConnectPiece,
+  );
+  async function enablesGameCenterThenCreatesEachAchievementLeaderboardWithItsLocalizationApply() {
     const { api, writes } = makeGameCenterApi({ detailId: null });
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
@@ -291,9 +337,13 @@ describe('reconcileGameCenter', () => {
     ]);
     // enable + 2 creates + 2 localizations = 5 applied
     expect(summarize(report.actions)).toEqual({ applied: 5, failed: 0, skipped: 0 });
-  });
+  }
 
-  it("only creates items the detail doesn't already have (idempotent by vendorIdentifier)", async () => {
+  it(
+    'enables Game Center, then creates each achievement & leaderboard with its localization (apply)',
+    enablesGameCenterThenCreatesEachAchievementLeaderboardWithItsLocalizationApply,
+  );
+  async function onlyCreatesPieceTheDetailDoesnTAlreadyHaveIdempotentByVendorIdentifier() {
     const { api, writes } = makeGameCenterApi({
       achievements: [{ id: 'a1', vendorIdentifier: 'first_win' }],
       leaderboards: [],
@@ -312,9 +362,13 @@ describe('reconcileGameCenter', () => {
         },
       },
     ]);
-  });
+  }
 
-  it('plans but performs nothing on a dry-run when the detail already exists', async () => {
+  it(
+    "only creates items the detail doesn't already have (idempotent by vendorIdentifier)",
+    onlyCreatesPieceTheDetailDoesnTAlreadyHaveIdempotentByVendorIdentifier,
+  );
+  async function plansButPerformsNothingOnADryRunWhenTheDetailAlreadyExists() {
     const { api, writes } = makeGameCenterApi({});
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
@@ -323,12 +377,25 @@ describe('reconcileGameCenter', () => {
     });
     expect(writes.achievements).toHaveLength(0);
     expect(writes.leaderboards).toHaveLength(0);
-    expect(report.actions.every((action) => action.status == 'planned')).toBe(true);
+    function everyAction(action: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return action.status == 'planned';
+    }
+
+    expect(report.actions.every(everyAction)).toBe(true);
     // 2 creates + 2 localizations planned (detail already exists, so no enable action)
     expect(report.actions).toHaveLength(4);
-  });
+  }
 
-  it('plans enable plus creates on a dry-run when Game Center is not yet enabled', async () => {
+  it(
+    'plans but performs nothing on a dry-run when the detail already exists',
+    plansButPerformsNothingOnADryRunWhenTheDetailAlreadyExists,
+  );
+  async function plansEnablePlusCreatesOnADryRunWhenGameCenterIsNotYetEnabled() {
     const { api, writes } = makeGameCenterApi({ detailId: null });
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
@@ -337,17 +404,39 @@ describe('reconcileGameCenter', () => {
     });
     expect(writes.detailCreated).toBe(0);
     expect(writes.achievements).toHaveLength(0);
-    expect(report.actions.map((action) => action.description)).toEqual([
+    function readDescription(action: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return action.description;
+    }
+
+    expect(report.actions.map(readDescription)).toEqual([
       'enable Game Center for the app',
       'create achievement first_win (10 pts)',
       'set achievement first_win localization (en-US)',
       'create leaderboard high_score (INTEGER)',
       'set leaderboard high_score localization (en-US)',
     ]);
-    expect(report.actions.every((action) => action.status == 'planned')).toBe(true);
-  });
+    function everyAction2(action: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return action.status == 'planned';
+    }
 
-  it('records the localization as skipped (not failed) when Apple returns no version id', async () => {
+    expect(report.actions.every(everyAction2)).toBe(true);
+  }
+
+  it(
+    'plans enable plus creates on a dry-run when Game Center is not yet enabled',
+    plansEnablePlusCreatesOnADryRunWhenGameCenterIsNotYetEnabled,
+  );
+  async function recordsTheLocalizationAsSkippedNotFailedWhenAppleReturnsNoVersionId() {
     const { api, writes } = makeGameCenterApi({ achievementVersionId: null });
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
@@ -359,11 +448,19 @@ describe('reconcileGameCenter', () => {
     expect(writes.achievements).toHaveLength(1);
     expect(writes.achievementLocales).toHaveLength(0);
     expect(summarize(report.actions)).toEqual({ applied: 1, failed: 0, skipped: 1 });
-  });
+  }
 
-  it("captures a failed create and skips that item's localization", async () => {
+  it(
+    'records the localization as skipped (not failed) when Apple returns no version id',
+    recordsTheLocalizationAsSkippedNotFailedWhenAppleReturnsNoVersionId,
+  );
+  async function capturesAFailedCreateAndSkipsThatPieceSLocalization() {
     const { api, writes } = makeGameCenterApi({});
-    api.createGameCenterLeaderboard = () => Promise.reject(new Error('vendor id taken'));
+    function runPiece() {
+      return Promise.reject(new Error('vendor id taken'));
+    }
+
+    api.createGameCenterLeaderboard = runPiece;
     const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       config: SAMPLE_CONFIG,
@@ -373,13 +470,26 @@ describe('reconcileGameCenter', () => {
     expect(summary.failed).toBe(1);
     expect(summary.skipped).toBe(1);
     expect(writes.leaderboardLocales).toHaveLength(0);
-    const failedAction = report.actions.find((action) => action.status == 'failed');
+    function findAction(action: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return action.status == 'failed';
+    }
+
+    const failedAction = report.actions.find(findAction);
     expect(failedAction).toBeDefined();
     if (failedAction == null) return;
     expect(failedAction.error).toBe('vendor id taken');
-  });
+  }
 
-  it('skips achievements and leaderboards when enabling Game Center fails', async () => {
+  it(
+    "captures a failed create and skips that item's localization",
+    capturesAFailedCreateAndSkipsThatPieceSLocalization,
+  );
+  async function skipsAchievementsAndLeaderboardsWhenEnablingGameCenterFails() {
     const { api, writes } = makeGameCenterApi({
       detailId: null,
       enableFailure: new Error('enable denied'),
@@ -393,13 +503,26 @@ describe('reconcileGameCenter', () => {
     expect(writes.achievements).toHaveLength(0);
     expect(writes.leaderboards).toHaveLength(0);
     expect(summarize(report.actions)).toEqual({ applied: 0, failed: 1, skipped: 1 });
-    const failedEnable = report.actions.find((action) => action.status == 'failed');
+    function findAction2(action: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return action.status == 'failed';
+    }
+
+    const failedEnable = report.actions.find(findAction2);
     expect(failedEnable).toBeDefined();
     if (failedEnable == null) return;
     expect(failedEnable.error).toBe('enable denied');
-  });
+  }
 
-  it('honors declared locale and achievement flags on create', async () => {
+  it(
+    'skips achievements and leaderboards when enabling Game Center fails',
+    skipsAchievementsAndLeaderboardsWhenEnablingGameCenterFails,
+  );
+  async function honorsDeclaredLocaleAndAchievementFlagsOnCreate() {
     const { api, writes } = makeGameCenterApi({});
     await runReconcile(api, {
       bundleId: 'com.acme.app',
@@ -441,9 +564,13 @@ describe('reconcileGameCenter', () => {
         afterEarnedDescription: 'Lightning fast!',
       },
     ]);
-  });
+  }
 
-  it('records a failed localization when Apple rejects the localization create', async () => {
+  it(
+    'honors declared locale and achievement flags on create',
+    honorsDeclaredLocaleAndAchievementFlagsOnCreate,
+  );
+  async function recordsAFailedLocalizationWhenAppleRejectsTheLocalizationCreate() {
     const { api, writes } = makeGameCenterApi({
       achievementLocalizationFailure: new Error('locale not allowed'),
     });
@@ -457,9 +584,25 @@ describe('reconcileGameCenter', () => {
     expect(writes.achievements).toHaveLength(1);
     expect(writes.achievementLocales).toHaveLength(0);
     expect(summarize(report.actions)).toEqual({ applied: 1, failed: 1, skipped: 0 });
-    const failedLocalization = report.actions.find((action) => action.status == 'failed');
+    function findAction3(action: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return action.status == 'failed';
+    }
+
+    const failedLocalization = report.actions.find(findAction3);
     expect(failedLocalization).toBeDefined();
     if (failedLocalization == null) return;
     expect(failedLocalization.error).toBe('locale not allowed');
-  });
-});
+  }
+
+  it(
+    'records a failed localization when Apple rejects the localization create',
+    recordsAFailedLocalizationWhenAppleRejectsTheLocalizationCreate,
+  );
+}
+
+describe('reconcileGameCenter', describeReconcileGameCenter);

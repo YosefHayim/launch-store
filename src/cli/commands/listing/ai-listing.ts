@@ -7,8 +7,13 @@ import { aiGroup } from './ai.ts';
 import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the `ai listing` subcommand. */
-export const registerAiListingCommand = (program: Command): void => {
+export function registerAiListingCommand(program: Command): void {
   const aiCommand = aiGroup(program);
+  function runListing(commandOptions: AiListingInput) {
+    const aiListingProgram = aiListingCommandProgram(commandOptions);
+    return runCliProgram(aiListingProgram);
+  }
+
   aiCommand
     .command('listing')
     .description(
@@ -25,8 +30,5 @@ export const registerAiListingCommand = (program: Command): void => {
     .option('--config <path>', 'path to store.config.json (default: <app>/store.config.json)')
     .option('--dry-run', 'generate and preview, but write nothing', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: AiListingInput) => {
-      const aiListingProgram = aiListingCommandProgram(commandOptions);
-      return runCliProgram(aiListingProgram);
-    });
-};
+    .action(runListing);
+}

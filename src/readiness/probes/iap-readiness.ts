@@ -13,10 +13,10 @@ export const declaredSubscriptionIds = (
   if (groups == null) groups = [];
   return groups.flatMap((group) => group.subscriptions.map((sub) => sub.productId));
 };
-export const sellsProducts = (readinessContext: ReadinessContext, bundleId: string): boolean => {
+export function sellsProducts(readinessContext: ReadinessContext, bundleId: string): boolean {
   if (declaredIapIds(readinessContext, bundleId).length > 0) return true;
   return declaredSubscriptionIds(readinessContext, bundleId).length > 0;
-};
+}
 export const declaredAppleProductIds = (products: AppProducts | undefined): string[] => {
   if (!products) return [];
   let inAppPurchases = products.inAppPurchases;
@@ -35,7 +35,7 @@ type ProductGrade = {
   detail: string;
   hint?: string;
 };
-export const gradeDeclaredProduct = (
+export function gradeDeclaredProduct(
   productId: string,
   live:
     | {
@@ -43,7 +43,7 @@ export const gradeDeclaredProduct = (
       }
     | undefined,
   kind: 'in-app purchase' | 'subscription',
-): ProductGrade => {
+): ProductGrade {
   if (!live) {
     return {
       status: 'blocker',
@@ -61,4 +61,4 @@ export const gradeDeclaredProduct = (
   let productState = live.state;
   if (productState == null) productState = 'present';
   return { status: 'ok', detail: `${productId}: ${productState}` };
-};
+}

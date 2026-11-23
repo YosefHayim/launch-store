@@ -63,7 +63,7 @@ import { registerStatsCommand } from './commands/insights/stats.ts';
  * dispatching `argv` are the caller's job - so importing this module does nothing observable, which is
  * what lets both the runtime entry and the docs generator share one definition of the command surface.
  */
-export const buildProgram = (launchVersion = '0.0.0'): Command => {
+export function buildProgram(launchVersion: string = '0.0.0'): Command {
   const program = new Command();
   program
     .name('launch-store')
@@ -130,8 +130,10 @@ export const buildProgram = (launchVersion = '0.0.0'): Command => {
   registerFingerprintCommand(program);
   registerDiagnoseCommand(program);
   registerResignCommand(program);
-  program.action(() => {
+  function showHelp() {
     program.outputHelp();
-  });
+  }
+
+  program.action(showHelp);
   return program;
-};
+}

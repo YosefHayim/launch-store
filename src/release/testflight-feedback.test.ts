@@ -66,9 +66,8 @@ function makeAppleStore(options: AppleStoreOptions): AscFeedbackApi {
     }),
   };
 }
-
-describe('listBetaFeedback', () => {
-  it('fails clearly when the app record is missing', async () => {
+function describeListBetaFeedback() {
+  async function failsClearlyWhenTheAppPieceIsMissing() {
     const appleStore = makeAppleStore({ appIds: {} });
 
     const betaFeedback = listBetaFeedback(appleStore, 'com.x.missing');
@@ -76,9 +75,10 @@ describe('listBetaFeedback', () => {
       _tag: 'TestflightFeedbackFailure',
       message: expect.stringContaining('No App Store Connect app record'),
     });
-  });
+  }
 
-  it('merges crash and screenshot feedback newest-first', async () => {
+  it('fails clearly when the app record is missing', failsClearlyWhenTheAppPieceIsMissing);
+  async function mergesCrashAndScreenshotFeedbackNewestFirst() {
     const appleStore = makeAppleStore({
       appIds: { 'com.x': 'app1' },
       crashSubmissions: [{ id: 'c1', createdDate: '2026-06-18T00:00:00Z', comment: 'crash' }],
@@ -108,9 +108,13 @@ describe('listBetaFeedback', () => {
     });
     expect(screenshotFeedback?.kind).toBe('screenshot');
     expect(screenshotFeedback?.screenshots).toEqual([{ url: 'https://a/1.png' }]);
-  });
+  }
 
-  it('skips screenshot reads when crash feedback is requested', async () => {
+  it(
+    'merges crash and screenshot feedback newest-first',
+    mergesCrashAndScreenshotFeedbackNewestFirst,
+  );
+  async function skipsScreenshotReadsWhenCrashFeedbackIsRequested() {
     const appleStore = makeAppleStore({
       appIds: { 'com.x': 'app1' },
       crashSubmissions: [{ id: 'c1' }],
@@ -124,9 +128,13 @@ describe('listBetaFeedback', () => {
       }),
     ).toEqual(['c1']);
     expect(appleStore.listBetaFeedbackScreenshotSubmissions).not.toHaveBeenCalled();
-  });
+  }
 
-  it('skips crash reads when screenshot feedback is requested', async () => {
+  it(
+    'skips screenshot reads when crash feedback is requested',
+    skipsScreenshotReadsWhenCrashFeedbackIsRequested,
+  );
+  async function skipsCrashReadsWhenScreenshotFeedbackIsRequested() {
     const appleStore = makeAppleStore({
       appIds: { 'com.x': 'app1' },
       screenshotSubmissions: [{ id: 's1', screenshots: [{ url: 'https://a/1.png' }] }],
@@ -140,9 +148,13 @@ describe('listBetaFeedback', () => {
       }),
     ).toEqual(['s1']);
     expect(appleStore.listBetaFeedbackCrashSubmissions).not.toHaveBeenCalled();
-  });
+  }
 
-  it('resolves a build version into the server-side build filter', async () => {
+  it(
+    'skips crash reads when screenshot feedback is requested',
+    skipsCrashReadsWhenScreenshotFeedbackIsRequested,
+  );
+  async function resolvesABuildVersionIntoTheServerSideBuildFilter() {
     const appleStore = makeAppleStore({
       appIds: { 'com.x': 'app1' },
       builds: {
@@ -157,9 +169,13 @@ describe('listBetaFeedback', () => {
     expect(appleStore.listBetaFeedbackCrashSubmissions).toHaveBeenCalledWith('app1', {
       buildId: 'build-42',
     });
-  });
+  }
 
-  it('rejects missing and non-numeric builds', async () => {
+  it(
+    'resolves a build version into the server-side build filter',
+    resolvesABuildVersionIntoTheServerSideBuildFilter,
+  );
+  async function rejectsMissingAndNonNumericBuilds() {
     const appleStore = makeAppleStore({ appIds: { 'com.x': 'app1' }, builds: {} });
 
     const betaFeedback = listBetaFeedback(appleStore, 'com.x', { build: '99' });
@@ -170,9 +186,10 @@ describe('listBetaFeedback', () => {
       message: expect.stringContaining('CFBundleVersion'),
     });
     expect(appleStore.findBuildByVersion).toHaveBeenCalledTimes(1);
-  });
+  }
 
-  it('omits an empty screenshot collection', async () => {
+  it('rejects missing and non-numeric builds', rejectsMissingAndNonNumericBuilds);
+  async function omitsAnEmptyScreenshotCollection() {
     const appleStore = makeAppleStore({
       appIds: { 'com.x': 'app1' },
       screenshotSubmissions: [{ id: 's1', screenshots: [] }],
@@ -189,11 +206,14 @@ describe('listBetaFeedback', () => {
     }
 
     expect('screenshots' in feedbackEntry).toBe(false);
-  });
-});
+  }
 
-describe('downloadFeedbackAttachments', () => {
-  it('writes one file per screenshot and skips crash feedback', async () => {
+  it('omits an empty screenshot collection', omitsAnEmptyScreenshotCollection);
+}
+
+describe('listBetaFeedback', describeListBetaFeedback);
+function describeDownloadFeedbackAttachments() {
+  async function writesOneFilePerScreenshotAndSkipsCrashFeedback() {
     const bufferBytes = Buffer.from('imgbytes');
     const appleStore = makeAppleStore({ screenshotBytes: bufferBytes });
     const feedbackEntries: BetaFeedback[] = [
@@ -225,9 +245,13 @@ describe('downloadFeedbackAttachments', () => {
     const joinedPath = join(outputDirectory, 's1-1.png');
     expect(readFileSync(joinedPath).toString()).toBe('imgbytes');
     expect(appleStore.downloadBetaFeedbackScreenshot).toHaveBeenCalledTimes(2);
-  });
+  }
 
-  it('encodes unsafe feedback ids into distinct child paths', async () => {
+  it(
+    'writes one file per screenshot and skips crash feedback',
+    writesOneFilePerScreenshotAndSkipsCrashFeedback,
+  );
+  async function encodesUnsafeFeedbackIdsIntoDistinctChildPaths() {
     const bufferBytes = Buffer.from('x');
     const appleStore = makeAppleStore({ screenshotBytes: bufferBytes });
     const feedbackEntries: BetaFeedback[] = [
@@ -254,5 +278,12 @@ describe('downloadFeedbackAttachments', () => {
     for (const attachment of downloadedAttachments) {
       expect(attachment.path.startsWith(`${outputDirectory}/`)).toBe(true);
     }
-  });
-});
+  }
+
+  it(
+    'encodes unsafe feedback ids into distinct child paths',
+    encodesUnsafeFeedbackIdsIntoDistinctChildPaths,
+  );
+}
+
+describe('downloadFeedbackAttachments', describeDownloadFeedbackAttachments);

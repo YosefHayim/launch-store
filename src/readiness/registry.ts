@@ -25,16 +25,16 @@ import { versionCopyrightProbe } from './probes/version-copyright.ts';
 import { appPrivacyProbe } from './probes/app-privacy.ts';
 /** Registered probes, keyed by id so re-registering one replaces it (idempotent built-in wiring). */
 const PROBES = new Map<string, ReadinessProbe>();
-export const registerReadinessProbe = (probe: ReadinessProbe): void => {
+export function registerReadinessProbe(probe: ReadinessProbe): void {
   PROBES.set(probe.id, probe);
-};
-export const listReadinessProbes = (): ReadinessProbe[] => {
+}
+export function listReadinessProbes(): ReadinessProbe[] {
   return [...PROBES.values()];
-};
+}
 export const selectReadinessProbes = (category: ReadinessCategory): ReadinessProbe[] => {
   return listReadinessProbes().filter((probe) => probe.categories.includes(category));
 };
-export const registerBuiltinProbes = (): void => {
+export function registerBuiltinProbes(): void {
   registerReadinessProbe(agreementsProbe);
   registerReadinessProbe(appRecordProbe);
   registerReadinessProbe(subscriptionGroupProbe);
@@ -59,4 +59,4 @@ export const registerBuiltinProbes = (): void => {
   registerReadinessProbe(screenshotsProbe);
   registerReadinessProbe(versionCopyrightProbe);
   registerReadinessProbe(appPrivacyProbe);
-};
+}

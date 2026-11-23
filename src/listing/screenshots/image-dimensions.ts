@@ -7,22 +7,22 @@ type ImageDimensions = {
 
 const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-const readPngDimensions = (imageBytes: Buffer): ImageDimensions | null => {
+function readPngDimensions(imageBytes: Buffer): ImageDimensions | null {
   if (imageBytes.length < 24) return null;
   if (!imageBytes.subarray(0, 8).equals(pngSignature)) return null;
   if (imageBytes.toString('ascii', 12, 16) != 'IHDR') return null;
   return { width: imageBytes.readUInt32BE(16), height: imageBytes.readUInt32BE(20) };
-};
+}
 
-const isStartOfFrame = (marker: number): boolean => {
+function isStartOfFrame(marker: number): boolean {
   if (marker < 0xc0) return false;
   if (marker > 0xcf) return false;
   if (marker == 0xc4) return false;
   if (marker == 0xc8) return false;
   return marker != 0xcc;
-};
+}
 
-const readJpegDimensions = (imageBytes: Buffer): ImageDimensions | null => {
+function readJpegDimensions(imageBytes: Buffer): ImageDimensions | null {
   if (imageBytes.length < 4) return null;
   if (imageBytes[0] != 0xff) return null;
   if (imageBytes[1] != 0xd8) return null;
@@ -62,14 +62,14 @@ const readJpegDimensions = (imageBytes: Buffer): ImageDimensions | null => {
     byteOffset += 2 + segmentLength;
   }
   return null;
-};
+}
 
-export const readImageDimensions = (imageBytes: Uint8Array): ImageDimensions | null => {
+export function readImageDimensions(imageBytes: Uint8Array): ImageDimensions | null {
   const imageBuffer = Buffer.from(imageBytes);
   const pngDimensions = readPngDimensions(imageBuffer);
   if (pngDimensions != null) return pngDimensions;
   return readJpegDimensions(imageBuffer);
-};
+}
 
 export async function readScreenshotDimensions(filePath: string): Promise<ImageDimensions | null> {
   try {

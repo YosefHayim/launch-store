@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SyncCommandInputSchema } from './sync-command.ts';
-
-describe('SyncCommandInputSchema', () => {
-  it('decodes the complete Commander boundary', () => {
+function describeSyncCommandPieceSchema() {
+  function decodesTheCompleteCommanderBoundary() {
     const syncCommandSchema = SyncCommandInputSchema({
       app: 'ios,android',
       dryRun: true,
@@ -17,15 +16,25 @@ describe('SyncCommandInputSchema', () => {
       yes: true,
       snapshot: false,
     });
-  });
+  }
 
-  it('rejects missing boolean flags before orchestration', () => {
-    expect(() =>
-      SyncCommandInputSchema({
+  it('decodes the complete Commander boundary', decodesTheCompleteCommanderBoundary);
+  function rejectsMissingBooleanFlagsBeforeOrchestration() {
+    function callSyncCommandPieceSchema() {
+      return SyncCommandInputSchema({
         dryRun: true,
         allowDestructive: false,
         yes: true,
-      }),
-    ).toThrow();
-  });
-});
+      });
+    }
+
+    expect(callSyncCommandPieceSchema).toThrow();
+  }
+
+  it(
+    'rejects missing boolean flags before orchestration',
+    rejectsMissingBooleanFlagsBeforeOrchestration,
+  );
+}
+
+describe('SyncCommandInputSchema', describeSyncCommandPieceSchema);

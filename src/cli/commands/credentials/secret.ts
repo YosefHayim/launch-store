@@ -10,7 +10,28 @@ type SecretOptions = Readonly<{
 }>;
 
 /** Attach keychain-backed build-secret operations to Commander. */
-export const registerSecretCommand = (program: Command): void => {
+export function registerSecretCommand(program: Command): void {
+  function runSecret(action: string, name: string | undefined, commandOptions: SecretOptions) {
+    if (action == 'set') {
+      const secretProgram = secretCommandProgram({
+        action,
+        name,
+        value: commandOptions.value,
+        app: commandOptions.app,
+        profile: commandOptions.profile,
+        yes: commandOptions.yes == true,
+      });
+      return runCliProgram(secretProgram);
+    }
+    const secretProgram = secretCommandProgram({
+      action,
+      name,
+      app: commandOptions.app,
+      profile: commandOptions.profile,
+    });
+    return runCliProgram(secretProgram);
+  }
+
   program
     .command('secret')
     .alias('env')
@@ -24,24 +45,5 @@ export const registerSecretCommand = (program: Command): void => {
       'set: the secret value (else prompted; required when non-interactive)',
     )
     .option('--yes', 'non-interactive: fail instead of prompting (CI, remote, agents)')
-    .action((action: string, name: string | undefined, commandOptions: SecretOptions) => {
-      if (action == 'set') {
-        const secretProgram = secretCommandProgram({
-          action,
-          name,
-          value: commandOptions.value,
-          app: commandOptions.app,
-          profile: commandOptions.profile,
-          yes: commandOptions.yes == true,
-        });
-        return runCliProgram(secretProgram);
-      }
-      const secretProgram = secretCommandProgram({
-        action,
-        name,
-        app: commandOptions.app,
-        profile: commandOptions.profile,
-      });
-      return runCliProgram(secretProgram);
-    });
-};
+    .action(runSecret);
+}

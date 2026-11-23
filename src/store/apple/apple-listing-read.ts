@@ -92,7 +92,7 @@ function fieldString(
  * `ascSync.routeListing`. Only present fields are carried, and the comma-joined `keywords` string is split
  * back into the array shape `store.config.json` uses.
  */
-export const toLocaleInfo = (fields: Readonly<{ [key: string]: JsonValue }>): AppleLocaleInfo => {
+export function toLocaleInfo(fields: Readonly<{ [key: string]: JsonValue }>): AppleLocaleInfo {
   const localeInfo: AppleLocaleInfo = {};
   const title = fieldString(fields, 'name');
   if (title != null) localeInfo.title = title;
@@ -104,10 +104,11 @@ export const toLocaleInfo = (fields: Readonly<{ [key: string]: JsonValue }>): Ap
   if (description != null) localeInfo.description = description;
   const keywords = fieldString(fields, 'keywords');
   if (keywords != null) {
-    const list = keywords
-      .split(',')
-      .map((keyword) => keyword.trim())
-      .filter(Boolean);
+    function mapKeyword(keyword: string) {
+      return keyword.trim();
+    }
+
+    const list = keywords.split(',').map(mapKeyword).filter(Boolean);
     if (list.length > 0) localeInfo.keywords = list;
   }
   const releaseNotes = fieldString(fields, 'whatsNew');
@@ -119,7 +120,7 @@ export const toLocaleInfo = (fields: Readonly<{ [key: string]: JsonValue }>): Ap
   const marketingUrl = fieldString(fields, 'marketingUrl');
   if (marketingUrl != null) localeInfo.marketingUrl = marketingUrl;
   return localeInfo;
-};
+}
 
 /** Read an app's live App Store listing as the `apple` section of store.config.json. */
 export async function readAppleListing(

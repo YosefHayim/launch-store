@@ -7,13 +7,17 @@ import type {
   PortfolioPlatform,
 } from '../types/portfolio.ts';
 
-export const createIosAppKey = (ascAppId: string): string => `ios-${ascAppId}`;
+export function createIosAppKey(ascAppId: string): string {
+  return `ios-${ascAppId}`;
+}
 
-export const createAndroidAppKey = (packageName: string): string => `android-${packageName}`;
+export function createAndroidAppKey(packageName: string): string {
+  return `android-${packageName}`;
+}
 
-export const mergeDiscoveredApps = (
+export function mergeDiscoveredApps(
   appLists: readonly (readonly DiscoveredApp[])[],
-): DiscoveredApp[] => {
+): DiscoveredApp[] {
   const seenKeys = new Set<string>();
   const mergedApps: DiscoveredApp[] = [];
   for (const appList of appLists) {
@@ -25,83 +29,111 @@ export const mergeDiscoveredApps = (
     }
   }
   return mergedApps;
-};
+}
 
-export const keepCachedAppsOfFailedAccounts = (
+export function keepCachedAppsOfFailedAccounts(
   discoveredApps: readonly DiscoveredApp[],
   cachedApps: readonly DiscoveredApp[],
   failedAccountLabels: readonly string[],
-): DiscoveredApp[] => {
-  const cachedAppsOfFailedAccounts = cachedApps.filter((cachedApp) =>
-    failedAccountLabels.includes(cachedApp.accountLabel),
-  );
-  return mergeDiscoveredApps([discoveredApps, cachedAppsOfFailedAccounts]);
-};
+): DiscoveredApp[] {
+  function filterCachedApp(cachedApp: DiscoveredApp) {
+    return failedAccountLabels.includes(cachedApp.accountLabel);
+  }
 
-export const joinTags = (apps: readonly DiscoveredApp[], tags: readonly AppTag[]): PortfolioApp[] =>
-  apps.map((app) => {
-    const appTag = tags.find((tag) => tag.appKey == app.key);
+  const cachedAppsOfFailedAccounts = cachedApps.filter(filterCachedApp);
+  return mergeDiscoveredApps([discoveredApps, cachedAppsOfFailedAccounts]);
+}
+
+export function joinTags(apps: readonly DiscoveredApp[], tags: readonly AppTag[]): PortfolioApp[] {
+  function mapApp(app: DiscoveredApp) {
+    function findTag(tag: AppTag) {
+      return tag.appKey == app.key;
+    }
+
+    const appTag = tags.find(findTag);
     const isAppUntagged = appTag == null;
     if (isAppUntagged) return { ...app, owner: null, ga4PropertyId: null };
     return { ...app, owner: appTag.owner, ga4PropertyId: appTag.ga4PropertyId };
-  });
+  }
 
-export const findAppsByName = <FoundApp extends DiscoveredApp>(
+  return apps.map(mapApp);
+}
+
+export function findAppsByName<FoundApp extends DiscoveredApp>(
   apps: readonly FoundApp[],
   query: string,
-): FoundApp[] => {
+): FoundApp[] {
   const needle = query.trim().toLowerCase();
   const isNeedleEmpty = needle.length == 0;
   if (isNeedleEmpty) return [];
-  return apps.filter((app) => {
+  function filterApp2(app: FoundApp) {
     const searchableNames = [app.name, app.bundleId, app.packageName];
-    return searchableNames.some((searchableName) => {
+    function someSearchableName(searchableName: string | null) {
       const isNameMissing = searchableName == null;
       if (isNameMissing) return false;
       return searchableName.toLowerCase().includes(needle);
-    });
-  });
-};
+    }
 
-export const findAppsByAccount = <FoundApp extends DiscoveredApp>(
+    return searchableNames.some(someSearchableName);
+  }
+
+  return apps.filter(filterApp2);
+}
+
+export function findAppsByAccount<FoundApp extends DiscoveredApp>(
   apps: readonly FoundApp[],
   accountLabel: string,
-): FoundApp[] => {
+): FoundApp[] {
   const wantedLabel = accountLabel.trim().toLowerCase();
-  return apps.filter((app) => app.accountLabel.toLowerCase() == wantedLabel);
-};
+  function filterApp(app: FoundApp) {
+    return app.accountLabel.toLowerCase() == wantedLabel;
+  }
+
+  return apps.filter(filterApp);
+}
 
 interface PortfolioFilter {
   readonly platform: PortfolioPlatform | null;
   readonly owner: AppOwner | null;
 }
 
-export const filterPortfolioApps = (
+export function filterPortfolioApps(
   apps: readonly PortfolioApp[],
   filter: PortfolioFilter,
-): PortfolioApp[] =>
-  apps.filter((app) => {
+): PortfolioApp[] {
+  function filterApp3(app: PortfolioApp) {
     const isPlatformWrong = filter.platform != null && app.platform != filter.platform;
     if (isPlatformWrong) return false;
     const isOwnerWrong = filter.owner != null && app.owner != filter.owner;
     if (isOwnerWrong) return false;
     return true;
-  });
+  }
 
-const keepWhenNull = <Field>(newField: Field | null, currentField: Field | null): Field | null => {
+  return apps.filter(filterApp3);
+}
+
+function keepWhenNull<Field>(newField: Field | null, currentField: Field | null): Field | null {
   const isNewFieldMissing = newField == null;
   if (isNewFieldMissing) return currentField;
   return newField;
-};
+}
 
-export const applyTagChange = (
+export function applyTagChange(
   tags: readonly AppTag[],
   appKeys: readonly string[],
   change: AppTagChange,
-): AppTag[] => {
-  const untouchedTags = tags.filter((tag) => !appKeys.includes(tag.appKey));
-  const changedTags = appKeys.map((appKey): AppTag => {
-    const currentTag = tags.find((tag) => tag.appKey == appKey);
+): AppTag[] {
+  function filterTag(tag: AppTag) {
+    return !appKeys.includes(tag.appKey);
+  }
+
+  const untouchedTags = tags.filter(filterTag);
+  function mapAppKey(appKey: string): AppTag {
+    function findTag2(tag: AppTag) {
+      return tag.appKey == appKey;
+    }
+
+    const currentTag = tags.find(findTag2);
     const isAppUntagged = currentTag == null;
     if (isAppUntagged) return { appKey, ...change };
     return {
@@ -109,12 +141,16 @@ export const applyTagChange = (
       owner: keepWhenNull(change.owner, currentTag.owner),
       ga4PropertyId: keepWhenNull(change.ga4PropertyId, currentTag.ga4PropertyId),
     };
-  });
-  return [...untouchedTags, ...changedTags];
-};
+  }
 
-export const applyTagChangeToApp = (app: PortfolioApp, change: AppTagChange): PortfolioApp => ({
-  ...app,
-  owner: keepWhenNull(change.owner, app.owner),
-  ga4PropertyId: keepWhenNull(change.ga4PropertyId, app.ga4PropertyId),
-});
+  const changedTags = appKeys.map(mapAppKey);
+  return [...untouchedTags, ...changedTags];
+}
+
+export function applyTagChangeToApp(app: PortfolioApp, change: AppTagChange): PortfolioApp {
+  return {
+    ...app,
+    owner: keepWhenNull(change.owner, app.owner),
+    ga4PropertyId: keepWhenNull(change.ga4PropertyId, app.ga4PropertyId),
+  };
+}

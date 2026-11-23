@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import type { Command } from '../cli/command.ts';
+import type { Command, CommandOption } from '../cli/command.ts';
 import { loadConfig } from '../config/config.ts';
 import { pathExists } from '../path-exists.ts';
 import { listSurfacePlanners, registerBuiltinPlanners } from '../plan/registry.ts';
@@ -63,14 +63,18 @@ export function parseShell(shellText: string): Shell {
  * rather than spawning a process - there's no portable, shell-free way to ask "what shell am I in", and
  * `$SHELL` is the login shell every installer (rustup, nvm, brew) keys off.
  */
-export const detectShell = (
+export function detectShell(
   environmentVariables: Readonly<Record<string, string | undefined>>,
-): Shell | undefined => {
+): Shell | undefined {
   const shellPath = environmentVariables['SHELL'];
   if (!shellPath) return undefined;
   const shellName = shellPath.slice(shellPath.lastIndexOf('/') + 1);
-  return SHELLS.find((shell) => shellName == shell);
-};
+  function findShell(shell: 'bash' | 'zsh' | 'fish') {
+    return shellName == shell;
+  }
+
+  return SHELLS.find(findShell);
+}
 /**
  * The bash completion script. On `<Tab>` it forwards the words from after `launch-store` up to and including the
  * word under the cursor to `launch-store completion __complete`, and feeds the newline-separated candidates back
@@ -78,7 +82,7 @@ export const detectShell = (
  * leading `launch-store` AND everything past the cursor, so {@link resolveCompletions} always sees the in-progress
  * word last - completing mid-line (not just at the end) resolves the correct token.
  */
-export const bashCompletionScript = (): string => {
+export function bashCompletionScript(): string {
   return `# launch-store (bash) completion - eval with: source <(launch-store completion bash)
 _launch_complete() {
   local words candidates
@@ -88,7 +92,7 @@ _launch_complete() {
 }
 complete -o default -F _launch_complete launch-store
 `;
-};
+}
 /**
  * The zsh completion script. Uses zsh's native `compadd` over the same callback. `words[2,CURRENT]` drops
  * the leading `launch-store` and everything past the cursor; the `(@)` flag expands those words as SEPARATE
@@ -96,7 +100,7 @@ complete -o default -F _launch_complete launch-store
  * descent for nested commands like `snapshot diff`). `${(@f)...}` then splits the callback output on
  * newlines back into the candidate array.
  */
-export const zshCompletionScript = (): string => {
+export function zshCompletionScript(): string {
   return `# launch-store (zsh) completion - eval with: source <(launch-store completion zsh)
 _launch_complete() {
   local -a candidates
@@ -105,13 +109,13 @@ _launch_complete() {
 }
 compdef _launch_complete launch-store
 `;
-};
+}
 /**
  * The fish completion script. fish re-evaluates the function on every keypress, so it passes the current
  * commandline tokens (minus the leading `launch-store`) to the callback and emits each candidate on its own line,
  * which fish offers directly. `-f` disables fish's default file completion so only Launch's candidates show.
  */
-export const fishCompletionScript = (): string => {
+export function fishCompletionScript(): string {
   return `# launch-store (fish) completion - eval with: launch-store completion fish | source
 function __launch_complete
   set -l tokens (commandline -opc) (commandline -ct)
@@ -119,9 +123,9 @@ function __launch_complete
 end
 complete -c launch-store -f -a '(__launch_complete)'
 `;
-};
+}
 /** Map a shell to its script generator - the one place that fans `launch-store completion <shell>` out per shell. */
-export const completionScript = (shell: Shell): string => {
+export function completionScript(shell: Shell): string {
   switch (shell) {
     case 'bash':
       return bashCompletionScript();
@@ -130,7 +134,7 @@ export const completionScript = (shell: Shell): string => {
     case 'fish':
       return fishCompletionScript();
   }
-};
+}
 /* -------------------------------------------------------------------------- */
 /*  Dynamic-value resolution - reuse the existing core loaders.                */
 /* -------------------------------------------------------------------------- */
@@ -194,33 +198,42 @@ const argumentSources: ReadonlyMap<string, CompletionCandidateSource> = new Map(
   ['snapshot export', snapshotNames],
 ]);
 /** Every option spelling a command accepts (short and long, e.g. `-a`, `--app`), for flag-name completion. */
-const optionFlags = (command: Command): string[] => {
-  return command.options.flatMap((option) =>
-    [option.short, option.long].filter((flag): flag is string => !!flag),
-  );
-};
+function optionFlags(command: Command): string[] {
+  function filterFlag(flag: string | undefined): flag is string {
+    return !!flag;
+  }
+  function flatMapOption(option: CommandOption) {
+    return [option.short, option.long].filter(filterFlag);
+  }
+
+  return command.options.flatMap(flatMapOption);
+}
 /**
  * Descend the commander tree to the deepest subcommand named by `words`, returning that command plus the
  * words consumed reaching it (its full path after `launch-store`). Stops at the first word that isn't a known
  * subcommand - that word and everything after it are arguments/flags of the resolved command.
  */
-const descendCommandTree = (
+function descendCommandTree(
   program: Command,
   words: readonly string[],
 ): {
   command: Command;
   commandPath: string[];
-} => {
+} {
   let command = program;
   const commandPath: string[] = [];
   for (const word of words) {
-    const matchingSubcommand = command.commands.find((candidate) => candidate.name() == word);
+    function findCandidate(candidate: Command) {
+      return candidate.name() == word;
+    }
+
+    const matchingSubcommand = command.commands.find(findCandidate);
     if (!matchingSubcommand) break;
     command = matchingSubcommand;
     commandPath.push(word);
   }
   return { command, commandPath };
-};
+}
 /**
  * Resolve the completion candidates for a partially-typed `launch-store` command line - the single operation the
  * hidden `__complete` callback runs on every `<Tab>`. `words` is the line after `launch-store` (including the
@@ -317,7 +330,7 @@ export async function resolveCompletions(words: string[], program: Command): Pro
  * (declared `<x>` or `[x]`). Used to tell a flag's value apart from a real positional argument - without it,
  * the token after `--app` would be miscounted as a positional and wrongly close the dynamic positional slot.
  */
-const valueTakingFlags = (command: Command): Set<string> => {
+function valueTakingFlags(command: Command): Set<string> {
   const flags = new Set<string>();
   for (
     let ancestorCommand: Command | null = command;
@@ -331,18 +344,18 @@ const valueTakingFlags = (command: Command): Set<string> => {
     }
   }
   return flags;
-};
+}
 /**
  * Whether a real positional argument has already been supplied to the resolved command. Walks the words
  * after the command path (excluding the in-progress word), skipping flags and the VALUE that follows a
  * value-taking flag - so `plan --app web <Tab>` still completes the `[surface]` positional, while
  * `plan catalog <Tab>` correctly sees the slot as filled.
  */
-const hasPositional = (
+function hasPositional(
   words: string[],
   pathLength: number,
   valueFlags: ReadonlySet<string>,
-): boolean => {
+): boolean {
   const afterCommand = words.slice(pathLength, -1); // drop the command path and the in-progress word
   for (const [i, word] of afterCommand.entries()) {
     if (word.startsWith('-')) continue; // a flag, not a positional
@@ -352,7 +365,7 @@ const hasPositional = (
     return true;
   }
   return false;
-};
+}
 // A completion menu must not fail the shell, so a bad read becomes no candidates.
 async function readCompletionCandidates(source: CompletionCandidateSource): Promise<string[]> {
   try {
@@ -368,10 +381,10 @@ async function readCompletionCandidates(source: CompletionCandidateSource): Prom
   }
 }
 /** The single line, per shell, that sources Launch's completion script when the rc file loads. */
-const completionSourceLine = (shell: Shell): string => {
+function completionSourceLine(shell: Shell): string {
   if (shell == 'fish') return 'launch-store completion fish | source';
   return `source <(launch-store completion ${shell})`;
-};
+}
 /**
  * The outcome of an {@link installCompletion} attempt. A discriminated union so the command can render the
  * right message without re-deriving state: `installed` when the rc file was written/updated, `manual` when
@@ -408,22 +421,22 @@ export type InstallOptions = {
  * Build the managed block (fences + the source line) for a shell - the exact text written between
  * {@link BLOCK_START} and {@link BLOCK_END}. Pure, so the install logic and its tests share one definition.
  */
-export const managedBlock = (shell: Shell): string => {
+export function managedBlock(shell: Shell): string {
   return `${BLOCK_START}\n${completionSourceLine(shell)}\n${BLOCK_END}`;
-};
+}
 /**
  * Splice the managed block into existing rc-file contents idempotently: replace an existing
  * {@link BLOCK_START}...{@link BLOCK_END} region in place, or append a fresh one. Returns the new contents and
  * whether a block was replaced. Pure string surgery - the disk I/O lives in {@link installCompletion} - so
  * the idempotency (running twice yields the same file) is unit-testable without a filesystem.
  */
-export const spliceManagedBlock = (
+export function spliceManagedBlock(
   existing: string,
   block: string,
 ): {
   contents: string;
   updated: boolean;
-} => {
+} {
   const start = existing.indexOf(BLOCK_START);
   const end = existing.indexOf(BLOCK_END);
   if (start != -1 && end != -1 && end > start) {
@@ -443,7 +456,7 @@ export const spliceManagedBlock = (
     contents: `${existingWithTrailingNewline}${blockSeparator}${block}\n`,
     updated: false,
   };
-};
+}
 /**
  * Wire Launch's completion into the resolved shell's rc file, idempotently. Replaces any existing managed
  * block (so re-running never duplicates the source line) or appends one. When the rc file's parent directory

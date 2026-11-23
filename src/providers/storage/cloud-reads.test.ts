@@ -9,15 +9,22 @@ import { resetSecretStore, useSecretStore } from '../../services/credentials/sec
 import { makeS3StorageProvider } from './s3.ts';
 import { makeSupabaseStorageProvider } from './supabase.ts';
 
-const withStorageReply = async (
+async function withStorageReply(
   status: number,
   replyText: string,
   checkStorage: (endpoint: string) => Promise<void>,
-) => {
-  const server = createServer((_request, storageReply) => {
+) {
+  function createServerRequest(
+    _request: import('http').IncomingMessage,
+    storageReply: import('http').ServerResponse<import('http').IncomingMessage> & {
+      req: import('http').IncomingMessage;
+    },
+  ) {
     storageReply.writeHead(status);
     storageReply.end(replyText);
-  });
+  }
+
+  const server = createServer(createServerRequest);
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const address = server.address();
@@ -38,7 +45,7 @@ const withStorageReply = async (
     server.closeAllConnections();
     await closed;
   }
-};
+}
 
 const storedArtifact = {
   path: 'artifacts/app.ipa',
@@ -62,14 +69,15 @@ function useStorageSecrets(): void {
   });
   useSecretStore(new Map());
 }
-
-afterEach(() => {
+function cleanup() {
   resetLaunchEnvironment();
   resetSecretStore();
-});
+}
+
+afterEach(cleanup);
 
 for (const createProvider of storageProviders) {
-  describe(createProvider.name, () => {
+  function describeSuite() {
     async function readStorage(endpoint: string, objectKey?: string) {
       useStorageSecrets();
       const storage = await createProvider({
@@ -86,48 +94,90 @@ for (const createProvider of storageProviders) {
 
       return storage.list();
     }
-
-    it('returns empty history only for a missing index', async () => {
-      await withStorageReply(404, '<Error><Code>NoSuchKey</Code></Error>', async (endpoint) => {
+    async function returnsEmptyHistoryOnlyForAMissingIndex() {
+      async function withStorageReplyEndpoint(endpoint: string) {
         const history = await readStorage(endpoint);
         expect(history).toEqual([]);
-      });
-    });
+      }
 
-    it('rejects denied index reads', async () => {
-      await withStorageReply(403, '<Error><Code>AccessDenied</Code></Error>', async (endpoint) => {
+      await withStorageReply(
+        404,
+        '<Error><Code>NoSuchKey</Code></Error>',
+        withStorageReplyEndpoint,
+      );
+    }
+
+    it('returns empty history only for a missing index', returnsEmptyHistoryOnlyForAMissingIndex);
+    async function rejectsDeniedIndexReads() {
+      async function withStorageReplyEndpoint2(endpoint: string) {
         const storage = readStorage(endpoint);
         await expect(storage).rejects.toThrow(/read of artifacts\/index\.json failed/);
-      });
-    });
+      }
 
-    it('rejects malformed index contents as a parse failure, not a failed read', async () => {
-      await withStorageReply(200, '{broken', async (endpoint) => {
+      await withStorageReply(
+        403,
+        '<Error><Code>AccessDenied</Code></Error>',
+        withStorageReplyEndpoint2,
+      );
+    }
+
+    it('rejects denied index reads', rejectsDeniedIndexReads);
+    async function rejectsMalformedIndexContentsAsAParseFailureNotAFailedRead() {
+      async function withStorageReplyEndpoint3(endpoint: string) {
         const storage = readStorage(endpoint);
         await expect(storage).rejects.toMatchObject({ _tag: 'ParseError' });
-      });
-    });
+      }
 
-    it('reads a missing object as absent', async () => {
-      await withStorageReply(404, '<Error><Code>NoSuchKey</Code></Error>', async (endpoint) => {
+      await withStorageReply(200, '{broken', withStorageReplyEndpoint3);
+    }
+
+    it(
+      'rejects malformed index contents as a parse failure, not a failed read',
+      rejectsMalformedIndexContentsAsAParseFailureNotAFailedRead,
+    );
+    async function readsAMissingObjectAsAbsent() {
+      async function withStorageReplyEndpoint4(endpoint: string) {
         const objectBytes = await readStorage(endpoint, 'manifest.json');
         expect(objectBytes).toBeNull();
-      });
-    });
+      }
 
-    it('decodes a valid index', async () => {
+      await withStorageReply(
+        404,
+        '<Error><Code>NoSuchKey</Code></Error>',
+        withStorageReplyEndpoint4,
+      );
+    }
+
+    it('reads a missing object as absent', readsAMissingObjectAsAbsent);
+    async function decodesAValidIndex() {
       const serialized = JSON.stringify([storedArtifact]);
-      await withStorageReply(200, serialized, async (endpoint) => {
+      async function withStorageReplyEndpoint5(endpoint: string) {
         const artifacts = await readStorage(endpoint);
         expect(artifacts).toEqual([storedArtifact]);
-      });
-    });
+      }
 
-    it('does not disguise denied object reads as absent objects', async () => {
-      await withStorageReply(403, '<Error><Code>AccessDenied</Code></Error>', async (endpoint) => {
+      await withStorageReply(200, serialized, withStorageReplyEndpoint5);
+    }
+
+    it('decodes a valid index', decodesAValidIndex);
+    async function doesNotDisguiseDeniedObjectReadsAsAbsentObjects() {
+      async function withStorageReplyEndpoint6(endpoint: string) {
         const storage = readStorage(endpoint, 'manifest.json');
         await expect(storage).rejects.toThrow(/read of manifest\.json failed/);
-      });
-    });
-  });
+      }
+
+      await withStorageReply(
+        403,
+        '<Error><Code>AccessDenied</Code></Error>',
+        withStorageReplyEndpoint6,
+      );
+    }
+
+    it(
+      'does not disguise denied object reads as absent objects',
+      doesNotDisguiseDeniedObjectReadsAsAbsentObjects,
+    );
+  }
+
+  describe(createProvider.name, describeSuite);
 }

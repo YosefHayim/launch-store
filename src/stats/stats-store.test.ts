@@ -19,23 +19,24 @@ function createStat(overrides: Partial<DailyStat>): DailyStat {
     ...overrides,
   };
 }
-
-describe('saveDailyStats', () => {
+function describeSaveDailyStats() {
   let homeDirectory: string;
-
-  beforeEach(() => {
+  function prepareSaveDailyStats() {
     homeDirectory = createTemporaryHomeDirectory();
     const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
       homeDirectory,
       workingDirectory: workPath,
     });
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareSaveDailyStats);
+  function cleanupSaveDailyStats() {
     resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
-  });
+  }
+
+  afterEach(cleanupSaveDailyStats);
 
   function appFolder(): string {
     return join(homeDirectory, '.launch', 'stats', 'ios-1');
@@ -44,15 +45,15 @@ describe('saveDailyStats', () => {
   async function saveInHome(stats: readonly DailyStat[]): Promise<void> {
     await saveDailyStats('ios-1', stats);
   }
-
-  test('writes one file per month', async () => {
+  async function writesOneFilePerMonth() {
     const stat = createStat({ date: '2026-09-30' });
     await saveInHome([stat, createStat({ date: '2026-10-01' })]);
 
     expect(readdirSync(appFolder()).sort()).toEqual(['2026-09.json', '2026-10.json']);
-  });
+  }
 
-  test('merges with the days already saved in that month', async () => {
+  test('writes one file per month', writesOneFilePerMonth);
+  async function mergesWithTheDaysAlreadySavedInThatMonth() {
     const stat = createStat({ date: '2026-10-01', value: 1 });
     await saveInHome([stat, createStat({ date: '2026-10-02', value: 2 })]);
 
@@ -64,26 +65,40 @@ describe('saveDailyStats', () => {
     const joinedPath = join(appFolder(), '2026-10.json');
     const loadedFile = readFileSync(joinedPath, 'utf8');
     const monthFile = JSON.parse(loadedFile);
-    expect(monthFile.stats.map((stat: DailyStat) => [stat.date, stat.value])).toEqual([
+    function mapStat(stat: DailyStat) {
+      return [stat.date, stat.value];
+    }
+
+    expect(monthFile.stats.map(mapStat)).toEqual([
       ['2026-10-01', 1],
       ['2026-10-02', 9],
       ['2026-10-03', 3],
     ]);
     expect(monthFile).toMatchObject({ version: 1, appKey: 'ios-1', month: '2026-10' });
-  });
+  }
 
-  test('writes nothing for no stats', async () => {
+  test(
+    'merges with the days already saved in that month',
+    mergesWithTheDaysAlreadySavedInThatMonth,
+  );
+  async function writesNothingForNoStats() {
     await saveInHome([]);
-
-    expect(() => {
+    function expectCall() {
       return readdirSync(appFolder());
-    }).toThrow();
-  });
+    }
 
-  test('fails for an app key that is not valid', async () => {
+    expect(expectCall).toThrow();
+  }
+
+  test('writes nothing for no stats', writesNothingForNoStats);
+  async function failsForAnAppKeyThatIsNotValid() {
     const stat = createStat({});
     await expect(saveDailyStats('bad key', [stat])).rejects.toMatchObject({
       _tag: 'InvalidAppKeyFailure',
     });
-  });
-});
+  }
+
+  test('fails for an app key that is not valid', failsForAnAppKeyThatIsNotValid);
+}
+
+describe('saveDailyStats', describeSaveDailyStats);

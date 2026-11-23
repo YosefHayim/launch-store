@@ -26,7 +26,7 @@ type GenerateCodesOptions = AppScopedOptions &
   }>;
 
 /** Map the default offers command without explicit undefined properties. */
-const toOffersReconcileInput = (commandOptions: OffersOptions): OffersReconcileInput => {
+function toOffersReconcileInput(commandOptions: OffersOptions): OffersReconcileInput {
   let offersInput: OffersReconcileInput = {
     operation: 'reconcile',
     dryRun: commandOptions.dryRun,
@@ -34,14 +34,14 @@ const toOffersReconcileInput = (commandOptions: OffersOptions): OffersReconcileI
   };
   if (commandOptions.app != null) offersInput = { ...offersInput, app: commandOptions.app };
   return offersInput;
-};
+}
 
 /** Map code-generation arguments without explicit undefined properties. */
-const toGenerateCodesInput = (
+function toGenerateCodesInput(
   productId: string,
   offerName: string,
   commandOptions: GenerateCodesOptions,
-): OffersGenerateCodesInput => {
+): OffersGenerateCodesInput {
   let generateCodesInput: OffersGenerateCodesInput = {
     operation: 'generate-codes',
     productId,
@@ -58,33 +58,36 @@ const toGenerateCodesInput = (
     generateCodesInput = { ...generateCodesInput, custom: commandOptions.custom };
   }
   return generateCodesInput;
-};
+}
 
 /** Map a list request without an explicit undefined app. */
-const toOffersListInput = (
-  productId: string,
-  commandOptions: AppScopedOptions,
-): OffersListInput => {
+function toOffersListInput(productId: string, commandOptions: AppScopedOptions): OffersListInput {
   let listInput: OffersListInput = { operation: 'list', productId };
   if (commandOptions.app != null) listInput = { ...listInput, app: commandOptions.app };
   return listInput;
-};
+}
 
 /** Map a deactivate request without an explicit undefined app. */
-const toOffersDeactivateInput = (
+function toOffersDeactivateInput(
   productId: string,
   offerName: string,
   commandOptions: AppScopedOptions,
-): OffersDeactivateInput => {
+): OffersDeactivateInput {
   let deactivateInput: OffersDeactivateInput = { operation: 'deactivate', productId, offerName };
   if (commandOptions.app != null) {
     deactivateInput = { ...deactivateInput, app: commandOptions.app };
   }
   return deactivateInput;
-};
+}
 
 /** Attach offers reconciliation and offer-code operations. */
-export const registerOffersCommand = (program: Command): void => {
+export function registerOffersCommand(program: Command): void {
+  function runOffers(commandOptions: OffersOptions) {
+    const offersReconcile = toOffersReconcileInput(commandOptions);
+    const offersProgram = offersCommandProgram(offersReconcile);
+    return runCliProgram(offersProgram);
+  }
+
   const offersCommand = program
     .command('offers')
     .description(
@@ -96,11 +99,17 @@ export const registerOffersCommand = (program: Command): void => {
     )
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: OffersOptions) => {
-      const offersReconcile = toOffersReconcileInput(commandOptions);
-      const offersProgram = offersCommandProgram(offersReconcile);
-      return runCliProgram(offersProgram);
-    });
+    .action(runOffers);
+  function runGenerateCodesProductIdOfferName(
+    productId: string,
+    offerName: string,
+    commandOptions: GenerateCodesOptions,
+  ) {
+    const generateCodes = toGenerateCodesInput(productId, offerName, commandOptions);
+    const offersProgram = offersCommandProgram(generateCodes);
+    return runCliProgram(offersProgram);
+  }
+
   offersCommand
     .command('generate-codes <productId> <offerName>')
     .description('generate redeemable codes under an existing offer-code campaign')
@@ -111,27 +120,31 @@ export const registerOffersCommand = (program: Command): void => {
       '--custom <code>',
       'create one shareable custom code with this value instead of one-time-use codes',
     )
-    .action((productId: string, offerName: string, commandOptions: GenerateCodesOptions) => {
-      const generateCodes = toGenerateCodesInput(productId, offerName, commandOptions);
-      const offersProgram = offersCommandProgram(generateCodes);
-      return runCliProgram(offersProgram);
-    });
+    .action(runGenerateCodesProductIdOfferName);
+  function runListProductId(productId: string, commandOptions: AppScopedOptions) {
+    const offersList = toOffersListInput(productId, commandOptions);
+    const offersProgram = offersCommandProgram(offersList);
+    return runCliProgram(offersProgram);
+  }
+
   offersCommand
     .command('list <productId>')
     .description("list a subscription's offer-code campaigns and their states")
     .option('-a, --app <name>', 'app handle (default: the only app)')
-    .action((productId: string, commandOptions: AppScopedOptions) => {
-      const offersList = toOffersListInput(productId, commandOptions);
-      const offersProgram = offersCommandProgram(offersList);
-      return runCliProgram(offersProgram);
-    });
+    .action(runListProductId);
+  function runDeactivateProductIdOfferName(
+    productId: string,
+    offerName: string,
+    commandOptions: AppScopedOptions,
+  ) {
+    const offersDeactivate = toOffersDeactivateInput(productId, offerName, commandOptions);
+    const offersProgram = offersCommandProgram(offersDeactivate);
+    return runCliProgram(offersProgram);
+  }
+
   offersCommand
     .command('deactivate <productId> <offerName>')
     .description("deactivate an offer-code campaign (its terms can't be edited, only switched off)")
     .option('-a, --app <name>', 'app handle (default: the only app)')
-    .action((productId: string, offerName: string, commandOptions: AppScopedOptions) => {
-      const offersDeactivate = toOffersDeactivateInput(productId, offerName, commandOptions);
-      const offersProgram = offersCommandProgram(offersDeactivate);
-      return runCliProgram(offersProgram);
-    });
-};
+    .action(runDeactivateProductIdOfferName);
+}

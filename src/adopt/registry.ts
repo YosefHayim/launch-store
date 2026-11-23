@@ -8,20 +8,22 @@ import { productsAdopter } from './products.ts';
 const ADOPTERS = new Map<string, Adopter>();
 
 /** Register (or replace) an adopter by its domain key. */
-export const registerAdopter = (adopter: Adopter): void => {
+export function registerAdopter(adopter: Adopter): void {
   ADOPTERS.set(adopter.domain, adopter);
-};
+}
 
 /** Every registered adopter, in registration order. */
-export const listAdopters = (): Adopter[] => [...ADOPTERS.values()];
+export function listAdopters(): Adopter[] {
+  return [...ADOPTERS.values()];
+}
 
 /**
  * Register the v1 built-in adopters, smallest-blast-radius first
  * (products -> capabilities -> certs -> listing). Idempotent.
  */
-export const registerBuiltinAdopters = (): void => {
+export function registerBuiltinAdopters(): void {
   registerAdopter(productsAdopter);
   registerAdopter(capabilitiesAdopter);
   registerAdopter(certsAdopter);
   registerAdopter(listingAdopter);
-};
+}

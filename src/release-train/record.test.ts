@@ -39,48 +39,57 @@ function train(over: Partial<TrainRecord> = {}): TrainRecord {
 function readTrainId(trainRecord: TrainRecord): string {
   return trainRecord.id;
 }
-
-describe('release-train record pure helpers', () => {
-  it('treats running and blocked trains as live', () => {
+function describeReleaseTrainPiecePureHelpers() {
+  function treatsRunningAndBlockedTrainsAsLive() {
     expect(isLiveTrain(train({ state: 'running' }))).toBe(true);
     expect(isLiveTrain(train({ state: 'blocked' }))).toBe(true);
     expect(isLiveTrain(train({ state: 'done' }))).toBe(false);
     expect(isLiveTrain(train({ state: 'aborted' }))).toBe(false);
-  });
+  }
 
-  it('sanitizes train ids for filenames', () => {
+  it('treats running and blocked trains as live', treatsRunningAndBlockedTrainsAsLive);
+  function sanitizesTrainIdsForFilenames() {
     expect(safeTrainId('hello-world_ab12')).toBe('hello-world_ab12');
     expect(safeTrainId('weird/../id')).toBe('weirdid');
     expect(safeTrainId('!!!')).toBe('train');
-  });
-});
+  }
 
-describe('release-train record', () => {
+  it('sanitizes train ids for filenames', sanitizesTrainIdsForFilenames);
+}
+
+describe('release-train record pure helpers', describeReleaseTrainPiecePureHelpers);
+function describeReleaseTrainPiece() {
   let directoryPath: string;
-
-  beforeEach(() => {
+  function prepareReleaseTrainPiece() {
     const systemTemporaryDirectory = tmpdir();
     const launchTrainsPath = join(systemTemporaryDirectory, 'launch-trains-');
     directoryPath = mkdtempSync(launchTrainsPath);
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareReleaseTrainPiece);
+  function cleanupReleaseTrainPiece() {
     rmSync(directoryPath, { recursive: true, force: true });
-  });
+  }
 
-  it('round-trips a record through write -> read unchanged', async () => {
+  afterEach(cleanupReleaseTrainPiece);
+  async function roundTripsAPieceThroughWriteReadUnchanged() {
     const trainRecord = train();
     await writeTrainRecord(trainRecord, directoryPath);
     const readTrain = await readTrainRecord(trainRecord.id, directoryPath);
     expect(readTrain).toEqual(trainRecord);
-  });
+  }
 
-  it('returns null for an unknown id', async () => {
+  it(
+    'round-trips a record through write -> read unchanged',
+    roundTripsAPieceThroughWriteReadUnchanged,
+  );
+  async function returnsNullForAnUnknownId() {
     const readTrain = await readTrainRecord('nope', directoryPath);
     expect(readTrain).toBeNull();
-  });
+  }
 
-  it('tolerates a corrupt record file (reads as null / skips it in lists)', async () => {
+  it('returns null for an unknown id', returnsNullForAnUnknownId);
+  async function toleratesACorruptPieceFileReadsAsNullSkipsItInLists() {
     const brokenPath = join(directoryPath, 'broken.json');
     writeFileSync(brokenPath, '{ not json');
     await writeTrainRecord(train(), directoryPath);
@@ -88,9 +97,13 @@ describe('release-train record', () => {
     expect(readTrain).toBeNull();
     const trainRecords = await listTrainRecords(directoryPath);
     expect(trainRecords).toHaveLength(1);
-  });
+  }
 
-  it('lists records newest-first by createdAt', async () => {
+  it(
+    'tolerates a corrupt record file (reads as null / skips it in lists)',
+    toleratesACorruptPieceFileReadsAsNullSkipsItInLists,
+  );
+  async function listsRecordsNewestFirstByCreatedAt() {
     await writeTrainRecord(
       train({ id: 'old', createdAt: '2026-06-10T00:00:00.000Z' }),
       directoryPath,
@@ -101,9 +114,10 @@ describe('release-train record', () => {
     );
     const trainRecords = await listTrainRecords(directoryPath);
     expect(trainRecords.map(readTrainId)).toEqual(['new', 'old']);
-  });
+  }
 
-  it('latestTrainRecord prefers a live train over a newer terminal one', async () => {
+  it('lists records newest-first by createdAt', listsRecordsNewestFirstByCreatedAt);
+  async function latestTrainPiecePrefersALiveTrainOverANewerTerminalOne() {
     await writeTrainRecord(
       train({ id: 'done-newer', state: 'done', createdAt: '2026-06-15T00:00:00.000Z' }),
       directoryPath,
@@ -118,9 +132,13 @@ describe('release-train record', () => {
     );
     const latestTrain = await latestTrainRecord(directoryPath);
     expect(latestTrain?.id).toBe('running-older');
-  });
+  }
 
-  it('latestTrainRecord falls back to the newest terminal train when none are live', async () => {
+  it(
+    'latestTrainRecord prefers a live train over a newer terminal one',
+    latestTrainPiecePrefersALiveTrainOverANewerTerminalOne,
+  );
+  async function latestTrainPieceFallsBackToTheNewestTerminalTrainWhenNoneAreLive() {
     await writeTrainRecord(
       train({ id: 'done-older', state: 'done', createdAt: '2026-06-13T00:00:00.000Z' }),
       directoryPath,
@@ -135,17 +153,29 @@ describe('release-train record', () => {
     );
     const latestTrain = await latestTrainRecord(directoryPath);
     expect(latestTrain?.id).toBe('aborted-newer');
-  });
+  }
 
-  it('returns null from latestTrainRecord when no trains exist', async () => {
+  it(
+    'latestTrainRecord falls back to the newest terminal train when none are live',
+    latestTrainPieceFallsBackToTheNewestTerminalTrainWhenNoneAreLive,
+  );
+  async function returnsNullFromLatestTrainPieceWhenNoTrainsExist() {
     const latestTrain = await latestTrainRecord(directoryPath);
     expect(latestTrain).toBeNull();
-  });
+  }
 
-  it('removes a record', async () => {
+  it(
+    'returns null from latestTrainRecord when no trains exist',
+    returnsNullFromLatestTrainPieceWhenNoTrainsExist,
+  );
+  async function removesAPiece() {
     await writeTrainRecord(train(), directoryPath);
     await removeTrainRecord('helloworld-ab12', directoryPath);
     const readTrain = await readTrainRecord('helloworld-ab12', directoryPath);
     expect(readTrain).toBeNull();
-  });
-});
+  }
+
+  it('removes a record', removesAPiece);
+}
+
+describe('release-train record', describeReleaseTrainPiece);

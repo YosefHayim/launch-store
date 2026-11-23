@@ -81,13 +81,17 @@ describe('readiness registry', () => {
   });
   it('replaces a probe registered under an existing id', () => {
     const id = 'test-only-probe';
-    const make = (title: string): ReadinessProbe => ({
-      id,
-      title,
-      store: 'appstore',
-      categories: ['account'],
-      check: () => Promise.resolve({ state: 'omitted' }),
-    });
+    function make(title: string): ReadinessProbe {
+      return {
+        id,
+        title,
+        store: 'appstore',
+        categories: ['account'],
+        check() {
+          return Promise.resolve({ state: 'omitted' });
+        },
+      };
+    }
     registerReadinessProbe(make('first'));
     registerReadinessProbe(make('second'));
     expect(listReadinessProbes().filter((probe) => probe.id == id)).toHaveLength(1);

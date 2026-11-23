@@ -9,7 +9,12 @@ type VitalsOptions = Readonly<{
   json: boolean;
 }>;
 
-export const registerPlayReportsCommand = (program: Command): void => {
+export function registerPlayReportsCommand(program: Command): void {
+  function runPlayReports(commandOptions: VitalsOptions) {
+    const playReportsProgram = playReportsCommandProgram(commandOptions);
+    return runCliProgram(playReportsProgram);
+  }
+
   program
     .command('play-reports')
     .description(
@@ -21,8 +26,5 @@ export const registerPlayReportsCommand = (program: Command): void => {
     .option('--metric <crash|anr>', 'show only one vital (default: both)')
     .option('--days <n>', `how many days of history to show (default: ${DEFAULT_VITALS_DAYS})`)
     .option('--json', 'output machine-readable JSON', false)
-    .action((commandOptions: VitalsOptions) => {
-      const playReportsProgram = playReportsCommandProgram(commandOptions);
-      return runCliProgram(playReportsProgram);
-    });
-};
+    .action(runPlayReports);
+}

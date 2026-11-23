@@ -196,10 +196,16 @@ export class AppStoreConnectClient implements AscHost {
     // A write that lost its connection may already have landed, so only a GET retries one.
     let isRetryableFailure = isRetryableAscError;
     if (method == 'GET') isRetryableFailure = isRetryableIdempotentFailure;
-    const requestWithBackoff = () =>
-      retryAppleTransportRequest(() => this.requestOnce<T>(method, pathOrUrl, requestDocument), {
+    const client = this;
+    function requestWithBackoff() {
+      function requestOnceNow() {
+        return client.requestOnce<T>(method, pathOrUrl, requestDocument);
+      }
+
+      return retryAppleTransportRequest(requestOnceNow, {
         isRetryableFailure,
       });
+    }
     try {
       return await requestWithBackoff();
     } catch (requestFailure) {
@@ -261,7 +267,11 @@ export class AppStoreConnectClient implements AscHost {
 
   async requestAll<A>(path: string): Promise<AppleResource<A>[]> {
     const pages = await this.requestPages<PagedList<A>>(path);
-    return pages.flatMap((page) => page.data);
+    function readPiece(page: { data: AppleResource<A>[]; links?: { next?: string } }) {
+      return page.data;
+    }
+
+    return pages.flatMap(readPiece);
   }
 
   async requestPages<Page extends { links?: { next?: string } }>(path: string): Promise<Page[]> {

@@ -13,14 +13,16 @@ import {
 
 let selectedApp: AppDescriptor;
 
-vi.mock('../config/config.ts', () => ({
-  loadConfig: function loadConfig() {
-    return Promise.resolve({ config: {}, apps: [selectedApp] });
-  },
-  readResolvedConfig: function readResolvedConfig() {
-    return Promise.resolve({ expo: { name: 'Focus App' } });
-  },
-}));
+vi.mock('../config/config.ts', function mockPiece() {
+  return {
+    loadConfig: function loadConfig() {
+      return Promise.resolve({ config: {}, apps: [selectedApp] });
+    },
+    readResolvedConfig: function readResolvedConfig() {
+      return Promise.resolve({ expo: { name: 'Focus App' } });
+    },
+  };
+});
 
 const listingGenerator = {
   name: 'test-generator',
@@ -32,12 +34,10 @@ const listingGenerator = {
     });
   },
 };
-
-describe('ai listing command', () => {
+function describeAiListingCommand() {
   let workingDirectory: string;
   let configPath: string;
-
-  beforeEach(() => {
+  function prepareAiListingCommand() {
     const systemTemporaryDirectory = tmpdir();
     const launchAiListingPath = join(systemTemporaryDirectory, 'launch-ai-listing-');
     workingDirectory = mkdtempSync(launchAiListingPath);
@@ -49,7 +49,9 @@ describe('ai listing command', () => {
       configPath: join(workingDirectory, 'app.json'),
       packageName: 'com.acme.focus',
     };
-  });
+  }
+
+  beforeEach(prepareAiListingCommand);
 
   afterEach(function resetListingCommandTest() {
     resetLogger();
@@ -65,13 +67,13 @@ describe('ai listing command', () => {
 
     return lines;
   }
-
-  it('decodes stable command defaults', () => {
+  function decodesStableCommandDefaults() {
     const readAiListing = readAiListingInput({});
     expect(readAiListing).toEqual({ platform: 'ios', dryRun: false, yes: false });
-  });
+  }
 
-  it('writes generated Google Play copy when Android is selected', async () => {
+  it('decodes stable command defaults', decodesStableCommandDefaults);
+  async function writesGeneratedGooglePlayCopyWhenAndroidIsSelected() {
     const terminalWrites = captureLogs();
 
     await runAiListing(
@@ -92,9 +94,13 @@ describe('ai listing command', () => {
       fullDescription: 'A calm focus timer.',
     });
     expect(terminalWrites.join('')).toContain('[OK] ai listing - wrote 1 locale draft');
-  });
+  }
 
-  it('previews without creating a file during a dry run', async () => {
+  it(
+    'writes generated Google Play copy when Android is selected',
+    writesGeneratedGooglePlayCopyWhenAndroidIsSelected,
+  );
+  async function previewsWithoutCreatingAFileDuringADryRun() {
     await runAiListing(
       {
         platform: 'ios',
@@ -106,9 +112,13 @@ describe('ai listing command', () => {
     );
     const pathExists = existsSync(configPath);
     expect(pathExists).toBe(false);
-  });
+  }
 
-  it('rejects unknown platform selectors', async () => {
+  it(
+    'previews without creating a file during a dry run',
+    previewsWithoutCreatingAFileDuringADryRun,
+  );
+  async function rejectsUnknownPlatformSelectors() {
     async function rejectUnknownPlatform(): Promise<void> {
       parseListingTargets('windows');
     }
@@ -117,9 +127,10 @@ describe('ai listing command', () => {
       _tag: 'AiListingFailure',
       message: expect.stringMatching(/Use ios, android, or all/),
     });
-  });
+  }
 
-  it('uses explicit locales and rejects an empty locale selector', async () => {
+  it('rejects unknown platform selectors', rejectsUnknownPlatformSelectors);
+  async function usesExplicitLocalesAndRejectsAnEmptyLocaleSelector() {
     const listingLocales = resolveListingLocales('en-US, fr-FR', {});
     expect(listingLocales).toEqual(['en-US', 'fr-FR']);
 
@@ -131,5 +142,12 @@ describe('ai listing command', () => {
       _tag: 'AiListingFailure',
       message: expect.stringMatching(/--locale was empty/),
     });
-  });
-});
+  }
+
+  it(
+    'uses explicit locales and rejects an empty locale selector',
+    usesExplicitLocalesAndRejectsAnEmptyLocaleSelector,
+  );
+}
+
+describe('ai listing command', describeAiListingCommand);

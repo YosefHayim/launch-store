@@ -79,25 +79,41 @@ export const ANDROID_TOOLS: Tool[] = [
   { label: 'Node', command: 'node', tier: 'required', install: { kind: 'brew', formula: 'node' } },
 ];
 /** The single-line, actionable fix for a missing tool - `brew install ...` or the guide text. */
-export const fixHint = (tool: Tool): string => {
+export function fixHint(tool: Tool): string {
   if (tool.install.kind == 'brew') return `brew install ${tool.install.formula}`;
   return tool.install.how;
-};
+}
 /**
  * Split missing tools into the ones we can `brew install` as a batch and the ones we can only guide.
  * Pure, so the planning is unit-testable without touching the system.
  */
-export const planInstall = (
-  missing: Tool[],
-): {
+export function planInstall(missing: Tool[]): {
   brew: Tool[];
   guided: Tool[];
-} => {
+} {
+  function filterTool(tool: {
+    label: string;
+    command: string;
+    tier: 'required' | 'recommended';
+    install: { kind: 'brew'; formula: string } | { kind: 'guide'; how: string };
+  }) {
+    return tool.install.kind == 'brew';
+  }
+
+  function filterTool2(tool: {
+    label: string;
+    command: string;
+    tier: 'required' | 'recommended';
+    install: { kind: 'brew'; formula: string } | { kind: 'guide'; how: string };
+  }) {
+    return tool.install.kind == 'guide';
+  }
+
   return {
-    brew: missing.filter((tool) => tool.install.kind == 'brew'),
-    guided: missing.filter((tool) => tool.install.kind == 'guide'),
+    brew: missing.filter(filterTool),
+    guided: missing.filter(filterTool2),
   };
-};
+}
 /**
  * The *required* iOS build tools currently absent from `PATH` - the signal for whether a Homebrew install
  * is even relevant. Recommended tools (ccache) are excluded: their absence only slows a build, it isn't a
@@ -135,10 +151,12 @@ export async function missingRequiredTools(io?: Pick<ToolchainIo, 'exists'>): Pr
  * Prints `LAUNCH_PREFLIGHT_OK` on success; on a missing required tool it lists each gap and exits
  * non-zero, so the SSH step fails fast with an actionable message instead of a cryptic mid-build error.
  */
-export const remoteToolchainPreflight = (mode: 'install' | 'assert'): string => {
+export function remoteToolchainPreflight(mode: 'install' | 'assert'): string {
   const canInstall = mode == 'install';
   // Single-quote any message embedded in `echo` so backticks in a hint (e.g. Xcode's) stay literal.
-  const q = (text: string): string => `'${text.replace(/'/g, "'\\''")}'`;
+  function q(text: string): string {
+    return `'${text.replace(/'/g, "'\\''")}'`;
+  }
   const lines: string[] = ['set -uo pipefail', 'MISSING=0'];
   if (canInstall) {
     // Put Homebrew on PATH in a non-interactive SSH shell before any install attempt.
@@ -168,7 +186,7 @@ export const remoteToolchainPreflight = (mode: 'install' | 'assert'): string => 
   lines.push(`if [ "$MISSING" = 1 ]; then echo LAUNCH_PREFLIGHT_FAILED; exit 1; fi`);
   lines.push('echo LAUNCH_PREFLIGHT_OK');
   return lines.join('\n');
-};
+}
 /**
  * Side-effecting operations {@link ensureToolchain} needs, injected so tests can supply fakes.
  * Production wiring ({@link realIo}) maps these onto the repo's exec helpers, terminal prompts, and console.

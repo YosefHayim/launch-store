@@ -7,26 +7,26 @@ import { createLogger } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { captureCommandOutput } from '../services/platform/exec.ts';
 import { ensureUploadKeystore } from './android-keystore-assets.ts';
-vi.mock('../services/platform/exec.ts', () => ({
-  captureCommandOutput: vi.fn(function writeDummyKeystore(
-    _executable: string,
-    arguments_: readonly string[],
-  ) {
-    const keystoreIndex = arguments_.indexOf('-keystore');
-    const keystorePath = arguments_[keystoreIndex + 1];
+vi.mock('../services/platform/exec.ts', function mockExec() {
+  return {
+    captureCommandOutput: vi.fn(function writeDummyKeystore(
+      _executable: string,
+      arguments_: readonly string[],
+    ) {
+      const keystoreIndex = arguments_.indexOf('-keystore');
+      const keystorePath = arguments_[keystoreIndex + 1];
 
-    if (keystorePath != null) {
-      writeFileSync(keystorePath, 'dummy keystore');
-    }
+      if (keystorePath != null) {
+        writeFileSync(keystorePath, 'dummy keystore');
+      }
 
-    return Promise.resolve('');
-  }),
-}));
-
-describe('Android signing command secret transport', () => {
+      return Promise.resolve('');
+    }),
+  };
+});
+function describeAndroidSigningCommandSecretTransport() {
   const temporaryDirectories: string[] = [];
-
-  afterEach(() => {
+  function cleanupAndroidSigningCommandSecretTransport() {
     resetLaunchDirectories();
     resetSecretStore();
 
@@ -35,9 +35,10 @@ describe('Android signing command secret transport', () => {
     }
 
     vi.clearAllMocks();
-  });
+  }
 
-  it('passes keytool password variable names, not the generated secret, in argv', async () => {
+  afterEach(cleanupAndroidSigningCommandSecretTransport);
+  async function passesKeytoolPasswordVariableNamesNotTheGeneratedSecretInArgv() {
     const systemTemporaryDirectory = tmpdir();
     const launchKeytoolTestPath = join(systemTemporaryDirectory, 'launch-keytool-test-');
     const home = mkdtempSync(launchKeytoolTestPath);
@@ -74,5 +75,12 @@ describe('Android signing command secret transport', () => {
     expect(invocation?.[2]?.environmentOverrides?.['LAUNCH_KEYSTORE_KEY_PASSWORD']).toMatch(
       /^[a-f0-9]+$/,
     );
-  });
-});
+  }
+
+  it(
+    'passes keytool password variable names, not the generated secret, in argv',
+    passesKeytoolPasswordVariableNamesNotTheGeneratedSecretInArgv,
+  );
+}
+
+describe('Android signing command secret transport', describeAndroidSigningCommandSecretTransport);

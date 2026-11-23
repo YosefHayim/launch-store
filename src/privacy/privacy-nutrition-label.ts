@@ -20,10 +20,14 @@ export const APP_PRIVACY_STEPS: readonly string[] = [
  * and the help link. Used by `launch-store doctor` to emit the precise "do these in the UI" list the API
  * cannot perform - the first line is the headline, the rest are indented detail.
  */
-export const appPrivacyChecklist = (): string[] => {
+export function appPrivacyChecklist(): string[] {
+  function mapStep(step: string, index: number) {
+    return `  ${index + 1}. ${step}`;
+  }
+
   return [
     "App Privacy 'nutrition label' is UI-only - App Store Connect has no API for it; complete it once per app:",
-    ...APP_PRIVACY_STEPS.map((step, index) => `  ${index + 1}. ${step}`),
+    ...APP_PRIVACY_STEPS.map(mapStep),
     `  Reference: ${APP_PRIVACY_HELP_URL}`,
   ];
-};
+}

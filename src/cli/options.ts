@@ -10,14 +10,14 @@ export type EnvFlags = {
   printEnv: boolean;
 };
 /** Commander reducer: collect a repeatable string option into an array. */
-const collectEnv = (environmentFlag: string, previousFlags: readonly string[]): string[] => {
+function collectEnv(environmentFlag: string, previousFlags: readonly string[]): string[] {
   return [...previousFlags, environmentFlag];
-};
+}
 /**
  * Attach `--env`, `--include-local`, and `--print-env` to a command. Returns the command for
  * chaining so it slots into the existing `.option(...).option(...)` builders.
  */
-export const addEnvFlags = (command: Command): Command => {
+export function addEnvFlags(command: Command): Command {
   return command
     .option(
       '--env <KEY=VALUE>',
@@ -35,4 +35,4 @@ export const addEnvFlags = (command: Command): Command => {
       'print the resolved env (masked) with its sources, then exit without running',
       false,
     );
-};
+}

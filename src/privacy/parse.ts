@@ -18,17 +18,23 @@ function readCollectedDataType(entry: unknown): string | null {
   return dataType;
 }
 /** De-duplicate while preserving first-seen order. */
-const unique = (strings: readonly string[]): string[] => {
+function unique(strings: readonly string[]): string[] {
   return [...new Set(strings)];
-};
+}
 /** Collect every `<string>...</string>` inside an XML fragment. */
-const stringTags = (xml: string): string[] => {
-  return [...xml.matchAll(/<string>([^<]+)<\/string>/g)]
-    .map((match) => match[1])
-    .filter((v): v is string => Boolean(v));
-};
+function stringTags(xml: string): string[] {
+  function mapPiece(match: RegExpExecArray) {
+    return match[1];
+  }
+
+  function filterV(v: string | undefined): v is string {
+    return Boolean(v);
+  }
+
+  return [...xml.matchAll(/<string>([^<]+)<\/string>/g)].map(mapPiece).filter(filterV);
+}
 /** Parse `NS*UsageDescription` keys (and their purpose strings) out of an `Info.plist`. */
-export const parseUsageDescriptions = (plistXml: string): Record<string, string> => {
+export function parseUsageDescriptions(plistXml: string): Record<string, string> {
   const usage: Record<string, string> = {};
   for (const match of plistXml.matchAll(
     /<key>(NS\w*UsageDescription)<\/key>\s*(?:<string>([^<]*)<\/string>|<string\s*\/>)/g,
@@ -41,20 +47,26 @@ export const parseUsageDescriptions = (plistXml: string): Record<string, string>
     }
   }
   return usage;
-};
+}
 /** Parse the data types, tracking flag, and tracking domains out of a `PrivacyInfo.xcprivacy`. */
-export const parsePrivacyManifest = (
-  xml: string,
-): {
+export function parsePrivacyManifest(xml: string): {
   collectedDataTypes: string[];
   tracking: boolean;
   trackingDomains: string[];
-} => {
+} {
+  function mapPiece2(match: RegExpExecArray) {
+    return match[1];
+  }
+
+  function filterV2(v: string | undefined): v is string {
+    return Boolean(v);
+  }
+
   const collectedDataTypes = [
     ...xml.matchAll(/<key>NSPrivacyCollectedDataType<\/key>\s*<string>([^<]+)<\/string>/g),
   ]
-    .map((match) => match[1])
-    .filter((v): v is string => Boolean(v));
+    .map(mapPiece2)
+    .filter(filterV2);
   const tracking = /<key>NSPrivacyTracking<\/key>\s*<true\s*\/>/.test(xml);
   const domainsBlock = /<key>NSPrivacyTrackingDomains<\/key>\s*<array>([\s\S]*?)<\/array>/.exec(
     xml,
@@ -66,15 +78,23 @@ export const parsePrivacyManifest = (
     tracking,
     trackingDomains,
   };
-};
+}
 /** Parse `<uses-permission android:name="...">` names out of an `AndroidManifest.xml`. */
-export const parseAndroidPermissions = (manifestXml: string): string[] => {
+export function parseAndroidPermissions(manifestXml: string): string[] {
+  function mapPiece3(match: RegExpExecArray) {
+    return match[1];
+  }
+
+  function filterV3(v: string | undefined): v is string {
+    return Boolean(v);
+  }
+
   return unique(
     [...manifestXml.matchAll(/<uses-permission[^>]*android:name="([^"]+)"/g)]
-      .map((match) => match[1])
-      .filter((v): v is string => Boolean(v)),
+      .map(mapPiece3)
+      .filter(filterV3),
   );
-};
+}
 /** Read a string-array field, dropping non-strings; `[]` when absent or the wrong type. */
 const stringArray = (unknownArray: unknown): string[] => {
   if (Array.isArray(unknownArray))
@@ -82,7 +102,7 @@ const stringArray = (unknownArray: unknown): string[] => {
   return [];
 };
 /** Pull the `NSPrivacyCollectedDataType` id out of each entry of an `NSPrivacyCollectedDataTypes` array. */
-const collectedDataTypesFrom = (manifestEntries: unknown): string[] => {
+function collectedDataTypesFrom(manifestEntries: unknown): string[] {
   if (!Array.isArray(manifestEntries)) return [];
   const types: string[] = [];
   for (const entry of manifestEntries) {
@@ -93,17 +113,17 @@ const collectedDataTypesFrom = (manifestEntries: unknown): string[] => {
     }
   }
   return unique(types);
-};
+}
 /**
  * Build a surface from native files. Usage descriptions union across all `Info.plist`s; the manifest
  * fields union across all `.xcprivacy`s (tracking is true if any manifest enables it). `hasManifest`
  * reflects whether any privacy manifest was found at all.
  */
-export const surfaceFromNative = (files: {
+export function surfaceFromNative(files: {
   infoPlists: string[];
   privacyManifests: string[];
   androidManifests: string[];
-}): PrivacySurface => {
+}): PrivacySurface {
   const usageDescriptions: Record<string, string> = {};
   for (const xml of files.infoPlists) Object.assign(usageDescriptions, parseUsageDescriptions(xml));
   const collectedDataTypes: string[] = [];
@@ -126,13 +146,13 @@ export const surfaceFromNative = (files: {
     trackingDomains: unique(trackingDomains),
     androidPermissions: unique(androidPermissions),
   };
-};
+}
 /**
  * Build a surface from a resolved Expo config - the managed-workflow source, read before `expo prebuild`
  * has generated any native files. Reads usage strings from `ios.infoPlist`, the manifest from
  * `ios.privacyManifests`, and permissions from `android.permissions`.
  */
-export const surfaceFromExpoConfig = (config: Record<string, unknown>): PrivacySurface => {
+export function surfaceFromExpoConfig(config: Record<string, unknown>): PrivacySurface {
   const decodedExpo = readPlainObject(config['expo']);
   let expo = config;
 
@@ -191,4 +211,4 @@ export const surfaceFromExpoConfig = (config: Record<string, unknown>): PrivacyS
     trackingDomains,
     androidPermissions: unique(stringArray(android['permissions'])),
   };
-};
+}

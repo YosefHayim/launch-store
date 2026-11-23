@@ -19,42 +19,53 @@ async function resolveTestReference(
 
   return resolveSecretRef(secretReference, 'demoAccountPassword');
 }
-
-describe('resolveSecretRef', () => {
+function describeResolveSecretRef() {
   const environmentVariableName = 'LAUNCH_TEST_DEMO_PW';
-
-  it('returns a literal value verbatim', async () => {
+  async function returnsALiteralPieceVerbatim() {
     const literalSecret = ['plain', 'demo', 'pw'].join('-');
 
     const testReference = await resolveTestReference(literalSecret);
     expect(testReference).toBe(literalSecret);
-  });
+  }
 
-  it('resolves an environment reference from the environment service', async () => {
+  it('returns a literal value verbatim', returnsALiteralPieceVerbatim);
+  async function resolvesAnEnvironmentReferenceFromTheEnvironmentService() {
     const environmentSecret = ['env', 'demo', 'pw'].join('-');
 
     const testReference = await resolveTestReference(`env:${environmentVariableName}`, {
       [environmentVariableName]: environmentSecret,
     });
     expect(testReference).toBe(environmentSecret);
-  });
+  }
 
-  it('fails when an environment reference names an unset variable', async () => {
+  it(
+    'resolves an environment reference from the environment service',
+    resolvesAnEnvironmentReferenceFromTheEnvironmentService,
+  );
+  async function failsWhenAnEnvironmentReferenceNamesAnUnsetVariable() {
     const testReference = resolveTestReference(`env:${environmentVariableName}`);
     await expect(testReference).rejects.toMatchObject({
       _tag: 'SecretReferenceFailure',
       message: expect.stringMatching(/environment variable LAUNCH_TEST_DEMO_PW is not set/),
     });
-  });
+  }
 
-  it('fails when an environment reference has no variable name', async () => {
+  it(
+    'fails when an environment reference names an unset variable',
+    failsWhenAnEnvironmentReferenceNamesAnUnsetVariable,
+  );
+  async function failsWhenAnEnvironmentReferenceHasNoVariableName() {
     const testReference = resolveTestReference('env:');
     await expect(testReference).rejects.toMatchObject({
       message: expect.stringMatching(/needs a variable name/),
     });
-  });
+  }
 
-  it('resolves a keychain reference through the secret-store service', async () => {
+  it(
+    'fails when an environment reference has no variable name',
+    failsWhenAnEnvironmentReferenceHasNoVariableName,
+  );
+  async function resolvesAKeychainReferenceThroughTheSecretStoreService() {
     const keychainSecret = ['kc', 'demo', 'pw'].join('-');
 
     const testReference = await resolveTestReference(
@@ -63,12 +74,23 @@ describe('resolveSecretRef', () => {
       new Map([['my-app-review', keychainSecret]]),
     );
     expect(testReference).toBe(keychainSecret);
-  });
+  }
 
-  it('fails when a keychain reference has no stored secret', async () => {
+  it(
+    'resolves a keychain reference through the secret-store service',
+    resolvesAKeychainReferenceThroughTheSecretStoreService,
+  );
+  async function failsWhenAKeychainReferenceHasNoStoredSecret() {
     const testReference = resolveTestReference('keychain:absent');
     await expect(testReference).rejects.toMatchObject({
       message: expect.stringMatching(/no secret is stored under that account/),
     });
-  });
-});
+  }
+
+  it(
+    'fails when a keychain reference has no stored secret',
+    failsWhenAKeychainReferenceHasNoStoredSecret,
+  );
+}
+
+describe('resolveSecretRef', describeResolveSecretRef);

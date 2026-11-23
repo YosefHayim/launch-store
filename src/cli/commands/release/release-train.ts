@@ -17,7 +17,7 @@ type ReleaseTrainOptions = EnvFlags &
   }>;
 
 /** Attach the resumable release-train command family. */
-export const registerReleaseTrainCommand = (program: Command): void => {
+export function registerReleaseTrainCommand(program: Command): void {
   const releaseTrainCommand = program
     .command('release-train')
     .description("coordinate an app's iOS + Android + OTA release as one resumable record")
@@ -39,47 +39,51 @@ export const registerReleaseTrainCommand = (program: Command): void => {
     )
     .option('--watch', 'status: poll until the train settles', false)
     .option('--json', 'machine-readable output for CI/agents', false);
-  addEnvFlags(releaseTrainCommand).action(
-    (action: string, trainId: string | undefined, commandOptions: ReleaseTrainOptions) => {
-      const releaseTrainOptions: {
-        app?: string;
-        profile: string;
-        platform?: string;
-        ota: boolean;
-        hold?: boolean;
-        channel: string;
-        runtimeVersion?: string;
-        watch?: boolean;
-        json?: boolean;
-        env: string[];
-        includeLocal: boolean;
-      } = {
-        profile: commandOptions.profile,
-        ota: commandOptions.ota,
-        channel: commandOptions.channel,
-        env: commandOptions.env,
-        includeLocal: commandOptions.includeLocal,
-      };
-      if (commandOptions.app != null) releaseTrainOptions.app = commandOptions.app;
-      if (commandOptions.platform != null) releaseTrainOptions.platform = commandOptions.platform;
-      if (commandOptions.hold != null) releaseTrainOptions.hold = commandOptions.hold;
-      if (commandOptions.runtimeVersion != null)
-        releaseTrainOptions.runtimeVersion = commandOptions.runtimeVersion;
-      if (commandOptions.watch != null) releaseTrainOptions.watch = commandOptions.watch;
-      if (commandOptions.json != null) releaseTrainOptions.json = commandOptions.json;
-      if (trainId == null) {
-        const releaseTrainProgram = releaseTrainCommandProgram({
-          action,
-          options: releaseTrainOptions,
-        });
-        return runCliProgram(releaseTrainProgram);
-      }
+  function runCommand(
+    action: string,
+    trainId: string | undefined,
+    commandOptions: ReleaseTrainOptions,
+  ) {
+    const releaseTrainOptions: {
+      app?: string;
+      profile: string;
+      platform?: string;
+      ota: boolean;
+      hold?: boolean;
+      channel: string;
+      runtimeVersion?: string;
+      watch?: boolean;
+      json?: boolean;
+      env: string[];
+      includeLocal: boolean;
+    } = {
+      profile: commandOptions.profile,
+      ota: commandOptions.ota,
+      channel: commandOptions.channel,
+      env: commandOptions.env,
+      includeLocal: commandOptions.includeLocal,
+    };
+    if (commandOptions.app != null) releaseTrainOptions.app = commandOptions.app;
+    if (commandOptions.platform != null) releaseTrainOptions.platform = commandOptions.platform;
+    if (commandOptions.hold != null) releaseTrainOptions.hold = commandOptions.hold;
+    if (commandOptions.runtimeVersion != null)
+      releaseTrainOptions.runtimeVersion = commandOptions.runtimeVersion;
+    if (commandOptions.watch != null) releaseTrainOptions.watch = commandOptions.watch;
+    if (commandOptions.json != null) releaseTrainOptions.json = commandOptions.json;
+    if (trainId == null) {
       const releaseTrainProgram = releaseTrainCommandProgram({
         action,
-        id: trainId,
         options: releaseTrainOptions,
       });
       return runCliProgram(releaseTrainProgram);
-    },
-  );
-};
+    }
+    const releaseTrainProgram = releaseTrainCommandProgram({
+      action,
+      id: trainId,
+      options: releaseTrainOptions,
+    });
+    return runCliProgram(releaseTrainProgram);
+  }
+
+  addEnvFlags(releaseTrainCommand).action(runCommand);
+}

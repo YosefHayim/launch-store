@@ -15,9 +15,9 @@ type ExperimentsOptions = Readonly<{
 }>;
 
 /** Map Commander values without explicit undefined optionals. */
-const toVersionExperimentsInput = (
+function toVersionExperimentsInput(
   commandOptions: ExperimentsOptions,
-): VersionExperimentsCommandInput => {
+): VersionExperimentsCommandInput {
   let experimentsInput: VersionExperimentsCommandInput = {
     config: commandOptions.config,
     submit: commandOptions.submit,
@@ -29,10 +29,16 @@ const toVersionExperimentsInput = (
     experimentsInput = { ...experimentsInput, app: commandOptions.app };
   }
   return experimentsInput;
-};
+}
 
 /** Attach the experiments command. */
-export const registerExperimentsCommand = (program: Command): void => {
+export function registerExperimentsCommand(program: Command): void {
+  function runExperiments(commandOptions: ExperimentsOptions) {
+    const versionExperiments = toVersionExperimentsInput(commandOptions);
+    const versionExperimentsProgram = versionExperimentsCommandProgram(versionExperiments);
+    return runCliProgram(versionExperimentsProgram);
+  }
+
   program
     .command('experiments')
     .description('reconcile product-page A/B experiments from experiments.config.json')
@@ -46,9 +52,5 @@ export const registerExperimentsCommand = (program: Command): void => {
     .option('--start', 'start each experiment Apple has approved', false)
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: ExperimentsOptions) => {
-      const versionExperiments = toVersionExperimentsInput(commandOptions);
-      const versionExperimentsProgram = versionExperimentsCommandProgram(versionExperiments);
-      return runCliProgram(versionExperimentsProgram);
-    });
-};
+    .action(runExperiments);
+}

@@ -31,16 +31,16 @@ const USAGE_TO_DATA_TYPE: Record<string, string> = {
 const ownValues = Object.values(USAGE_TO_DATA_TYPE);
 const reconcilableDataTypes = new Set(ownValues);
 /** Reconcile one app's surface into findings. Pure; the order is empty -> manifest -> collection -> tracking -> android. */
-export const reconcilePrivacy = (app: string, surface: PrivacySurface): PrivacyFinding[] => {
+export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyFinding[] {
   const findings: PrivacyFinding[] = [];
-  const add = (
+  function add(
     platform: PrivacyFinding['platform'],
     severity: PrivacyFinding['severity'],
     code: string,
     message: string,
-  ): void => {
+  ): void {
     findings.push({ app, platform, severity, code, message });
-  };
+  }
   const usageKeys = Object.keys(surface.usageDescriptions);
   // 1. Empty purpose strings - App Review auto-rejects a blank usage description.
   for (const [key, purpose] of Object.entries(surface.usageDescriptions)) {
@@ -76,10 +76,16 @@ export const reconcilePrivacy = (app: string, surface: PrivacySurface): PrivacyF
       }
     }
   }
+  function mapKey(key: string) {
+    return USAGE_TO_DATA_TYPE[key];
+  }
+
+  function filterT(t: string | undefined): t is string {
+    return Boolean(t);
+  }
+
   // 4. Over-declaration - the manifest claims a data type no permission/usage string backs.
-  const backed = new Set(
-    usageKeys.map((key) => USAGE_TO_DATA_TYPE[key]).filter((t): t is string => Boolean(t)),
-  );
+  const backed = new Set(usageKeys.map(mapKey).filter(filterT));
   for (const dataType of surface.collectedDataTypes) {
     if (reconcilableDataTypes.has(dataType) && !backed.has(dataType)) {
       add(
@@ -139,23 +145,33 @@ export const reconcilePrivacy = (app: string, surface: PrivacySurface): PrivacyF
     }
   }
   return findings;
-};
+}
 /**
  * Roll findings across the scanned apps into a report. Exit code follows the shared readiness contract:
  * `error` (1) when nothing was scannable, `blocker` (2) when any blocker is present, else `ok` (0).
  * Warnings and advisories never fail the scan, so it's a safe pre-submit CI gate.
  */
-export const buildPrivacyReport = (
+export function buildPrivacyReport(
   findings: PrivacyFinding[],
   scanned: readonly string[],
-): PrivacyReport => {
+): PrivacyReport {
   let exitCode: PrivacyReport['exitCode'] = READINESS_EXIT.ok;
-  if (findings.some((finding) => finding.severity == 'blocker')) exitCode = READINESS_EXIT.blocker;
+  function someFinding(finding: {
+    readonly app: string;
+    readonly platform: 'ios' | 'android';
+    readonly severity: 'info' | 'blocker' | 'warning';
+    readonly code: string;
+    readonly message: string;
+  }) {
+    return finding.severity == 'blocker';
+  }
+
+  if (findings.some(someFinding)) exitCode = READINESS_EXIT.blocker;
   if (scanned.length == 0) exitCode = READINESS_EXIT.error;
   return { findings, scanned, exitCode };
-};
+}
 /** Render a report as human-readable lines: per-app findings, then a blocker/warning tally. */
-export const renderPrivacyReport = (report: PrivacyReport): string => {
+export function renderPrivacyReport(report: PrivacyReport): string {
   if (report.scanned.length == 0) {
     return 'No apps to scan - none with a native project or Expo config were found.';
   }
@@ -164,7 +180,17 @@ export const renderPrivacyReport = (report: PrivacyReport): string => {
   }
   const lines: string[] = [];
   for (const app of report.scanned) {
-    const appFindings = report.findings.filter((finding) => finding.app == app);
+    function filterFinding(finding: {
+      readonly app: string;
+      readonly platform: 'ios' | 'android';
+      readonly severity: 'info' | 'blocker' | 'warning';
+      readonly code: string;
+      readonly message: string;
+    }) {
+      return finding.app == app;
+    }
+
+    const appFindings = report.findings.filter(filterFinding);
     lines.push(app);
     if (appFindings.length == 0) {
       lines.push('  OK no issues');
@@ -182,8 +208,28 @@ export const renderPrivacyReport = (report: PrivacyReport): string => {
       );
     }
   }
-  const blockers = report.findings.filter((finding) => finding.severity == 'blocker').length;
-  const warnings = report.findings.filter((finding) => finding.severity == 'warning').length;
+  function filterFinding2(finding: {
+    readonly app: string;
+    readonly platform: 'ios' | 'android';
+    readonly severity: 'info' | 'blocker' | 'warning';
+    readonly code: string;
+    readonly message: string;
+  }) {
+    return finding.severity == 'blocker';
+  }
+
+  const blockers = report.findings.filter(filterFinding2).length;
+  function filterFinding3(finding: {
+    readonly app: string;
+    readonly platform: 'ios' | 'android';
+    readonly severity: 'info' | 'blocker' | 'warning';
+    readonly code: string;
+    readonly message: string;
+  }) {
+    return finding.severity == 'warning';
+  }
+
+  const warnings = report.findings.filter(filterFinding3).length;
   lines.push('', `${blockers} blocker(s), ${warnings} warning(s).`);
   return lines.join('\n');
-};
+}

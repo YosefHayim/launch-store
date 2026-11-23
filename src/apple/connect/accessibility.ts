@@ -14,7 +14,11 @@ export class ConnectAccessibility {
     const declarations = await this.client.requestAll<AccessibilityDeclarationAttributes>(
       `/apps/${appId}/accessibilityDeclarations?limit=200`,
     );
-    return declarations.flatMap((declaration) => {
+    function flatMapDeclaration(declaration: {
+      id: string;
+      attributes: AccessibilityDeclarationAttributes;
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const deviceFamily = declaration.attributes.deviceFamily;
       if (deviceFamily == null) return [];
       let state = declaration.attributes.state;
@@ -27,7 +31,9 @@ export class ConnectAccessibility {
           support: pickAccessibilitySupport(declaration.attributes),
         },
       ];
-    });
+    }
+
+    return declarations.flatMap(flatMapDeclaration);
   }
 
   async createAccessibilityDeclaration(

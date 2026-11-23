@@ -35,11 +35,11 @@ export const PLATFORMS: readonly Platform[] = ['ios', 'android', 'tvos', 'macos'
  * - wherever a branch means "the Apple / Xcode / App Store Connect toolchain", so tvOS, macOS, and
  * visionOS take the Apple path instead of silently falling into an Android `else`.
  */
-export const isApplePlatform = (platform: Platform): boolean => {
+export function isApplePlatform(platform: Platform): boolean {
   return APPLE_PLATFORMS.has(platform);
-};
+}
 /** Human-facing label for a build platform, for CLI prose and headers (e.g. `iOS`, `Android`, `tvOS`, `macOS`, `visionOS`). */
-export const platformLabel = (platform: Platform): string => {
+export function platformLabel(platform: Platform): string {
   switch (platform) {
     case 'ios':
       return 'iOS';
@@ -52,13 +52,17 @@ export const platformLabel = (platform: Platform): string => {
     case 'visionos':
       return 'visionOS';
   }
-};
+}
 /**
  * Parse a user-supplied `<platform>` argument into a {@link Platform}, throwing an actionable error on an
  * unknown value. Centralizes the validation every platform-taking command shares.
  */
-export const parsePlatform = (platformText: string) => {
-  const match = PLATFORMS.find((platform) => platform == platformText);
+export function parsePlatform(platformText: string) {
+  function findPlatform(platform: 'ios' | 'android' | 'tvos' | 'macos' | 'visionos') {
+    return platform == platformText;
+  }
+
+  const match = PLATFORMS.find(findPlatform);
   if (!match)
     return unsupportedPlatform(
       'parse platform',
@@ -66,13 +70,13 @@ export const parsePlatform = (platformText: string) => {
       `Unknown platform "${platformText}". Use one of: ${PLATFORMS.join(', ')}.`,
     );
   return match;
-};
+}
 /**
  * The App Store Connect platform attribute for a build platform - the value Apple expects in
  * `filter[platform]` and on `appStoreVersions` / `reviewSubmissions`. Throws for Android, which has no
  * App Store Connect platform, so callers must only reach this on the Apple path.
  */
-export const toAscPlatform = (platform: Platform) => {
+export function toAscPlatform(platform: Platform) {
   switch (platform) {
     case 'ios':
       return 'IOS';
@@ -89,13 +93,13 @@ export const toAscPlatform = (platform: Platform) => {
         'Android has no App Store Connect platform.',
       );
   }
-};
+}
 /**
  * The App Store Connect **bundle-id** platform for a build platform - a narrower mapping than
  * {@link toAscPlatform}: tvOS and visionOS bundle ids register as iOS-family (`IOS`); only macOS is
  * `MAC_OS`. Throws for Android.
  */
-export const toBundleIdPlatform = (platform: Platform) => {
+export function toBundleIdPlatform(platform: Platform) {
   switch (platform) {
     case 'ios':
     case 'tvos':
@@ -110,13 +114,13 @@ export const toBundleIdPlatform = (platform: Platform) => {
         'Android has no App Store Connect bundle-id platform.',
       );
   }
-};
+}
 /**
  * The App Store provisioning-profile type for an Apple platform. visionOS has no profile type of its own -
  * its bundle ids are iOS-family - so it signs with the iOS App Store profile. Throws for Android, which has
  * no Apple signing profile.
  */
-export const appStoreProfileType = (platform: Platform) => {
+export function appStoreProfileType(platform: Platform) {
   switch (platform) {
     case 'ios':
     case 'visionos':
@@ -132,13 +136,13 @@ export const appStoreProfileType = (platform: Platform) => {
         'Android has no App Store provisioning profile.',
       );
   }
-};
+}
 /**
  * The ad-hoc (install-link) provisioning-profile type for an Apple platform, or `undefined` for macOS,
  * which has no ad-hoc distribution (non-store macOS uses Developer ID - a different model). visionOS reuses
  * the iOS ad-hoc type. Throws for Android.
  */
-export const adHocProfileType = (platform: Platform) => {
+export function adHocProfileType(platform: Platform) {
   switch (platform) {
     case 'ios':
     case 'visionos':
@@ -154,12 +158,12 @@ export const adHocProfileType = (platform: Platform) => {
         'Android has no ad-hoc provisioning profile.',
       );
   }
-};
+}
 /**
  * The `xcodebuild archive` destination for an Apple platform. Always a generic device destination, so an
  * archive never targets a simulator. Throws for Android, which does not use Xcode.
  */
-export const archiveDestination = (platform: Platform) => {
+export function archiveDestination(platform: Platform) {
   switch (platform) {
     case 'ios':
       return 'generic/platform=iOS';
@@ -176,7 +180,7 @@ export const archiveDestination = (platform: Platform) => {
         'Android does not build with Xcode.',
       );
   }
-};
+}
 /**
  * The directory under the app root that holds an Apple platform's committed native Xcode project, by
  * React Native fork convention: `ios` for iOS and tvOS (react-native-tvos extends the iOS project, built
@@ -184,7 +188,7 @@ export const archiveDestination = (platform: Platform) => {
  * Expo prebuild only generates `ios` - the other directories must be committed by the app, which the
  * `ensureNativeProject` gate enforces. Throws for Android (its native project is `android/`, built by Gradle).
  */
-export const nativeProjectDirName = (platform: Platform) => {
+export function nativeProjectDirName(platform: Platform) {
   switch (platform) {
     case 'ios':
     case 'tvos':
@@ -200,13 +204,13 @@ export const nativeProjectDirName = (platform: Platform) => {
         'Android does not build with Xcode; its native project is android/.',
       );
   }
-};
+}
 /**
  * The React Native fork / template that supplies a non-iOS Apple platform's committed native project - the
  * actionable hint in the `ensureNativeProject` gate when that project is missing. iOS needs none (Expo
  * prebuild generates it). Throws for Android (built by Gradle, not this path).
  */
-export const nativeTargetHint = (platform: Platform) => {
+export function nativeTargetHint(platform: Platform) {
   switch (platform) {
     case 'ios':
       return 'expo prebuild';
@@ -223,13 +227,13 @@ export const nativeTargetHint = (platform: Platform) => {
         'Android does not use an Xcode native target.',
       );
   }
-};
+}
 /**
  * The file extension (no dot) of the archive `xcodebuild -exportArchive` exports for an Apple platform: `ipa` for the iOS-family
  * platforms (iOS, tvOS, visionOS), `pkg` for a macOS App Store build (Apple wraps a Mac app in an installer
  * package). Drives the post-build artifact discovery. Throws for Android.
  */
-export const appleArtifactExtension = (platform: Platform) => {
+export function appleArtifactExtension(platform: Platform) {
   switch (platform) {
     case 'ios':
     case 'tvos':
@@ -244,4 +248,4 @@ export const appleArtifactExtension = (platform: Platform) => {
         'Android does not produce an Apple build artifact.',
       );
   }
-};
+}

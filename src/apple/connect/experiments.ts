@@ -17,7 +17,11 @@ export class ConnectExperiments {
     }>(
       `/apps/${appId}/appStoreVersionExperimentsV2?limit=200&fields[appStoreVersionExperiments]=name,state,trafficProportion,startDate`,
     );
-    return appleResources.flatMap((experiment) => {
+    function flatMapExperiment(experiment: {
+      id: string;
+      attributes: { name?: string; state?: string; trafficProportion?: number; startDate?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const experimentName = experiment.attributes.name;
       if (experimentName == null) return [];
       let state = experiment.attributes.state;
@@ -34,7 +38,9 @@ export class ConnectExperiments {
       if (experiment.attributes.startDate != null)
         Object.assign(versionExperiment, { startDate: experiment.attributes.startDate });
       return [versionExperiment];
-    });
+    }
+
+    return appleResources.flatMap(flatMapExperiment);
   }
 
   async createVersionExperiment(
@@ -73,11 +79,17 @@ export class ConnectExperiments {
         `/appStoreVersionExperiments/${experimentId}/appStoreVersionExperimentTreatments?limit=200&fields[appStoreVersionExperimentTreatments]=name`,
       ),
     );
-    return appleResources.flatMap((treatment) => {
+    function flatMapTreatment(treatment: {
+      id: string;
+      attributes: { name?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const treatmentName = treatment.attributes.name;
       if (treatmentName == null) return [];
       return [{ id: treatment.id, name: treatmentName }];
-    });
+    }
+
+    return appleResources.flatMap(flatMapTreatment);
   }
 
   async createExperimentTreatment(
@@ -126,11 +138,17 @@ export class ConnectExperiments {
     }>(
       `/appStoreVersionExperimentTreatments/${treatmentId}/appStoreVersionExperimentTreatmentLocalizations?limit=200&fields[appStoreVersionExperimentTreatmentLocalizations]=locale`,
     );
-    return appleResources.flatMap((localization) => {
+    function flatMapLocalization(localization: {
+      id: string;
+      attributes: { locale?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const locale = localization.attributes.locale;
       if (locale == null) return [];
       return [{ id: localization.id, locale }];
-    });
+    }
+
+    return appleResources.flatMap(flatMapLocalization);
   }
 
   async createExperimentTreatmentLocalization(

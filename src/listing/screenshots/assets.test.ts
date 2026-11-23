@@ -19,53 +19,75 @@ import {
   findApplePreviewTarget,
   findAppleScreenshotTarget,
 } from './targets.ts';
+import type { LocalAsset } from './assets.ts';
+
 const tmpDirs: string[] = [];
-const workDir = (): string => {
+function workDir(): string {
   const systemTemporaryDirectory = tmpdir();
   const screenshotAssetsTestPath = join(systemTemporaryDirectory, 'screenshot-assets-test-');
   const dir = mkdtempSync(screenshotAssetsTestPath);
   tmpDirs.push(dir);
   return dir;
-};
-afterEach(() => {
+}
+function cleanup() {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-});
+}
+
+afterEach(cleanup);
 /** Write a file under `appDir`, creating parent folders, and return its absolute path. */
-const writeFile = (appDir: string, relPath: string, contents: string): string => {
+function writeFile(appDir: string, relPath: string, contents: string): string {
   const path = join(appDir, relPath);
   const joinedPath = join(path, '..');
   mkdirSync(joinedPath, { recursive: true });
   writeFileSync(path, contents);
   return path;
-};
-const md5 = (text: string): string => {
+}
+function md5(text: string): string {
   const bufferBytes = Buffer.from(text);
   return createHash('md5').update(bufferBytes).digest('hex');
-};
-describe('hashFile', () => {
-  it('returns the MD5 hex and byte length of a file', async () => {
+}
+function describeHashFile() {
+  async function returnsTheMD5HexAndByteLengthOfAFile() {
     const appDir = workDir();
     const path = writeFile(appDir, 'a.png', 'pixels');
     expect(await hashFile(path)).toEqual({ checksum: md5('pixels'), size: 6 });
-  });
-});
-describe('displayTypeLabel', () => {
-  it('maps a known constant to a friendly label', () => {
+  }
+
+  it('returns the MD5 hex and byte length of a file', returnsTheMD5HexAndByteLengthOfAFile);
+}
+
+describe('hashFile', describeHashFile);
+function describeDisplayTypeLabel() {
+  function mapsAKnownConstantToAFriendlyLabel() {
     expect(appleDisplayTypeLabel('APP_IPHONE_67')).toBe('iPhone 6.7"');
     expect(appleDisplayTypeLabel('APP_DESKTOP')).toBe('Mac');
-  });
-  it('falls back to the raw constant for an unknown (new-hardware) type', () => {
+  }
+
+  it('maps a known constant to a friendly label', mapsAKnownConstantToAFriendlyLabel);
+  function fallsBackToThePieceConstantForAnUnknownNewHardwareType() {
     expect(appleDisplayTypeLabel('APP_IPHONE_69_FUTURE')).toBe('APP_IPHONE_69_FUTURE');
-  });
-});
+  }
+
+  it(
+    'falls back to the raw constant for an unknown (new-hardware) type',
+    fallsBackToThePieceConstantForAnUnknownNewHardwareType,
+  );
+}
+
+describe('displayTypeLabel', describeDisplayTypeLabel);
 describe('Apple asset targets', () => {
-  it('resolves the same target through its key, screenshot type, and preview type', () => {
+  function resolvesTheSameTargetThroughItsKeyScreenshotTypeAndPreviewType() {
     const target = findAppleAssetTarget('iphone67');
     const appleScreenshotTarget = findAppleScreenshotTarget('APP_IPHONE_67');
     expect(target).toBe(appleScreenshotTarget);
     const applePreviewTarget = findApplePreviewTarget('IPHONE_67');
     expect(target).toBe(applePreviewTarget);
-  });
+  }
+
+  it(
+    'resolves the same target through its key, screenshot type, and preview type',
+    resolvesTheSameTargetThroughItsKeyScreenshotTypeAndPreviewType,
+  );
   it('declares each screenshot and preview enum once', () => {
     expect(new Set(APPLE_ASSET_TARGETS.map((target) => target.screenshotDisplayType)).size).toBe(
       APPLE_ASSET_TARGETS.length,
@@ -77,29 +99,54 @@ describe('Apple asset targets', () => {
     expect(new Set(previewTypes).size).toBe(previewTypes.length);
   });
 });
-describe('discoverScreenshots', () => {
-  it('returns [] when the convention folder is absent', async () => {
+function describeDiscoverScreenshots() {
+  async function returnsWhenTheConventionFolderIsAbsent() {
     const screenshots = await discoverScreenshots(workDir());
     expect(screenshots).toEqual([]);
-  });
-  it('walks locale/displayType folders, fingerprints images, and sorts deterministically', async () => {
+  }
+
+  it('returns [] when the convention folder is absent', returnsWhenTheConventionFolderIsAbsent);
+  async function walksLocaleDisplayTypeFoldersFingerprintsImagesAndSortsDeterministically() {
     const appDir = workDir();
     writeFile(appDir, `${SCREENSHOTS_DIRNAME}/en-US/APP_IPHONE_67/02.png`, 'two');
     writeFile(appDir, `${SCREENSHOTS_DIRNAME}/en-US/APP_IPHONE_67/01.png`, 'one');
     writeFile(appDir, `${SCREENSHOTS_DIRNAME}/en-US/APP_DESKTOP/mac.jpg`, 'mac');
     writeFile(appDir, `${SCREENSHOTS_DIRNAME}/de-DE/APP_IPHONE_67/01.png`, 'eins');
     const shots = await discoverScreenshots(appDir);
-    expect(shots.map((s) => [s.locale, s.displayType, s.fileName])).toEqual([
+    function mapS(
+      s: LocalAsset & {
+        readonly locale: string;
+        readonly displayType: string;
+      },
+    ) {
+      return [s.locale, s.displayType, s.fileName];
+    }
+
+    expect(shots.map(mapS)).toEqual([
       ['de-DE', 'APP_IPHONE_67', '01.png'],
       ['en-US', 'APP_DESKTOP', 'mac.jpg'],
       ['en-US', 'APP_IPHONE_67', '01.png'],
       ['en-US', 'APP_IPHONE_67', '02.png'],
     ]);
-    const iphone01 = shots.find((s) => s.locale == 'en-US' && s.fileName == '01.png');
+    function findS(
+      s: LocalAsset & {
+        readonly locale: string;
+        readonly displayType: string;
+      },
+    ) {
+      return s.locale == 'en-US' && s.fileName == '01.png';
+    }
+
+    const iphone01 = shots.find(findS);
     expect(iphone01?.checksum).toBe(md5('one'));
     expect(iphone01?.size).toBe(3);
-  });
-  it("ignores non-image files and keeps unknown display-type folders (Apple's enum lags new hardware)", async () => {
+  }
+
+  it(
+    'walks locale/displayType folders, fingerprints images, and sorts deterministically',
+    walksLocaleDisplayTypeFoldersFingerprintsImagesAndSortsDeterministically,
+  );
+  async function ignoresNonImageFilesAndKeepsUnknownDisplayTypeFoldersAppleSEnumLagsNewHardware() {
     const appDir = workDir();
     writeFile(appDir, `${SCREENSHOTS_DIRNAME}/en-US/APP_IPHONE_69_FUTURE/01.png`, 'future');
     writeFile(appDir, `${SCREENSHOTS_DIRNAME}/en-US/APP_IPHONE_69_FUTURE/notes.txt`, 'ignore me');
@@ -112,40 +159,81 @@ describe('discoverScreenshots', () => {
     expect(shots).toHaveLength(1);
     expect(shots[0]?.displayType).toBe('APP_IPHONE_69_FUTURE');
     expect(shots[0]?.fileName).toBe('01.png');
-  });
-});
-describe('previewTypeLabel', () => {
-  it('maps a known constant to a friendly label', () => {
+  }
+
+  it(
+    "ignores non-image files and keeps unknown display-type folders (Apple's enum lags new hardware)",
+    ignoresNonImageFilesAndKeepsUnknownDisplayTypeFoldersAppleSEnumLagsNewHardware,
+  );
+}
+
+describe('discoverScreenshots', describeDiscoverScreenshots);
+function describePreviewTypeLabel() {
+  function mapsAKnownConstantToAFriendlyLabel2() {
     expect(applePreviewTypeLabel('IPHONE_67')).toBe('iPhone 6.7"');
     expect(applePreviewTypeLabel('DESKTOP')).toBe('Mac');
-  });
-  it('falls back to the raw constant for an unknown (new-hardware) type', () => {
+  }
+
+  it('maps a known constant to a friendly label', mapsAKnownConstantToAFriendlyLabel2);
+  function fallsBackToThePieceConstantForAnUnknownNewHardwareType2() {
     expect(applePreviewTypeLabel('IPHONE_69_FUTURE')).toBe('IPHONE_69_FUTURE');
-  });
-});
-describe('discoverPreviews', () => {
-  it('returns [] when the convention folder is absent', async () => {
+  }
+
+  it(
+    'falls back to the raw constant for an unknown (new-hardware) type',
+    fallsBackToThePieceConstantForAnUnknownNewHardwareType2,
+  );
+}
+
+describe('previewTypeLabel', describePreviewTypeLabel);
+function describeDiscoverPreviews() {
+  async function returnsWhenTheConventionFolderIsAbsent2() {
     const previews = await discoverPreviews(workDir());
     expect(previews).toEqual([]);
-  });
-  it('walks locale/previewType folders, fingerprints videos, and sorts deterministically', async () => {
+  }
+
+  it('returns [] when the convention folder is absent', returnsWhenTheConventionFolderIsAbsent2);
+  async function walksLocalePreviewTypeFoldersFingerprintsVideosAndSortsDeterministically() {
     const appDir = workDir();
     writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/IPHONE_67/02.mp4`, 'two');
     writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/IPHONE_67/01.mov`, 'one');
     writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/DESKTOP/mac.m4v`, 'mac');
     writeFile(appDir, `${PREVIEWS_DIRNAME}/de-DE/IPHONE_67/01.mp4`, 'eins');
     const previews = await discoverPreviews(appDir);
-    expect(previews.map((p) => [p.locale, p.previewType, p.fileName])).toEqual([
+    function mapP(
+      p: LocalAsset & {
+        readonly locale: string;
+        readonly previewType: string;
+      },
+    ) {
+      return [p.locale, p.previewType, p.fileName];
+    }
+
+    expect(previews.map(mapP)).toEqual([
       ['de-DE', 'IPHONE_67', '01.mp4'],
       ['en-US', 'DESKTOP', 'mac.m4v'],
       ['en-US', 'IPHONE_67', '01.mov'],
       ['en-US', 'IPHONE_67', '02.mp4'],
     ]);
-    const iphone01 = previews.find((p) => p.locale == 'en-US' && p.fileName == '01.mov');
+    function findP(
+      p: LocalAsset & {
+        readonly locale: string;
+        readonly previewType: string;
+      },
+    ) {
+      return p.locale == 'en-US' && p.fileName == '01.mov';
+    }
+
+    const iphone01 = previews.find(findP);
     expect(iphone01?.checksum).toBe(md5('one'));
     expect(iphone01?.size).toBe(3);
-  });
-  it("ignores non-video files and keeps unknown preview-type folders (Apple's enum lags new hardware)", async () => {
+  }
+
+  it(
+    'walks locale/previewType folders, fingerprints videos, and sorts deterministically',
+    walksLocalePreviewTypeFoldersFingerprintsVideosAndSortsDeterministically,
+  );
+  async function ignoresNonVideoFilesAndKeepsUnknownPreviewTypeFoldersAppleSEnumLagsNewHardware() {
     const appDir = workDir();
     writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/IPHONE_69_FUTURE/01.mp4`, 'future');
     writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/IPHONE_69_FUTURE/01.png`, 'ignore me');
@@ -153,10 +241,17 @@ describe('discoverPreviews', () => {
     expect(previews).toHaveLength(1);
     expect(previews[0]?.previewType).toBe('IPHONE_69_FUTURE');
     expect(previews[0]?.fileName).toBe('01.mp4');
-  });
-});
-describe('fingerprintAsset', () => {
-  it('fingerprints a declared asset resolved relative to the app dir', async () => {
+  }
+
+  it(
+    "ignores non-video files and keeps unknown preview-type folders (Apple's enum lags new hardware)",
+    ignoresNonVideoFilesAndKeepsUnknownPreviewTypeFoldersAppleSEnumLagsNewHardware,
+  );
+}
+
+describe('discoverPreviews', describeDiscoverPreviews);
+function describeFingerprintAsset() {
+  async function fingerprintsADeclaredAssetResolvedRelativeToTheAppDir() {
     const appDir = workDir();
     writeFile(appDir, 'store/review.png', 'review');
     const asset = await fingerprintAsset(appDir, 'store/review.png');
@@ -167,14 +262,28 @@ describe('fingerprintAsset', () => {
       checksum: md5('review'),
       size: 6,
     });
-  });
-  it('returns null for a missing file', async () => {
+  }
+
+  it(
+    'fingerprints a declared asset resolved relative to the app dir',
+    fingerprintsADeclaredAssetResolvedRelativeToTheAppDir,
+  );
+  async function returnsNullForAMissingFile() {
     expect(await fingerprintAsset(workDir(), 'store/missing.png')).toBeNull();
-  });
-  it('returns null when the path is a directory, not a file', async () => {
+  }
+
+  it('returns null for a missing file', returnsNullForAMissingFile);
+  async function returnsNullWhenThePathIsADirectoryNotAFile() {
     const appDir = workDir();
     const storePath = join(appDir, 'store');
     mkdirSync(storePath, { recursive: true });
     expect(await fingerprintAsset(appDir, 'store')).toBeNull();
-  });
-});
+  }
+
+  it(
+    'returns null when the path is a directory, not a file',
+    returnsNullWhenThePathIsADirectoryNotAFile,
+  );
+}
+
+describe('fingerprintAsset', describeFingerprintAsset);

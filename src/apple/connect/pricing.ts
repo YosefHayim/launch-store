@@ -50,11 +50,23 @@ export class ConnectPricing {
     if (!requestDocument) return null;
     let includedPricePoints = requestDocument.included;
     if (includedPricePoints == null) includedPricePoints = [];
-    const pointsById = new Map(
-      includedPricePoints
-        .filter((entry) => entry.type == 'appPricePoints')
-        .map((entry) => [entry.id, entry.attributes] as const),
-    );
+    function filterPiece(entry: {
+      type: string;
+      id: string;
+      attributes?: { customerPrice?: string; territory?: string };
+    }) {
+      return entry.type == 'appPricePoints';
+    }
+
+    function mapPiece(entry: {
+      type: string;
+      id: string;
+      attributes?: { customerPrice?: string; territory?: string };
+    }) {
+      return [entry.id, entry.attributes] as const;
+    }
+
+    const pointsById = new Map(includedPricePoints.filter(filterPiece).map(mapPiece));
     for (const price of requestDocument.data) {
       if (price.attributes?.startDate != null) continue;
       if (price.attributes?.endDate != null) continue;

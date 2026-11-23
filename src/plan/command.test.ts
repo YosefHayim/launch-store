@@ -9,61 +9,83 @@ import {
   selectPlanPlanners,
 } from './command.ts';
 
-const plannedAction = (actionFields: Partial<PlannedAction> = {}): PlannedAction => ({
-  description: 'create in-app purchase com.acme.coins',
-  destructive: false,
-  status: 'planned',
-  ...actionFields,
-});
+function plannedAction(actionFields: Partial<PlannedAction> = {}): PlannedAction {
+  return {
+    description: 'create in-app purchase com.acme.coins',
+    destructive: false,
+    status: 'planned',
+    ...actionFields,
+  };
+}
 
-const fakePlanner = (surfaceId: string): SurfacePlanner => ({
-  id: surfaceId,
-  store: 'appstore',
-  plan: () =>
-    Promise.resolve({
-      surface: surfaceId,
-      store: 'appstore',
-      state: 'omitted',
-    }),
-});
-
-describe('decodePlanCommandInput', () => {
-  it('decodes plan and drift inputs with exact optional selectors', () => {
+function fakePlanner(surfaceId: string): SurfacePlanner {
+  return {
+    id: surfaceId,
+    store: 'appstore',
+    plan() {
+      return Promise.resolve({
+        surface: surfaceId,
+        store: 'appstore',
+        state: 'omitted',
+      });
+    },
+  };
+}
+function describeDecodePlanCommandPiece() {
+  function decodesPlanAndDriftInputsWithExactOptionalSelectors() {
     const decodePlanCommand = decodePlanCommandInput({
       operation: 'plan',
       check: false,
       json: true,
     });
     expect(decodePlanCommand).toEqual({ operation: 'plan', check: false, json: true });
-    expect(() =>
-      decodePlanCommandInput({
+    function callDecodePlanCommandPiece() {
+      return decodePlanCommandInput({
         operation: 'drift',
         surface: undefined,
         check: true,
         json: false,
-      }),
-    ).toThrow();
-  });
-});
+      });
+    }
 
-describe('planGlyph', () => {
-  it('uses ASCII markers for additions, updates, removals, and skips', () => {
+    expect(callDecodePlanCommandPiece).toThrow();
+  }
+
+  it(
+    'decodes plan and drift inputs with exact optional selectors',
+    decodesPlanAndDriftInputsWithExactOptionalSelectors,
+  );
+}
+
+describe('decodePlanCommandInput', describeDecodePlanCommandPiece);
+function describePlanGlyph() {
+  function usesASCIIMarkersForAdditionsUpdatesRemovalsAndSkips() {
     const glyph = planGlyph(plannedAction());
     expect(glyph).toBe('+');
     expect(planGlyph(plannedAction({ description: 'update listing name none->Acme' }))).toBe('~');
     expect(planGlyph(plannedAction({ destructive: true }))).toBe('-');
     expect(planGlyph(plannedAction({ status: 'skipped' }))).toBe('-');
-  });
-});
+  }
 
-describe('additiveNote', () => {
-  it('names the surface and states the one-way caveat', () => {
+  it(
+    'uses ASCII markers for additions, updates, removals, and skips',
+    usesASCIIMarkersForAdditionsUpdatesRemovalsAndSkips,
+  );
+}
+
+describe('planGlyph', describePlanGlyph);
+function describeAdditiveNote() {
+  function namesTheSurfaceAndStatesTheOneWayCaveat() {
     const note = additiveNote('wallet');
     expect(note).toContain('wallet');
     expect(note).toMatch(/additive/);
     expect(note).toMatch(/portal-side/);
-  });
-});
+  }
+
+  it('names the surface and states the one-way caveat', namesTheSurfaceAndStatesTheOneWayCaveat);
+}
+
+describe('additiveNote', describeAdditiveNote);
 
 describe('selectPlanPlanners', () => {
   it('returns every registered planner when no surface is selected', async () => {
@@ -77,8 +99,7 @@ describe('selectPlanPlanners', () => {
     const selected = selectPlanPlanners(registered, 'listing');
     expect(selected.map((planner) => planner.id)).toEqual(['listing']);
   });
-
-  it('fails with available surfaces when the id is unknown', async () => {
+  async function failsWithAvailableSurfacesWhenTheIdIsUnknown() {
     const registered = [fakePlanner('catalog')];
     let failure: unknown = null;
 
@@ -97,5 +118,10 @@ describe('selectPlanPlanners', () => {
     }
 
     throw new Error('expected a plan command failure');
-  });
+  }
+
+  it(
+    'fails with available surfaces when the id is unknown',
+    failsWithAvailableSurfacesWhenTheIdIsUnknown,
+  );
 });

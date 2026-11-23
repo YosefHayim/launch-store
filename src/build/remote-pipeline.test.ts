@@ -11,11 +11,13 @@ import { registerBuildEngine } from '../services/provider-support/registry.ts';
 import { prepareBuild, runBuild } from './pipeline.ts';
 import { runEasBuild } from './eas-pipeline.ts';
 // A dry-run must never shell out (no ssh/scp/rsync/aws) - make any spawn an immediate, obvious failure.
-vi.mock('node:child_process', () => ({
-  spawn: vi.fn(() => {
-    throw new Error('spawn must not run during --dry-run');
-  }),
-}));
+vi.mock('node:child_process', function mockChildProcess() {
+  return {
+    spawn: vi.fn(() => {
+      throw new Error('spawn must not run during --dry-run');
+    }),
+  };
+});
 
 /** Run remote build-core tests with deterministic services and no CLI/provider bootstrap. */
 async function runRemoteCoreTest<Success>(runCase: () => Promise<Success>): Promise<Success> {
@@ -46,29 +48,47 @@ async function runRemoteCoreTest<Success>(runCase: () => Promise<Success>): Prom
     resetSecretStore();
   }
 }
-/** Any network call during a dry-run is a bug - the rehearsal makes no AWS/Expo/account changes. */
-const fetchGuard = vi.fn(() => {
+function mockCall() {
   throw new Error('fetch must not run during --dry-run');
-});
+}
+
+/** Any network call during a dry-run is a bug - the rehearsal makes no AWS/Expo/account changes. */
+const fetchGuard = vi.fn(mockCall);
 let originalCwd = '';
 let tempRepo = '';
-beforeEach(() => {
+function prepare() {
   originalCwd = process.cwd();
   fetchGuard.mockClear();
   vi.stubGlobal('fetch', fetchGuard);
-  vi.spyOn(console, 'log').mockImplementation(() => undefined);
-  vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-  vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  function mockImplementationPiece() {
+    return undefined;
+  }
+
+  vi.spyOn(console, 'log').mockImplementation(mockImplementationPiece);
+  function mockImplementationPiece2() {
+    return undefined;
+  }
+
+  vi.spyOn(console, 'warn').mockImplementation(mockImplementationPiece2);
+  function mockImplementationPiece3() {
+    return undefined;
+  }
+
+  vi.spyOn(console, 'error').mockImplementation(mockImplementationPiece3);
   registerBuildEngine({
     name: 'xcode',
-    buildArtifact: async () => ({
-      artifactPath: '(dry-run, not built)',
-      sizeReport: { artifactBytes: 0, entries: [] },
-      cleanBuilt: false,
-    }),
+    async buildArtifact() {
+      return {
+        artifactPath: '(dry-run, not built)',
+        sizeReport: { artifactBytes: 0, entries: [] },
+        cleanBuilt: false,
+      };
+    },
   });
-});
-afterEach(() => {
+}
+
+beforeEach(prepare);
+function cleanup() {
   process.chdir(originalCwd);
   if (tempRepo) {
     rmSync(tempRepo, { recursive: true, force: true });
@@ -76,8 +96,10 @@ afterEach(() => {
   }
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-});
-const writeRepo = (): string => {
+}
+
+afterEach(cleanup);
+function writeRepo(): string {
   const systemTemporaryDirectory = tmpdir();
   const launchRemotePath = join(systemTemporaryDirectory, 'launch-remote-');
   const dir = mkdtempSync(launchRemotePath);
@@ -87,7 +109,7 @@ const writeRepo = (): string => {
   });
   writeFileSync(appPath, serialized);
   return dir;
-};
+}
 const base = {
   platform: 'ios' as const,
   profileName: 'production',
@@ -97,26 +119,41 @@ const base = {
   target: 'testing' as const,
   dryRun: true,
 };
-describe('remote build --dry-run rehearses with no SSH/AWS/network', () => {
-  it('rehearses the AWS remote path', async () => {
+function describeRemoteBuildDryRunRehearsesWithNoSSHAWSNetwork() {
+  async function rehearsesTheAWSRemotePath() {
     tempRepo = writeRepo();
     process.chdir(tempRepo);
-    const remoteCoreTest = runRemoteCoreTest(() => runBuild({ ...base, remote: { kind: 'aws' } }));
+    function runRemoteCoreTestPiece() {
+      return runBuild({ ...base, remote: { kind: 'aws' } });
+    }
+
+    const remoteCoreTest = runRemoteCoreTest(runRemoteCoreTestPiece);
     await expect(remoteCoreTest).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
-  });
-  it('rehearses the SSH (byo) remote path', async () => {
+  }
+
+  it('rehearses the AWS remote path', rehearsesTheAWSRemotePath);
+  async function rehearsesTheSSHByoRemotePath() {
     tempRepo = writeRepo();
     process.chdir(tempRepo);
-    const remoteCoreTest = runRemoteCoreTest(() =>
-      runBuild({ ...base, remote: { kind: 'ssh', target: 'ec2-user@1.2.3.4' } }),
-    );
+    function runRemoteCoreTestPiece2() {
+      return runBuild({ ...base, remote: { kind: 'ssh', target: 'ec2-user@1.2.3.4' } });
+    }
+
+    const remoteCoreTest = runRemoteCoreTest(runRemoteCoreTestPiece2);
     await expect(remoteCoreTest).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
-  });
-});
-describe('EAS handoff --dry-run rehearses with no eas-cli/network', () => {
-  it('rehearses the EAS path', async () => {
+  }
+
+  it('rehearses the SSH (byo) remote path', rehearsesTheSSHByoRemotePath);
+}
+
+describe(
+  'remote build --dry-run rehearses with no SSH/AWS/network',
+  describeRemoteBuildDryRunRehearsesWithNoSSHAWSNetwork,
+);
+function describeEASHandoffDryRunRehearsesWithNoEasCliNetwork() {
+  async function rehearsesTheEASPath() {
     tempRepo = writeRepo();
     process.chdir(tempRepo);
     const remoteCoreTest = runRemoteCoreTest(async function rehearseEasBuild() {
@@ -126,5 +163,12 @@ describe('EAS handoff --dry-run rehearses with no eas-cli/network', () => {
     });
     await expect(remoteCoreTest).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
-  });
-});
+  }
+
+  it('rehearses the EAS path', rehearsesTheEASPath);
+}
+
+describe(
+  'EAS handoff --dry-run rehearses with no eas-cli/network',
+  describeEASHandoffDryRunRehearsesWithNoEasCliNetwork,
+);

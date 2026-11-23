@@ -52,7 +52,15 @@ export class ConnectReports {
       accessType?: string;
       stoppedDueToInactivity?: boolean;
     }>(`/apps/${appId}/analyticsReportRequests?filter[accessType]=${accessType}&limit=200`);
-    return appleResources.map((entry) => toReportRequest(entry, accessType));
+    function mapPiece(entry: {
+      id: string;
+      attributes: { accessType?: string; stoppedDueToInactivity?: boolean };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
+      return toReportRequest(entry, accessType);
+    }
+
+    return appleResources.map(mapPiece);
   }
 
   async createAnalyticsReportRequest(
@@ -84,14 +92,20 @@ export class ConnectReports {
       name?: string;
       category?: string;
     }>(path);
-    return appleResources.map((report) => {
+    function mapReport(report: {
+      id: string;
+      attributes: { name?: string; category?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let reportName = report.attributes.name;
       if (reportName == null) reportName = '';
       const analyticsReport: AnalyticsReportResource = { id: report.id, name: reportName };
       if (report.attributes.category != null)
         Object.assign(analyticsReport, { category: report.attributes.category });
       return analyticsReport;
-    });
+    }
+
+    return appleResources.map(mapReport);
   }
 
   async listAnalyticsReportInstances(
@@ -108,14 +122,20 @@ export class ConnectReports {
       granularity?: string;
       processingDate?: string;
     }>(path);
-    return appleResources.map((instance) => {
+    function mapInstance(instance: {
+      id: string;
+      attributes: { granularity?: string; processingDate?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let granularity = instance.attributes.granularity;
       if (granularity == null) granularity = '';
       const reportInstance: AnalyticsReportInstanceResource = { id: instance.id, granularity };
       if (instance.attributes.processingDate != null)
         Object.assign(reportInstance, { processingDate: instance.attributes.processingDate });
       return reportInstance;
-    });
+    }
+
+    return appleResources.map(mapInstance);
   }
 
   async listAnalyticsReportSegments(instanceId: string): Promise<AnalyticsReportSegmentResource[]> {
@@ -124,7 +144,11 @@ export class ConnectReports {
       checksum?: string;
       sizeInBytes?: number;
     }>(`/analyticsReportInstances/${instanceId}/segments?limit=200`);
-    return appleResources.flatMap((segment) => {
+    function flatMapSegment(segment: {
+      id: string;
+      attributes: { url?: string; checksum?: string; sizeInBytes?: number };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const segmentUrl = segment.attributes.url;
       if (segmentUrl == null) return [];
       const reportSegment: AnalyticsReportSegmentResource = { id: segment.id, url: segmentUrl };
@@ -133,23 +157,26 @@ export class ConnectReports {
       if (segment.attributes.sizeInBytes != null)
         Object.assign(reportSegment, { sizeInBytes: segment.attributes.sizeInBytes });
       return [reportSegment];
-    });
+    }
+
+    return appleResources.flatMap(flatMapSegment);
   }
 
   async downloadAnalyticsSegment(url: string): Promise<Buffer> {
-    return retryAppleTransportRequest(
-      async () => {
-        const appleResponse = await fetch(url);
-        if (!appleResponse.ok) {
-          throw new AscRequestError(
-            `Analytics segment download failed (${appleResponse.status}).`,
-            appleResponse.status,
-          );
-        }
-        return Buffer.from(await appleResponse.arrayBuffer());
-      },
-      { isRetryableFailure: isRetryableIdempotentFailure },
-    );
+    async function retryAppleTransportRequestPiece() {
+      const appleResponse = await fetch(url);
+      if (!appleResponse.ok) {
+        throw new AscRequestError(
+          `Analytics segment download failed (${appleResponse.status}).`,
+          appleResponse.status,
+        );
+      }
+      return Buffer.from(await appleResponse.arrayBuffer());
+    }
+
+    return retryAppleTransportRequest(retryAppleTransportRequestPiece, {
+      isRetryableFailure: isRetryableIdempotentFailure,
+    });
   }
 
   private async getReportBytes(pathOrUrl: string): Promise<Buffer> {

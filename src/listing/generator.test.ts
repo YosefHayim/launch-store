@@ -19,17 +19,20 @@ function thrownBy(run: () => void): unknown {
 
   return null;
 }
-
-describe('buildListingPrompt', () => {
-  it('names the app and locale and states the character limits', () => {
+function describeBuildListingPrompt() {
+  function namesTheAppAndLocaleAndStatesTheCharacterLimits() {
     const listingPrompt = buildListingPrompt({ locale: 'en-US', appName: 'Focus Timer' });
     expect(listingPrompt).toContain('Focus Timer');
     expect(listingPrompt).toContain('en-US');
     expect(listingPrompt).toContain('30 characters');
     expect(listingPrompt).toContain('100 characters');
-  });
+  }
 
-  it('includes the seed material when present', () => {
+  it(
+    'names the app and locale and states the character limits',
+    namesTheAppAndLocaleAndStatesTheCharacterLimits,
+  );
+  function includesTheSeedMaterialWhenPresent() {
     const listingPrompt = buildListingPrompt({
       locale: 'en-US',
       appName: 'MyApp',
@@ -40,31 +43,38 @@ describe('buildListingPrompt', () => {
     expect(listingPrompt).toContain('A focus timer');
     expect(listingPrompt).toContain('focus, timer');
     expect(listingPrompt).toContain('Old subtitle');
-  });
-});
+  }
 
-describe('parseDraftListing', () => {
-  it('parses a plain JSON object', () => {
+  it('includes the seed material when present', includesTheSeedMaterialWhenPresent);
+}
+
+describe('buildListingPrompt', describeBuildListingPrompt);
+function describeParseDraftListing() {
+  function parsesAPlainJSONObject() {
     const listingDraft = parseDraftListing('{"title":"MyApp","keywords":["focus","timer"]}');
     expect(listingDraft).toEqual({ title: 'MyApp', keywords: ['focus', 'timer'] });
-  });
+  }
 
-  it('tolerates a JSON fence', () => {
+  it('parses a plain JSON object', parsesAPlainJSONObject);
+  function toleratesAJSONFence() {
     const listingDraft = parseDraftListing('```json\n{"subtitle":"Stay on task"}\n```');
     expect(listingDraft).toEqual({ subtitle: 'Stay on task' });
-  });
+  }
 
-  it('accepts comma-separated keywords as a string', () => {
+  it('tolerates a JSON fence', toleratesAJSONFence);
+  function acceptsCommaSeparatedKeywordsAsAString() {
     const listingDraft = parseDraftListing('{"keywords":"focus, timer , "}');
     expect(listingDraft.keywords).toEqual(['focus', 'timer']);
-  });
+  }
 
-  it('drops blank optional fields', () => {
+  it('accepts comma-separated keywords as a string', acceptsCommaSeparatedKeywordsAsAString);
+  function dropsBlankOptionalFields() {
     const listingDraft = parseDraftListing('{"title":"MyApp","description":"  "}');
     expect(listingDraft).toEqual({ title: 'MyApp' });
-  });
+  }
 
-  it('fails on invalid JSON', () => {
+  it('drops blank optional fields', dropsBlankOptionalFields);
+  function failsOnInvalidJSON() {
     function parseInvalidJson(): void {
       parseDraftListing('not json');
     }
@@ -73,9 +83,10 @@ describe('parseDraftListing', () => {
       _tag: 'ListingGenerationFailure',
       message: expect.stringMatching(/valid JSON/),
     });
-  });
+  }
 
-  it('fails when no usable field is present', () => {
+  it('fails on invalid JSON', failsOnInvalidJSON);
+  function failsWhenNoUsableFieldIsPresent() {
     function parseEmptyListing(): void {
       parseDraftListing('{"unknown":"x"}');
     }
@@ -84,17 +95,21 @@ describe('parseDraftListing', () => {
       _tag: 'ListingGenerationFailure',
       message: expect.stringMatching(/no usable/),
     });
-  });
-});
+  }
 
-describe('createAnthropicListingGenerator', () => {
-  it('labels itself with the selected model', () => {
+  it('fails when no usable field is present', failsWhenNoUsableFieldIsPresent);
+}
+
+describe('parseDraftListing', describeParseDraftListing);
+function describeCreateAnthropicListingGenerator() {
+  function labelsItselfWithTheSelectedModel() {
     useLaunchEnvironment({});
     const listingGenerator = createAnthropicListingGenerator({ model: 'claude-test' });
     expect(listingGenerator.name).toBe('anthropic:claude-test');
-  });
+  }
 
-  it('fails with an actionable message when no API key is configured', async () => {
+  it('labels itself with the selected model', labelsItselfWithTheSelectedModel);
+  async function failsWithAnActionableMessageWhenNoAPIKeyIsConfigured() {
     useLaunchEnvironment({});
     const listingGenerator = createAnthropicListingGenerator();
 
@@ -104,5 +119,12 @@ describe('createAnthropicListingGenerator', () => {
       _tag: 'ListingGenerationFailure',
       message: expect.stringMatching(/ANTHROPIC_API_KEY/),
     });
-  });
-});
+  }
+
+  it(
+    'fails with an actionable message when no API key is configured',
+    failsWithAnActionableMessageWhenNoAPIKeyIsConfigured,
+  );
+}
+
+describe('createAnthropicListingGenerator', describeCreateAnthropicListingGenerator);

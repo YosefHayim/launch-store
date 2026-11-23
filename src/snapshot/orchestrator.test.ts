@@ -7,6 +7,7 @@ import type {
   SourceCapture,
 } from '../types/snapshot.ts';
 import { captureSnapshot, SNAPSHOT_EXIT, SNAPSHOT_VERSION } from './orchestrator.ts';
+import type { CaptureOutcome } from '../types/snapshot.ts';
 
 function makeCtx(): SnapshotContext {
   const config: LaunchConfig = {
@@ -20,8 +21,12 @@ function makeCtx(): SnapshotContext {
   return {
     config,
     apps: [],
-    resolveAscApi: () => Promise.resolve(null),
-    resolvePlayApi: () => Promise.resolve(null),
+    resolveAscApi() {
+      return Promise.resolve(null);
+    },
+    resolvePlayApi() {
+      return Promise.resolve(null);
+    },
   };
 }
 
@@ -51,63 +56,116 @@ function captured(count: number): SourceCapture {
 
   return { state: 'captured', apps: [{ app: 'alpha', identifier: 'com.acme.alpha', entities }] };
 }
+function describeCaptureSnapshot() {
+  async function assemblesThePieceWithVersionNameAndCaptureTime() {
+    function piecePiece() {
+      return Promise.resolve(captured(2));
+    }
 
-describe('captureSnapshot', () => {
-  it('assembles the record with version, name, and capture time', async () => {
-    const captureResult = await runCapture([
-      source('a', 'appstore', () => {
-        return Promise.resolve(captured(2));
-      }),
-    ]);
+    const captureResult = await runCapture([source('a', 'appstore', piecePiece)]);
     expect(captureResult.snapshot.version).toBe(SNAPSHOT_VERSION);
     expect(captureResult.snapshot.name).toBe('before-sync');
     expect(captureResult.snapshot.capturedAt).toBe('2026-06-16T00:00:00.000Z');
-  });
+  }
 
-  it('tallies captured entities across sources and exits ok', async () => {
+  it(
+    'assembles the record with version, name, and capture time',
+    assemblesThePieceWithVersionNameAndCaptureTime,
+  );
+  async function talliesCapturedEntitiesAcrossSourcesAndExitsOk() {
+    function piecePiece2() {
+      return Promise.resolve(captured(2));
+    }
+
+    function piecePiece3() {
+      return Promise.resolve(captured(3));
+    }
+
     const captureResult = await runCapture([
-      source('a', 'appstore', () => {
-        return Promise.resolve(captured(2));
-      }),
-      source('b', 'play', () => {
-        return Promise.resolve(captured(3));
-      }),
+      source('a', 'appstore', piecePiece2),
+      source('b', 'play', piecePiece3),
     ]);
     expect(captureResult.entityCount).toBe(5);
     expect(captureResult.exitCode).toBe(SNAPSHOT_EXIT.ok);
-  });
+  }
 
-  it('drops omitted surfaces from the persisted record', async () => {
-    const captureResult = await runCapture([
-      source('a', 'appstore', () => {
-        return Promise.resolve(captured(1));
-      }),
-      source('b', 'play', () => Promise.resolve({ state: 'omitted' })),
-    ]);
-    expect(captureResult.snapshot.reports.map((report) => report.id)).toEqual(['a']);
-  });
+  it(
+    'tallies captured entities across sources and exits ok',
+    talliesCapturedEntitiesAcrossSourcesAndExitsOk,
+  );
+  async function dropsOmittedSurfacesFromThePersistedPiece() {
+    function piecePiece4() {
+      return Promise.resolve(captured(1));
+    }
 
-  it('records a skipped surface without failing the run', async () => {
+    function piecePiece5() {
+      return Promise.resolve({ state: 'omitted' } as const);
+    }
+
     const captureResult = await runCapture([
-      source('a', 'play', () =>
-        Promise.resolve({ state: 'skipped', reason: 'no Play credentials' }),
-      ),
+      source('a', 'appstore', piecePiece4),
+      source('b', 'play', piecePiece5),
     ]);
+    function readId(report: {
+      readonly id: string;
+      readonly title: string;
+      readonly store: SnapshotStore;
+      readonly outcome: CaptureOutcome;
+    }) {
+      return report.id;
+    }
+
+    expect(captureResult.snapshot.reports.map(readId)).toEqual(['a']);
+  }
+
+  it('drops omitted surfaces from the persisted record', dropsOmittedSurfacesFromThePersistedPiece);
+  async function recordsASkippedSurfaceWithoutFailingTheRun() {
+    function piecePiece6() {
+      return Promise.resolve({ state: 'skipped', reason: 'no Play credentials' } as const);
+    }
+
+    const captureResult = await runCapture([source('a', 'play', piecePiece6)]);
     expect(captureResult.skippedCount).toBe(1);
     expect(captureResult.errorCount).toBe(0);
     expect(captureResult.exitCode).toBe(SNAPSHOT_EXIT.ok);
-  });
+  }
 
-  it('converts a thrown source into an errored report and exits 1', async () => {
+  it(
+    'records a skipped surface without failing the run',
+    recordsASkippedSurfaceWithoutFailingTheRun,
+  );
+  async function convertsAThrownPieceIntoAnErroredReportAndExits1() {
+    function piecePiece7() {
+      return Promise.resolve(captured(1));
+    }
+
+    function piecePiece8() {
+      return Promise.reject(new Error('network down'));
+    }
+
     const captureResult = await runCapture([
-      source('ok', 'appstore', () => {
-        return Promise.resolve(captured(1));
-      }),
-      source('boom', 'play', () => Promise.reject(new Error('network down'))),
+      source('ok', 'appstore', piecePiece7),
+      source('boom', 'play', piecePiece8),
     ]);
-    const errored = captureResult.snapshot.reports.find((report) => report.id == 'boom');
+    function findReport(report: {
+      readonly id: string;
+      readonly title: string;
+      readonly store: SnapshotStore;
+      readonly outcome: CaptureOutcome;
+    }) {
+      return report.id == 'boom';
+    }
+
+    const errored = captureResult.snapshot.reports.find(findReport);
     expect(errored?.outcome).toEqual({ state: 'errored', error: 'network down' });
     expect(captureResult.errorCount).toBe(1);
     expect(captureResult.exitCode).toBe(SNAPSHOT_EXIT.error);
-  });
-});
+  }
+
+  it(
+    'converts a thrown source into an errored report and exits 1',
+    convertsAThrownPieceIntoAnErroredReportAndExits1,
+  );
+}
+
+describe('captureSnapshot', describeCaptureSnapshot);

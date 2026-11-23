@@ -3,38 +3,44 @@ import { readFileSync, statSync } from 'node:fs';
 import { scpUp, sshRun } from '../services/platform/ssh.ts';
 import { type RemoteBuildInputs, remoteBuildEnvironment, runBuildOnHost } from './remote-build.ts';
 
-const remoteInputs = (overrides: Partial<RemoteBuildInputs> = {}): RemoteBuildInputs => ({
-  appName: 'Demo',
-  bundleId: 'com.example.demo',
-  signing: {
+function remoteInputs(overrides: Partial<RemoteBuildInputs> = {}): RemoteBuildInputs {
+  return {
+    appName: 'Demo',
     bundleId: 'com.example.demo',
-    certName: 'Apple Distribution: Example',
-    certSerial: 'ABC123',
-    teamId: 'TEAM123456',
-    profileName: 'Demo App Store',
-    p12Path: '/creds/dist.p12',
-    p12Password: 'p12-password',
-    profilePath: '/creds/profile.mobileprovision',
-  },
-  buildNumber: 7,
-  forceClean: false,
-  prebuildAlways: false,
-  ccacheEnabled: false,
-  env: {},
-  ...overrides,
-});
-
-describe('remoteBuildEnvironment', () => {
-  it('keeps the persisted ios/ by default', () => {
+    signing: {
+      bundleId: 'com.example.demo',
+      certName: 'Apple Distribution: Example',
+      certSerial: 'ABC123',
+      teamId: 'TEAM123456',
+      profileName: 'Demo App Store',
+      p12Path: '/creds/dist.p12',
+      p12Password: 'p12-password',
+      profilePath: '/creds/profile.mobileprovision',
+    },
+    buildNumber: 7,
+    forceClean: false,
+    prebuildAlways: false,
+    ccacheEnabled: false,
+    env: {},
+    ...overrides,
+  };
+}
+function describeRemoteBuildEnvironment() {
+  function keepsThePersistedIosByDefault() {
     expect(remoteBuildEnvironment(remoteInputs(), 'keychain')['PREBUILD_ALWAYS']).toBe('0');
-  });
+  }
 
-  it("tells the host to regenerate ios/ with prebuild: 'always'", () => {
+  it('keeps the persisted ios/ by default', keepsThePersistedIosByDefault);
+  function tellsTheHostToRegenerateIosWithPrebuildAlways() {
     const environment = remoteBuildEnvironment(remoteInputs({ prebuildAlways: true }), 'keychain');
     expect(environment['PREBUILD_ALWAYS']).toBe('1');
-  });
+  }
 
-  it('turns each build switch on independently', () => {
+  it(
+    "tells the host to regenerate ios/ with prebuild: 'always'",
+    tellsTheHostToRegenerateIosWithPrebuildAlways,
+  );
+  function turnsEachBuildSwitchOnIndependently() {
     const environment = remoteBuildEnvironment(
       remoteInputs({ forceClean: true, ccacheEnabled: true }),
       'keychain',
@@ -46,27 +52,39 @@ describe('remoteBuildEnvironment', () => {
       KEYCHAIN_PASSWORD: 'keychain',
       BUILD_NUMBER: '7',
     });
-  });
+  }
 
-  it('keeps the App Store Connect key off the host', () => {
+  it('turns each build switch on independently', turnsEachBuildSwitchOnIndependently);
+  function keepsTheAppStoreConnectKeyOffTheHost() {
     const environment = remoteBuildEnvironment(remoteInputs(), 'keychain');
-    expect(Object.keys(environment).filter((name) => name.startsWith('ASC_'))).toEqual([]);
-  });
-});
+    function filterName(name: string) {
+      return name.startsWith('ASC_');
+    }
 
-vi.mock('../services/platform/ssh.ts', () => ({
-  scpUp: vi.fn(async () => undefined),
-  sshRun: vi.fn(async () => undefined),
-  sshCapture: vi.fn(async () => '0'),
-  scpDown: vi.fn(async () => undefined),
-  rsyncUp: vi.fn(async () => undefined),
-}));
-beforeEach(() => {
+    expect(Object.keys(environment).filter(filterName)).toEqual([]);
+  }
+
+  it('keeps the App Store Connect key off the host', keepsTheAppStoreConnectKeyOffTheHost);
+}
+
+describe('remoteBuildEnvironment', describeRemoteBuildEnvironment);
+
+vi.mock('../services/platform/ssh.ts', function mockSsh() {
+  return {
+    scpUp: vi.fn(async () => undefined),
+    sshRun: vi.fn(async () => undefined),
+    sshCapture: vi.fn(async () => '0'),
+    scpDown: vi.fn(async () => undefined),
+    rsyncUp: vi.fn(async () => undefined),
+  };
+});
+function prepare() {
   vi.clearAllMocks();
-});
+}
 
-describe('remote credential transport', () => {
-  it('uses a protected environment file rather than secret-bearing SSH arguments', async () => {
+beforeEach(prepare);
+function describeRemoteCredentialTransport() {
+  async function usesAProtectedEnvironmentFileRatherThanSecretBearingSSHArguments() {
     const environmentDocuments: string[] = [];
     vi.mocked(scpUp).mockImplementation(
       async function captureEnvironment(_target, localPath, remotePath) {
@@ -99,5 +117,12 @@ describe('remote credential transport', () => {
       expect(invocation[1]).not.toContain('p12-password');
       expect(invocation[1]).not.toContain('quoted-token');
     }
-  });
-});
+  }
+
+  it(
+    'uses a protected environment file rather than secret-bearing SSH arguments',
+    usesAProtectedEnvironmentFileRatherThanSecretBearingSSHArguments,
+  );
+}
+
+describe('remote credential transport', describeRemoteCredentialTransport);

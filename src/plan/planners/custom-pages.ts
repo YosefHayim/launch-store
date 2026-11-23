@@ -10,11 +10,11 @@ const SURFACE = 'custom-pages';
 export const customPagesPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  plan: (planContext) =>
-    planAppStoreSurface(planContext, {
+  plan(planContext) {
+    return planAppStoreSurface(planContext, {
       surface: SURFACE,
       direction: 'two-way',
-      configFor: () => {
+      configFor() {
         let configPath = planContext.config.configFiles?.customPages;
         if (configPath == null) configPath = 'custom-pages.config.json';
         return resolveSidecarConfig({
@@ -24,7 +24,9 @@ export const customPagesPlanner: SurfacePlanner = {
           load: loadCustomProductPagesConfig,
         });
       },
-      reconcile: (api, bundleId, config) =>
-        reconcileCustomProductPages(api, { bundleId, config, dryRun: true }),
-    }),
+      reconcile(api, bundleId, config) {
+        return reconcileCustomProductPages(api, { bundleId, config, dryRun: true });
+      },
+    });
+  },
 };

@@ -29,9 +29,8 @@ function installClient(methods: {
     return client;
   });
 }
-
-describe('AppStoreIdentityService', () => {
-  it('verifies the key before returning its best-effort identity', async () => {
+function describeAppStoreIdentityService() {
+  async function verifiesTheKeyBeforeReturningItsBestEffortIdentity() {
     const assertReady = vi.fn(async function ready() {
       return undefined;
     });
@@ -50,9 +49,13 @@ describe('AppStoreIdentityService', () => {
       apps: ['One', 'Two'],
     });
     expect(assertReady).toHaveBeenCalledOnce();
-  });
+  }
 
-  it('keeps verification failures in the typed error channel', async () => {
+  it(
+    'verifies the key before returning its best-effort identity',
+    verifiesTheKeyBeforeReturningItsBestEffortIdentity,
+  );
+  async function keepsVerificationFailuresInTheTypedErrorChannel() {
     installClient({
       assertReady: async function failReady() {
         throw failure;
@@ -69,9 +72,13 @@ describe('AppStoreIdentityService', () => {
       _tag: 'AppleTransportFailure',
       status: 401,
     });
-  });
+  }
 
-  it('does not reject a verified key when identity discovery is unavailable', async () => {
+  it(
+    'keeps verification failures in the typed error channel',
+    keepsVerificationFailuresInTheTypedErrorChannel,
+  );
+  async function doesNotRejectAVerifiedKeyWhenIdentityDiscoveryIsUnavailable() {
     installClient({
       assertReady: async function ready() {
         return undefined;
@@ -88,5 +95,12 @@ describe('AppStoreIdentityService', () => {
       teamId: null,
       apps: [],
     });
-  });
-});
+  }
+
+  it(
+    'does not reject a verified key when identity discovery is unavailable',
+    doesNotRejectAVerifiedKeyWhenIdentityDiscoveryIsUnavailable,
+  );
+}
+
+describe('AppStoreIdentityService', describeAppStoreIdentityService);

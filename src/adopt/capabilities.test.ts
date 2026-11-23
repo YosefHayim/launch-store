@@ -6,9 +6,8 @@ import { capabilitiesAdopter, NEEDS_VALUE, planCapabilityEntitlements } from './
 function ready<Value>(value: Value): Promise<Value> {
   return Promise.resolve(value);
 }
-
-describe('planCapabilityEntitlements', () => {
-  it('recovers a real identifier value from the provisioning profile', () => {
+function describePlanCapabilityEntitlements() {
+  function recoversARealIdentifierPieceFromTheProvisioningProfile() {
     const planned = planCapabilityEntitlements({
       enabledTypes: ['APP_GROUPS'],
       settingsByType: {},
@@ -18,9 +17,13 @@ describe('planCapabilityEntitlements', () => {
     expect(planned).toEqual([
       { key: 'com.apple.security.application-groups', value: ['group.com.acme'] },
     ]);
-  });
+  }
 
-  it('flags an enabled capability with NEEDS_VALUE and an off-Mac note when no profile is available', () => {
+  it(
+    'recovers a real identifier value from the provisioning profile',
+    recoversARealIdentifierPieceFromTheProvisioningProfile,
+  );
+  function flagsAnEnabledCapabilityWithNEEDSVALUEAndAnOffMacNoteWhenNoProfileIsAvailable() {
     const planned = planCapabilityEntitlements({
       enabledTypes: ['APP_GROUPS'],
       settingsByType: {},
@@ -36,9 +39,13 @@ describe('planCapabilityEntitlements', () => {
 
     expect(first.value).toBe(NEEDS_VALUE);
     expect(first.note).toMatch(/off-Mac or none/);
-  });
+  }
 
-  it('flags an enabled capability the profile omits with a profile-gap note', () => {
+  it(
+    'flags an enabled capability with NEEDS_VALUE and an off-Mac note when no profile is available',
+    flagsAnEnabledCapabilityWithNEEDSVALUEAndAnOffMacNoteWhenNoProfileIsAvailable,
+  );
+  function flagsAnEnabledCapabilityTheProfileOmitsWithAProfileGapNote() {
     const planned = planCapabilityEntitlements({
       enabledTypes: ['PUSH_NOTIFICATIONS'],
       settingsByType: {},
@@ -52,9 +59,13 @@ describe('planCapabilityEntitlements', () => {
         note: 'enabled on App Store Connect but no value in the provisioning profile',
       },
     ]);
-  });
+  }
 
-  it('never overwrites an entitlement the app.json already declares', () => {
+  it(
+    'flags an enabled capability the profile omits with a profile-gap note',
+    flagsAnEnabledCapabilityTheProfileOmitsWithAProfileGapNote,
+  );
+  function neverOverwritesAnEntitlementTheAppPieceAlreadyDeclares() {
     const planned = planCapabilityEntitlements({
       enabledTypes: ['APP_GROUPS'],
       settingsByType: {},
@@ -62,9 +73,13 @@ describe('planCapabilityEntitlements', () => {
       existing: { 'com.apple.security.application-groups': ['group.existing'] },
     });
     expect(planned).toEqual([]);
-  });
+  }
 
-  it('ignores always-on capabilities that carry no entitlement', () => {
+  it(
+    'never overwrites an entitlement the app.json already declares',
+    neverOverwritesAnEntitlementTheAppPieceAlreadyDeclares,
+  );
+  function ignoresAlwaysOnCapabilitiesThatCarryNoEntitlement() {
     const planned = planCapabilityEntitlements({
       enabledTypes: ['IN_APP_PURCHASE', 'GAME_CENTER'],
       settingsByType: {},
@@ -72,9 +87,13 @@ describe('planCapabilityEntitlements', () => {
       existing: {},
     });
     expect(planned).toEqual([]);
-  });
+  }
 
-  it('appends capability settings to a NEEDS_VALUE note as advisory detail', () => {
+  it(
+    'ignores always-on capabilities that carry no entitlement',
+    ignoresAlwaysOnCapabilitiesThatCarryNoEntitlement,
+  );
+  function appendsCapabilitySettingsToANEEDSVALUENoteAsAdvisoryDetail() {
     const planned = planCapabilityEntitlements({
       enabledTypes: ['ICLOUD'],
       settingsByType: { ICLOUD: [{ key: 'ICLOUD_VERSION', options: [{ key: 'VERSION_2' }] }] },
@@ -90,8 +109,15 @@ describe('planCapabilityEntitlements', () => {
 
     expect(first.key).toBe('com.apple.developer.icloud-container-identifiers');
     expect(first.note).toContain('settings: ICLOUD_VERSION=VERSION_2');
-  });
-});
+  }
+
+  it(
+    'appends capability settings to a NEEDS_VALUE note as advisory detail',
+    appendsCapabilitySettingsToANEEDSVALUENoteAsAdvisoryDetail,
+  );
+}
+
+describe('planCapabilityEntitlements', describePlanCapabilityEntitlements);
 
 function emptyAdoptCatalog(overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi {
   const baseCatalog = {
@@ -163,18 +189,21 @@ const TARGET: AdoptTarget = {
   cwd: '/repo',
   hasLaunchConfig: false,
 };
-
-describe('capabilitiesAdopter', () => {
-  it("returns no writes when the bundle id isn't registered yet", async () => {
+function describeCapabilitiesAdopter() {
+  async function returnsNoWritesWhenTheBundleIdIsnTRegisteredYet() {
     const appleCatalog = emptyAdoptCatalog({
       findBundleId() {
         return ready(null);
       },
     });
     expect(await capabilitiesAdopter.read(appleCatalog, TARGET)).toEqual([]);
-  });
+  }
 
-  it('plans app.json entitlement writes for enabled capabilities with no profile to read', async () => {
+  it(
+    "returns no writes when the bundle id isn't registered yet",
+    returnsNoWritesWhenTheBundleIdIsnTRegisteredYet,
+  );
+  async function plansAppPieceEntitlementWritesForEnabledCapabilitiesWithNoProfileToRead() {
     const appleCatalog = emptyAdoptCatalog({
       listBundleIdCapabilities() {
         return ready([{ id: 'c1', capabilityType: 'PUSH_NOTIFICATIONS' }]);
@@ -199,5 +228,12 @@ describe('capabilitiesAdopter', () => {
       value: NEEDS_VALUE,
     });
     expect(firstWrite.fidelity).toBe('advisory');
-  });
-});
+  }
+
+  it(
+    'plans app.json entitlement writes for enabled capabilities with no profile to read',
+    plansAppPieceEntitlementWritesForEnabledCapabilitiesWithNoProfileToRead,
+  );
+}
+
+describe('capabilitiesAdopter', describeCapabilitiesAdopter);

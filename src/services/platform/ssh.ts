@@ -1,11 +1,11 @@
 import { captureCommandOutput, type CommandExecutionOptions, executeCommand } from './exec.ts';
 import type { SshTarget } from '../../types/remote.ts';
 /** `user@host` for ssh/scp/rsync destinations. */
-const userHost = (target: SshTarget): string => {
+function userHost(target: SshTarget): string {
   return `${target.user}@${target.host}`;
-};
+}
 /** Shared ssh `-o` options + key, plus the lowercase `-p <port>` ssh uses. */
-const sshFlags = (target: SshTarget): string[] => {
+function sshFlags(target: SshTarget): string[] {
   const flags = [
     '-o',
     'StrictHostKeyChecking=accept-new',
@@ -18,9 +18,9 @@ const sshFlags = (target: SshTarget): string[] => {
   const asString = String(target.port);
   flags.push('-p', asString);
   return flags;
-};
+}
 /** scp shares the ssh options but spells the port `-P` (uppercase). */
-const scpFlags = (target: SshTarget): string[] => {
+function scpFlags(target: SshTarget): string[] {
   const flags = [
     '-o',
     'StrictHostKeyChecking=accept-new',
@@ -33,7 +33,7 @@ const scpFlags = (target: SshTarget): string[] => {
   const asString = String(target.port);
   flags.push('-P', asString);
   return flags;
-};
+}
 /** Run a command on the remote host, streaming output. `remoteCommand` runs in the remote shell. */
 export function sshRun(
   target: SshTarget,
@@ -76,18 +76,18 @@ export function scpDown(target: SshTarget, remotePath: string, localPath: string
  * `--delete` keeps the remote copy an exact mirror; the trailing slashes copy the directory's
  * CONTENTS into `remoteDir`. The `-e` value is one string rsync re-parses to launch ssh.
  */
-export const rsyncUp = (
+export function rsyncUp(
   target: SshTarget,
   localDir: string,
   remoteDir: string,
   excludes: readonly string[],
-) => {
+) {
   const sshCommand = ['ssh', ...sshFlags(target)].join(' ');
   const args = ['-az', '--delete', '-e', sshCommand];
   for (const exclude of excludes) args.push('--exclude', exclude);
   args.push(`${localDir}/`, `${userHost(target)}:${remoteDir}/`);
   return executeCommand('rsync', args);
-};
+}
 
 export async function sshReachable(target: SshTarget): Promise<boolean> {
   try {

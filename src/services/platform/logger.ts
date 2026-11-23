@@ -33,41 +33,43 @@ function statusText(status: 'RUN' | 'OK' | 'WARN' | 'ERROR' | 'SKIP', message: s
 
 function makeLogger(display: LogWrite, explain: boolean): Logger {
   const logger: Logger = {
-    withExplanation: (enabled) => makeLogger(display, enabled),
-    run: (message) => {
+    withExplanation(enabled) {
+      return makeLogger(display, enabled);
+    },
+    run(message) {
       const statusLine = statusText('RUN', message);
       return display(statusLine);
     },
-    ok: (message) => {
+    ok(message) {
       const statusLine = statusText('OK', message);
       return display(statusLine);
     },
-    warn: (message) => {
+    warn(message) {
       const statusLine = statusText('WARN', message);
       return display(statusLine);
     },
-    error: (message) => {
+    error(message) {
       const statusLine = statusText('ERROR', message);
       return display(statusLine);
     },
-    skip: (message) => {
+    skip(message) {
       const statusLine = statusText('SKIP', message);
       return display(statusLine);
     },
-    progressStart: (label) => {
+    progressStart(label) {
       const statusLine = statusText('RUN', label);
       return display(statusLine);
     },
-    progressDone: (label, elapsedMs) => {
+    progressDone(label, elapsedMs) {
       const elapsedLabel = formatElapsed(elapsedMs);
       const statusLine = statusText('OK', `${label} - ${elapsedLabel}`);
       return display(statusLine);
     },
-    progressFail: (_label, failureText) => {
+    progressFail(_label, failureText) {
       const statusLine = statusText('ERROR', failureText);
       return display(statusLine);
     },
-    step: (label, detail, topic) => {
+    step(label, detail, topic) {
       let detailText = '';
 
       if (detail != null) {
@@ -89,32 +91,50 @@ function makeLogger(display: LogWrite, explain: boolean): Logger {
         display(`  ${explanationLine}\n`);
       }
     },
-    chip: (chipText) => chipText,
-    note: (message) => {
+    chip(chipText) {
+      return chipText;
+    },
+    note(message) {
       const statusLine = statusText('RUN', message);
       return display(statusLine);
     },
-    tip: (message) => {
+    tip(message) {
       const statusLine = statusText('RUN', `Tip: ${message}`);
       return display(statusLine);
     },
-    notice: (lead, ...details) => {
-      const detailLines = details.map((detail) => `  ${detail}\n`).join('');
+    notice(lead, ...details) {
+      function mapDetail(detail: string) {
+        return `  ${detail}\n`;
+      }
+
+      const detailLines = details.map(mapDetail).join('');
       const statusLine = statusText('RUN', lead);
       display(`${statusLine}${detailLines}`);
     },
-    box: (title, receiptLines) => {
-      const receipt = receiptLines.map((receiptLine) => `  ${receiptLine}\n`).join('');
+    box(title, receiptLines) {
+      function mapReceiptLine(receiptLine: string) {
+        return `  ${receiptLine}\n`;
+      }
+
+      const receipt = receiptLines.map(mapReceiptLine).join('');
       const statusLine = statusText('OK', title);
       display(`${statusLine}${receipt}`);
     },
-    shipped: (receiptLines) => {
-      const receipt = receiptLines.map((receiptLine) => `  ${receiptLine}\n`).join('');
+    shipped(receiptLines) {
+      function mapReceiptLine2(receiptLine: string) {
+        return `  ${receiptLine}\n`;
+      }
+
+      const receipt = receiptLines.map(mapReceiptLine2).join('');
       const statusLine = statusText('OK', 'Shipped');
       display(`${statusLine}${receipt}`);
     },
-    line: (message) => display(`${message}\n`),
-    gap: () => display('\n'),
+    line(message) {
+      return display(`${message}\n`);
+    },
+    gap() {
+      return display('\n');
+    },
   };
 
   return logger;
@@ -128,15 +148,20 @@ function makeJsonLogger(emit: (event: JsonEvent) => void, display: LogWrite): Lo
   const humanLogger = makeLogger(display, false);
   const jsonLogger: Logger = {
     ...humanLogger,
-    withExplanation: () => jsonLogger,
-    progressStart: (label) => emit({ event: 'progress', label, status: 'start' }),
-    progressDone: (label, elapsedMs) =>
-      emit({ event: 'progress', label, status: 'done', elapsedMs }),
-    progressFail: (label, failureText) => {
+    withExplanation() {
+      return jsonLogger;
+    },
+    progressStart(label) {
+      return emit({ event: 'progress', label, status: 'start' });
+    },
+    progressDone(label, elapsedMs) {
+      return emit({ event: 'progress', label, status: 'done', elapsedMs });
+    },
+    progressFail(label, failureText) {
       emit({ event: 'progress', label, status: 'fail' });
       humanLogger.progressFail(label, failureText);
     },
-    step: (label, detail) => {
+    step(label, detail) {
       if (detail == null) {
         emit({ event: 'step', step: label });
         return;
@@ -144,10 +169,18 @@ function makeJsonLogger(emit: (event: JsonEvent) => void, display: LogWrite): Lo
 
       emit({ event: 'step', step: label, detail });
     },
-    warn: (message) => emit({ event: 'warn', message }),
-    note: (message) => emit({ event: 'note', message }),
-    tip: (message) => emit({ event: 'note', message: `Tip: ${message}` }),
-    box: (title, receiptLines) => emit({ event: 'box', title, lines: receiptLines }),
+    warn(message) {
+      return emit({ event: 'warn', message });
+    },
+    note(message) {
+      return emit({ event: 'note', message });
+    },
+    tip(message) {
+      return emit({ event: 'note', message: `Tip: ${message}` });
+    },
+    box(title, receiptLines) {
+      return emit({ event: 'box', title, lines: receiptLines });
+    },
   };
 
   return jsonLogger;
@@ -174,10 +207,12 @@ export function resetLogger(): void {
 }
 
 function createJsonLogger(writeHuman: LogWrite): Logger {
-  return makeJsonLogger((event) => {
+  function makePieceLoggerEvent(event: { readonly [x: string]: unknown }) {
     const machineLine = jsonLine(event);
     writeText(machineLine);
-  }, writeHuman);
+  }
+
+  return makeJsonLogger(makePieceLoggerEvent, writeHuman);
 }
 
 export function createLogger(explain: boolean): Logger {

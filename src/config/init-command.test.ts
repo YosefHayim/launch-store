@@ -4,37 +4,51 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { InitCommandInputSchema, runInitProgram } from './init-command.ts';
-
-afterEach(() => {
+function cleanup() {
   resetLaunchDirectories();
-});
+}
 
-describe('InitCommandInputSchema', () => {
-  it('decodes the standalone boundary using the injected working directory', () => {
+afterEach(cleanup);
+function describeInitCommandPieceSchema() {
+  function decodesTheStandaloneBoundaryUsingTheInjectedWorkingDirectory() {
     const initCommandSchema = InitCommandInputSchema({ framed: true });
     expect(initCommandSchema).toEqual({
       framed: true,
     });
-  });
+  }
 
-  it('decodes the guided setup boundary with an explicit directory', () => {
+  it(
+    'decodes the standalone boundary using the injected working directory',
+    decodesTheStandaloneBoundaryUsingTheInjectedWorkingDirectory,
+  );
+  function decodesTheGuidedSetupBoundaryWithAnExplicitDirectory() {
     const initCommandSchema = InitCommandInputSchema({
       workingDirectory: '/workspace',
       framed: false,
     });
     expect(initCommandSchema).toEqual({ workingDirectory: '/workspace', framed: false });
-  });
+  }
 
-  it('rejects an explicit undefined exact optional directory', () => {
-    expect(() =>
-      InitCommandInputSchema({
+  it(
+    'decodes the guided setup boundary with an explicit directory',
+    decodesTheGuidedSetupBoundaryWithAnExplicitDirectory,
+  );
+  function rejectsAnExplicitUndefinedExactOptionalDirectory() {
+    function callInitCommandPieceSchema() {
+      return InitCommandInputSchema({
         workingDirectory: undefined,
         framed: false,
-      }),
-    ).toThrow();
-  });
+      });
+    }
 
-  it('refuses non-interactive scaffolding before writing files', async () => {
+    expect(callInitCommandPieceSchema).toThrow();
+  }
+
+  it(
+    'rejects an explicit undefined exact optional directory',
+    rejectsAnExplicitUndefinedExactOptionalDirectory,
+  );
+  async function refusesNonInteractiveScaffoldingBeforeWritingFiles() {
     const systemTemporaryDirectory = tmpdir();
     const launchInitCommandPath = join(systemTemporaryDirectory, 'launch-init-command-');
     const temporaryDirectory = mkdtempSync(launchInitCommandPath);
@@ -48,5 +62,12 @@ describe('InitCommandInputSchema', () => {
     } finally {
       rmSync(temporaryDirectory, { recursive: true, force: true });
     }
-  });
-});
+  }
+
+  it(
+    'refuses non-interactive scaffolding before writing files',
+    refusesNonInteractiveScaffoldingBeforeWritingFiles,
+  );
+}
+
+describe('InitCommandInputSchema', describeInitCommandPieceSchema);

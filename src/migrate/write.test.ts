@@ -16,21 +16,21 @@ function migration(): MigrationResult {
     notes: [],
   };
 }
-
-describe('writeArtifacts', () => {
+function describeWriteArtifacts() {
   let dir: string;
-
-  beforeEach(() => {
+  function prepareWriteArtifacts() {
     const systemTemporaryDirectory = tmpdir();
     const launchMigrateWritePath = join(systemTemporaryDirectory, 'launch-migrate-write-');
     dir = mkdtempSync(launchMigrateWritePath);
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareWriteArtifacts);
+  function cleanupWriteArtifacts() {
     rmSync(dir, { recursive: true, force: true });
-  });
+  }
 
-  it('writes every artifact into the output directory', async () => {
+  afterEach(cleanupWriteArtifacts);
+  async function writesEveryArtifactIntoThePieceDirectory() {
     const outcome = await writeArtifacts(migration(), { outDir: dir });
 
     expect(outcome.written.sort()).toEqual(['.env.example', 'launch.config.ts']);
@@ -38,9 +38,10 @@ describe('writeArtifacts', () => {
     const launchPath = join(dir, 'launch.config.ts');
     const loadedFile = readFileSync(launchPath, 'utf8');
     expect(loadedFile).toBe('// config\n');
-  });
+  }
 
-  it('keeps an existing file untouched without --force', async () => {
+  it('writes every artifact into the output directory', writesEveryArtifactIntoThePieceDirectory);
+  async function keepsAnExistingFileUntouchedWithoutForce() {
     const launchPath = join(dir, 'launch.config.ts');
     writeFileSync(launchPath, '// mine\n');
     const outcome = await writeArtifacts(migration(), { outDir: dir });
@@ -50,9 +51,10 @@ describe('writeArtifacts', () => {
     const joinedPath = join(dir, 'launch.config.ts');
     const loadedFile = readFileSync(joinedPath, 'utf8');
     expect(loadedFile).toBe('// mine\n');
-  });
+  }
 
-  it('overwrites an existing file with --force', async () => {
+  it('keeps an existing file untouched without --force', keepsAnExistingFileUntouchedWithoutForce);
+  async function overwritesAnExistingFileWithForce() {
     const launchPath = join(dir, 'launch.config.ts');
     writeFileSync(launchPath, '// mine\n');
     const outcome = await writeArtifacts(migration(), { outDir: dir, force: true });
@@ -61,23 +63,29 @@ describe('writeArtifacts', () => {
     const joinedPath = join(dir, 'launch.config.ts');
     const loadedFile = readFileSync(joinedPath, 'utf8');
     expect(loadedFile).toBe('// config\n');
-  });
+  }
 
-  it('classifies without writing under dryRun', async () => {
+  it('overwrites an existing file with --force', overwritesAnExistingFileWithForce);
+  async function classifiesWithoutWritingUnderDryRun() {
     const outcome = await writeArtifacts(migration(), { outDir: dir, dryRun: true });
 
     expect(outcome.written.sort()).toEqual(['.env.example', 'launch.config.ts']);
     const launchPath = join(dir, 'launch.config.ts');
     const pathExists = existsSync(launchPath);
     expect(pathExists).toBe(false);
-  });
+  }
 
-  it('dryRun still reports an existing file as skipped', async () => {
+  it('classifies without writing under dryRun', classifiesWithoutWritingUnderDryRun);
+  async function dryRunStillReportsAnExistingFileAsSkipped() {
     const joinedPath = join(dir, '.env.example');
     writeFileSync(joinedPath, 'X=\n');
     const outcome = await writeArtifacts(migration(), { outDir: dir, dryRun: true });
 
     expect(outcome.skipped).toEqual(['.env.example']);
     expect(outcome.written).toEqual(['launch.config.ts']);
-  });
-});
+  }
+
+  it('dryRun still reports an existing file as skipped', dryRunStillReportsAnExistingFileAsSkipped);
+}
+
+describe('writeArtifacts', describeWriteArtifacts);

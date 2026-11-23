@@ -3,7 +3,12 @@ import { resignCommandProgram, type ResignCommandInput } from '../../../build/re
 import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the stored-build re-sign command to Commander. */
-export const registerResignCommand = (program: Command): void => {
+export function registerResignCommand(program: Command): void {
+  function runBuildResign(commandOptions: ResignCommandInput) {
+    const resignProgram = resignCommandProgram(commandOptions);
+    return runCliProgram(resignProgram);
+  }
+
   program
     .command('build:resign')
     .description('re-sign a stored build with different credentials, without rebuilding')
@@ -13,8 +18,5 @@ export const registerResignCommand = (program: Command): void => {
     .option('--account <keyId|label>', 'Apple account whose signing assets should be used')
     .option('-o, --output <path>', 'output file or directory')
     .option('--dry-run', 'print the re-sign plan and change nothing', false)
-    .action((commandOptions: ResignCommandInput) => {
-      const resignProgram = resignCommandProgram(commandOptions);
-      return runCliProgram(resignProgram);
-    });
-};
+    .action(runBuildResign);
+}

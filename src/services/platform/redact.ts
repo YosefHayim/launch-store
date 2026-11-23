@@ -9,15 +9,17 @@ const MASK = '***';
  * assignments, and strip JWTs, bearer tokens, and AWS access keys. Pure and idempotent; an
  * already-redacted line is unchanged. Multi-line secrets are not visible here - see {@link redactText}.
  */
-export const redactLine = (line: string): string => {
+export function redactLine(line: string): string {
   let out = line;
   if (HOME.length > 1) out = out.split(HOME).join('~');
+  function replacePiece(match: string, name: string, sep: string) {
+    if (isSecretLookingName(name)) return `${name}${sep}${MASK}`;
+    return match;
+  }
+
   out = out.replace(
     /\b([A-Za-z][A-Za-z0-9_]*)(["']?\s*[:=]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)/g,
-    (match, name: string, sep: string) => {
-      if (isSecretLookingName(name)) return `${name}${sep}${MASK}`;
-      return match;
-    },
+    replacePiece,
   );
   out = out.replace(
     /\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}/g,
@@ -26,13 +28,13 @@ export const redactLine = (line: string): string => {
   out = out.replace(/(Bearer\s+)[A-Za-z0-9._~+/-]+=*/gi, `$1${MASK}`);
   out = out.replace(/\bAKIA[0-9A-Z]{16}\b/g, '[redacted-aws-key]');
   return out;
-};
+}
 /**
  * Redact a whole log document: drop any PEM key/cert blocks first (they span lines, so they're only
  * visible with the full text), then apply {@link redactLine} to every remaining line. Used when reading
  * a persisted log back for `launch-store builds log` - a second pass over what was already scrubbed on write.
  */
-export const redactText = (text: string): string => {
+export function redactText(text: string): string {
   return text
     .replace(
       /-----BEGIN [A-Z0-9 ]+-----[\s\S]*?-----END [A-Z0-9 ]+-----/g,
@@ -41,8 +43,8 @@ export const redactText = (text: string): string => {
     .split('\n')
     .map(redactLine)
     .join('\n');
-};
-const isPemBodyLine = (line: string): boolean => {
+}
+function isPemBodyLine(line: string): boolean {
   const isEmptyLine = line == '';
   if (isEmptyLine) return true;
 
@@ -50,15 +52,15 @@ const isPemBodyLine = (line: string): boolean => {
   if (isKeyMaterialLine) return true;
 
   return /^(Proc-Type|DEK-Info): /.test(line);
-};
+}
 
 /**
  * Keep a PEM body off disk even when the child emits it over multiple chunks. A block that never
  * closes ends at the first line that is not key material, so later error lines still show.
  */
-export const makeLogRedactor = (): ((line: string) => string) => {
+export function makeLogRedactor(): (line: string) => string {
   let withinPem = false;
-  return (line) => {
+  function runLine(line: string) {
     const isPemBegin = line.includes('-----BEGIN ');
     if (isPemBegin) {
       withinPem = !line.includes('-----END ');
@@ -76,5 +78,7 @@ export const makeLogRedactor = (): ((line: string) => string) => {
 
     withinPem = false;
     return redactLine(line);
-  };
-};
+  }
+
+  return runLine;
+}

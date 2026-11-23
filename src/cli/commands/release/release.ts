@@ -7,7 +7,7 @@ import { addEnvFlags } from '../../options.ts';
 import { runCliProgram, runJsonCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the public release command. */
-export const registerReleaseCommand = (program: Command): void => {
+export function registerReleaseCommand(program: Command): void {
   const releaseCommand = program
     .command('release')
     .description(
@@ -52,23 +52,23 @@ export const registerReleaseCommand = (program: Command): void => {
       'stream progress as NDJSON events on stdout and end with one result line (never prompts)',
       false,
     );
-  addEnvFlags(releaseCommand).action(
-    (platformArgument: string, commandOptions: ReleaseCommandOptions) => {
-      function startRelease(): ReturnType<typeof releaseCommandProgram> {
-        return releaseCommandProgram(platformArgument, commandOptions);
-      }
+  function runCommand(platformArgument: string, commandOptions: ReleaseCommandOptions) {
+    function startRelease(): ReturnType<typeof releaseCommandProgram> {
+      return releaseCommandProgram(platformArgument, commandOptions);
+    }
 
-      if (!commandOptions.json) return runCliProgram(startRelease());
+    if (!commandOptions.json) return runCliProgram(startRelease());
 
-      return runJsonCliProgram(
-        {
-          command: 'release',
-          platform: platformArgument,
-          dryRun: commandOptions.dryRun == true,
-          profile: commandOptions.profile,
-        },
-        startRelease,
-      );
-    },
-  );
-};
+    return runJsonCliProgram(
+      {
+        command: 'release',
+        platform: platformArgument,
+        dryRun: commandOptions.dryRun == true,
+        profile: commandOptions.profile,
+      },
+      startRelease,
+    );
+  }
+
+  addEnvFlags(releaseCommand).action(runCommand);
+}

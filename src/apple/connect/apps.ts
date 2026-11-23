@@ -57,7 +57,11 @@ export class ConnectApps {
     const appleResources = await this.client.requestAll<Record<string, unknown>>(
       `/appInfos/${appInfoId}/appInfoLocalizations?limit=200`,
     );
-    return appleResources.map((localization) => {
+    function mapLocalization(localization: {
+      id: string;
+      attributes: Record<string, unknown>;
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const localeAttribute = localization.attributes['locale'];
       let locale = '';
       if (typeof localeAttribute == 'string') locale = localeAttribute;
@@ -66,7 +70,9 @@ export class ConnectApps {
         locale,
         fields: pickListingFields(localization.attributes, APP_INFO_LISTING_FIELDS),
       };
-    });
+    }
+
+    return appleResources.map(mapLocalization);
   }
 
   async listAccountDeletionUrls(appInfoId: string): Promise<
@@ -81,13 +87,19 @@ export class ConnectApps {
     }>(
       `/appInfos/${appInfoId}/appInfoLocalizations?limit=200&fields[appInfoLocalizations]=locale,privacyChoicesUrl`,
     );
-    return appleResources.map((localization) => {
+    function mapLocalization2(localization: {
+      id: string;
+      attributes: { locale?: string; privacyChoicesUrl?: string | null };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let locale = localization.attributes.locale;
       if (locale == null) locale = '';
       let accountDeletionUrl = localization.attributes.privacyChoicesUrl;
       if (typeof accountDeletionUrl != 'string') accountDeletionUrl = '';
       return { locale, url: accountDeletionUrl };
-    });
+    }
+
+    return appleResources.map(mapLocalization2);
   }
 
   async createAppInfoLocalization(
@@ -122,11 +134,11 @@ export class ConnectApps {
       await this.client.request<ResourceList<unknown>>('GET', '/bundleIds?limit=1');
       return true;
     } catch (error) {
-      if (
-        error instanceof AscRequestError &&
-        error.status == 403 &&
-        error.codes.some((code) => code.includes(REQUIRED_AGREEMENTS_ERROR_CODE))
-      ) {
+      function someCode(code: string) {
+        return code.includes(REQUIRED_AGREEMENTS_ERROR_CODE);
+      }
+
+      if (error instanceof AscRequestError && error.status == 403 && error.codes.some(someCode)) {
         return false;
       }
       throw error;
@@ -150,9 +162,19 @@ export class ConnectApps {
     const appleResources = await this.client.requestAll<{
       name?: string;
     }>('/apps?fields[apps]=name&limit=200');
-    return appleResources
-      .map((entry) => entry.attributes.name)
-      .filter((name): name is string => Boolean(name));
+    function readName(entry: {
+      id: string;
+      attributes: { name?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
+      return entry.attributes.name;
+    }
+
+    function filterName(name: string | undefined): name is string {
+      return Boolean(name);
+    }
+
+    return appleResources.map(readName).filter(filterName);
   }
 
   async listApps(): Promise<{ id: string; name: string; bundleId: string | null }[]> {
@@ -186,13 +208,22 @@ export class ConnectApps {
       }[];
     }>('GET', `/apps/${appId}/appInfos?include=primaryCategory,secondaryCategory&limit=200`);
     if (appleResources.length == 0) return null;
-    const editable = appleResources.find((appInformation) => {
+    function findAppInformation(appInformation: {
+      id: string;
+      attributes?: { state?: string; appStoreState?: string };
+      relationships?: {
+        primaryCategory?: { data?: { id: string } | null };
+        secondaryCategory?: { data?: { id: string } | null };
+      };
+    }) {
       let appInformationState = appInformation.attributes?.state;
       if (appInformationState == null)
         appInformationState = appInformation.attributes?.appStoreState;
       if (appInformationState == null) return false;
       return EDITABLE_METADATA_STATES.has(appInformationState);
-    });
+    }
+
+    const editable = appleResources.find(findAppInformation);
     let selectedAppInformation = editable;
     if (selectedAppInformation == null) selectedAppInformation = appleResources[0];
     if (selectedAppInformation == null) return null;

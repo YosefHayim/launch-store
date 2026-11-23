@@ -8,10 +8,20 @@ type MigrateOptions = Readonly<{
   out?: string;
 }>;
 
-export const registerMigrateCommand = (program: Command): void => {
+export function registerMigrateCommand(program: Command): void {
   const migrateCommand = program
     .command('migrate')
     .description('import an existing EAS or fastlane setup into a Launch config');
+  function runEas(commandOptions: MigrateOptions) {
+    const migrateProgram = migrateCommandProgram({
+      source: 'eas',
+      force: commandOptions.force,
+      dryRun: commandOptions.dryRun,
+      out: commandOptions.out,
+    });
+    return runCliProgram(migrateProgram);
+  }
+
   migrateCommand
     .command('eas')
     .description(
@@ -23,15 +33,17 @@ export const registerMigrateCommand = (program: Command): void => {
       '--out <dir>',
       'write the migrated files to this directory (default: current directory)',
     )
-    .action((commandOptions: MigrateOptions) => {
-      const migrateProgram = migrateCommandProgram({
-        source: 'eas',
-        force: commandOptions.force,
-        dryRun: commandOptions.dryRun,
-        out: commandOptions.out,
-      });
-      return runCliProgram(migrateProgram);
+    .action(runEas);
+  function runFastlane(commandOptions: MigrateOptions) {
+    const migrateProgram = migrateCommandProgram({
+      source: 'fastlane',
+      force: commandOptions.force,
+      dryRun: commandOptions.dryRun,
+      out: commandOptions.out,
     });
+    return runCliProgram(migrateProgram);
+  }
+
   migrateCommand
     .command('fastlane')
     .description(
@@ -43,13 +55,5 @@ export const registerMigrateCommand = (program: Command): void => {
       '--out <dir>',
       'write the migrated files to this directory (default: current directory)',
     )
-    .action((commandOptions: MigrateOptions) => {
-      const migrateProgram = migrateCommandProgram({
-        source: 'fastlane',
-        force: commandOptions.force,
-        dryRun: commandOptions.dryRun,
-        out: commandOptions.out,
-      });
-      return runCliProgram(migrateProgram);
-    });
-};
+    .action(runFastlane);
+}

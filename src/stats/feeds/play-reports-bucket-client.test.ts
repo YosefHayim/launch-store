@@ -75,13 +75,13 @@ async function settle<Success>(work: () => Promise<Success>): Promise<Settled<Su
     return { _tag: 'Left', left };
   }
 }
-
-afterEach(() => {
+function cleanup() {
   vi.unstubAllGlobals();
-});
+}
 
-describe('downloadBucketObject', () => {
-  const downloadInstalls = (status: number, body: unknown) => {
+afterEach(cleanup);
+function describeDownloadBucketObject() {
+  function downloadInstalls(status: number, body: unknown) {
     installFetch([
       {
         method: 'GET',
@@ -90,38 +90,44 @@ describe('downloadBucketObject', () => {
         body,
       },
     ]);
-
-    return settle(() =>
-      downloadBucketObject(
+    function settlePiece() {
+      return downloadBucketObject(
         'pubsite_prod_rev_1',
         'stats/installs/installs_com.fit_202610_overview.csv',
         'token-1',
-      ),
-    );
-  };
+      );
+    }
 
-  test('returns the bytes of an object that exists', async () => {
+    return settle(settlePiece);
+  }
+  async function returnsTheBytesOfAnObjectThatExists() {
     const reply = await downloadInstalls(200, new Uint8Array([1, 2, 3]));
 
     expect(reply).toMatchObject({
       _tag: 'Right',
       right: { status: 'found', bytes: new Uint8Array([1, 2, 3]) },
     });
-  });
+  }
 
-  test('says missing for a 404, a month Play has not published yet', async () => {
+  test('returns the bytes of an object that exists', returnsTheBytesOfAnObjectThatExists);
+  async function saysMissingForA404AMonthPlayHasNotPublishedYet() {
     const reply = await downloadInstalls(404, { error: 'not found' });
 
     expect(reply).toMatchObject({ _tag: 'Right', right: { status: 'missing' } });
-  });
+  }
 
-  test('says forbidden for a 403', async () => {
+  test(
+    'says missing for a 404, a month Play has not published yet',
+    saysMissingForA404AMonthPlayHasNotPublishedYet,
+  );
+  async function saysForbiddenForA403() {
     const reply = await downloadInstalls(403, { error: 'forbidden' });
 
     expect(reply).toMatchObject({ _tag: 'Right', right: { status: 'forbidden' } });
-  });
+  }
 
-  test('fails with a readable message for any other status', async () => {
+  test('says forbidden for a 403', saysForbiddenForA403);
+  async function failsWithAReadableMessageForAnyOtherStatus() {
     const reply = await downloadInstalls(500, { error: 'boom' });
 
     expect(reply).toMatchObject({
@@ -131,19 +137,25 @@ describe('downloadBucketObject', () => {
         message: expect.stringContaining('HTTP 500'),
       },
     });
-  });
-});
+  }
 
-describe('listBucketObjectNames', () => {
-  const listEarnings = (routes: readonly HttpRoute[]) => {
+  test(
+    'fails with a readable message for any other status',
+    failsWithAReadableMessageForAnyOtherStatus,
+  );
+}
+
+describe('downloadBucketObject', describeDownloadBucketObject);
+function describeListBucketObjectNames() {
+  function listEarnings(routes: readonly HttpRoute[]) {
     installFetch(routes);
+    function settlePiece2() {
+      return listBucketObjectNames('pubsite_prod_rev_1', 'earnings/earnings_', 'token-1');
+    }
 
-    return settle(() =>
-      listBucketObjectNames('pubsite_prod_rev_1', 'earnings/earnings_', 'token-1'),
-    );
-  };
-
-  test('collects the names over every page', async () => {
+    return settle(settlePiece2);
+  }
+  async function collectsTheNamesOverEveryPage() {
     const reply = await listEarnings([
       {
         method: 'GET',
@@ -166,21 +178,27 @@ describe('listBucketObjectNames', () => {
         objectNames: ['earnings/earnings_202609.zip', 'earnings/earnings_202610.zip'],
       },
     });
-  });
+  }
 
-  test('lists nothing when the bucket has no matching object', async () => {
+  test('collects the names over every page', collectsTheNamesOverEveryPage);
+  async function listsNothingWhenTheBucketHasNoMatchingObject() {
     const reply = await listEarnings([{ method: 'GET', url: LIST_URL, status: 200, body: {} }]);
 
     expect(reply).toMatchObject({ _tag: 'Right', right: { status: 'listed', objectNames: [] } });
-  });
+  }
 
-  test('says forbidden for a 403', async () => {
+  test(
+    'lists nothing when the bucket has no matching object',
+    listsNothingWhenTheBucketHasNoMatchingObject,
+  );
+  async function saysForbiddenForA4032() {
     const reply = await listEarnings([{ method: 'GET', url: LIST_URL, status: 403, body: {} }]);
 
     expect(reply).toMatchObject({ _tag: 'Right', right: { status: 'forbidden' } });
-  });
+  }
 
-  test('fails for a missing bucket or an unreadable listing', async () => {
+  test('says forbidden for a 403', saysForbiddenForA4032);
+  async function failsForAMissingBucketOrAnUnreadableListing() {
     const missingBucket = await listEarnings([
       { method: 'GET', url: LIST_URL, status: 404, body: {} },
     ]);
@@ -196,14 +214,27 @@ describe('listBucketObjectNames', () => {
       _tag: 'Left',
       left: { _tag: 'PlayReportsBucketFailure' },
     });
-  });
-});
+  }
 
-describe('failBucketRead', () => {
-  test('words the operation and the cause, and keeps the cause', () => {
+  test(
+    'fails for a missing bucket or an unreadable listing',
+    failsForAMissingBucketOrAnUnreadableListing,
+  );
+}
+
+describe('listBucketObjectNames', describeListBucketObjectNames);
+function describeFailBucketRead() {
+  function wordsTheOperationAndTheCauseAndKeepsTheCause() {
     const failure = failBucketRead('unzip an earnings report', new Error('bad zip'));
 
     expect(failure.message).toBe('Could not unzip an earnings report: bad zip');
     expect(failure.cause).toBeInstanceOf(Error);
-  });
-});
+  }
+
+  test(
+    'words the operation and the cause, and keeps the cause',
+    wordsTheOperationAndTheCauseAndKeepsTheCause,
+  );
+}
+
+describe('failBucketRead', describeFailBucketRead);

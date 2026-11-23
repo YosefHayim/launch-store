@@ -103,9 +103,8 @@ function iosContext(account?: string): ResolvedBuildContext {
 
   return buildContext;
 }
-
-describe('localCredentialsProvider.resolveBuildCredentials (iOS account selection)', () => {
-  beforeEach(() => {
+function describeLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelection() {
+  function prepareLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelection() {
     credentialState = {
       appleKeys: new Map([
         ['AAAA1111', KEY_A],
@@ -116,13 +115,15 @@ describe('localCredentialsProvider.resolveBuildCredentials (iOS account selectio
       androidStatuses: {},
     };
     installCredentialReader();
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelection);
+  function cleanupLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelection() {
     useCredentialsReader(null);
-  });
+  }
 
-  it("loads the active account's key when the context names none", async () => {
+  afterEach(cleanupLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelection);
+  async function loadsTheActiveAccountSKeyWhenThePieceNamesNone() {
     const provider = makeLocalCredentialsProvider();
     const ios = iosContext();
     const buildCredentials = await provider.resolveBuildCredentials(ios);
@@ -132,9 +133,13 @@ describe('localCredentialsProvider.resolveBuildCredentials (iOS account selectio
     if (buildCredentials.platform == 'ios') {
       expect(buildCredentials.ascKey).toEqual(KEY_A);
     }
-  });
+  }
 
-  it("loads the context's named account, overriding the active one", async () => {
+  it(
+    "loads the active account's key when the context names none",
+    loadsTheActiveAccountSKeyWhenThePieceNamesNone,
+  );
+  async function loadsThePieceSNamedAccountOverridingTheActiveOne() {
     const provider = makeLocalCredentialsProvider();
     const ios = iosContext('BBBB2222');
     const buildCredentials = await provider.resolveBuildCredentials(ios);
@@ -142,9 +147,13 @@ describe('localCredentialsProvider.resolveBuildCredentials (iOS account selectio
     if (buildCredentials.platform == 'ios') {
       expect(buildCredentials.ascKey).toEqual(KEY_B);
     }
-  });
+  }
 
-  it('returns an actionable failure when no account is available', async () => {
+  it(
+    "loads the context's named account, overriding the active one",
+    loadsThePieceSNamedAccountOverridingTheActiveOne,
+  );
+  async function returnsAnActionableFailureWhenNoAccountIsAvailable() {
     credentialState.activeAppleKeyId = null;
     const provider = makeLocalCredentialsProvider();
 
@@ -154,11 +163,20 @@ describe('localCredentialsProvider.resolveBuildCredentials (iOS account selectio
       platform: 'apple',
       message: 'No App Store Connect API key found. Import one with: launch-store creds set-key',
     });
-  });
-});
+  }
 
-describe('localCredentialsProvider.status', () => {
-  beforeEach(() => {
+  it(
+    'returns an actionable failure when no account is available',
+    returnsAnActionableFailureWhenNoAccountIsAvailable,
+  );
+}
+
+describe(
+  'localCredentialsProvider.resolveBuildCredentials (iOS account selection)',
+  describeLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelection,
+);
+function describeLocalCredentialsProviderStatus() {
+  function prepareLocalCredentialsProviderStatus() {
     credentialState.appleAccountStatuses = [
       {
         keyId: 'AAAA1111',
@@ -172,22 +190,25 @@ describe('localCredentialsProvider.status', () => {
     ];
     credentialState.androidStatuses = {};
     installCredentialReader();
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareLocalCredentialsProviderStatus);
+  function cleanupLocalCredentialsProviderStatus() {
     useCredentialsReader(null);
-  });
+  }
 
-  it('lists each account with the active one marked', async () => {
+  afterEach(cleanupLocalCredentialsProviderStatus);
+  async function listsEachAccountWithTheActiveOneMarked() {
     const provider = makeLocalCredentialsProvider();
     const status = await provider.status();
 
     expect(status).toContain('iOS accounts (1):');
     expect(status).toContain('Personal <- active');
     expect(status).toContain('team TEAM1');
-  });
+  }
 
-  it("surfaces the account's apps with a +N overflow", async () => {
+  it('lists each account with the active one marked', listsEachAccountWithTheActiveOneMarked);
+  async function surfacesTheAccountSAppsWithANOverflow() {
     credentialState.appleAccountStatuses = [
       {
         keyId: 'AAAA1111',
@@ -203,9 +224,10 @@ describe('localCredentialsProvider.status', () => {
     const status = await provider.status();
 
     expect(status).toContain('Larkspur, Beacon, Cypress +2');
-  });
+  }
 
-  it('flags an unresolved account so the fix is one command away', async () => {
+  it("surfaces the account's apps with a +N overflow", surfacesTheAccountSAppsWithANOverflow);
+  async function flagsAnUnresolvedAccountSoTheFixIsOneCommandAway() {
     credentialState.appleAccountStatuses = [
       {
         keyId: 'AAAA1111',
@@ -221,17 +243,22 @@ describe('localCredentialsProvider.status', () => {
     const status = await provider.status();
 
     expect(status).toContain('unresolved - run `launch-store creds refresh`');
-  });
+  }
 
-  it('reports an empty registry plainly', async () => {
+  it(
+    'flags an unresolved account so the fix is one command away',
+    flagsAnUnresolvedAccountSoTheFixIsOneCommandAway,
+  );
+  async function reportsAnEmptyRegistryPlainly() {
     credentialState.appleAccountStatuses = [];
     const provider = makeLocalCredentialsProvider();
     const status = await provider.status();
 
     expect(status).toContain('no Apple account imported');
-  });
+  }
 
-  it('checks Android credentials against each configured app package', async () => {
+  it('reports an empty registry plainly', reportsAnEmptyRegistryPlainly);
+  async function checksAndroidCredentialsAgainstEachConfiguredAppPackage() {
     credentialState.androidStatuses = {
       'com.x.sampleapp': { keystoreAlias: 'upload-key', hasServiceAccount: true },
     };
@@ -241,13 +268,18 @@ describe('localCredentialsProvider.status', () => {
     expect(status).toContain(
       'com.x.sampleapp: Android: service account present; upload keystore (alias upload-key).',
     );
-  });
-});
+  }
 
-describe('legacy Android build guidance', () => {
+  it(
+    'checks Android credentials against each configured app package',
+    checksAndroidCredentialsAgainstEachConfiguredAppPackage,
+  );
+}
+
+describe('localCredentialsProvider.status', describeLocalCredentialsProviderStatus);
+function describeLegacyAndroidBuildGuidance() {
   let homeDirectory: string;
-
-  beforeEach(() => {
+  function prepareLegacyAndroidBuildGuidance() {
     const systemTemporaryDirectory = tmpdir();
     const launchLegacyGuidancePath = join(systemTemporaryDirectory, 'launch-legacy-guidance-');
     homeDirectory = mkdtempSync(launchLegacyGuidancePath);
@@ -260,17 +292,19 @@ describe('legacy Android build guidance', () => {
     });
     const legacyAccount = Buffer.from(serialized).toString('base64');
     useSecretStore(new Map([['play-service-account', legacyAccount]]));
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareLegacyAndroidBuildGuidance);
+  function cleanupLegacyAndroidBuildGuidance() {
     useCredentialsReader(null);
     resetLaunchDirectories();
     resetLaunchEnvironment();
     resetSecretStore();
     rmSync(homeDirectory, { recursive: true, force: true });
-  });
+  }
 
-  it('tells a legacy-only user how to adopt for the selected app', async () => {
+  afterEach(cleanupLegacyAndroidBuildGuidance);
+  async function tellsALegacyOnlyUserHowToAdoptForTheSelectedApp() {
     const provider = makeLocalCredentialsProvider();
     const context: ResolvedBuildContext = {
       ...iosContext(),
@@ -287,5 +321,12 @@ describe('legacy Android build guidance', () => {
       _tag: 'MissingCredentialsFailure',
       platform: 'android',
     });
-  });
-});
+  }
+
+  it(
+    'tells a legacy-only user how to adopt for the selected app',
+    tellsALegacyOnlyUserHowToAdoptForTheSelectedApp,
+  );
+}
+
+describe('legacy Android build guidance', describeLegacyAndroidBuildGuidance);

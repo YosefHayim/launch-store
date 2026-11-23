@@ -5,21 +5,24 @@ import {
   bundletoolInstallApksArgs,
   devicectlInstallArgs,
 } from './run-command.ts';
-
-describe('adbInstallArgs', () => {
-  it('reinstalls without a serial when none is given', () => {
+function describeAdbInstallPiece() {
+  function reinstallsWithoutASerialWhenNoneIsGiven() {
     const adbInstall = adbInstallArgs('/b/app.apk');
     expect(adbInstall).toEqual(['install', '-r', '/b/app.apk']);
-  });
+  }
 
-  it('scopes installation to one device serial', () => {
+  it('reinstalls without a serial when none is given', reinstallsWithoutASerialWhenNoneIsGiven);
+  function scopesInstallationToOneDeviceSerial() {
     const adbInstall = adbInstallArgs('/b/app.apk', 'emulator-5554');
     expect(adbInstall).toEqual(['-s', 'emulator-5554', 'install', '-r', '/b/app.apk']);
-  });
-});
+  }
 
-describe('bundletool arguments', () => {
-  it('creates a universal APK set', () => {
+  it('scopes installation to one device serial', scopesInstallationToOneDeviceSerial);
+}
+
+describe('adbInstallArgs', describeAdbInstallPiece);
+function describeBundletoolArguments() {
+  function createsAUniversalAPKSet() {
     const bundletoolBuildApks = bundletoolBuildApksArgs('/b/app.aab', '/tmp/app.apks');
     expect(bundletoolBuildApks).toEqual([
       'build-apks',
@@ -28,9 +31,10 @@ describe('bundletool arguments', () => {
       '--mode=universal',
       '--overwrite',
     ]);
-  });
+  }
 
-  it('installs an APK set with an optional device serial', () => {
+  it('creates a universal APK set', createsAUniversalAPKSet);
+  function installsAnAPKSetWithAnOptionalDeviceSerial() {
     const bundletoolInstallApks = bundletoolInstallApksArgs('/tmp/app.apks');
     expect(bundletoolInstallApks).toEqual(['install-apks', '--apks=/tmp/app.apks']);
     expect(bundletoolInstallApksArgs('/tmp/app.apks', 'emulator-5554')).toEqual([
@@ -38,11 +42,17 @@ describe('bundletool arguments', () => {
       '--apks=/tmp/app.apks',
       '--device-id=emulator-5554',
     ]);
-  });
-});
+  }
 
-describe('devicectlInstallArgs', () => {
-  it('installs an application bundle with an optional device identifier', () => {
+  it(
+    'installs an APK set with an optional device serial',
+    installsAnAPKSetWithAnOptionalDeviceSerial,
+  );
+}
+
+describe('bundletool arguments', describeBundletoolArguments);
+function describeDevicectlInstallPiece() {
+  function installsAnApplicationBundleWithAnOptionalDeviceIdentifier() {
     const devicectlInstall = devicectlInstallArgs('/tmp/Payload/Demo.app');
     expect(devicectlInstall).toEqual([
       'devicectl',
@@ -60,5 +70,12 @@ describe('devicectlInstallArgs', () => {
       '00008110-XXX',
       '/tmp/Payload/Demo.app',
     ]);
-  });
-});
+  }
+
+  it(
+    'installs an application bundle with an optional device identifier',
+    installsAnApplicationBundleWithAnOptionalDeviceIdentifier,
+  );
+}
+
+describe('devicectlInstallArgs', describeDevicectlInstallPiece);

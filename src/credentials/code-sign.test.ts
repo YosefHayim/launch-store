@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createVerify, generateKeyPairSync } from 'node:crypto';
 import { expectArrayElement, expectDefined } from '../testkit/assertions-testkit.ts';
 import { signatureHeader } from './code-sign.ts';
-describe('signatureHeader', () => {
-  it('produces an expo-signature header whose RSA-SHA256 signature verifies against the public key', () => {
+function describeSignatureHeader() {
+  function producesAnExpoSignatureHeaderWhoseRSASHA256SignatureVerifiesAgainstThePublicKey() {
     const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
     const manifestBody = JSON.stringify({ id: 'u', runtimeVersion: '1.0.0' });
     const header = signatureHeader(
@@ -20,5 +20,12 @@ describe('signatureHeader', () => {
     verifier.update(manifestBody);
     verifier.end();
     expect(verifier.verify(publicKey, signature)).toBe(true);
-  });
-});
+  }
+
+  it(
+    'produces an expo-signature header whose RSA-SHA256 signature verifies against the public key',
+    producesAnExpoSignatureHeaderWhoseRSASHA256SignatureVerifiesAgainstThePublicKey,
+  );
+}
+
+describe('signatureHeader', describeSignatureHeader);

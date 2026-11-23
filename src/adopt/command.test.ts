@@ -10,34 +10,44 @@ import {
 } from './command.ts';
 import type { TargetPlan } from './orchestrator.ts';
 
-const discoveredApp = (appName: string, dir = `/workspace/${appName}`): AppDescriptor => ({
-  name: appName,
-  dir,
-  configPath: `${dir}/app.json`,
-});
+function discoveredApp(appName: string, dir: string = `/workspace/${appName}`): AppDescriptor {
+  return {
+    name: appName,
+    dir,
+    configPath: `${dir}/app.json`,
+  };
+}
 
-const targetPlanWithWrites = (writes: readonly PlannedWrite[]): TargetPlan => ({
-  detected: {
-    target: {
-      app: discoveredApp('acme'),
-      appId: 'a1',
-      bundleId: 'com.acme.app',
-      keyId: 'K',
-      cwd: '/workspace',
-      hasLaunchConfig: true,
+function targetPlanWithWrites(writes: readonly PlannedWrite[]): TargetPlan {
+  return {
+    detected: {
+      target: {
+        app: discoveredApp('acme'),
+        appId: 'a1',
+        bundleId: 'com.acme.app',
+        keyId: 'K',
+        cwd: '/workspace',
+        hasLaunchConfig: true,
+      },
+      signal: 'v1 live',
     },
-    signal: 'v1 live',
-  },
-  writes,
-  errors: [],
-});
-
-describe('AdoptCommandInputSchema', () => {
-  it('defaults to every app without mutation or confirmation overrides', async () => {
+    writes,
+    errors: [],
+  };
+}
+function describeAdoptCommandPieceSchema() {
+  async function defaultsToEveryAppWithoutMutationOrConfirmationOverrides() {
     const commandInput = AdoptCommandInputSchema({});
     expect(commandInput).toEqual({ all: false, dryRun: false, yes: false });
-  });
-});
+  }
+
+  it(
+    'defaults to every app without mutation or confirmation overrides',
+    defaultsToEveryAppWithoutMutationOrConfirmationOverrides,
+  );
+}
+
+describe('AdoptCommandInputSchema', describeAdoptCommandPieceSchema);
 
 describe('selectAdoptApps', () => {
   const apps = [discoveredApp('alpha'), discoveredApp('beta')];
@@ -51,14 +61,21 @@ describe('selectAdoptApps', () => {
     const selectedApps = selectAdoptApps(apps, 'beta, alpha');
     expect(selectedApps.map((selectedApp) => selectedApp.name)).toEqual(['beta', 'alpha']);
   });
+  async function failsWithTheDiscoveredHandlesWhenASelectorIsUnknown() {
+    function callSelectAdoptApps() {
+      return selectAdoptApps(apps, 'missing');
+    }
 
-  it('fails with the discovered handles when a selector is unknown', async () => {
-    expect(() => selectAdoptApps(apps, 'missing')).toThrow(/Discovered apps: alpha, beta/);
-  });
+    expect(callSelectAdoptApps).toThrow(/Discovered apps: alpha, beta/);
+  }
+
+  it(
+    'fails with the discovered handles when a selector is unknown',
+    failsWithTheDiscoveredHandlesWhenASelectorIsUnknown,
+  );
 });
-
-describe('countAdoptMutations', () => {
-  it('counts config writes and ignores detect-only keychain reports', () => {
+function describeCountAdoptMutations() {
+  function countsPieceWritesAndIgnoresDetectOnlyKeychainReports() {
     const mutationCount = countAdoptMutations([
       targetPlanWithWrites([
         {
@@ -96,25 +113,35 @@ describe('countAdoptMutations', () => {
       ]),
     ]);
     expect(mutationCount).toBe(2);
-  });
-});
+  }
 
-describe('adoptFidelityMarker', () => {
-  it('maps each fidelity tier to its plan marker', () => {
+  it(
+    'counts config writes and ignores detect-only keychain reports',
+    countsPieceWritesAndIgnoresDetectOnlyKeychainReports,
+  );
+}
+
+describe('countAdoptMutations', describeCountAdoptMutations);
+function describeAdoptFidelityMarker() {
+  function mapsEachFidelityTierToItsPlanMarker() {
     const fidelityMarker = adoptFidelityMarker('importable');
     expect(fidelityMarker).toBe('+');
     expect(adoptFidelityMarker('advisory')).toBe('~');
     expect(adoptFidelityMarker('detect')).toBe('-');
-  });
-});
+  }
 
-describe('detectSharedAppRoot', () => {
+  it('maps each fidelity tier to its plan marker', mapsEachFidelityTierToItsPlanMarker);
+}
+
+describe('adoptFidelityMarker', describeAdoptFidelityMarker);
+function describeDetectSharedAppRoot() {
   const pathService = {
-    relative: (from: string, to: string): string => to.slice(from.length + 1),
+    relative(from: string, to: string): string {
+      return to.slice(from.length + 1);
+    },
     sep: '/',
   };
-
-  it('returns the unique monorepo segment when every app shares one root folder', () => {
+  function returnsTheUniqueMonorepoSegmentWhenEveryAppSharesOneRootFolder() {
     const sharedRoot = detectSharedAppRoot(
       [
         discoveredApp('alpha', '/workspace/apps/alpha'),
@@ -124,14 +151,25 @@ describe('detectSharedAppRoot', () => {
       pathService,
     );
     expect(sharedRoot).toBe('./apps');
-  });
+  }
 
-  it('returns null when apps span multiple root folders', () => {
+  it(
+    'returns the unique monorepo segment when every app shares one root folder',
+    returnsTheUniqueMonorepoSegmentWhenEveryAppSharesOneRootFolder,
+  );
+  function returnsNullWhenAppsSpanMultipleRootFolders() {
     const sharedRoot = detectSharedAppRoot(
       [discoveredApp('alpha', '/workspace/apps/alpha'), discoveredApp('solo', '/workspace/solo')],
       '/workspace',
       pathService,
     );
     expect(sharedRoot).toBeNull();
-  });
-});
+  }
+
+  it(
+    'returns null when apps span multiple root folders',
+    returnsNullWhenAppsSpanMultipleRootFolders,
+  );
+}
+
+describe('detectSharedAppRoot', describeDetectSharedAppRoot);

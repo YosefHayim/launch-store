@@ -16,40 +16,37 @@ const tempDirs: string[] = [];
 async function runConfigEffect<Success>(configWork: Promise<Success>): Promise<Success> {
   return configWork;
 }
-const makeRepo = (): string => {
+function makeRepo(): string {
   const systemTemporaryDirectory = tmpdir();
   const joinedPath = join(systemTemporaryDirectory, 'launch-config-');
   const dir = mkdtempSync(joinedPath);
   tempDirs.push(dir);
   return dir;
-};
+}
 /** Write an app.json (Expo `{ expo: {...} }` wrapper) into a (possibly nested) app directory. */
-const writeApp = (repo: string, relDir: string, expo: Record<string, unknown>): void => {
+function writeApp(repo: string, relDir: string, expo: Record<string, unknown>): void {
   const dir = join(repo, relDir);
   mkdirSync(dir, { recursive: true });
   const appPath = join(dir, 'app.json');
   const serialized = JSON.stringify({ expo });
   writeFileSync(appPath, serialized);
-};
+}
 /** Write an arbitrary config file (e.g. app.config.ts) into a (possibly nested) app directory. */
-const writeConfigFile = (
-  repo: string,
-  relDir: string,
-  filename: string,
-  contents: string,
-): void => {
+function writeConfigFile(repo: string, relDir: string, filename: string, contents: string): void {
   const dir = join(repo, relDir);
   mkdirSync(dir, { recursive: true });
   const joinedPath = join(dir, filename);
   writeFileSync(joinedPath, contents);
-};
-afterEach(() => {
+}
+function cleanup() {
   while (tempDirs.length > 0) {
     rmSync(expectDefined(tempDirs.pop(), 'temp dir'), { recursive: true, force: true });
   }
-});
-describe('defineConfig', () => {
-  it('fills the v1 defaults so a minimal config only declares profiles', () => {
+}
+
+afterEach(cleanup);
+function describeDefinePiece() {
+  function fillsTheV1DefaultsSoAMinimalPieceOnlyDeclaresProfiles() {
     const config = defineConfig({ profiles: { production: { name: 'production' } } });
     expect(config.credentials).toBe('local');
     expect(config.storage).toBe('local');
@@ -58,8 +55,13 @@ describe('defineConfig', () => {
     expect(config.appRoots).toBeUndefined();
     expect(config.aws).toBeUndefined();
     expect(config.release).toBeUndefined();
-  });
-  it('preserves explicit overrides and appRoots', () => {
+  }
+
+  it(
+    'fills the v1 defaults so a minimal config only declares profiles',
+    fillsTheV1DefaultsSoAMinimalPieceOnlyDeclaresProfiles,
+  );
+  function preservesExplicitOverridesAndAppRoots() {
     const config = defineConfig({
       credentials: 'team',
       storage: 's3',
@@ -69,8 +71,10 @@ describe('defineConfig', () => {
     expect(config.credentials).toBe('team');
     expect(config.storage).toBe('s3');
     expect(config.appRoots).toEqual(['./apps']);
-  });
-  it('carries an explicit release policy through unchanged', () => {
+  }
+
+  it('preserves explicit overrides and appRoots', preservesExplicitOverridesAndAppRoots);
+  function carriesAnExplicitReleasePolicyThroughUnchanged() {
     const config = defineConfig({
       profiles: { production: { name: 'production' } },
       release: { releaseType: 'MANUAL', phasedRelease: true, releaseNotes: 'Bug fixes.' },
@@ -80,8 +84,13 @@ describe('defineConfig', () => {
       phasedRelease: true,
       releaseNotes: 'Bug fixes.',
     });
-  });
-  it('carries the folded App Store Connect sections through (issue #101)', () => {
+  }
+
+  it(
+    'carries an explicit release policy through unchanged',
+    carriesAnExplicitReleasePolicyThroughUnchanged,
+  );
+  function carriesTheFoldedAppStoreConnectSectionsThroughIssue101() {
     const config = defineConfig({
       profiles: { production: { name: 'production' } },
       gameCenter: { 'com.acme.app': { achievements: [] } },
@@ -99,47 +108,70 @@ describe('defineConfig', () => {
     expect(config.euDistribution).toEqual({
       domains: [{ domain: 'downloads.acme.com', referenceName: 'Acme' }],
     });
-  });
-  it("omits the folded sections when they aren't declared", () => {
+  }
+
+  it(
+    'carries the folded App Store Connect sections through (issue #101)',
+    carriesTheFoldedAppStoreConnectSectionsThroughIssue101,
+  );
+  function omitsTheFoldedSectionsWhenTheyArenTDeclared() {
     const config = defineConfig({ profiles: { production: { name: 'production' } } });
     expect(config.gameCenter).toBeUndefined();
     expect(config.appClips).toBeUndefined();
     expect(config.releaseAttributes).toBeUndefined();
     expect(config.wallet).toBeUndefined();
     expect(config.euDistribution).toBeUndefined();
-  });
-  it('passes an unknown top-level key through so the schema validator can flag it (issue #197)', () => {
+  }
+
+  it(
+    "omits the folded sections when they aren't declared",
+    omitsTheFoldedSectionsWhenTheyArenTDeclared,
+  );
+  function passesAnUnknownTopLevelKeyThroughSoTheSchemaValidatorCanFlagItIssue197() {
     // A real config can't be statically typed (it's loaded un-compiled), so a typo like `profile:` for
     // `profiles:` reaches `defineConfig` as an extra key. It must survive onto the resolved object -
     // not be silently dropped - for `launch-store config validate` to catch it on the `.ts` path.
     const input = { profiles: { production: { name: 'production' } }, profile: 'oops' };
     const define = defineConfig(input);
     const violations = validateConfig(define);
-    expect(
-      violations.some(
-        (violation) =>
-          violation.path == 'profile' && violation.message.includes('unknown property'),
-      ),
-    ).toBe(true);
-  });
-});
-describe('resolveSidecarConfig - typed field vs JSON sidecar precedence (issue #101)', () => {
+    function someViolation(violation: { path: string; message: string }) {
+      return violation.path == 'profile' && violation.message.includes('unknown property');
+    }
+
+    expect(violations.some(someViolation)).toBe(true);
+  }
+
+  it(
+    'passes an unknown top-level key through so the schema validator can flag it (issue #197)',
+    passesAnUnknownTopLevelKeyThroughSoTheSchemaValidatorCanFlagItIssue197,
+  );
+}
+
+describe('defineConfig', describeDefinePiece);
+function describeResolveSidecarPieceTypedFieldVsJSONSidecarPrecedenceIssue101() {
   /** A loader that reads + JSON-parses the sidecar, like the real `load*Config` helpers. */
   async function readJson(path: string): Promise<{ source: string }> {
     const loadedFile = readFileSync(path, 'utf8');
     return JSON.parse(loadedFile) as { source: string };
   }
-  it('uses the typed field when present and --config was left at its default', async () => {
+  async function usesTheTypedFieldWhenPresentAndPieceWasLeftAtItsDefault() {
     const resolveSidecar = resolveSidecarConfig({
       typed: { source: 'typed' },
       configPath: '/nonexistent.config.json',
       explicitPath: false,
-      load: async () => ({ source: 'sidecar' }),
+      async load() {
+        return { source: 'sidecar' };
+      },
     });
     const resolvedSidecar = await runConfigEffect(resolveSidecar);
     expect(resolvedSidecar).toEqual({ source: 'typed' });
-  });
-  it('falls back to the default-path sidecar when there is no typed field', async () => {
+  }
+
+  it(
+    'uses the typed field when present and --config was left at its default',
+    usesTheTypedFieldWhenPresentAndPieceWasLeftAtItsDefault,
+  );
+  async function fallsBackToTheDefaultPathSidecarWhenThereIsNoTypedField() {
     const repo = makeRepo();
     const path = join(repo, 'x.config.json');
     const serialized = JSON.stringify({ source: 'sidecar' });
@@ -154,22 +186,32 @@ describe('resolveSidecarConfig - typed field vs JSON sidecar precedence (issue #
     expect(runEffect).toEqual({
       source: 'sidecar',
     });
-  });
-  it('returns undefined when neither a typed field nor a default-path sidecar exists', async () => {
+  }
+
+  it(
+    'falls back to the default-path sidecar when there is no typed field',
+    fallsBackToTheDefaultPathSidecarWhenThereIsNoTypedField,
+  );
+  async function returnsUndefinedWhenNeitherATypedFieldNorADefaultPathSidecarExists() {
     const repo = makeRepo();
     const path = join(repo, 'missing.config.json');
     const resolveSidecar = resolveSidecarConfig({
       typed: undefined,
       configPath: path,
       explicitPath: false,
-      load: async () => {
+      async load() {
         throw new Error('should not be called');
       },
     });
     const runEffect = await runConfigEffect(resolveSidecar);
     expect(runEffect).toBeUndefined();
-  });
-  it('an explicitly-passed --config wins even when a typed field is present', async () => {
+  }
+
+  it(
+    'returns undefined when neither a typed field nor a default-path sidecar exists',
+    returnsUndefinedWhenNeitherATypedFieldNorADefaultPathSidecarExists,
+  );
+  async function anExplicitlyPassedPieceWinsEvenWhenATypedFieldIsPresent() {
     const repo = makeRepo();
     const path = join(repo, 'explicit.config.json');
     const serialized = JSON.stringify({ source: 'sidecar' });
@@ -184,10 +226,20 @@ describe('resolveSidecarConfig - typed field vs JSON sidecar precedence (issue #
     expect(runEffect).toEqual({
       source: 'sidecar',
     });
-  });
-});
+  }
+
+  it(
+    'an explicitly-passed --config wins even when a typed field is present',
+    anExplicitlyPassedPieceWinsEvenWhenATypedFieldIsPresent,
+  );
+}
+
+describe(
+  'resolveSidecarConfig - typed field vs JSON sidecar precedence (issue #101)',
+  describeResolveSidecarPieceTypedFieldVsJSONSidecarPrecedenceIssue101,
+);
 describe('loadConfig - auto-discovers apps, app.json stays the source of truth', () => {
-  it("falls back to defaults and discovers a single app's facts from app.json", async () => {
+  async function fallsBackToDefaultsAndDiscoversASingleAppSFactsFromAppPiece() {
     const repo = makeRepo();
     writeApp(repo, '.', {
       name: 'Hello World',
@@ -204,8 +256,13 @@ describe('loadConfig - auto-discovers apps, app.json stays the source of truth',
       version: '1.2.3',
     });
     expect(apps[0]?.usesNonExemptEncryption).toBeUndefined();
-  });
-  it('reads the Expo export-compliance answer (ios.config.usesNonExemptEncryption)', async () => {
+  }
+
+  it(
+    "falls back to defaults and discovers a single app's facts from app.json",
+    fallsBackToDefaultsAndDiscoversASingleAppSFactsFromAppPiece,
+  );
+  async function readsTheExpoExportComplianceAnswerIosPieceUsesNonExemptEncryption() {
     const repo = makeRepo();
     writeApp(repo, '.', {
       slug: 'secure-app',
@@ -213,8 +270,13 @@ describe('loadConfig - auto-discovers apps, app.json stays the source of truth',
     });
     const { apps } = await runConfigEffect(loadConfig(repo));
     expect(apps[0]?.usesNonExemptEncryption).toBe(false);
-  });
-  it('reads embedded app-extension bundle ids (ios.extensions), dropping non-string entries', async () => {
+  }
+
+  it(
+    'reads the Expo export-compliance answer (ios.config.usesNonExemptEncryption)',
+    readsTheExpoExportComplianceAnswerIosPieceUsesNonExemptEncryption,
+  );
+  async function readsEmbeddedAppExtensionBundleIdsIosExtensionsDroppingNonStringEntries() {
     const repo = makeRepo();
     writeApp(repo, '.', {
       slug: 'with-widget',
@@ -222,13 +284,23 @@ describe('loadConfig - auto-discovers apps, app.json stays the source of truth',
     });
     const { apps } = await runConfigEffect(loadConfig(repo));
     expect(apps[0]?.iosExtensions).toEqual(['com.example.app.widget']);
-  });
-  it('leaves iosExtensions undefined when ios.extensions is absent', async () => {
+  }
+
+  it(
+    'reads embedded app-extension bundle ids (ios.extensions), dropping non-string entries',
+    readsEmbeddedAppExtensionBundleIdsIosExtensionsDroppingNonStringEntries,
+  );
+  async function leavesIosExtensionsUndefinedWhenIosExtensionsIsAbsent() {
     const repo = makeRepo();
     writeApp(repo, '.', { slug: 'no-ext', ios: { bundleIdentifier: 'com.example.plain' } });
     const { apps } = await runConfigEffect(loadConfig(repo));
     expect(apps[0]?.iosExtensions).toBeUndefined();
-  });
+  }
+
+  it(
+    'leaves iosExtensions undefined when ios.extensions is absent',
+    leavesIosExtensionsUndefinedWhenIosExtensionsIsAbsent,
+  );
   it('scans nested directories but skips heavy/generated folders', async () => {
     const repo = makeRepo();
     writeApp(repo, 'apps/alpha', { slug: 'alpha', ios: { bundleIdentifier: 'com.example.alpha' } });
@@ -239,7 +311,7 @@ describe('loadConfig - auto-discovers apps, app.json stays the source of truth',
     const names = apps.map((app) => app.name).sort();
     expect(names).toEqual(['alpha', 'beta']);
   });
-  it('derives the handle from slug or name and tolerates a flat (unwrapped) config', async () => {
+  async function derivesTheHandleFromSlugOrNameAndToleratesAFlatUnwrappedPiece() {
     const repo = makeRepo();
     const dir = join(repo, 'flat');
     mkdirSync(dir, { recursive: true });
@@ -250,8 +322,13 @@ describe('loadConfig - auto-discovers apps, app.json stays the source of truth',
     expect(apps).toHaveLength(1);
     expect(apps[0]?.name).toBe('flat app');
     expect(apps[0]?.bundleId).toBeUndefined();
-  });
-  it('ignores an app.json with neither slug nor name', async () => {
+  }
+
+  it(
+    'derives the handle from slug or name and tolerates a flat (unwrapped) config',
+    derivesTheHandleFromSlugOrNameAndToleratesAFlatUnwrappedPiece,
+  );
+  async function ignoresAnAppPieceWithNeitherSlugNorName() {
     const repo = makeRepo();
     const dir = join(repo, 'broken');
     mkdirSync(dir, { recursive: true });
@@ -260,10 +337,12 @@ describe('loadConfig - auto-discovers apps, app.json stays the source of truth',
     writeFileSync(appPath, serialized);
     const { apps } = await runConfigEffect(loadConfig(repo));
     expect(apps).toHaveLength(0);
-  });
+  }
+
+  it('ignores an app.json with neither slug nor name', ignoresAnAppPieceWithNeitherSlugNorName);
 });
-describe('loadConfig - reads dynamic Expo config (app.config.{ts,js}) and bare React Native', () => {
-  it('discovers an app from an object-export app.config.ts', async () => {
+function describeLoadPieceReadsDynamicExpoPieceAppPieceTsJsAndBareReactNative() {
+  async function discoversAnAppFromAnObjectExportAppPieceTs() {
     const repo = makeRepo();
     writeConfigFile(
       repo,
@@ -274,8 +353,13 @@ describe('loadConfig - reads dynamic Expo config (app.config.{ts,js}) and bare R
     const { apps } = await runConfigEffect(loadConfig(repo));
     expect(apps).toHaveLength(1);
     expect(apps[0]).toMatchObject({ name: 'ts-app', bundleId: 'com.example.ts', version: '2.0.0' });
-  });
-  it('evaluates a function-form app.config.js, handing it the static config to extend', async () => {
+  }
+
+  it(
+    'discovers an app from an object-export app.config.ts',
+    discoversAnAppFromAnObjectExportAppPieceTs,
+  );
+  async function evaluatesAFunctionFormAppPieceJsHandingItTheStaticPieceToExtend() {
     const repo = makeRepo();
     writeApp(repo, 'dyn', { slug: 'static-slug', ios: { bundleIdentifier: 'com.example.dyn' } });
     writeConfigFile(
@@ -292,8 +376,13 @@ describe('loadConfig - reads dynamic Expo config (app.config.{ts,js}) and bare R
       bundleId: 'com.example.dyn',
       version: '9.9.9',
     });
-  });
-  it('discovers a bare React Native app.json (name only, no expo wrapper or bundle id)', async () => {
+  }
+
+  it(
+    'evaluates a function-form app.config.js, handing it the static config to extend',
+    evaluatesAFunctionFormAppPieceJsHandingItTheStaticPieceToExtend,
+  );
+  async function discoversABareReactNativeAppPieceNameOnlyNoExpoWrapperOrBundleId() {
     const repo = makeRepo();
     const dir = join(repo, 'bare');
     mkdirSync(dir, { recursive: true });
@@ -304,18 +393,33 @@ describe('loadConfig - reads dynamic Expo config (app.config.{ts,js}) and bare R
     expect(apps).toHaveLength(1);
     expect(apps[0]?.name).toBe('barern');
     expect(apps[0]?.bundleId).toBeUndefined();
-  });
-  it('falls back to the static app.json when a dynamic config throws on evaluation', async () => {
+  }
+
+  it(
+    'discovers a bare React Native app.json (name only, no expo wrapper or bundle id)',
+    discoversABareReactNativeAppPieceNameOnlyNoExpoWrapperOrBundleId,
+  );
+  async function fallsBackToTheStaticAppPieceWhenADynamicPieceThrowsOnEvaluation() {
     const repo = makeRepo();
     writeApp(repo, 'broken-dyn', { slug: 'fallback', ios: { bundleIdentifier: 'com.example.fb' } });
     writeConfigFile(repo, 'broken-dyn', 'app.config.ts', `throw new Error("boom");`);
     const { apps } = await runConfigEffect(loadConfig(repo));
     expect(apps).toHaveLength(1);
     expect(apps[0]).toMatchObject({ name: 'fallback', bundleId: 'com.example.fb' });
-  });
-});
-describe('loadConfig - resolves the launch-store import without a local dependency (issue #8)', () => {
-  it('loads a config that imports defineConfig from launch-store in a project with no node_modules', async () => {
+  }
+
+  it(
+    'falls back to the static app.json when a dynamic config throws on evaluation',
+    fallsBackToTheStaticAppPieceWhenADynamicPieceThrowsOnEvaluation,
+  );
+}
+
+describe(
+  'loadConfig - reads dynamic Expo config (app.config.{ts,js}) and bare React Native',
+  describeLoadPieceReadsDynamicExpoPieceAppPieceTsJsAndBareReactNative,
+);
+function describeLoadPieceResolvesTheLaunchStoreImportWithoutALocalDependencyIssue8() {
+  async function loadsAPieceThatImportsDefinePieceFromLaunchStoreInAProjectWithNoNodeModules() {
     const repo = makeRepo();
     // This temp repo has no node_modules, so `import "launch-store"` can only resolve via the loader's
     // self-alias. Before the alias a globally-installed CLI threw "Cannot find package 'launch-store'".
@@ -334,10 +438,20 @@ describe('loadConfig - resolves the launch-store import without a local dependen
     // The custom profile proves OUR file loaded; the filled-in default proves it ran through defineConfig.
     expect(config.profiles['staging']?.sizeBudgetMB).toBe(123);
     expect(config.buildEngine).toBe('xcode');
-  });
-});
-describe('writeAppVersion - persist the bump back to a static app.json', () => {
-  it('updates expo.version on a discovered app, leaving siblings intact', async () => {
+  }
+
+  it(
+    'loads a config that imports defineConfig from launch-store in a project with no node_modules',
+    loadsAPieceThatImportsDefinePieceFromLaunchStoreInAProjectWithNoNodeModules,
+  );
+}
+
+describe(
+  'loadConfig - resolves the launch-store import without a local dependency (issue #8)',
+  describeLoadPieceResolvesTheLaunchStoreImportWithoutALocalDependencyIssue8,
+);
+function describeWriteAppVersionPersistTheBumpBackToAStaticAppPiece() {
+  async function updatesExpoVersionOnADiscoveredAppLeavingSiblingsIntact() {
     const repo = makeRepo();
     writeApp(repo, '.', {
       name: 'Hello',
@@ -355,8 +469,13 @@ describe('writeAppVersion - persist the bump back to a static app.json', () => {
     const written = JSON.parse(loadedFile);
     expect(written.expo.version).toBe('1.0.1');
     expect(written.expo.ios.bundleIdentifier).toBe('com.x');
-  });
-  it("writes a flat version when there's no expo wrapper", async () => {
+  }
+
+  it(
+    'updates expo.version on a discovered app, leaving siblings intact',
+    updatesExpoVersionOnADiscoveredAppLeavingSiblingsIntact,
+  );
+  async function writesAFlatVersionWhenThereSNoExpoWrapper() {
     const repo = makeRepo();
     const appPath = join(repo, 'app.json');
     const serialized = JSON.stringify({ name: 'Bare', slug: 'bare', version: '0.1.0' });
@@ -374,8 +493,13 @@ describe('writeAppVersion - persist the bump back to a static app.json', () => {
     const loadedFile = readFileSync(joinedPath, 'utf8');
     const parsed = JSON.parse(loadedFile);
     expect(parsed.version).toBe('0.2.0');
-  });
-  it('refuses a dynamic config (app.config.ts) - the caller stamps the native project instead', async () => {
+  }
+
+  it(
+    "writes a flat version when there's no expo wrapper",
+    writesAFlatVersionWhenThereSNoExpoWrapper,
+  );
+  async function refusesADynamicPieceAppPieceTsTheCallerStampsTheNativeProjectInstead() {
     const app: AppDescriptor = {
       name: 'dyn',
       dir: '/tmp/does-not-matter',
@@ -385,20 +509,32 @@ describe('writeAppVersion - persist the bump back to a static app.json', () => {
     const appVersion = writeAppVersion(app, '1.1.0');
     const runEffect = await runConfigEffect(appVersion);
     expect(runEffect).toBe(false);
-  });
-});
-describe('writeAppEntitlements', () => {
+  }
+
+  it(
+    'refuses a dynamic config (app.config.ts) - the caller stamps the native project instead',
+    refusesADynamicPieceAppPieceTsTheCallerStampsTheNativeProjectInstead,
+  );
+}
+
+describe(
+  'writeAppVersion - persist the bump back to a static app.json',
+  describeWriteAppVersionPersistTheBumpBackToAStaticAppPiece,
+);
+function describeWriteAppEntitlements() {
   /** Build an AppDescriptor pointing at a freshly-written app.json in a temp repo. */
-  const appWith = (expo: Record<string, unknown>): AppDescriptor => {
+  function appWith(expo: Record<string, unknown>): AppDescriptor {
     const repo = makeRepo();
     writeApp(repo, 'app', expo);
     return { name: 'app', dir: join(repo, 'app'), configPath: join(repo, 'app', 'app.json') };
-  };
-  const runWriteAppEntitlements = (
+  }
+  function runWriteAppEntitlements(
     app: AppDescriptor,
     entitlements: Parameters<typeof writeAppEntitlements>[1],
-  ) => writeAppEntitlements(app, entitlements);
-  it('adds entitlements under expo.ios.entitlements and returns the keys it wrote', async () => {
+  ) {
+    return writeAppEntitlements(app, entitlements);
+  }
+  async function addsEntitlementsUnderExpoIosEntitlementsAndReturnsTheKeysItWrote() {
     const app = appWith({ ios: { bundleIdentifier: 'com.acme.app' } });
     const added = await runWriteAppEntitlements(app, {
       'aps-environment': 'production',
@@ -411,8 +547,13 @@ describe('writeAppEntitlements', () => {
       'aps-environment': 'production',
       'com.apple.developer.healthkit': true,
     });
-  });
-  it('never overwrites an entitlement the app.json already declares', async () => {
+  }
+
+  it(
+    'adds entitlements under expo.ios.entitlements and returns the keys it wrote',
+    addsEntitlementsUnderExpoIosEntitlementsAndReturnsTheKeysItWrote,
+  );
+  async function neverOverwritesAnEntitlementTheAppPieceAlreadyDeclares() {
     const app = appWith({ ios: { entitlements: { 'aps-environment': 'development' } } });
     const added = await runWriteAppEntitlements(app, {
       'aps-environment': 'production',
@@ -422,9 +563,18 @@ describe('writeAppEntitlements', () => {
     const loadedFile = readFileSync(app.configPath, 'utf8');
     const raw = JSON.parse(loadedFile);
     expect(raw.expo.ios.entitlements['aps-environment']).toBe('development');
-  });
-  it('returns [] without writing for a dynamic config', async () => {
+  }
+
+  it(
+    'never overwrites an entitlement the app.json already declares',
+    neverOverwritesAnEntitlementTheAppPieceAlreadyDeclares,
+  );
+  async function returnsWithoutWritingForADynamicPiece() {
     const app: AppDescriptor = { name: 'dyn', dir: '/tmp/x', configPath: '/tmp/x/app.config.js' };
     expect(await runWriteAppEntitlements(app, { 'aps-environment': 'production' })).toEqual([]);
-  });
-});
+  }
+
+  it('returns [] without writing for a dynamic config', returnsWithoutWritingForADynamicPiece);
+}
+
+describe('writeAppEntitlements', describeWriteAppEntitlements);

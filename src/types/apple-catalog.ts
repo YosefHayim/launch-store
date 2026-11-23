@@ -602,9 +602,9 @@ export type AppInfoResource = Readonly<{
 /** One age-rating answer: a content-descriptor enum string (`NONE` / `INFREQUENT` / `FREQUENT`) or a boolean flag. */
 export type AgeRatingValue = string | boolean;
 /** Effect `Schema.filter` verdict for age-rating answers: `true`, or a message naming what to use instead of a deprecated name or value. */
-export const deprecatedAgeRatingVerdict = (
+export function deprecatedAgeRatingVerdict(
   answers: Readonly<Record<string, AgeRatingValue>>,
-): true | string => {
+): true | string {
   for (const [attributeName, answer] of Object.entries(answers)) {
     const attributeAdvice = {
       kidsAgeBand: 'Apple deprecated it in App Store Connect API 4.2; remove it',
@@ -622,7 +622,7 @@ export const deprecatedAgeRatingVerdict = (
     }
   }
   return true;
-};
+}
 /**
  * An app's age-rating declaration. Apple's attribute set (content-descriptor enums like
  * `violenceCartoonOrFantasy`, plus booleans and age bands) changes over time, so the attributes are

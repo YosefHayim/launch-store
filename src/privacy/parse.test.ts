@@ -29,17 +29,24 @@ const ANDROID_MANIFEST = `<manifest xmlns:android="http://schemas.android.com/ap
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
   <uses-permission android:name="android.permission.CAMERA"/>
 </manifest>`;
-describe('parseUsageDescriptions', () => {
-  it('extracts usage keys, including empty and self-closing values', () => {
+function describeParseUsageDescriptions() {
+  function extractsUsageKeysIncludingEmptyAndSelfClosingValues() {
     const usage = parseUsageDescriptions(INFO_PLIST);
     expect(usage['NSCameraUsageDescription']).toBe('We use the camera to scan receipts.');
     expect(usage['NSLocationWhenInUseUsageDescription']).toBe('');
     expect(usage['NSContactsUsageDescription']).toBe('');
     expect(usage['CFBundleName']).toBeUndefined();
-  });
-});
-describe('parsePrivacyManifest', () => {
-  it('reads collected data types, the tracking flag, and tracking domains', () => {
+  }
+
+  it(
+    'extracts usage keys, including empty and self-closing values',
+    extractsUsageKeysIncludingEmptyAndSelfClosingValues,
+  );
+}
+
+describe('parseUsageDescriptions', describeParseUsageDescriptions);
+function describeParsePrivacyManifest() {
+  function readsCollectedPieceTypesTheTrackingFlagAndTrackingDomains() {
     const manifest = parsePrivacyManifest(XCPRIVACY);
     expect(manifest.collectedDataTypes).toEqual([
       'NSPrivacyCollectedDataTypePhotosorVideos',
@@ -47,23 +54,39 @@ describe('parsePrivacyManifest', () => {
     ]);
     expect(manifest.tracking).toBe(true);
     expect(manifest.trackingDomains).toEqual(['ads.example.com']);
-  });
-  it('defaults tracking to false when the key is absent', () => {
+  }
+
+  it(
+    'reads collected data types, the tracking flag, and tracking domains',
+    readsCollectedPieceTypesTheTrackingFlagAndTrackingDomains,
+  );
+  function defaultsTrackingToFalseWhenTheKeyIsAbsent() {
     const privacyManifest = parsePrivacyManifest('<dict></dict>');
     expect(privacyManifest.tracking).toBe(false);
-  });
-});
-describe('parseAndroidPermissions', () => {
-  it('extracts and de-duplicates permission names', () => {
+  }
+
+  it(
+    'defaults tracking to false when the key is absent',
+    defaultsTrackingToFalseWhenTheKeyIsAbsent,
+  );
+}
+
+describe('parsePrivacyManifest', describeParsePrivacyManifest);
+function describeParseAndroidPermissions() {
+  function extractsAndDeDuplicatesPermissionNames() {
     const androidPermissions = parseAndroidPermissions(ANDROID_MANIFEST);
     expect(androidPermissions).toEqual([
       'android.permission.CAMERA',
       'android.permission.ACCESS_FINE_LOCATION',
     ]);
-  });
-});
-describe('surfaceFromNative', () => {
-  it('unions the parsed files into one surface', () => {
+  }
+
+  it('extracts and de-duplicates permission names', extractsAndDeDuplicatesPermissionNames);
+}
+
+describe('parseAndroidPermissions', describeParseAndroidPermissions);
+function describeSurfaceFromNative() {
+  function unionsTheParsedFilesIntoOneSurface() {
     const surface = surfaceFromNative({
       infoPlists: [INFO_PLIST],
       privacyManifests: [XCPRIVACY],
@@ -74,18 +97,27 @@ describe('surfaceFromNative', () => {
     const ownKeys = Object.keys(surface.usageDescriptions);
     expect(ownKeys).toContain('NSCameraUsageDescription');
     expect(surface.androidPermissions).toContain('android.permission.CAMERA');
-  });
-  it('reports no manifest when no .xcprivacy was parsed', () => {
+  }
+
+  it('unions the parsed files into one surface', unionsTheParsedFilesIntoOneSurface);
+  function reportsNoManifestWhenNoXcprivacyWasParsed() {
     const surface = surfaceFromNative({
       infoPlists: [INFO_PLIST],
       privacyManifests: [],
       androidManifests: [],
     });
     expect(surface.hasManifest).toBe(false);
-  });
-});
-describe('surfaceFromExpoConfig', () => {
-  it('reads usage strings, the manifest, and android permissions from the resolved config', () => {
+  }
+
+  it(
+    'reports no manifest when no .xcprivacy was parsed',
+    reportsNoManifestWhenNoXcprivacyWasParsed,
+  );
+}
+
+describe('surfaceFromNative', describeSurfaceFromNative);
+function describeSurfaceFromExpoPiece() {
+  function readsUsageStringsTheManifestAndAndroidPermissionsFromTheResolvedPiece() {
     const surface = surfaceFromExpoConfig({
       expo: {
         ios: {
@@ -104,11 +136,20 @@ describe('surfaceFromExpoConfig', () => {
     expect(surface.hasManifest).toBe(true);
     expect(surface.collectedDataTypes).toEqual(['NSPrivacyCollectedDataTypePhotosorVideos']);
     expect(surface.androidPermissions).toEqual(['android.permission.CAMERA']);
-  });
-  it('tolerates a config with no ios/android sections', () => {
+  }
+
+  it(
+    'reads usage strings, the manifest, and android permissions from the resolved config',
+    readsUsageStringsTheManifestAndAndroidPermissionsFromTheResolvedPiece,
+  );
+  function toleratesAPieceWithNoIosAndroidSections() {
     const surface = surfaceFromExpoConfig({});
     expect(surface.hasManifest).toBe(false);
     expect(surface.usageDescriptions).toEqual({});
     expect(surface.androidPermissions).toEqual([]);
-  });
-});
+  }
+
+  it('tolerates a config with no ios/android sections', toleratesAPieceWithNoIosAndroidSections);
+}
+
+describe('surfaceFromExpoConfig', describeSurfaceFromExpoPiece);

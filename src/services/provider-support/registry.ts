@@ -16,33 +16,33 @@ const storageProviderResolvers = new Map<string, StorageProviderResolver>();
 const submitters = new Map<string, Submitter>();
 const computeHosts = new Map<string, ComputeHost>();
 /** Register a credentials provider under its `name`. */
-export const registerCredentialsProvider = (provider: CredentialsProvider): void => {
+export function registerCredentialsProvider(provider: CredentialsProvider): void {
   credentialsProviders.set(provider.name, provider);
-};
+}
 /** Register a build engine under its `name`. */
-export const registerBuildEngine = (engine: BuildEngine): void => {
+export function registerBuildEngine(engine: BuildEngine): void {
   buildEngines.set(engine.name, engine);
-};
+}
 /** Register a hosted build provider under its `name`. */
-export const registerHostedBuildProvider = (provider: HostedBuildProvider): void => {
+export function registerHostedBuildProvider(provider: HostedBuildProvider): void {
   hostedBuildProviders.set(provider.name, provider);
-};
+}
 /** Register a storage provider under its `name`. */
-export const registerStorageProvider = (provider: StorageProvider): void => {
+export function registerStorageProvider(provider: StorageProvider): void {
   storageProviders.set(provider.name, provider);
-};
+}
 /** Register a configured storage-provider resolver under its `name`. */
-export const registerStorageProviderResolver = (resolver: StorageProviderResolver): void => {
+export function registerStorageProviderResolver(resolver: StorageProviderResolver): void {
   storageProviderResolvers.set(resolver.name, resolver);
-};
+}
 /** Register a submitter under its `name`. */
-export const registerSubmitter = (submitter: Submitter): void => {
+export function registerSubmitter(submitter: Submitter): void {
   submitters.set(submitter.name, submitter);
-};
+}
 /** Register a compute host (remote-Mac provisioner) under its `name`. */
-export const registerComputeHost = (host: ComputeHost): void => {
+export function registerComputeHost(host: ComputeHost): void {
   computeHosts.set(host.name, host);
-};
+}
 /** A provider lookup failed; the message lists the registered names. */
 export type ProviderNotRegistered = Readonly<{
   readonly _tag: 'ProviderNotRegistered';
@@ -75,14 +75,24 @@ function lookup<Registered>(
 
   return found;
 }
-export const getCredentialsProvider = (name: string) =>
-  lookup('credentials provider', name, credentialsProviders);
-export const getBuildEngine = (name: string) => lookup('build engine', name, buildEngines);
-export const getHostedBuildProvider = (name: string) =>
-  lookup('hosted build provider', name, hostedBuildProviders);
-export const getStorageProvider = (name: string) =>
-  lookup('storage provider', name, storageProviders);
-export const getStorageProviderResolver = (name: string) =>
-  lookup('storage provider resolver', name, storageProviderResolvers);
-export const getSubmitter = (name: string) => lookup('submitter', name, submitters);
-export const getComputeHost = (name: string) => lookup('compute host', name, computeHosts);
+export function getCredentialsProvider(name: string) {
+  return lookup('credentials provider', name, credentialsProviders);
+}
+export function getBuildEngine(name: string) {
+  return lookup('build engine', name, buildEngines);
+}
+export function getHostedBuildProvider(name: string) {
+  return lookup('hosted build provider', name, hostedBuildProviders);
+}
+export function getStorageProvider(name: string) {
+  return lookup('storage provider', name, storageProviders);
+}
+export function getStorageProviderResolver(name: string) {
+  return lookup('storage provider resolver', name, storageProviderResolvers);
+}
+export function getSubmitter(name: string) {
+  return lookup('submitter', name, submitters);
+}
+export function getComputeHost(name: string) {
+  return lookup('compute host', name, computeHosts);
+}

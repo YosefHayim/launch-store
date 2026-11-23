@@ -10,11 +10,11 @@ type SemanticIssue = {
 /** The cloud storage providers whose `storageConfig` (bucket/endpoint) is mandatory - `local` needs none. */
 const cloudStorage = new Set(['s3', 'supabase']);
 /** Whether a string parses as a real calendar instant (not just any string the schema accepted). */
-const isValidInstant = (instantText: string): boolean => {
+function isValidInstant(instantText: string): boolean {
   return !Number.isNaN(Date.parse(instantText));
-};
+}
 /** A cloud storage provider must carry its bucket/endpoint settings, or uploads have nowhere to go. */
-const checkStorage = (config: LaunchConfig): SemanticIssue[] => {
+function checkStorage(config: LaunchConfig): SemanticIssue[] {
   if (!cloudStorage.has(config.storage)) return [];
   if (config.storageConfig != null) return [];
   return [
@@ -23,13 +23,13 @@ const checkStorage = (config: LaunchConfig): SemanticIssue[] => {
       message: `storage is "${config.storage}" but no storageConfig is set - a cloud store needs its bucket/endpoint. Add storageConfig, or use storage: "local".`,
     },
   ];
-};
+}
 /**
  * Release-policy invariants the schema can't express: a `SCHEDULED` release needs a valid future-or-past
  * instant to go live at, and per-locale release notes must include the primary locale (else that locale
  * ships with no "What's New").
  */
-const checkRelease = (config: LaunchConfig): SemanticIssue[] => {
+function checkRelease(config: LaunchConfig): SemanticIssue[] {
   const release = config.release;
   if (release == null) return [];
   const issues: SemanticIssue[] = [];
@@ -58,9 +58,9 @@ const checkRelease = (config: LaunchConfig): SemanticIssue[] => {
     }
   }
   return issues;
-};
+}
 /** A staged-rollout fraction must be above 0 and at most 1 - Play rejects a 0% staged release. */
-const checkProfiles = (config: LaunchConfig): SemanticIssue[] => {
+function checkProfiles(config: LaunchConfig): SemanticIssue[] {
   const issues: SemanticIssue[] = [];
   for (const [name, profile] of Object.entries(config.profiles)) {
     let rolloutInvalid = false;
@@ -74,9 +74,9 @@ const checkProfiles = (config: LaunchConfig): SemanticIssue[] => {
     }
   }
   return issues;
-};
+}
 /** Retention days can't be negative - `0` disables the sweep, any positive value is a day count. */
-const checkRetention = (config: LaunchConfig): SemanticIssue[] => {
+function checkRetention(config: LaunchConfig): SemanticIssue[] {
   if (config.artifactRetentionDays == null) return [];
   if (config.artifactRetentionDays >= 0) return [];
   return [
@@ -85,18 +85,18 @@ const checkRetention = (config: LaunchConfig): SemanticIssue[] => {
       message: `artifactRetentionDays ${config.artifactRetentionDays} is negative - use 0 to disable auto-prune, or a positive day count.`,
     },
   ];
-};
+}
 /**
  * Run every semantic check against a schema-valid config and return all findings (empty when the config is
  * sound). Order is stable - storage, release, profiles, retention - so output and tests don't depend on
  * object key order. Callers run this *after* {@link import("./config-schema.ts").validateConfig}; a config
  * that fails the schema shouldn't reach here, but each check tolerates a missing field regardless.
  */
-export const checkConfigSemantics = (config: LaunchConfig): SemanticIssue[] => {
+export function checkConfigSemantics(config: LaunchConfig): SemanticIssue[] {
   return [
     ...checkStorage(config),
     ...checkRelease(config),
     ...checkProfiles(config),
     ...checkRetention(config),
   ];
-};
+}

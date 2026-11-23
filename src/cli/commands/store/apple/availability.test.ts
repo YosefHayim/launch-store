@@ -1,23 +1,37 @@
-import { Command } from '../../../command.ts';
+import { Command, type CommandOption } from '../../../command.ts';
 import { describe, expect, it } from 'vitest';
 import { registerAvailabilityCommand } from './availability.ts';
-
-describe('registerAvailabilityCommand', () => {
-  it('preserves the public availability options and config default', () => {
+function describeRegisterAvailabilityCommand() {
+  function preservesThePublicAvailabilityPieceAndPieceDefault() {
     const program = new Command();
     registerAvailabilityCommand(program);
-    const availabilityCommand = program.commands.find(
-      (registeredCommand) => registeredCommand.name() == 'availability',
-    );
-    expect(availabilityCommand?.options.map((commandOption) => commandOption.long)).toEqual([
+    function findRegisteredCommand(registeredCommand: Command) {
+      return registeredCommand.name() == 'availability';
+    }
+
+    const availabilityCommand = program.commands.find(findRegisteredCommand);
+    function readLong(commandOption: CommandOption) {
+      return commandOption.long;
+    }
+
+    expect(availabilityCommand?.options.map(readLong)).toEqual([
       '--app',
       '--config',
       '--dry-run',
       '--yes',
     ]);
-    const configOption = availabilityCommand?.options.find(
-      (commandOption) => commandOption.long == '--config',
-    );
+    function findCommandOption(commandOption: CommandOption) {
+      return commandOption.long == '--config';
+    }
+
+    const configOption = availabilityCommand?.options.find(findCommandOption);
     expect(configOption?.defaultValue).toBe('availability.config.json');
-  });
-});
+  }
+
+  it(
+    'preserves the public availability options and config default',
+    preservesThePublicAvailabilityPieceAndPieceDefault,
+  );
+}
+
+describe('registerAvailabilityCommand', describeRegisterAvailabilityCommand);

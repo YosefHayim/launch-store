@@ -1,30 +1,43 @@
 import { describe, expect, it } from 'vitest';
 import { makeReleaseConfirmationRequired, resolveReleaseConfirmationMode } from './confirmation.ts';
-
-describe('resolveReleaseConfirmationMode', () => {
-  it('confirms immediately when --yes was passed', () => {
+function describeResolveReleaseConfirmationMode() {
+  function confirmsImmediatelyWhenYesWasPassed() {
     const releaseConfirmationMode = resolveReleaseConfirmationMode({ yes: true, canPrompt: false });
     expect(releaseConfirmationMode).toBe('confirmed');
-  });
+  }
 
-  it('allows the CLI to prompt when a TTY is available', () => {
+  it('confirms immediately when --yes was passed', confirmsImmediatelyWhenYesWasPassed);
+  function allowsTheCLIToPromptWhenATTYIsAvailable() {
     const releaseConfirmationMode = resolveReleaseConfirmationMode({ yes: false, canPrompt: true });
     expect(releaseConfirmationMode).toBe('prompt');
-  });
+  }
 
-  it('fails clearly when a non-interactive release has no --yes', () => {
-    expect(() => resolveReleaseConfirmationMode({ yes: false, canPrompt: false })).toThrowError(
+  it('allows the CLI to prompt when a TTY is available', allowsTheCLIToPromptWhenATTYIsAvailable);
+  function failsClearlyWhenANonInteractiveReleaseHasNoYes() {
+    function callResolveReleaseConfirmationMode() {
+      return resolveReleaseConfirmationMode({ yes: false, canPrompt: false });
+    }
+
+    expect(callResolveReleaseConfirmationMode).toThrowError(
       expect.objectContaining({
         _tag: 'ReleaseConfirmationRequired',
         message: expect.stringContaining('--yes'),
       }),
     );
-  });
+  }
 
-  it('uses the typed confirmation-required error', () => {
+  it(
+    'fails clearly when a non-interactive release has no --yes',
+    failsClearlyWhenANonInteractiveReleaseHasNoYes,
+  );
+  function usesTheTypedConfirmationRequiredError() {
     const error = makeReleaseConfirmationRequired({ message: 'needs approval' });
 
     expect(error._tag).toBe('ReleaseConfirmationRequired');
     expect(error.message).toBe('needs approval');
-  });
-});
+  }
+
+  it('uses the typed confirmation-required error', usesTheTypedConfirmationRequiredError);
+}
+
+describe('resolveReleaseConfirmationMode', describeResolveReleaseConfirmationMode);

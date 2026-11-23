@@ -1,14 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from '../../command.ts';
+import { Command, type CommandOption } from '../../command.ts';
 import { registerAuditCommand } from './audit.ts';
-describe('registerAuditCommand', () => {
-  it('attaches a top-level `audit` command with its options', () => {
+function describeRegisterAuditCommand() {
+  function attachesATopLevelAuditCommandWithItsPiece() {
     const program = new Command();
     registerAuditCommand(program);
-    const audit = program.commands.find((command) => command.name() == 'audit');
+    function findCommand(command: Command) {
+      return command.name() == 'audit';
+    }
+
+    const audit = program.commands.find(findCommand);
     expect(audit).toBeDefined();
-    const options = audit?.options.map((option) => option.long);
+    function readLong(option: CommandOption) {
+      return option.long;
+    }
+
+    const options = audit?.options.map(readLong);
     expect(options).toContain('--app');
     expect(options).toContain('--json');
-  });
-});
+  }
+
+  it(
+    'attaches a top-level `audit` command with its options',
+    attachesATopLevelAuditCommandWithItsPiece,
+  );
+}
+
+describe('registerAuditCommand', describeRegisterAuditCommand);

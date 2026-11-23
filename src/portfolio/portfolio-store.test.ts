@@ -49,9 +49,8 @@ const savedFile: PortfolioFile = {
   tags: [{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: '99' }],
   playReportsBucket: null,
 };
-
-describe('createEmptyPortfolioFile', () => {
-  test('has no apps, no tags and no discovery time', () => {
+function describeCreateEmptyPortfolioFile() {
+  function hasNoAppsNoTagsAndNoDiscoveryTime() {
     const emptyPortfolioFile = createEmptyPortfolioFile();
     expect(emptyPortfolioFile).toEqual({
       version: 1,
@@ -60,17 +59,24 @@ describe('createEmptyPortfolioFile', () => {
       tags: [],
       playReportsBucket: null,
     });
-  });
-});
+  }
 
-describe('loadPortfolioFile', () => {
-  test('returns null when portfolio.json does not exist', async () => {
+  test('has no apps, no tags and no discovery time', hasNoAppsNoTagsAndNoDiscoveryTime);
+}
+
+describe('createEmptyPortfolioFile', describeCreateEmptyPortfolioFile);
+function describeLoadPortfolioFile() {
+  async function returnsNullWhenPortfolioPieceDoesNotExist() {
     const loaded = await loadPortfolioFile();
 
     expect(loaded).toBeNull();
-  });
+  }
 
-  test('decodes a file without playReportsBucket as null', async () => {
+  test(
+    'returns null when portfolio.json does not exist',
+    returnsNullWhenPortfolioPieceDoesNotExist,
+  );
+  async function decodesAFileWithoutPlayReportsBucketAsNull() {
     writeLaunchHomeFile(
       homeDirectory,
       'portfolio.json',
@@ -80,18 +86,25 @@ describe('loadPortfolioFile', () => {
     const loaded = await loadPortfolioFile();
 
     expect(loaded?.playReportsBucket).toBeNull();
-  });
+  }
 
-  test('fails when portfolio.json is broken', async () => {
+  test(
+    'decodes a file without playReportsBucket as null',
+    decodesAFileWithoutPlayReportsBucketAsNull,
+  );
+  async function failsWhenPortfolioPieceIsBroken() {
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', '{"version":2}');
 
     const portfolioFile = loadPortfolioFile();
     await expect(portfolioFile).rejects.toMatchObject({ _tag: 'DocumentFileFailure' });
-  });
-});
+  }
 
-describe('savePortfolioFile', () => {
-  test('writes portfolio.json under ~/.launch and reads it back the same', async () => {
+  test('fails when portfolio.json is broken', failsWhenPortfolioPieceIsBroken);
+}
+
+describe('loadPortfolioFile', describeLoadPortfolioFile);
+function describeSavePortfolioFile() {
+  async function writesPortfolioPieceUnderLaunchAndReadsItBackTheSame() {
     await savePortfolioFile(savedFile);
     const loaded = await loadPortfolioFile();
 
@@ -100,20 +113,34 @@ describe('savePortfolioFile', () => {
     const savedFileText = readFileSync(portfolioPath, 'utf8');
     const parsed = JSON.parse(savedFileText);
     expect(parsed).toEqual(savedFile);
-  });
-});
+  }
 
-describe('pickSavedPortfolioFile', () => {
-  test('returns an empty portfolio when nothing was saved', () => {
+  test(
+    'writes portfolio.json under ~/.launch and reads it back the same',
+    writesPortfolioPieceUnderLaunchAndReadsItBackTheSame,
+  );
+}
+
+describe('savePortfolioFile', describeSavePortfolioFile);
+function describePickSavedPortfolioFile() {
+  function returnsAnEmptyPortfolioWhenNothingWasSaved() {
     const savedPortfolioFile = pickSavedPortfolioFile(null);
     const emptyPortfolioFile = createEmptyPortfolioFile();
     expect(savedPortfolioFile).toEqual(emptyPortfolioFile);
-  });
+  }
 
-  test('returns the saved portfolio as it is', () => {
+  test(
+    'returns an empty portfolio when nothing was saved',
+    returnsAnEmptyPortfolioWhenNothingWasSaved,
+  );
+  function returnsTheSavedPortfolioAsItIs() {
     const cachedFile = { ...createEmptyPortfolioFile(), discoveredAt: '2026-10-29T10:00:00.000Z' };
 
     const savedPortfolioFile = pickSavedPortfolioFile(cachedFile);
     expect(savedPortfolioFile).toBe(cachedFile);
-  });
-});
+  }
+
+  test('returns the saved portfolio as it is', returnsTheSavedPortfolioAsItIs);
+}
+
+describe('pickSavedPortfolioFile', describePickSavedPortfolioFile);

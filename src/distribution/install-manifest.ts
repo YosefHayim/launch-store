@@ -2,13 +2,14 @@ import { isApplePlatform } from '../services/stores/platform.ts';
 import type { Platform } from '../types/app.ts';
 
 /** Escape the five XML special characters so app titles/ids cannot break the plist or HTML. */
-const escapeXml = (xmlText: string): string =>
-  xmlText
+function escapeXml(xmlText: string): string {
+  return xmlText
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
 
 /** Inputs for the iOS install manifest plist. */
 type IosManifestOptions = Readonly<{
@@ -22,8 +23,8 @@ type IosManifestOptions = Readonly<{
  * Build the iOS OTA-install manifest plist (the document an `itms-services://...&url=` link fetches).
  * iOS requires this exact items/assets/metadata shape to install an ad-hoc `.ipa` from a web link.
  */
-export const iosInstallManifestPlist = (options: IosManifestOptions): string =>
-  [
+export function iosInstallManifestPlist(options: IosManifestOptions): string {
+  return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
     '<plist version="1.0"><dict>',
@@ -40,13 +41,15 @@ export const iosInstallManifestPlist = (options: IosManifestOptions): string =>
     '</dict></dict></array>',
     '</dict></plist>',
   ].join('\n');
+}
 
 /**
  * Wrap a manifest URL in the `itms-services://` scheme iOS recognizes as "install this app".
  * The manifest URL must be HTTPS and is URL-encoded so its query string survives intact.
  */
-export const itmsServicesUrl = (manifestUrl: string): string =>
-  `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`;
+export function itmsServicesUrl(manifestUrl: string): string {
+  return `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`;
+}
 
 /** Inputs for the install landing page. */
 type LandingPageOptions = Readonly<{
@@ -58,7 +61,7 @@ type LandingPageOptions = Readonly<{
 }>;
 
 /** Platform-specific footnote under the Install button. */
-const installNote = (platform: Platform): string => {
+function installNote(platform: Platform): string {
   if (platform == 'macos') {
     return '<p>macOS: if Gatekeeper blocks the app, right-click it and choose Open, or allow it in System Settings -> Privacy &amp; Security.</p>';
   }
@@ -66,13 +69,13 @@ const installNote = (platform: Platform): string => {
     return '<p>Apple: your device must be registered for this build. After installing, trust the developer in Settings -> General -> VPN &amp; Device Management.</p>';
   }
   return '<p>Android: you may need to allow installs from this browser/source.</p>';
-};
+}
 
 /**
  * Tester-facing install landing page: app name, version/build, and one Install button wired to
  * {@link LandingPageOptions.installUrl}.
  */
-export const installLandingPage = (options: LandingPageOptions): string => {
+export function installLandingPage(options: LandingPageOptions): string {
   const platformNote = installNote(options.platform);
   return [
     '<!doctype html>',
@@ -88,4 +91,4 @@ export const installLandingPage = (options: LandingPageOptions): string => {
     platformNote,
     '</body></html>',
   ].join('\n');
-};
+}

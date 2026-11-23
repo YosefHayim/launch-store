@@ -3,7 +3,12 @@ import { adoptCommandProgram, type AdoptCommandInput } from '../../../adopt/comm
 import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the `adopt` command to Commander. */
-export const registerAdoptCommand = (program: Command): void => {
+export function registerAdoptCommand(program: Command): void {
+  function runAdopt(commandOptions: AdoptCommandInput) {
+    const adoptProgram = adoptCommandProgram(commandOptions);
+    return runCliProgram(adoptProgram);
+  }
+
   program
     .command('adopt')
     .description(
@@ -16,8 +21,5 @@ export const registerAdoptCommand = (program: Command): void => {
     )
     .option('--dry-run', 'print the plan and exit, importing nothing', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: AdoptCommandInput) => {
-      const adoptProgram = adoptCommandProgram(commandOptions);
-      return runCliProgram(adoptProgram);
-    });
-};
+    .action(runAdopt);
+}

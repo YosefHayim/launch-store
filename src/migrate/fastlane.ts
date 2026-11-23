@@ -51,7 +51,7 @@ function makeFastlaneMigrationFailure(fields: {
 }
 
 /** Read a top-level Fastlane Ruby string directive (`name "value"` / `name("value")`). */
-export const readRubyString = (rubySource: string, directiveName: string): string | undefined => {
+export function readRubyString(rubySource: string, directiveName: string): string | undefined {
   const directiveMatch = new RegExp(`^\\s*${directiveName}\\s*\\(?\\s*["']([^"']*)["']`, 'm').exec(
     rubySource,
   );
@@ -60,9 +60,9 @@ export const readRubyString = (rubySource: string, directiveName: string): strin
   if (directiveText == null) return undefined;
   if (directiveText == '') return undefined;
   return directiveText;
-};
+}
 
-export const parseAppfile = (appfileSource: string): AppfileData => {
+export function parseAppfile(appfileSource: string): AppfileData {
   const appfile: MutableDeep<AppfileData> = {};
   const appIdentifier = readRubyString(appfileSource, 'app_identifier');
   if (appIdentifier != null) appfile.appIdentifier = appIdentifier;
@@ -75,9 +75,9 @@ export const parseAppfile = (appfileSource: string): AppfileData => {
   const packageName = readRubyString(appfileSource, 'package_name');
   if (packageName != null) appfile.packageName = packageName;
   return appfile;
-};
+}
 
-export const parseMatchfile = (matchfileSource: string): MatchfileData => {
+export function parseMatchfile(matchfileSource: string): MatchfileData {
   const matchfile: MutableDeep<MatchfileData> = {};
   const gitUrl = readRubyString(matchfileSource, 'git_url');
   if (gitUrl != null) matchfile.gitUrl = gitUrl;
@@ -88,9 +88,9 @@ export const parseMatchfile = (matchfileSource: string): MatchfileData => {
   const appIdentifier = readRubyString(matchfileSource, 'app_identifier');
   if (appIdentifier != null) matchfile.appIdentifier = appIdentifier;
   return matchfile;
-};
+}
 
-export const parseSupplyfile = (supplyfileSource: string): SupplyfileData => {
+export function parseSupplyfile(supplyfileSource: string): SupplyfileData {
   const supplyfile: MutableDeep<SupplyfileData> = {};
   const packageName = readRubyString(supplyfileSource, 'package_name');
   if (packageName != null) supplyfile.packageName = packageName;
@@ -99,7 +99,7 @@ export const parseSupplyfile = (supplyfileSource: string): SupplyfileData => {
   const trackName = readRubyString(supplyfileSource, 'track');
   if (trackName != null) supplyfile.track = trackName;
   return supplyfile;
-};
+}
 
 /** One recognized Fastlane action group: detection names, optional Launch command, report note. */
 type FastlaneActionGroup = Readonly<{
@@ -157,10 +157,16 @@ const FASTLANE_ACTION_GROUPS: readonly FastlaneActionGroup[] = [
       'fastlane captured screenshots - upload them with your listing via `launch-store metadata`.',
   },
 ];
+function readActions(actionGroup: {
+  readonly actions: readonly string[];
+  readonly launchCommand?: string;
+  readonly noteLevel: MigrationNoteLevel;
+  readonly noteMessage: string;
+}) {
+  return actionGroup.actions;
+}
 
-const KNOWN_ACTIONS: readonly string[] = FASTLANE_ACTION_GROUPS.flatMap(
-  (actionGroup) => actionGroup.actions,
-);
+const KNOWN_ACTIONS: readonly string[] = FASTLANE_ACTION_GROUPS.flatMap(readActions);
 
 const ACTION_LAUNCH_COMMAND: Record<string, string> = {};
 for (const actionGroup of FASTLANE_ACTION_GROUPS) {
@@ -170,10 +176,11 @@ for (const actionGroup of FASTLANE_ACTION_GROUPS) {
   }
 }
 
-const containsAction = (rubySource: string, actionName: string): boolean =>
-  new RegExp(`\\b${actionName}\\b`).test(rubySource);
+function containsAction(rubySource: string, actionName: string): boolean {
+  return new RegExp(`\\b${actionName}\\b`).test(rubySource);
+}
 
-const findLanePlatform = (fastfileSource: string, laneStartIndex: number): string | undefined => {
+function findLanePlatform(fastfileSource: string, laneStartIndex: number): string | undefined {
   let lanePlatform: string | undefined;
   const platformPattern = /^[ \t]*platform\s+:([A-Za-z_]\w*)\s+do\b/gm;
   for (
@@ -184,12 +191,13 @@ const findLanePlatform = (fastfileSource: string, laneStartIndex: number): strin
     lanePlatform = platformMatch[1];
   }
   return lanePlatform;
-};
+}
 
 /** Parse lane names and recognized actions without interpreting arbitrary Ruby. */
-export const parseFastfile = (
-  fastfileSource: string,
-): { lanes: FastlaneLane[]; actions: string[] } => {
+export function parseFastfile(fastfileSource: string): {
+  lanes: FastlaneLane[];
+  actions: string[];
+} {
   const laneDeclarations = [
     ...fastfileSource.matchAll(/^[ \t]*(?:private_)?lane\s+:([A-Za-z_]\w*)\s+do\b/gm),
   ];
@@ -203,19 +211,25 @@ export const parseFastfile = (
     const nextDeclaration = laneDeclarations[declarationIndex + 1];
     if (nextDeclaration != null) laneSourceEnd = nextDeclaration.index;
     const laneSource = fastfileSource.slice(laneSourceStart, laneSourceEnd);
-    const laneActions = KNOWN_ACTIONS.filter((actionName) =>
-      containsAction(laneSource, actionName),
-    );
+    function filterActionName(actionName: string) {
+      return containsAction(laneSource, actionName);
+    }
+
+    const laneActions = KNOWN_ACTIONS.filter(filterActionName);
     const lanePlatform = findLanePlatform(fastfileSource, laneStartIndex);
     const fastlaneLane: MutableDeep<FastlaneLane> = { name: laneName, actions: laneActions };
     if (lanePlatform != null) fastlaneLane.platform = lanePlatform;
     fastlaneLanes.push(fastlaneLane);
   }
+  function filterActionName2(actionName: string) {
+    return containsAction(fastfileSource, actionName);
+  }
+
   return {
     lanes: fastlaneLanes,
-    actions: KNOWN_ACTIONS.filter((actionName) => containsAction(fastfileSource, actionName)),
+    actions: KNOWN_ACTIONS.filter(filterActionName2),
   };
-};
+}
 
 async function discoverDotenvKeys(workingDirectory: string): Promise<string[]> {
   const fastlaneDirectory = join(workingDirectory, 'fastlane');
@@ -393,7 +407,7 @@ function finishFastlaneSetup(fastlaneSources: {
   return fastlaneSetup;
 }
 /** Distinct Launch commands mapped from recognized actions on one lane. */
-export const laneLaunchCommands = (fastlaneLane: FastlaneLane): string[] => {
+export function laneLaunchCommands(fastlaneLane: FastlaneLane): string[] {
   const launchCommands: string[] = [];
   for (const actionName of fastlaneLane.actions) {
     const launchCommand = ACTION_LAUNCH_COMMAND[actionName];
@@ -401,9 +415,9 @@ export const laneLaunchCommands = (fastlaneLane: FastlaneLane): string[] => {
     if (!launchCommands.includes(launchCommand)) launchCommands.push(launchCommand);
   }
   return launchCommands;
-};
+}
 
-const laneNotes = (fastlaneLanes: readonly FastlaneLane[]): MigrationNote[] => {
+function laneNotes(fastlaneLanes: readonly FastlaneLane[]): MigrationNote[] {
   const migrationNotes: MigrationNote[] = [];
   const customLaneNames: string[] = [];
   for (const fastlaneLane of fastlaneLanes) {
@@ -428,9 +442,9 @@ const laneNotes = (fastlaneLanes: readonly FastlaneLane[]): MigrationNote[] => {
     });
   }
   return migrationNotes;
-};
+}
 
-const matchfileNotes = (matchfile: MatchfileData): MigrationNote[] => {
+function matchfileNotes(matchfile: MatchfileData): MigrationNote[] {
   const signingParts: string[] = [];
   if (matchfile.type != null) signingParts.push(`type "${matchfile.type}"`);
   if (matchfile.storageMode != null) {
@@ -449,9 +463,9 @@ const matchfileNotes = (matchfile: MatchfileData): MigrationNote[] => {
       message: `Matchfile signing config detected (${signingParts.join(', ')}) - informational; Launch uses its own signing.${storageExplanation}`,
     },
   ];
-};
+}
 
-const appfileNotes = (appfile: AppfileData): MigrationNote[] => {
+function appfileNotes(appfile: AppfileData): MigrationNote[] {
   const migrationNotes: MigrationNote[] = [];
   let hasAppleAccount = appfile.appleId != null;
   if (appfile.teamId != null) hasAppleAccount = true;
@@ -470,9 +484,9 @@ const appfileNotes = (appfile: AppfileData): MigrationNote[] => {
     });
   }
   return migrationNotes;
-};
+}
 
-const supplyNotes = (supplyfile: SupplyfileData): MigrationNote[] => {
+function supplyNotes(supplyfile: SupplyfileData): MigrationNote[] {
   const migrationNotes: MigrationNote[] = [];
   if (supplyfile.jsonKey != null) {
     migrationNotes.push({
@@ -487,9 +501,9 @@ const supplyNotes = (supplyfile: SupplyfileData): MigrationNote[] => {
     });
   }
   return migrationNotes;
-};
+}
 
-const appDescriptorNotes = (apps: AppDescriptor[]): MigrationNote[] => {
+function appDescriptorNotes(apps: AppDescriptor[]): MigrationNote[] {
   const migrationNotes: MigrationNote[] = [];
   for (const app of apps) {
     if (app.bundleId != null) {
@@ -506,19 +520,21 @@ const appDescriptorNotes = (apps: AppDescriptor[]): MigrationNote[] => {
     }
   }
   return migrationNotes;
-};
+}
 
 /** Pure report notes for a parsed Fastlane setup (no filesystem). */
-export const migrationNotesFor = (
+export function migrationNotesFor(
   fastlaneSetup: FastlaneSetup,
   apps: AppDescriptor[],
   importedMetadata: boolean,
-): MigrationNote[] => {
+): MigrationNote[] {
   const migrationNotes = laneNotes(fastlaneSetup.lanes);
   for (const actionGroup of FASTLANE_ACTION_GROUPS) {
-    const groupPresent = actionGroup.actions.some((actionName) =>
-      fastlaneSetup.actions.includes(actionName),
-    );
+    function someActionName(actionName: string) {
+      return fastlaneSetup.actions.includes(actionName);
+    }
+
+    const groupPresent = actionGroup.actions.some(someActionName);
     if (!groupPresent) continue;
     migrationNotes.push({ level: actionGroup.noteLevel, message: actionGroup.noteMessage });
   }
@@ -540,7 +556,7 @@ export const migrationNotesFor = (
   }
   migrationNotes.push(...appDescriptorNotes(apps));
   return migrationNotes;
-};
+}
 
 type StoreScaffoldOutcome = Readonly<{
   artifact: MigrationArtifact | null;

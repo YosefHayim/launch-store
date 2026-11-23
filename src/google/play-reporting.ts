@@ -40,42 +40,39 @@ const METRIC_SETS: Record<
   },
 };
 /** UTC day-shift of an ISO `YYYY-MM-DD` date by `delta` days (negative = earlier), returned as ISO. */
-const shiftIsoDate = (iso: string, delta: number): string => {
+function shiftIsoDate(iso: string, delta: number): string {
   const { year, month, day } = isoToDateParts(iso);
   const shifted = new Date(Date.UTC(year, month - 1, day + delta));
   return shifted.toISOString().slice(0, 10);
-};
+}
 /**
  * DAILY query window of `days` inclusive days ending at `latestDate` (metric-set freshness from `:get`).
  * Falls back to ending today when freshness is unknown - the API clamps an over-reaching end.
  */
-export const vitalsWindowFromLatestDate = (
-  latestDate: string | null,
-  days: number,
-): VitalsWindow => {
+export function vitalsWindowFromLatestDate(latestDate: string | null, days: number): VitalsWindow {
   let endDate = new Date().toISOString().slice(0, 10);
   if (latestDate != null) endDate = latestDate;
   return { startDate: shiftIsoDate(endDate, -(days - 1)), endDate };
-};
+}
 /** Render a Google `DateTime`'s date part as ISO `YYYY-MM-DD`, or undefined when the date is incomplete. */
-const dateTimeToIso = (
+function dateTimeToIso(
   date: playdeveloperreporting_v1beta1.Schema$GoogleTypeDateTime | undefined,
-): string | undefined => {
+): string | undefined {
   if (date == null) return;
   if (typeof date.year != 'number') return;
   if (typeof date.month != 'number') return;
   if (typeof date.day != 'number') return;
-  const pad = (n: number): string => String(n).padStart(2, '0');
+  function pad(n: number): string {
+    return String(n).padStart(2, '0');
+  }
   return `${date.year}-${pad(date.month)}-${pad(date.day)}`;
-};
+}
 /** Split an ISO `YYYY-MM-DD` string into the `{ year, month, day }` the API's `timelineSpec` wants. */
-const isoToDateParts = (
-  iso: string,
-): {
+function isoToDateParts(iso: string): {
   year: number;
   month: number;
   day: number;
-} => {
+} {
   const dateSegments = iso.split('-').map(Number);
   let year = 0;
   let month = 0;
@@ -84,19 +81,24 @@ const isoToDateParts = (
   if (typeof dateSegments[1] == 'number') month = dateSegments[1];
   if (typeof dateSegments[2] == 'number') day = dateSegments[2];
   return { year, month, day };
-};
+}
 /** Parse a metric's string value to a number, or undefined when the column is absent/unparseable. */
-const metricNumber = (
+function metricNumber(
   metricEntry: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1MetricsRow,
   name: string,
-): number | undefined => {
-  const encodedValue = metricEntry.metrics?.find((metric) => metric.metric == name)?.decimalValue
-    ?.value;
+): number | undefined {
+  function findMetric(
+    metric: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1MetricValue,
+  ) {
+    return metric.metric == name;
+  }
+
+  const encodedValue = metricEntry.metrics?.find(findMetric)?.decimalValue?.value;
   if (typeof encodedValue != 'string') return;
   const metricValue = Number(encodedValue);
   if (Number.isNaN(metricValue)) return;
   return metricValue;
-};
+}
 function isListed<Row>(candidate: readonly Row[] | null | undefined): candidate is readonly Row[] {
   return Array.isArray(candidate);
 }
@@ -122,27 +124,27 @@ function makePlayReportingApiError(fields: {
 }
 const PLAY_APPS_PAGE_SIZE = 1000;
 export type PlayReportingApp = Readonly<{ packageName: string; displayName: string }>;
-const createAppsSearchRequest = (
+function createAppsSearchRequest(
   pageToken: string | undefined,
-): playdeveloperreporting_v1beta1.Params$Resource$Apps$Search => {
+): playdeveloperreporting_v1beta1.Params$Resource$Apps$Search {
   const isFirstPage = pageToken == null;
   if (isFirstPage) return { pageSize: PLAY_APPS_PAGE_SIZE };
   return { pageSize: PLAY_APPS_PAGE_SIZE, pageToken };
-};
+}
 
-const readDisplayName = (
+function readDisplayName(
   googleApp: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1App,
   packageName: string,
-): string => {
+): string {
   const displayName = googleApp.displayName;
   const hasDisplayName = typeof displayName == 'string';
   if (hasDisplayName) return displayName;
   return packageName;
-};
+}
 
-const listReadableApps = (
+function listReadableApps(
   googleApps: readonly playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1App[],
-): PlayReportingApp[] => {
+): PlayReportingApp[] {
   const readableApps: PlayReportingApp[] = [];
   for (const googleApp of googleApps) {
     const packageName = googleApp.packageName;
@@ -152,7 +154,7 @@ const listReadableApps = (
     readableApps.push({ packageName, displayName: displayName });
   }
   return readableApps;
-};
+}
 
 export type PlayReportingTransport = {
   readonly apps: Pick<playdeveloperreporting_v1beta1.Resource$Apps, 'search'>;
@@ -260,10 +262,13 @@ export class PlayReportingClient {
         );
         break;
     }
+    function findFreshness(
+      freshness: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1FreshnessInfoFreshness,
+    ) {
+      return freshness.aggregationPeriod == 'DAILY';
+    }
 
-    const dailyFreshness = metricSet.freshnessInfo?.freshnesses?.find(
-      (freshness) => freshness.aggregationPeriod == 'DAILY',
-    );
+    const dailyFreshness = metricSet.freshnessInfo?.freshnesses?.find(findFreshness);
     const latestDate = dateTimeToIso(dailyFreshness?.latestEndTime);
 
     if (latestDate != null) {
@@ -375,8 +380,26 @@ export class PlayReportingClient {
 
       pageToken = nonEmptyPageToken(metricPage.nextPageToken);
     } while (pageToken != null);
+    function sortLeftPiece(
+      leftEntry: {
+        readonly metric: PlayVitalsMetric;
+        readonly date: string;
+        readonly rate?: number;
+        readonly userPerceivedRate?: number;
+        readonly distinctUsers?: number;
+      },
+      rightEntry: {
+        readonly metric: PlayVitalsMetric;
+        readonly date: string;
+        readonly rate?: number;
+        readonly userPerceivedRate?: number;
+        readonly distinctUsers?: number;
+      },
+    ) {
+      return leftEntry.date.localeCompare(rightEntry.date);
+    }
 
-    entries.sort((leftEntry, rightEntry) => leftEntry.date.localeCompare(rightEntry.date));
+    entries.sort(sortLeftPiece);
     return entries;
   }
 }

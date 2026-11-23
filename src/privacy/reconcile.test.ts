@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildPrivacyReport, reconcilePrivacy, renderPrivacyReport } from './reconcile.ts';
 import type { PrivacySurface } from '../types/privacy.ts';
 /** A clean baseline surface; tests override only the fields they exercise. */
-const surface = (overrides: Partial<PrivacySurface> = {}): PrivacySurface => {
+function surface(overrides: Partial<PrivacySurface> = {}): PrivacySurface {
   return {
     usageDescriptions: {},
     hasManifest: true,
@@ -12,28 +12,66 @@ const surface = (overrides: Partial<PrivacySurface> = {}): PrivacySurface => {
     androidPermissions: [],
     ...overrides,
   };
-};
-const codes = (findings: ReturnType<typeof reconcilePrivacy>): string[] =>
-  findings.map((finding) => finding.code);
-describe('reconcilePrivacy', () => {
-  it('flags an empty purpose string as a blocker', () => {
+}
+function readCode(finding: {
+  readonly app: string;
+  readonly platform: 'ios' | 'android';
+  readonly severity: 'info' | 'blocker' | 'warning';
+  readonly code: string;
+  readonly message: string;
+}) {
+  return finding.code;
+}
+
+function codes(findings: ReturnType<typeof reconcilePrivacy>): string[] {
+  return findings.map(readCode);
+}
+function describeReconcilePrivacy() {
+  function flagsAnEmptyPurposeStringAsABlocker() {
     const findings = reconcilePrivacy(
       'app',
       surface({ usageDescriptions: { NSCameraUsageDescription: '' } }),
     );
-    const empty = findings.find((finding) => finding.code == 'ios.usage.empty');
+    function findFinding(finding: {
+      readonly app: string;
+      readonly platform: 'ios' | 'android';
+      readonly severity: 'info' | 'blocker' | 'warning';
+      readonly code: string;
+      readonly message: string;
+    }) {
+      return finding.code == 'ios.usage.empty';
+    }
+
+    const empty = findings.find(findFinding);
     expect(empty?.severity).toBe('blocker');
-  });
-  it("flags undeclared collection when a permission's data type isn't in the manifest", () => {
+  }
+
+  it('flags an empty purpose string as a blocker', flagsAnEmptyPurposeStringAsABlocker);
+  function flagsUndeclaredCollectionWhenAPermissionSPieceTypeIsnTInTheManifest() {
     const findings = reconcilePrivacy(
       'app',
       surface({ usageDescriptions: { NSCameraUsageDescription: 'Scan' }, collectedDataTypes: [] }),
     );
-    const undeclared = findings.find((finding) => finding.code == 'ios.collection.undeclared');
+    function findFinding2(finding: {
+      readonly app: string;
+      readonly platform: 'ios' | 'android';
+      readonly severity: 'info' | 'blocker' | 'warning';
+      readonly code: string;
+      readonly message: string;
+    }) {
+      return finding.code == 'ios.collection.undeclared';
+    }
+
+    const undeclared = findings.find(findFinding2);
     expect(undeclared?.severity).toBe('blocker');
     expect(undeclared?.message).toContain('NSPrivacyCollectedDataTypePhotosorVideos');
-  });
-  it('does not flag undeclared collection when the data type is declared', () => {
+  }
+
+  it(
+    "flags undeclared collection when a permission's data type isn't in the manifest",
+    flagsUndeclaredCollectionWhenAPermissionSPieceTypeIsnTInTheManifest,
+  );
+  function doesNotFlagUndeclaredCollectionWhenThePieceTypeIsDeclared() {
     const findings = reconcilePrivacy(
       'app',
       surface({
@@ -42,23 +80,48 @@ describe('reconcilePrivacy', () => {
       }),
     );
     expect(codes(findings)).not.toContain('ios.collection.undeclared');
-  });
-  it('warns on over-declaration of a reconcilable data type with no backing permission', () => {
+  }
+
+  it(
+    'does not flag undeclared collection when the data type is declared',
+    doesNotFlagUndeclaredCollectionWhenThePieceTypeIsDeclared,
+  );
+  function warnsOnOverDeclarationOfAReconcilablePieceTypeWithNoBackingPermission() {
     const findings = reconcilePrivacy(
       'app',
       surface({ collectedDataTypes: ['NSPrivacyCollectedDataTypeContacts'] }),
     );
-    const over = findings.find((finding) => finding.code == 'ios.collection.overdeclared');
+    function findFinding3(finding: {
+      readonly app: string;
+      readonly platform: 'ios' | 'android';
+      readonly severity: 'info' | 'blocker' | 'warning';
+      readonly code: string;
+      readonly message: string;
+    }) {
+      return finding.code == 'ios.collection.overdeclared';
+    }
+
+    const over = findings.find(findFinding3);
     expect(over?.severity).toBe('warning');
-  });
-  it('ignores non-reconcilable declared data types (e.g. Name) in the over-declaration check', () => {
+  }
+
+  it(
+    'warns on over-declaration of a reconcilable data type with no backing permission',
+    warnsOnOverDeclarationOfAReconcilablePieceTypeWithNoBackingPermission,
+  );
+  function ignoresNonReconcilableDeclaredPieceTypesEGNameInTheOverDeclarationCheck() {
     const findings = reconcilePrivacy(
       'app',
       surface({ collectedDataTypes: ['NSPrivacyCollectedDataTypeName'] }),
     );
     expect(codes(findings)).not.toContain('ios.collection.overdeclared');
-  });
-  it('warns when usage descriptions exist but no manifest is present', () => {
+  }
+
+  it(
+    'ignores non-reconcilable declared data types (e.g. Name) in the over-declaration check',
+    ignoresNonReconcilableDeclaredPieceTypesEGNameInTheOverDeclarationCheck,
+  );
+  function warnsWhenUsageDescriptionsExistButNoManifestIsPresent() {
     const findings = reconcilePrivacy(
       'app',
       surface({ hasManifest: false, usageDescriptions: { NSCameraUsageDescription: 'Scan' } }),
@@ -66,57 +129,101 @@ describe('reconcilePrivacy', () => {
     expect(codes(findings)).toContain('ios.manifest.missing');
     // With no manifest, undeclared-collection is not asserted.
     expect(codes(findings)).not.toContain('ios.collection.undeclared');
-  });
-  it('flags a tracking-flag mismatch as a blocker', () => {
+  }
+
+  it(
+    'warns when usage descriptions exist but no manifest is present',
+    warnsWhenUsageDescriptionsExistButNoManifestIsPresent,
+  );
+  function flagsATrackingFlagMismatchAsABlocker() {
     const findings = reconcilePrivacy(
       'app',
       surface({ usageDescriptions: { NSUserTrackingUsageDescription: 'Ads' }, tracking: false }),
     );
-    expect(findings.find((finding) => finding.code == 'ios.tracking.mismatch')?.severity).toBe(
-      'blocker',
-    );
-  });
-  it('emits advisory Data Safety reminders for android data permissions', () => {
+    function findFinding4(finding: {
+      readonly app: string;
+      readonly platform: 'ios' | 'android';
+      readonly severity: 'info' | 'blocker' | 'warning';
+      readonly code: string;
+      readonly message: string;
+    }) {
+      return finding.code == 'ios.tracking.mismatch';
+    }
+
+    expect(findings.find(findFinding4)?.severity).toBe('blocker');
+  }
+
+  it('flags a tracking-flag mismatch as a blocker', flagsATrackingFlagMismatchAsABlocker);
+  function emitsAdvisoryPieceSafetyRemindersForAndroidPiecePermissions() {
     const findings = reconcilePrivacy(
       'app',
       surface({ androidPermissions: ['android.permission.CAMERA'] }),
     );
-    const reminder = findings.find((finding) => finding.code == 'android.datasafety.reminder');
+    function findFinding5(finding: {
+      readonly app: string;
+      readonly platform: 'ios' | 'android';
+      readonly severity: 'info' | 'blocker' | 'warning';
+      readonly code: string;
+      readonly message: string;
+    }) {
+      return finding.code == 'android.datasafety.reminder';
+    }
+
+    const reminder = findings.find(findFinding5);
     expect(reminder?.severity).toBe('info');
     expect(reminder?.platform).toBe('android');
-  });
-  it('produces no findings for a clean surface', () => {
+  }
+
+  it(
+    'emits advisory Data Safety reminders for android data permissions',
+    emitsAdvisoryPieceSafetyRemindersForAndroidPiecePermissions,
+  );
+  function producesNoFindingsForACleanSurface() {
     expect(reconcilePrivacy('app', surface())).toEqual([]);
-  });
-});
-describe('buildPrivacyReport', () => {
-  it('exits 2 when any blocker is present', () => {
+  }
+
+  it('produces no findings for a clean surface', producesNoFindingsForACleanSurface);
+}
+
+describe('reconcilePrivacy', describeReconcilePrivacy);
+function describeBuildPrivacyReport() {
+  function exits2WhenAnyBlockerIsPresent() {
     const findings = reconcilePrivacy(
       'app',
       surface({ usageDescriptions: { NSCameraUsageDescription: '' } }),
     );
     const privacyReport = buildPrivacyReport(findings, ['app']);
     expect(privacyReport.exitCode).toBe(2);
-  });
-  it('exits 0 when only warnings/info are present', () => {
+  }
+
+  it('exits 2 when any blocker is present', exits2WhenAnyBlockerIsPresent);
+  function exits0WhenOnlyWarningsPieceArePresent() {
     const findings = reconcilePrivacy(
       'app',
       surface({ androidPermissions: ['android.permission.CAMERA'] }),
     );
     const privacyReport = buildPrivacyReport(findings, ['app']);
     expect(privacyReport.exitCode).toBe(0);
-  });
-  it('exits 1 when nothing was scanned', () => {
+  }
+
+  it('exits 0 when only warnings/info are present', exits0WhenOnlyWarningsPieceArePresent);
+  function exits1WhenNothingWasScanned() {
     const privacyReport = buildPrivacyReport([], []);
     expect(privacyReport.exitCode).toBe(1);
-  });
-});
-describe('renderPrivacyReport', () => {
-  it('reports a clean surface', () => {
+  }
+
+  it('exits 1 when nothing was scanned', exits1WhenNothingWasScanned);
+}
+
+describe('buildPrivacyReport', describeBuildPrivacyReport);
+function describeRenderPrivacyReport() {
+  function reportsACleanSurface() {
     const privacyReport = buildPrivacyReport([], ['app']);
     expect(renderPrivacyReport(privacyReport)).toContain('clean');
-  });
-  it('lists findings per app with a tally', () => {
+  }
+
+  it('reports a clean surface', reportsACleanSurface);
+  function listsFindingsPerAppWithATally() {
     // A tracking mismatch is exactly one blocker, with no incidental findings.
     const findings = reconcilePrivacy(
       'app',
@@ -126,5 +233,9 @@ describe('renderPrivacyReport', () => {
     const rendered = renderPrivacyReport(privacyReport);
     expect(rendered).toContain('app');
     expect(rendered).toContain('1 blocker(s)');
-  });
-});
+  }
+
+  it('lists findings per app with a tally', listsFindingsPerAppWithATally);
+}
+
+describe('renderPrivacyReport', describeRenderPrivacyReport);

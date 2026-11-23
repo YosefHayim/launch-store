@@ -24,15 +24,21 @@ function makeMemoryStorage(): MemoryStorage {
   return {
     objects,
     name: 'memory',
-    put: () => Promise.reject(new Error('unused')),
-    list: () => Promise.resolve([]),
-    url: () => Promise.resolve(''),
-    putObject: (objectKey, objectContents) => {
+    put() {
+      return Promise.reject(new Error('unused'));
+    },
+    list() {
+      return Promise.resolve([]);
+    },
+    url() {
+      return Promise.resolve('');
+    },
+    putObject(objectKey, objectContents) {
       objects.set(objectKey, objectContents.toString());
 
       return Promise.resolve({ id: objectKey, location: `memory://${objectKey}` });
     },
-    getObject: (objectKey) => {
+    getObject(objectKey) {
       const storedText = objects.get(objectKey);
 
       if (storedText == null) {
@@ -42,13 +48,17 @@ function makeMemoryStorage(): MemoryStorage {
       const bufferBytes = Buffer.from(storedText);
       return Promise.resolve(bufferBytes);
     },
-    publicUrl: (objectKey) => `https://cdn/${objectKey}`,
+    publicUrl(objectKey) {
+      return `https://cdn/${objectKey}`;
+    },
   };
 }
 
 const fixedSigner: CodeSigner = {
   certPath: '/tmp/cert.pem',
-  sign: () => 'sig="FAKE", keyid="main", alg="rsa-v1_5-sha256"',
+  sign() {
+    return 'sig="FAKE", keyid="main", alg="rsa-v1_5-sha256"';
+  },
 };
 
 function runPublish(
@@ -62,12 +72,10 @@ function runPublish(
 
   return publishOtaPlatform(publishInput, logger);
 }
-
-describe('publishOtaPlatform', () => {
+function describePublishOtaPlatform() {
   let exportDirectory: string;
   let exportMetadata: ExportMetadata;
-
-  beforeEach(() => {
+  function preparePublishOtaPlatform() {
     const systemTemporaryDirectory = tmpdir();
     const launchOtaPath = join(systemTemporaryDirectory, 'launch-ota-');
     exportDirectory = mkdtempSync(launchOtaPath);
@@ -83,14 +91,16 @@ describe('publishOtaPlatform', () => {
         },
       },
     };
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(preparePublishOtaPlatform);
+  function cleanupPublishOtaPlatform() {
     resetLogger();
     rmSync(exportDirectory, { recursive: true, force: true });
-  });
+  }
 
-  it('uploads assets, manifest, signature, snapshot, and history', async () => {
+  afterEach(cleanupPublishOtaPlatform);
+  async function uploadsAssetsManifestSignatureSnapshotAndHistory() {
     const storage = makeMemoryStorage();
     const publishDetails = await runPublish({
       storage,
@@ -131,9 +141,13 @@ describe('publishOtaPlatform', () => {
     const historyEntries = JSON.parse(historyText) as { signed: boolean }[];
     expect(historyEntries).toHaveLength(1);
     expect(historyEntries[0]?.signed).toBe(true);
-  });
+  }
 
-  it('omits the signature object for an unsigned publish', async () => {
+  it(
+    'uploads assets, manifest, signature, snapshot, and history',
+    uploadsAssetsManifestSignatureSnapshotAndHistory,
+  );
+  async function omitsTheSignatureObjectForAnUnsignedPublish() {
     const storage = makeMemoryStorage();
     await runPublish({
       storage,
@@ -147,9 +161,13 @@ describe('publishOtaPlatform', () => {
     expect([...storage.objects.keys()]).not.toContain(
       manifestSignatureKey('production', 'ios', '1.0.0'),
     );
-  });
+  }
 
-  it('warns and skips a platform absent from the export', async () => {
+  it(
+    'omits the signature object for an unsigned publish',
+    omitsTheSignatureObjectForAnUnsignedPublish,
+  );
+  async function warnsAndSkipsAPlatformAbsentFromTheExport() {
     const storage = makeMemoryStorage();
     const terminalWrites: string[] = [];
     const publishDetails = await runPublish(
@@ -167,11 +185,17 @@ describe('publishOtaPlatform', () => {
     expect(publishDetails.published).toBe(false);
     expect(storage.objects.size).toBe(0);
     expect(terminalWrites.join('')).toContain('[WARN] No android bundle');
-  });
-});
+  }
 
-describe('readExportMetadata', () => {
-  it('fails with an actionable error when metadata.json is missing', async () => {
+  it(
+    'warns and skips a platform absent from the export',
+    warnsAndSkipsAPlatformAbsentFromTheExport,
+  );
+}
+
+describe('publishOtaPlatform', describePublishOtaPlatform);
+function describeReadExportMetadata() {
+  async function failsWithAnActionableErrorWhenMetadataPieceIsMissing() {
     const systemTemporaryDirectory = tmpdir();
     const launchOtaEmptyPath = join(systemTemporaryDirectory, 'launch-ota-empty-');
     const exportDirectory = mkdtempSync(launchOtaEmptyPath);
@@ -184,9 +208,13 @@ describe('readExportMetadata', () => {
     } finally {
       rmSync(exportDirectory, { recursive: true, force: true });
     }
-  });
+  }
 
-  it('decodes valid Expo export metadata', async () => {
+  it(
+    'fails with an actionable error when metadata.json is missing',
+    failsWithAnActionableErrorWhenMetadataPieceIsMissing,
+  );
+  async function decodesValidExpoExportMetadata() {
     const systemTemporaryDirectory = tmpdir();
     const launchOtaMetaPath = join(systemTemporaryDirectory, 'launch-ota-meta-');
     const exportDirectory = mkdtempSync(launchOtaMetaPath);
@@ -203,5 +231,9 @@ describe('readExportMetadata', () => {
     } finally {
       rmSync(exportDirectory, { recursive: true, force: true });
     }
-  });
-});
+  }
+
+  it('decodes valid Expo export metadata', decodesValidExpoExportMetadata);
+}
+
+describe('readExportMetadata', describeReadExportMetadata);

@@ -6,16 +6,18 @@ const SURFACE = 'offers';
 export const offersPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  plan: (planContext) =>
-    planAppStoreSurface(planContext, {
+  plan(planContext) {
+    return planAppStoreSurface(planContext, {
       surface: SURFACE,
       direction: 'additive',
-      configFor: (bundleId) => {
+      configFor(bundleId) {
         const products = planContext.config.products?.[bundleId];
         if (products && appDeclaresOffers(products)) return products;
         return undefined;
       },
-      reconcile: (api, bundleId, products) =>
-        reconcileOffers(api, { bundleId, products, dryRun: true }),
-    }),
+      reconcile(api, bundleId, products) {
+        return reconcileOffers(api, { bundleId, products, dryRun: true });
+      },
+    });
+  },
 };

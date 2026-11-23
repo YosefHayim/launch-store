@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from '../../command.ts';
+import { Command, type CommandOption } from '../../command.ts';
 import {
   type BuildCommandOptions,
   parseBuildCommandInput,
@@ -21,17 +21,27 @@ const BASE_OPTIONS: BuildCommandOptions = {
   ccache: true,
 };
 const GREATER_THAN_ZERO_ERROR = /greater than 0/;
-describe('parseSizeBudget - the per-run size-budget CLI boundary', () => {
-  it('returns undefined when the flag is omitted (-> profile, then default)', () => {
+function describeParseSizeBudgetThePerRunSizeBudgetCLIBoundary() {
+  function returnsUndefinedWhenTheFlagIsOmittedProfileThenDefault() {
     const sizeBudget = parseSizeBudget(undefined);
     expect(sizeBudget).toBeUndefined();
-  });
-  it('parses a positive MB number, including fractional values', () => {
+  }
+
+  it(
+    'returns undefined when the flag is omitted (-> profile, then default)',
+    returnsUndefinedWhenTheFlagIsOmittedProfileThenDefault,
+  );
+  function parsesAPositiveMBNumberIncludingFractionalValues() {
     const sizeBudget = parseSizeBudget('250');
     expect(sizeBudget).toBe(250);
     expect(parseSizeBudget('199.5')).toBe(199.5);
-  });
-  it('rejects zero and negative budgets with a clear message', () => {
+  }
+
+  it(
+    'parses a positive MB number, including fractional values',
+    parsesAPositiveMBNumberIncludingFractionalValues,
+  );
+  function rejectsZeroAndNegativeBudgetsWithAClearMessage() {
     let zeroBudgetFailure: unknown = null;
     let negativeBudgetFailure: unknown = null;
 
@@ -53,8 +63,13 @@ describe('parseSizeBudget - the per-run size-budget CLI boundary', () => {
     expect(negativeBudgetFailure).toMatchObject({
       message: expect.stringMatching(GREATER_THAN_ZERO_ERROR),
     });
-  });
-  it('rejects non-numeric input with a clear message', () => {
+  }
+
+  it(
+    'rejects zero and negative budgets with a clear message',
+    rejectsZeroAndNegativeBudgetsWithAClearMessage,
+  );
+  function rejectsNonNumericPieceWithAClearMessage() {
     let sizeBudgetFailure: unknown = null;
 
     try {
@@ -66,10 +81,17 @@ describe('parseSizeBudget - the per-run size-budget CLI boundary', () => {
     expect(sizeBudgetFailure).toMatchObject({
       message: expect.stringMatching(/Invalid --size-budget "big"/),
     });
-  });
-});
-describe('parseBuildCommandInput - raw Commander values to pipeline input', () => {
-  it('decodes optional build flags into the BuildRunOptions contract', () => {
+  }
+
+  it('rejects non-numeric input with a clear message', rejectsNonNumericPieceWithAClearMessage);
+}
+
+describe(
+  'parseSizeBudget - the per-run size-budget CLI boundary',
+  describeParseSizeBudgetThePerRunSizeBudgetCLIBoundary,
+);
+function describeParseBuildCommandPiecePieceCommanderValuesToPipelinePiece() {
+  function decodesOptionalBuildFlagsIntoTheBuildRunPieceContract() {
     const buildInput = parseBuildCommandInput('ios', {
       ...BASE_OPTIONS,
       app: 'demo',
@@ -95,8 +117,13 @@ describe('parseBuildCommandInput - raw Commander values to pipeline input', () =
       printEnv: true,
       account: 'team-a',
     });
-  });
-  it('rejects unknown tracks before the pipeline runs', () => {
+  }
+
+  it(
+    'decodes optional build flags into the BuildRunOptions contract',
+    decodesOptionalBuildFlagsIntoTheBuildRunPieceContract,
+  );
+  function rejectsUnknownTracksBeforeThePipelineRuns() {
     let trackFailure: unknown = null;
 
     try {
@@ -108,35 +135,77 @@ describe('parseBuildCommandInput - raw Commander values to pipeline input', () =
     expect(trackFailure).toMatchObject({
       message: expect.stringMatching(/Unknown --track "beta"/),
     });
-  });
-  it('decodes --no-ccache into the BuildRunOptions contract', () => {
+  }
+
+  it('rejects unknown tracks before the pipeline runs', rejectsUnknownTracksBeforeThePipelineRuns);
+  function decodesNoCcacheIntoTheBuildRunPieceContract() {
     const buildInput = parseBuildCommandInput('ios', { ...BASE_OPTIONS, ccache: false });
     expect(buildInput.ccache).toBe(false);
-  });
-});
-describe('registerBuildCommand - the size-budget flag and its alias', () => {
+  }
+
+  it(
+    'decodes --no-ccache into the BuildRunOptions contract',
+    decodesNoCcacheIntoTheBuildRunPieceContract,
+  );
+}
+
+describe(
+  'parseBuildCommandInput - raw Commander values to pipeline input',
+  describeParseBuildCommandPiecePieceCommanderValuesToPipelinePiece,
+);
+function describeRegisterBuildCommandTheSizeBudgetFlagAndItsAlias() {
   function buildCommand() {
     const program = new Command();
     registerBuildCommand(program);
-    return program.commands.find((command) => command.name() == 'build');
+    function findCommand(command: Command) {
+      return command.name() == 'build';
+    }
+
+    return program.commands.find(findCommand);
   }
-  it('exposes --size-budget and its --budget alias', () => {
+  function exposesSizeBudgetAndItsBudgetAlias() {
     const storeBuild82 = buildCommand();
     expect(storeBuild82).toBeDefined();
-    const flags = storeBuild82?.options.map((option) => option.long);
+    function readLong(option: CommandOption) {
+      return option.long;
+    }
+
+    const flags = storeBuild82?.options.map(readLong);
     expect(flags).toContain('--size-budget');
     expect(flags).toContain('--budget');
-  });
-  it('exposes --no-ccache for monorepo extension builds that cannot use the RN ccache shim', () => {
+  }
+
+  it('exposes --size-budget and its --budget alias', exposesSizeBudgetAndItsBudgetAlias);
+  function exposesNoCcacheForMonorepoExtensionBuildsThatCannotUseTheRNCcacheShim() {
     const storeBuild89 = buildCommand();
     expect(storeBuild89).toBeDefined();
-    const flags = storeBuild89?.options.map((option) => option.long);
+    function readLong2(option: CommandOption) {
+      return option.long;
+    }
+
+    const flags = storeBuild89?.options.map(readLong2);
     expect(flags).toContain('--no-ccache');
-  });
-  it('exposes --json, off by default', () => {
+  }
+
+  it(
+    'exposes --no-ccache for monorepo extension builds that cannot use the RN ccache shim',
+    exposesNoCcacheForMonorepoExtensionBuildsThatCannotUseTheRNCcacheShim,
+  );
+  function exposesPieceOffByDefault() {
     const storeBuildJson = buildCommand();
-    const jsonOption = storeBuildJson?.options.find((option) => option.long == '--json');
+    function findOption(option: CommandOption) {
+      return option.long == '--json';
+    }
+
+    const jsonOption = storeBuildJson?.options.find(findOption);
     expect(jsonOption).toBeDefined();
     expect(jsonOption?.defaultValue).toBe(false);
-  });
-});
+  }
+
+  it('exposes --json, off by default', exposesPieceOffByDefault);
+}
+
+describe(
+  'registerBuildCommand - the size-budget flag and its alias',
+  describeRegisterBuildCommandTheSizeBudgetFlagAndItsAlias,
+);

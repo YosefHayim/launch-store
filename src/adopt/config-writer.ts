@@ -7,7 +7,7 @@ import type {
 } from '../types/catalog.ts';
 
 /** Fold one bundle's imported product pieces into a single AppProducts, dropping empty arms. */
-export const aggregateProductPieces = (pieces: readonly ProductPiece[]): AppProducts => {
+export function aggregateProductPieces(pieces: readonly ProductPiece[]): AppProducts {
   const inAppPurchases: InAppPurchaseConfig[] = [];
   const subscriptionGroups: SubscriptionGroupConfig[] = [];
   for (const piece of pieces) {
@@ -23,37 +23,38 @@ export const aggregateProductPieces = (pieces: readonly ProductPiece[]): AppProd
   if (inAppPurchases.length > 0) return { inAppPurchases };
   if (subscriptionGroups.length > 0) return { subscriptionGroups };
   return {};
-};
+}
 
 /** Serialize a products block keyed by bundle id as an indented, paste-ready TypeScript section. */
-export const serializeProductsSection = (
+export function serializeProductsSection(
   productsByBundleId: Readonly<Record<string, AppProducts>>,
-): string => {
+): string {
   const productsJson = JSON.stringify(productsByBundleId, null, 2);
+  function mapLine(line: string, index: number) {
+    if (index == 0) return line;
+    return `  ${line}`;
+  }
+
   // Shift every line but the first right by two spaces so the block nests under `products:` cleanly.
-  const indented = productsJson
-    .split('\n')
-    .map((line, index) => {
-      if (index == 0) return line;
-      return `  ${line}`;
-    })
-    .join('\n');
+  const indented = productsJson.split('\n').map(mapLine).join('\n');
   return [
     '  // Imported from App Store Connect by `launch-store adopt` - review, then commit.',
     `  products: ${indented},`,
   ].join('\n');
-};
+}
 
 /** Build a complete fresh launch.config.ts with imported products pre-filled. */
-export const buildAdoptedConfig = (
+export function buildAdoptedConfig(
   appRoot: string | null,
   productsByBundleId: Readonly<Record<string, AppProducts>>,
-): string => {
+): string {
   const productsSection = serializeProductsSection(productsByBundleId);
   return configTemplate(appRoot, productsSection);
-};
+}
 
 /** Render an ios.entitlements block for pasting into a dynamic app.config. */
-export const renderEntitlementsBlock = (
+export function renderEntitlementsBlock(
   entitlements: Readonly<Record<string, EntitlementValue>>,
-): string => JSON.stringify({ ios: { entitlements } }, null, 2);
+): string {
+  return JSON.stringify({ ios: { entitlements } }, null, 2);
+}

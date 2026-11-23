@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderStoreSurfaceAction } from './app-store-surface-command.ts';
-describe('renderAction', () => {
-  it('marks a planned/applied registration with +', () => {
+function describeRenderAction() {
+  function marksAPlannedAppliedRegistrationWith() {
     const storeSurfaceAction = renderStoreSurfaceAction({
       description: 'register Apple Pay merchant id merchant.com.acme.app (Acme Pay)',
       destructive: false,
@@ -17,8 +17,10 @@ describe('renderAction', () => {
         status: 'applied',
       }),
     ).toBe('+ register Wallet pass type id pass.com.acme.coupon (Acme Coupon)');
-  });
-  it("renders a failed registration with x and Apple's error detail", () => {
+  }
+
+  it('marks a planned/applied registration with +', marksAPlannedAppliedRegistrationWith);
+  function rendersAFailedRegistrationWithXAndAppleSErrorDetail() {
     const storeSurfaceAction = renderStoreSurfaceAction({
       description: 'register Apple Pay merchant id merchant.com.acme.app (Acme Pay)',
       destructive: false,
@@ -28,5 +30,12 @@ describe('renderAction', () => {
     expect(storeSurfaceAction).toBe(
       'x register Apple Pay merchant id merchant.com.acme.app (Acme Pay) - identifier already exists',
     );
-  });
-});
+  }
+
+  it(
+    "renders a failed registration with x and Apple's error detail",
+    rendersAFailedRegistrationWithXAndAppleSErrorDetail,
+  );
+}
+
+describe('renderAction', describeRenderAction);

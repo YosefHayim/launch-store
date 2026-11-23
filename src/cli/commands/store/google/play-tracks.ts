@@ -32,7 +32,7 @@ type TestersOptions = Readonly<{
 }>;
 
 /** Map the track status flags without explicit undefined optionals. */
-const toTrackStatusInput = (commandOptions: StatusOptions): PlayTracksStatusInput => {
+function toTrackStatusInput(commandOptions: StatusOptions): PlayTracksStatusInput {
   let commandInput: PlayTracksStatusInput = {
     operation: 'status',
     json: commandOptions.json,
@@ -41,10 +41,10 @@ const toTrackStatusInput = (commandOptions: StatusOptions): PlayTracksStatusInpu
     commandInput = { ...commandInput, app: commandOptions.app };
   }
   return commandInput;
-};
+}
 
 /** Map the promotion flags without explicit undefined optionals. */
-const toTrackPromoteInput = (commandOptions: PromoteOptions): PlayTracksPromoteInput => {
+function toTrackPromoteInput(commandOptions: PromoteOptions): PlayTracksPromoteInput {
   let commandInput: PlayTracksPromoteInput = {
     operation: 'promote',
     track: commandOptions.track,
@@ -69,10 +69,10 @@ const toTrackPromoteInput = (commandOptions: PromoteOptions): PlayTracksPromoteI
     commandInput = { ...commandInput, name: commandOptions.name };
   }
   return commandInput;
-};
+}
 
 /** Map the tester flags without explicit undefined optionals. */
-const toTrackTestersInput = (commandOptions: TestersOptions): PlayTracksTestersInput => {
+function toTrackTestersInput(commandOptions: TestersOptions): PlayTracksTestersInput {
   let commandInput: PlayTracksTestersInput = {
     operation: 'testers',
     track: commandOptions.track,
@@ -85,23 +85,31 @@ const toTrackTestersInput = (commandOptions: TestersOptions): PlayTracksTestersI
     commandInput = { ...commandInput, groups: commandOptions.groups };
   }
   return commandInput;
-};
+}
 
 /** Attach the play-tracks command group. */
-export const registerPlayTracksCommand = (program: Command): void => {
+export function registerPlayTracksCommand(program: Command): void {
   const tracksCommand = program
     .command('play-tracks')
     .description('manage Google Play release tracks from the CLI');
+  function runStatus(commandOptions: StatusOptions) {
+    const trackStatus = toTrackStatusInput(commandOptions);
+    const playTracksProgram = playTracksCommandProgram(trackStatus);
+    return runCliProgram(playTracksProgram);
+  }
+
   tracksCommand
     .command('status')
     .description("show each track's releases and country availability")
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('--json', 'output machine-readable JSON', false)
-    .action((commandOptions: StatusOptions) => {
-      const trackStatus = toTrackStatusInput(commandOptions);
-      const playTracksProgram = playTracksCommandProgram(trackStatus);
-      return runCliProgram(playTracksProgram);
-    });
+    .action(runStatus);
+  function runPromote(commandOptions: PromoteOptions) {
+    const trackPromote = toTrackPromoteInput(commandOptions);
+    const playTracksProgram = playTracksCommandProgram(trackPromote);
+    return runCliProgram(playTracksProgram);
+  }
+
   tracksCommand
     .command('promote')
     .description('ship a build to a track at a chosen status / rollout, with release notes')
@@ -122,11 +130,13 @@ export const registerPlayTracksCommand = (program: Command): void => {
     .option('--notes <path>', 'path to a JSON file mapping language codes to release-note text')
     .option('--name <name>', 'release name (Play derives one from the version when omitted)')
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: PromoteOptions) => {
-      const trackPromote = toTrackPromoteInput(commandOptions);
-      const playTracksProgram = playTracksCommandProgram(trackPromote);
-      return runCliProgram(playTracksProgram);
-    });
+    .action(runPromote);
+  function runTesters(commandOptions: TestersOptions) {
+    const trackTesters = toTrackTestersInput(commandOptions);
+    const playTracksProgram = playTracksCommandProgram(trackTesters);
+    return runCliProgram(playTracksProgram);
+  }
+
   tracksCommand
     .command('testers')
     .description('read or set the Google Groups allowed to test a track')
@@ -134,9 +144,5 @@ export const registerPlayTracksCommand = (program: Command): void => {
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('--groups <emails>', 'comma-separated Google Group emails to set (omit to just read)')
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: TestersOptions) => {
-      const trackTesters = toTrackTestersInput(commandOptions);
-      const playTracksProgram = playTracksCommandProgram(trackTesters);
-      return runCliProgram(playTracksProgram);
-    });
-};
+    .action(runTesters);
+}

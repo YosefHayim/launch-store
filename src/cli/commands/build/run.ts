@@ -5,7 +5,12 @@ import { runCliProgram } from '../../run-cli-program.ts';
 type RunOptions = Readonly<{ device?: string }>;
 
 /** Attach the device-install command to Commander. */
-export const registerRunCommand = (program: Command): void => {
+export function registerRunCommand(program: Command): void {
+  function runRun(reference: string, commandOptions: RunOptions) {
+    const runProgram = runCommandProgram({ reference, device: commandOptions.device });
+    return runCliProgram(runProgram);
+  }
+
   program
     .command('run')
     .description(
@@ -17,8 +22,5 @@ export const registerRunCommand = (program: Command): void => {
       'latest',
     )
     .option('-d, --device <id>', 'Android serial or Apple devicectl device identifier')
-    .action((reference: string, commandOptions: RunOptions) => {
-      const runProgram = runCommandProgram({ reference, device: commandOptions.device });
-      return runCliProgram(runProgram);
-    });
-};
+    .action(runRun);
+}

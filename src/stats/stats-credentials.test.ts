@@ -50,13 +50,13 @@ function createServiceAccountJson(): string {
     token_uri: 'http://127.0.0.1:1/token',
   });
 }
-
-describe('makeStatsCredentialsTest', () => {
-  afterEach(() => {
+function describeMakeStatsCredentialsTest() {
+  function cleanupMakeStatsCredentialsTest() {
     useStatsCredentials(null);
-  });
+  }
 
-  test('answers null for every method by default', async () => {
+  afterEach(cleanupMakeStatsCredentialsTest);
+  async function answersNullForEveryMethodByDefault() {
     const credentials = makeStatsCredentialsTest();
 
     expect(await credentials.ascClientForAccount('KEYA')).toBeNull();
@@ -65,9 +65,10 @@ describe('makeStatsCredentialsTest', () => {
     expect(await credentials.playReportingClient('com.example.app')).toBeNull();
     expect(await credentials.playReportsBucket()).toBeNull();
     expect(await credentials.googleAccessToken(['scope'], 'com.example.app')).toBeNull();
-  });
+  }
 
-  test('uses the answer a test passes in', async () => {
+  test('answers null for every method by default', answersNullForEveryMethodByDefault);
+  async function usesTheAnswerATestPassesIn() {
     const playClient: PlayVitalsReader = {
       async vitalsTimeline() {
         throw new Error('unused');
@@ -80,14 +81,16 @@ describe('makeStatsCredentialsTest', () => {
     });
 
     expect(await credentials.playReportingClient('com.example.app')).toBe(playClient);
-  });
-});
+  }
 
-describe('StatsCredentialsLive', () => {
+  test('uses the answer a test passes in', usesTheAnswerATestPassesIn);
+}
+
+describe('makeStatsCredentialsTest', describeMakeStatsCredentialsTest);
+function describeStatsCredentialsLive() {
   let homeDirectory: string;
   const ascClient = makeFakeAscClient([]);
-
-  beforeEach(() => {
+  function prepareStatsCredentialsLive() {
     homeDirectory = createTemporaryHomeDirectory();
     const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
@@ -96,9 +99,10 @@ describe('StatsCredentialsLive', () => {
     });
     writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFile);
     useStatsCredentials(null);
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareStatsCredentialsLive);
+  function cleanupStatsCredentialsLive() {
     useStatsCredentials(null);
     useAppleStoreClientFactory(null);
     resetGoogleAccessToken();
@@ -106,7 +110,9 @@ describe('StatsCredentialsLive', () => {
     resetLaunchEnvironment();
     resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
-  });
+  }
+
+  afterEach(cleanupStatsCredentialsLive);
 
   function installLiveFixtures(
     storedSecrets: Map<string, string>,
@@ -123,23 +129,30 @@ describe('StatsCredentialsLive', () => {
   const encodedP8 = Buffer.from(
     '-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----',
   ).toString('base64');
-
-  test('builds the App Store client of the account that owns the key id', async () => {
+  async function buildsTheAppStoreClientOfTheAccountThatOwnsTheKeyId() {
     installLiveFixtures(new Map([['asc-p8:KEYB', encodedP8]]));
 
     const builtClient = await StatsCredentialsLive.ascClientForAccount('KEYB');
 
     expect(builtClient).toBe(ascClient);
-  });
+  }
 
-  test('answers null for an account with no saved key and for an unknown account', async () => {
+  test(
+    'builds the App Store client of the account that owns the key id',
+    buildsTheAppStoreClientOfTheAccountThatOwnsTheKeyId,
+  );
+  async function answersNullForAnAccountWithNoSavedKeyAndForAnUnknownAccount() {
     installLiveFixtures(new Map());
 
     expect(await StatsCredentialsLive.ascClientForAccount('KEYA')).toBeNull();
     expect(await StatsCredentialsLive.ascClientForAccount('NOPE')).toBeNull();
-  });
+  }
 
-  test('reads the vendor number of the account, then the environment, then null', async () => {
+  test(
+    'answers null for an account with no saved key and for an unknown account',
+    answersNullForAnAccountWithNoSavedKeyAndForAnUnknownAccount,
+  );
+  async function readsTheVendorNumberOfTheAccountThenTheEnvironmentThenNull() {
     installLiveFixtures(new Map(), { ASC_VENDOR_NUMBER: '999' });
 
     expect(await StatsCredentialsLive.vendorNumberForAccount('KEYA')).toBe('111');
@@ -148,17 +161,25 @@ describe('StatsCredentialsLive', () => {
     useLaunchEnvironment({});
 
     expect(await StatsCredentialsLive.vendorNumberForAccount('KEYB')).toBeNull();
-  });
+  }
 
-  test('has no Play account, client or token when no service account is saved', async () => {
+  test(
+    'reads the vendor number of the account, then the environment, then null',
+    readsTheVendorNumberOfTheAccountThenTheEnvironmentThenNull,
+  );
+  async function hasNoPlayAccountClientOrTokenWhenNoServiceAccountIsSaved() {
     installLiveFixtures(new Map());
 
     expect(await StatsCredentialsLive.playServiceAccount('com.example.app')).toBeNull();
     expect(await StatsCredentialsLive.playReportingClient('com.example.app')).toBeNull();
     expect(await StatsCredentialsLive.googleAccessToken(['scope'], 'com.example.app')).toBeNull();
-  });
+  }
 
-  test('reads the Play account, builds the reporting client and gets a token when one is saved', async () => {
+  test(
+    'has no Play account, client or token when no service account is saved',
+    hasNoPlayAccountClientOrTokenWhenNoServiceAccountIsSaved,
+  );
+  async function readsThePlayAccountBuildsTheReportingClientAndGetsATokenWhenOneIsSaved() {
     const createServiceAccount = createServiceAccountJson();
     installLiveFixtures(new Map([['play-service-account:com.example.app', createServiceAccount]]));
 
@@ -171,9 +192,13 @@ describe('StatsCredentialsLive', () => {
     expect(await StatsCredentialsLive.googleAccessToken(['scope'], 'com.example.app')).toBe(
       'token-1',
     );
-  });
+  }
 
-  test('uses only the requested app slot and ignores an unscoped key', async () => {
+  test(
+    'reads the Play account, builds the reporting client and gets a token when one is saved',
+    readsThePlayAccountBuildsTheReportingClientAndGetsATokenWhenOneIsSaved,
+  );
+  async function usesOnlyTheRequestedAppSlotAndIgnoresAnUnscopedKey() {
     const serialized = JSON.stringify(SERVICE_ACCOUNT);
     installLiveFixtures(
       new Map([
@@ -187,9 +212,13 @@ describe('StatsCredentialsLive', () => {
     );
     expect(await StatsCredentialsLive.playServiceAccount('com.example.other')).toBeNull();
     expect(await StatsCredentialsLive.playServiceAccount(null)).toBeNull();
-  });
+  }
 
-  test('maps an iOS app to its uniquely matched configured Android package', async () => {
+  test(
+    'uses only the requested app slot and ignores an unscoped key',
+    usesOnlyTheRequestedAppSlotAndIgnoresAnUnscopedKey,
+  );
+  async function mapsAnIOSAppToItsUniquelyMatchedConfiguredAndroidPackage() {
     installLiveFixtures(new Map());
     const project = join(homeDirectory, 'work');
     mkdirSync(project, { recursive: true });
@@ -219,9 +248,13 @@ describe('StatsCredentialsLive', () => {
     expect(
       await StatsCredentialsLive.googlePackageForApp({ ...app, bundleId: 'unknown' }),
     ).toBeNull();
-  });
+  }
 
-  test('reads the Play reports bucket from portfolio.json, or null when none is saved', async () => {
+  test(
+    'maps an iOS app to its uniquely matched configured Android package',
+    mapsAnIOSAppToItsUniquelyMatchedConfiguredAndroidPackage,
+  );
+  async function readsThePlayReportsBucketFromPortfolioPieceOrNullWhenNoneIsSaved() {
     installLiveFixtures(new Map());
     const bucketBefore = await StatsCredentialsLive.playReportsBucket();
     const serialized = JSON.stringify({
@@ -237,5 +270,12 @@ describe('StatsCredentialsLive', () => {
 
     expect(bucketBefore).toBeNull();
     expect(bucketAfter).toBe('pubsite_prod_rev_123');
-  });
-});
+  }
+
+  test(
+    'reads the Play reports bucket from portfolio.json, or null when none is saved',
+    readsThePlayReportsBucketFromPortfolioPieceOrNullWhenNoneIsSaved,
+  );
+}
+
+describe('StatsCredentialsLive', describeStatsCredentialsLive);

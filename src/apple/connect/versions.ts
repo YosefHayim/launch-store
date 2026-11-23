@@ -46,7 +46,11 @@ export class ConnectVersions {
     const appleResources = await this.client.requestAll<Record<string, unknown>>(
       `/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=200`,
     );
-    return appleResources.map((localization) => {
+    function mapLocalization(localization: {
+      id: string;
+      attributes: Record<string, unknown>;
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const localeAttribute = localization.attributes['locale'];
       let locale = '';
       if (typeof localeAttribute == 'string') locale = localeAttribute;
@@ -55,7 +59,9 @@ export class ConnectVersions {
         locale,
         fields: pickListingFields(localization.attributes, VERSION_LISTING_FIELDS),
       };
-    });
+    }
+
+    return appleResources.map(mapLocalization);
   }
 
   async createVersionLocalization(
@@ -95,12 +101,18 @@ export class ConnectVersions {
     }>(
       `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=50&fields[appStoreVersions]=appVersionState,appStoreState,copyright`,
     );
-    const editable = appleResources.find((version) => {
+    function findVersion(version: {
+      id: string;
+      attributes: { appVersionState?: string; appStoreState?: string; copyright?: string | null };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let versionState = version.attributes.appVersionState;
       if (versionState == null) versionState = version.attributes.appStoreState;
       if (versionState == null) return false;
       return EDITABLE_METADATA_STATES.has(versionState);
-    });
+    }
+
+    const editable = appleResources.find(findVersion);
     if (editable == null) return null;
     let copyright = editable.attributes.copyright;
     if (typeof copyright != 'string') copyright = '';
@@ -226,7 +238,11 @@ export class ConnectVersions {
     }>(
       `/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=200&fields[appStoreVersionLocalizations]=locale,whatsNew`,
     );
-    return appleResources.flatMap((localization) => {
+    function flatMapLocalization(localization: {
+      id: string;
+      attributes: { locale?: string; whatsNew?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const locale = localization.attributes.locale;
       if (locale == null) return [];
       const versionLocalization: AppStoreVersionLocalizationResource = {
@@ -236,7 +252,9 @@ export class ConnectVersions {
       if (localization.attributes.whatsNew != null)
         Object.assign(versionLocalization, { whatsNew: localization.attributes.whatsNew });
       return [versionLocalization];
-    });
+    }
+
+    return appleResources.flatMap(flatMapLocalization);
   }
 
   async createAppStoreVersionLocalization(
@@ -322,11 +340,17 @@ export class ConnectVersions {
     }>(
       `/apps/${appId}/reviewSubmissions?filter[platform]=${platform}&limit=200&fields[reviewSubmissions]=state`,
     );
-    return appleResources.map((submission) => {
+    function mapSubmission(submission: {
+      id: string;
+      attributes: { state?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let state = submission.attributes.state;
       if (state == null) state = '';
       return { id: submission.id, state };
-    });
+    }
+
+    return appleResources.map(mapSubmission);
   }
 
   async createReviewSubmission(appId: string, platform: string): Promise<ReviewSubmissionResource> {

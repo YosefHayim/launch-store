@@ -7,13 +7,13 @@ function resolveTestLogPath(buildIdentifier: string): string {
 
   return buildLogPath(buildIdentifier);
 }
-
-afterEach(() => {
+function cleanup() {
   resetLaunchDirectories();
-});
+}
 
-describe('buildLogId', () => {
-  it('joins the natural keys into the same id `builds list` shows', () => {
+afterEach(cleanup);
+function describeBuildLogId() {
+  function joinsTheNaturalKeysIntoTheSameIdBuildsListShows() {
     const logId = buildLogId({
       appName: 'demo',
       version: '1.2.0',
@@ -21,13 +21,32 @@ describe('buildLogId', () => {
       platform: 'ios',
     });
     expect(logId).toBe('demo-1.2.0-7-ios');
-  });
-});
-describe('buildLogPath', () => {
-  it('derives a .log filename under the logs dir from the id', () => {
+  }
+
+  it(
+    'joins the natural keys into the same id `builds list` shows',
+    joinsTheNaturalKeysIntoTheSameIdBuildsListShows,
+  );
+}
+
+describe('buildLogId', describeBuildLogId);
+function describeBuildLogPath() {
+  function derivesALogFilenameUnderTheLogsDirFromTheId() {
     expect(resolveTestLogPath('demo-1.2.0-7-ios').endsWith('demo-1.2.0-7-ios.log')).toBe(true);
-  });
-  it('sanitizes filesystem-unsafe characters in the id', () => {
+  }
+
+  it(
+    'derives a .log filename under the logs dir from the id',
+    derivesALogFilenameUnderTheLogsDirFromTheId,
+  );
+  function sanitizesFilesystemUnsafeCharactersInTheId() {
     expect(resolveTestLogPath('a/b c').endsWith('a-b-c.log')).toBe(true);
-  });
-});
+  }
+
+  it(
+    'sanitizes filesystem-unsafe characters in the id',
+    sanitizesFilesystemUnsafeCharactersInTheId,
+  );
+}
+
+describe('buildLogPath', describeBuildLogPath);

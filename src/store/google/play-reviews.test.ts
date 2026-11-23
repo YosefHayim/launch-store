@@ -50,9 +50,8 @@ function makePlayReview(reviewFields: Partial<PlayReview> = {}): PlayReview {
 function reviewIdOf(playReview: PlayReview): string {
   return playReview.reviewId;
 }
-
-describe('listPlayReviews', () => {
-  it('filters by rating and unanswered status client-side', async () => {
+function describeListPlayReviews() {
+  async function filtersByRatingAndUnansweredStatusClientSide() {
     const playReview = makePlayReview({ reviewId: 'a', rating: 5, answered: false });
     const { playReviewsApi } = makePlayReviewsApi([
       playReview,
@@ -66,9 +65,13 @@ describe('listPlayReviews', () => {
 
     expect(fiveStarReviews.map(reviewIdOf)).toEqual(['a', 'c']);
     expect(unansweredReviews.map(reviewIdOf)).toEqual(['a', 'b']);
-  });
+  }
 
-  it('passes a translation language through and omits it otherwise', async () => {
+  it(
+    'filters by rating and unanswered status client-side',
+    filtersByRatingAndUnansweredStatusClientSide,
+  );
+  async function passesATranslationLanguageThroughAndOmitsItOtherwise() {
     const playReview = makePlayReview();
     const { playReviewsApi, calls } = makePlayReviewsApi([playReview]);
 
@@ -76,11 +79,17 @@ describe('listPlayReviews', () => {
     await listPlayReviews(playReviewsApi, 'com.acme.app', {});
 
     expect(calls.listOptions).toEqual([{ translationLanguage: 'en-US' }, {}]);
-  });
-});
+  }
 
-describe('replyToPlayReview', () => {
-  it('reports replaced=false when the review had no developer reply', async () => {
+  it(
+    'passes a translation language through and omits it otherwise',
+    passesATranslationLanguageThroughAndOmitsItOtherwise,
+  );
+}
+
+describe('listPlayReviews', describeListPlayReviews);
+function describeReplyToPlayReview() {
+  async function reportsReplacedFalseWhenTheReviewHadNoDeveloperReply() {
     const playReview = makePlayReview({ reviewId: 'r1', answered: false });
     const { playReviewsApi, calls } = makePlayReviewsApi([playReview]);
     const replyOutcome = await replyToPlayReview(
@@ -94,9 +103,13 @@ describe('replyToPlayReview', () => {
     expect(replyOutcome.replaced).toBe(false);
     expect(replyOutcome.reply.replyText).toBe('Thanks!');
     expect(calls.replies).toEqual([{ reviewId: 'r1', replyText: 'Thanks!' }]);
-  });
+  }
 
-  it('reports replaced=true when a developer reply already existed', async () => {
+  it(
+    'reports replaced=false when the review had no developer reply',
+    reportsReplacedFalseWhenTheReviewHadNoDeveloperReply,
+  );
+  async function reportsReplacedTrueWhenADeveloperReplyAlreadyExisted() {
     const playReview = makePlayReview({
       reviewId: 'r1',
       answered: true,
@@ -112,5 +125,12 @@ describe('replyToPlayReview', () => {
     );
 
     expect(replyOutcome.replaced).toBe(true);
-  });
-});
+  }
+
+  it(
+    'reports replaced=true when a developer reply already existed',
+    reportsReplacedTrueWhenADeveloperReplyAlreadyExisted,
+  );
+}
+
+describe('replyToPlayReview', describeReplyToPlayReview);

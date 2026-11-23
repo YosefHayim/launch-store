@@ -36,40 +36,40 @@ type NativeTargetRef = {
   productType: string;
 };
 /** Read one parser line without leaking undefined into regex operations. */
-const lineAt = (lines: readonly string[], lineIndex: number): string => {
+function lineAt(lines: readonly string[], lineIndex: number): string {
   const sourceLine = lines[lineIndex];
   if (sourceLine == null) return '';
   return sourceLine;
-};
+}
 /**
  * Pull the object id assigned on a line like `<key> = <id> /* ... *​/;` - the unquoted hex (or any
  * non-whitespace token) immediately after `=`. Used for `buildConfigurationList` references. Returns
  * null when the line carries no assignment.
  */
-const assignedId = (line: string): string | null => {
+function assignedId(line: string): string | null {
   const match = /[=]\s*([^\s;]+)/.exec(line);
   const assignedIdentifier = match?.[1];
   if (assignedIdentifier == null) return null;
   return assignedIdentifier;
-};
+}
 /**
  * Pull a bare `<key> = <value>;` string value (e.g. `name = widget;` or `PRODUCT_BUNDLE_IDENTIFIER =
  * com.x.y;`), stripping surrounding quotes Xcode adds around values with special characters. Returns
  * null when the line doesn't assign `key`.
  */
-const stringValue = (line: string, key: string): string | null => {
+function stringValue(line: string, key: string): string | null {
   const match = new RegExp(`^\\s*${key}\\s*=\\s*"?([^";]+)"?\\s*;`).exec(line);
   const assignedText = match?.[1]?.trim();
   if (assignedText == null) return null;
   return assignedText;
-};
+}
 /**
  * Parse every `PBXNativeTarget` block: its `name`, its `buildConfigurationList` id, and its
  * `productType`. One pass over the lines, tracking the brace depth of the target object so a nested
  * `buildSettings` key never leaks into the wrong target. The opening line of each target object is
  * `<id> /* <Name> *​/ = {` followed by `isa = PBXNativeTarget;`.
  */
-const parseNativeTargets = (lines: string[]): NativeTargetRef[] => {
+function parseNativeTargets(lines: string[]): NativeTargetRef[] {
   const targets: NativeTargetRef[] = [];
   for (let i = 0; i < lines.length; i++) {
     if (!/isa\s*=\s*PBXNativeTarget;/.test(lineAt(lines, i))) continue;
@@ -96,13 +96,13 @@ const parseNativeTargets = (lines: string[]): NativeTargetRef[] => {
     }
   }
   return targets;
-};
+}
 /**
  * Map each `XCConfigurationList` object id to the `XCBuildConfiguration` object ids it lists. A target
  * reaches its build settings through this indirection (`PBXNativeTarget.buildConfigurationList` ->
  * `XCConfigurationList.buildConfigurations` -> each `XCBuildConfiguration`).
  */
-const parseConfigurationLists = (lines: string[]): Map<string, string[]> => {
+function parseConfigurationLists(lines: string[]): Map<string, string[]> {
   const lists = new Map<string, string[]>();
   for (let i = 0; i < lines.length; i++) {
     const header = /^\s*([0-9A-Fa-f]+)\b.*=\s*\{/.exec(lineAt(lines, i));
@@ -125,13 +125,13 @@ const parseConfigurationLists = (lines: string[]): Map<string, string[]> => {
     if (header[1]) lists.set(header[1], configIds);
   }
   return lists;
-};
+}
 /**
  * Map each `XCBuildConfiguration` object id to its `PRODUCT_BUNDLE_IDENTIFIER`, skipping any value that
  * is still an unexpanded build variable (`$(...)`) - those can't name an App ID, so a target with only
  * variable bundle ids is treated as having none (and is dropped from discovery rather than guessed at).
  */
-const parseBundleIdsByConfig = (lines: string[]): Map<string, string> => {
+function parseBundleIdsByConfig(lines: string[]): Map<string, string> {
   const bundleIds = new Map<string, string>();
   for (let i = 0; i < lines.length; i++) {
     const header = /^\s*([0-9A-Fa-f]+)\b.*=\s*\{/.exec(lineAt(lines, i));
@@ -147,40 +147,82 @@ const parseBundleIdsByConfig = (lines: string[]): Map<string, string> => {
     }
   }
   return bundleIds;
-};
-export const parsePbxprojTargets = (pbxproj: string): DiscoveredTarget[] => {
+}
+export function parsePbxprojTargets(pbxproj: string): DiscoveredTarget[] {
   const lines = pbxproj.split('\n');
   const configLists = parseConfigurationLists(lines);
   const bundleIdsByConfig = parseBundleIdsByConfig(lines);
-  return parseNativeTargets(lines).flatMap((target) => {
+  function flatMapTarget(target: {
+    name: string;
+    buildConfigurationListId: string;
+    productType: string;
+  }) {
     let configIds: string[] = [];
     const configuredIds = configLists.get(target.buildConfigurationListId);
     if (configuredIds != null) configIds = configuredIds;
-    const bundleId = configIds.map((id) => bundleIdsByConfig.get(id)).find((id) => id != null);
+    function mapId(id: string) {
+      return bundleIdsByConfig.get(id);
+    }
+
+    function findId(id: string | undefined) {
+      return id != null;
+    }
+
+    const bundleId = configIds.map(mapId).find(findId);
     if (bundleId == null) return [];
     return [{ name: target.name, bundleId, productType: target.productType }];
-  });
-};
-export const splitMainAndExtensions = (
+  }
+
+  return parseNativeTargets(lines).flatMap(flatMapTarget);
+}
+export function splitMainAndExtensions(
   targets: DiscoveredTarget[],
   mainBundleId?: string,
 ): {
   main: string | undefined;
   extensions: string[];
-} => {
-  let main = targets.find((target) => target.bundleId == mainBundleId)?.bundleId;
-  if (main == null) {
-    /** The Xcode product type marking the primary app target (everything else is an embedded extension). */
-    main = targets.find(
-      (target) => target.productType == 'com.apple.product-type.application',
-    )?.bundleId;
+} {
+  function findTarget(target: {
+    readonly name: string;
+    readonly bundleId: string;
+    readonly productType: string;
+  }) {
+    return target.bundleId == mainBundleId;
   }
-  const extensions = targets
-    .filter((target) => target.bundleId != main)
-    .map((target) => target.bundleId);
+
+  let main = targets.find(findTarget)?.bundleId;
+  if (main == null) {
+    function findTarget2(target: {
+      readonly name: string;
+      readonly bundleId: string;
+      readonly productType: string;
+    }) {
+      return target.productType == 'com.apple.product-type.application';
+    }
+
+    /** The Xcode product type marking the primary app target (everything else is an embedded extension). */
+    main = targets.find(findTarget2)?.bundleId;
+  }
+  function filterTarget(target: {
+    readonly name: string;
+    readonly bundleId: string;
+    readonly productType: string;
+  }) {
+    return target.bundleId != main;
+  }
+
+  function readBundleId(target: {
+    readonly name: string;
+    readonly bundleId: string;
+    readonly productType: string;
+  }) {
+    return target.bundleId;
+  }
+
+  const extensions = targets.filter(filterTarget).map(readBundleId);
   // De-dupe in case Debug/Release configs surfaced the same extension twice, preserving first-seen order.
   return { main, extensions: [...new Set(extensions)] };
-};
+}
 /**
  * Locate the `*.xcodeproj/project.pbxproj` inside a generated native project directory (e.g. `ios/`),
  * or null when the project hasn't been generated yet (pre-prebuild). Reads only the directory listing.
@@ -228,9 +270,7 @@ export async function discoverExtensionBundleIds(
 
   return splitMainAndExtensions(targets, mainBundleId).extensions;
 }
-export const multiTargetSigningWarnings = (
-  readiness: readonly TargetSigningReadiness[],
-): string[] => {
+export function multiTargetSigningWarnings(readiness: readonly TargetSigningReadiness[]): string[] {
   const warnings: string[] = [];
   for (const target of readiness) {
     if (!target.registered) {
@@ -249,7 +289,7 @@ export const multiTargetSigningWarnings = (
     }
   }
   return warnings;
-};
+}
 /**
  * The per-target manual-signing inputs stamped into a multi-target project before archiving: the one team
  * that signs every target, and each target's `bundleId -> profileName` (the main app plus every embedded
@@ -261,19 +301,19 @@ type ManualSigningTargets = {
   profileByBundleId: Record<string, string>;
 };
 /** Count the net brace balance a line contributes (`{` opens minus `}` closes) - the pbxproj is brace-nested. */
-const braceDelta = (line: string): number => {
+function braceDelta(line: string): number {
   let openingBraces = line.match(/\{/g)?.length;
   if (openingBraces == null) openingBraces = 0;
   let closingBraces = line.match(/\}/g)?.length;
   if (closingBraces == null) closingBraces = 0;
   return openingBraces - closingBraces;
-};
+}
 /**
  * Map each `XCBuildConfiguration` object id to its `name` (`Debug` / `Release` / ...). Brace-depth-counted so
  * the name is read at the object's own scope and never confused with a key inside its nested `buildSettings`
  * dict - Expo writes `name = Release;` AFTER that dict, so a naive "stop at the first `};`" scan misses it.
  */
-const parseConfigNames = (lines: string[]): Map<string, string> => {
+function parseConfigNames(lines: string[]): Map<string, string> {
   const names = new Map<string, string>();
   for (let i = 0; i < lines.length; i++) {
     const header = /^\s*([0-9A-Fa-f]+)\b.*=\s*\{/.exec(lineAt(lines, i));
@@ -291,16 +331,16 @@ const parseConfigNames = (lines: string[]): Map<string, string> => {
     }
   }
   return names;
-};
+}
 /**
  * For every target that has a resolved profile, map its **Release** `XCBuildConfiguration` object id to that
  * profile name - the exact configs {@link stampManualSigningIntoPbxproj} rewrites. Only Release is touched,
  * so a target's Debug config (used by dev-client runs) stays byte-identical. Pure.
  */
-const releaseConfigProfiles = (
+function releaseConfigProfiles(
   lines: string[],
   profileByBundleId: Record<string, string>,
-): Map<string, string> => {
+): Map<string, string> {
   const configLists = parseConfigurationLists(lines);
   const configNames = parseConfigNames(lines);
   const bundleIdsByConfig = parseBundleIdsByConfig(lines);
@@ -309,15 +349,27 @@ const releaseConfigProfiles = (
     let configIds: string[] = [];
     const configuredIds = configLists.get(target.buildConfigurationListId);
     if (configuredIds != null) configIds = configuredIds;
-    const releaseConfigId = configIds.find((id) => configNames.get(id) == 'Release');
-    const bundleId = configIds.map((id) => bundleIdsByConfig.get(id)).find((id) => id != null);
+    function findId2(id: string) {
+      return configNames.get(id) == 'Release';
+    }
+
+    const releaseConfigId = configIds.find(findId2);
+    function mapId2(id: string) {
+      return bundleIdsByConfig.get(id);
+    }
+
+    function findId3(id: string | undefined) {
+      return id != null;
+    }
+
+    const bundleId = configIds.map(mapId2).find(findId3);
     let profileName: string | undefined;
     if (bundleId != null) profileName = profileByBundleId[bundleId];
     if (releaseConfigId && profileName)
       profilesByReleaseConfiguration.set(releaseConfigId, profileName);
   }
   return profilesByReleaseConfiguration;
-};
+}
 /**
  * Stamp per-target manual signing into a project's `project.pbxproj` and return the rewritten text
  * (the input unchanged when no target matched a profile). Launch drops `PROVISIONING_PROFILE_SPECIFIER`
@@ -331,10 +383,10 @@ const releaseConfigProfiles = (
  * `PROVISIONING_PROFILE_SPECIFIER`; the three managed keys are replaced rather than appended, so re-running
  * across rebuilds is idempotent. Pure - the file I/O is {@link writeManualSigningToProject}.
  */
-export const stampManualSigningIntoPbxproj = (
+export function stampManualSigningIntoPbxproj(
   pbxproj: string,
   signing: ManualSigningTargets,
-): string => {
+): string {
   const lines = pbxproj.split('\n');
   const releaseProfiles = releaseConfigProfiles(lines, signing.profileByBundleId);
   if (releaseProfiles.size == 0) return pbxproj;
@@ -392,7 +444,7 @@ export const stampManualSigningIntoPbxproj = (
     if (depth == 0) profile = null; // the config object closed
   }
   return out.join('\n');
-};
+}
 export async function writeManualSigningToProject(
   nativeDirectory: string,
   signing: ManualSigningTargets,

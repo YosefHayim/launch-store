@@ -14,17 +14,18 @@ import {
 const APP_ID = '1490000000';
 
 /** Build a minimal app descriptor for console-link selection. */
-const appDescriptor = (
+function appDescriptor(
   name: string,
   identifierFields: Pick<AppDescriptor, 'bundleId' | 'packageName'> = {},
-): AppDescriptor => ({
-  name,
-  dir: `/repo/${name}`,
-  configPath: `/repo/${name}/app.json`,
-  ...identifierFields,
-});
-
-describe('buildConsoleUrl - iOS deep links with a resolved app id', () => {
+): AppDescriptor {
+  return {
+    name,
+    dir: `/repo/${name}`,
+    configPath: `/repo/${name}/app.json`,
+    ...identifierFields,
+  };
+}
+function describeBuildConsoleUrlIOSDeepLinksWithAResolvedAppId() {
   const targetCases: readonly [OpenTarget, string][] = [
     ['asc', `https://appstoreconnect.apple.com/apps/${APP_ID}`],
     ['app-record', `https://appstoreconnect.apple.com/apps/${APP_ID}`],
@@ -34,25 +35,44 @@ describe('buildConsoleUrl - iOS deep links with a resolved app id', () => {
     ['agreements', 'https://appstoreconnect.apple.com/agreements/'],
     ['play', 'https://play.google.com/console'],
   ];
-  it.each(targetCases)('%s -> %s', (target, expectedUrl) => {
+  function runTarget(
+    target: 'testflight' | 'reviews' | 'play' | 'listing' | 'asc' | 'agreements' | 'app-record',
+    expectedUrl: string,
+  ) {
     const consoleUrl = buildConsoleUrl(target, 'ios', APP_ID);
     expect(consoleUrl).toBe(expectedUrl);
-  });
-});
+  }
 
-describe('buildConsoleUrl - iOS without a resolved app id', () => {
+  it.each(targetCases)('%s -> %s', runTarget);
+}
+
+describe(
+  'buildConsoleUrl - iOS deep links with a resolved app id',
+  describeBuildConsoleUrlIOSDeepLinksWithAResolvedAppId,
+);
+function describeBuildConsoleUrlIOSWithoutAResolvedAppId() {
   const appTargets: OpenTarget[] = ['asc', 'app-record', 'testflight', 'listing', 'reviews'];
-  it.each(appTargets)('%s falls back to the apps list', (target) => {
+  function runTarget2(
+    target: 'testflight' | 'reviews' | 'play' | 'listing' | 'asc' | 'agreements' | 'app-record',
+  ) {
     const consoleUrl = buildConsoleUrl(target, 'ios', undefined);
     expect(consoleUrl).toBe('https://appstoreconnect.apple.com/apps');
-  });
-  it('keeps agreements at account level', () => {
+  }
+
+  it.each(appTargets)('%s falls back to the apps list', runTarget2);
+  function keepsAgreementsAtAccountLevel() {
     const consoleUrl = buildConsoleUrl('agreements', 'ios', undefined);
     expect(consoleUrl).toBe('https://appstoreconnect.apple.com/agreements/');
-  });
-});
+  }
 
-describe('buildConsoleUrl - Android', () => {
+  it('keeps agreements at account level', keepsAgreementsAtAccountLevel);
+}
+
+describe(
+  'buildConsoleUrl - iOS without a resolved app id',
+  describeBuildConsoleUrlIOSWithoutAResolvedAppId,
+);
+function describeBuildConsoleUrlAndroid() {
   const targetCases: OpenTarget[] = [
     'asc',
     'play',
@@ -62,7 +82,9 @@ describe('buildConsoleUrl - Android', () => {
     'agreements',
     'app-record',
   ];
-  it.each(targetCases)('%s -> Play Console', (target) => {
+  function runTarget3(
+    target: 'testflight' | 'reviews' | 'play' | 'listing' | 'asc' | 'agreements' | 'app-record',
+  ) {
     const consoleUrl = buildConsoleUrl(target, 'android', APP_ID);
     expect(consoleUrl).toBe('https://play.google.com/console');
     expect(buildConsoleUrl(target, 'android', undefined)).toBe('https://play.google.com/console');
@@ -80,8 +102,12 @@ describe('buildConsoleUrl - Android', () => {
     expect(buildPlayPaymentsProfileUrl('123456789')).toBe(
       'https://play.google.com/console/u/0/developers/123456789/paymentssettings',
     );
-  });
-});
+  }
+
+  it.each(targetCases)('%s -> Play Console', runTarget3);
+}
+
+describe('buildConsoleUrl - Android', describeBuildConsoleUrlAndroid);
 
 function thrownCause(read: () => void): unknown {
   try {
@@ -92,13 +118,14 @@ function thrownCause(read: () => void): unknown {
 
   return null;
 }
-
-describe('parseOpenTarget', () => {
-  it('defaults to asc when no target is given', () => {
+function describeParseOpenTarget() {
+  function defaultsToAscWhenNoTargetIsGiven() {
     const openTarget = parseOpenTarget(undefined);
     expect(openTarget).toBe('asc');
-  });
-  it('accepts every documented target', () => {
+  }
+
+  it('defaults to asc when no target is given', defaultsToAscWhenNoTargetIsGiven);
+  function acceptsEveryDocumentedTarget() {
     for (const target of [
       'asc',
       'play',
@@ -111,43 +138,57 @@ describe('parseOpenTarget', () => {
       const openTarget = parseOpenTarget(target);
       expect(openTarget).toBe(target);
     }
-  });
-  it('rejects an unknown target with the valid list', () => {
+  }
+
+  it('accepts every documented target', acceptsEveryDocumentedTarget);
+  function rejectsAnUnknownTargetWithTheValidList() {
     const targetAttempt = thrownCause(function readTarget() {
       parseOpenTarget('dashboard');
     });
     expect(targetAttempt).toMatchObject({
       message: expect.stringMatching(/Unknown target "dashboard"/),
     });
-  });
-});
+  }
 
-describe('resolveOpenPlatform', () => {
-  it('honors an explicit platform flag', () => {
+  it('rejects an unknown target with the valid list', rejectsAnUnknownTargetWithTheValidList);
+}
+
+describe('parseOpenTarget', describeParseOpenTarget);
+function describeResolveOpenPlatform() {
+  function honorsAnExplicitPlatformFlag() {
     const openPlatform = resolveOpenPlatform('asc', 'android');
     expect(openPlatform).toBe('android');
     expect(resolveOpenPlatform('play', 'ios')).toBe('ios');
-  });
-  it('infers android for the play target', () => {
+  }
+
+  it('honors an explicit platform flag', honorsAnExplicitPlatformFlag);
+  function infersAndroidForThePlayTarget() {
     const openPlatform = resolveOpenPlatform('play', undefined);
     expect(openPlatform).toBe('android');
-  });
-  it('defaults to ios for every other target', () => {
+  }
+
+  it('infers android for the play target', infersAndroidForThePlayTarget);
+  function defaultsToIosForEveryOtherTarget() {
     const openPlatform = resolveOpenPlatform('asc', undefined);
     expect(openPlatform).toBe('ios');
     expect(resolveOpenPlatform('testflight', undefined)).toBe('ios');
-  });
-  it('rejects an invalid platform', () => {
+  }
+
+  it('defaults to ios for every other target', defaultsToIosForEveryOtherTarget);
+  function rejectsAnInvalidPlatform() {
     const platformAttempt = thrownCause(function readPlatform() {
       resolveOpenPlatform('asc', 'web');
     });
     expect(platformAttempt).toMatchObject({
       message: expect.stringMatching(/Unknown platform "web"/),
     });
-  });
-});
+  }
 
-describe('selectOpenApp', () => {
+  it('rejects an invalid platform', rejectsAnInvalidPlatform);
+}
+
+describe('resolveOpenPlatform', describeResolveOpenPlatform);
+function describeSelectOpenApp() {
   const discoveredApps = [
     appDescriptor('alpha', { bundleId: 'com.acme.alpha' }),
     appDescriptor('beta', { packageName: 'com.acme.beta' }),
@@ -156,25 +197,33 @@ describe('selectOpenApp', () => {
       packageName: 'com.acme.gamma',
     }),
   ];
-  it('picks the first iOS app with a bundle id', async () => {
+  async function picksTheFirstIOSAppWithABundleId() {
     const selectedApp = await selectOpenApp(discoveredApps, 'ios', undefined);
     expect(selectedApp.name).toBe('alpha');
-  });
-  it('picks the first Android app with a package name', async () => {
+  }
+
+  it('picks the first iOS app with a bundle id', picksTheFirstIOSAppWithABundleId);
+  async function picksTheFirstAndroidAppWithAPackageName() {
     const selectedApp = await selectOpenApp(discoveredApps, 'android', undefined);
     expect(selectedApp.name).toBe('beta');
-  });
-  it('narrows to the named app', async () => {
+  }
+
+  it('picks the first Android app with a package name', picksTheFirstAndroidAppWithAPackageName);
+  async function narrowsToTheNamedApp() {
     const selectedApp = await selectOpenApp(discoveredApps, 'ios', 'gamma');
     expect(selectedApp.name).toBe('gamma');
-  });
-  it('rejects a named app without the platform id', async () => {
+  }
+
+  it('narrows to the named app', narrowsToTheNamedApp);
+  async function rejectsANamedAppWithoutThePlatformId() {
     const openApp = selectOpenApp(discoveredApps, 'ios', 'beta');
     await expect(openApp).rejects.toMatchObject({
       message: expect.stringMatching(/No ios app found matching "beta"/),
     });
-  });
-  it('rejects a catalog without a qualifying app', async () => {
+  }
+
+  it('rejects a named app without the platform id', rejectsANamedAppWithoutThePlatformId);
+  async function rejectsACatalogWithoutAQualifyingApp() {
     const openApp = selectOpenApp(
       [appDescriptor('solo', { bundleId: 'com.acme.solo' })],
       'android',
@@ -183,5 +232,9 @@ describe('selectOpenApp', () => {
     await expect(openApp).rejects.toMatchObject({
       message: expect.stringMatching(/android\.package/),
     });
-  });
-});
+  }
+
+  it('rejects a catalog without a qualifying app', rejectsACatalogWithoutAQualifyingApp);
+}
+
+describe('selectOpenApp', describeSelectOpenApp);

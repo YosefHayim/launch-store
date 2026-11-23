@@ -23,42 +23,40 @@ const ANDROID_LIMITS = {
   fullDescription: 4000,
 } as const;
 /** Hard-truncate to `max`, trimming a trailing partial word's whitespace so the cut reads cleanly. */
-const clampText = (listingText: string, maxCharacters: number): string => {
+function clampText(listingText: string, maxCharacters: number): string {
   if (listingText.length <= maxCharacters) return listingText;
   return listingText.slice(0, maxCharacters).trimEnd();
-};
+}
 /** The comma-joined serialization Apple counts against the 100-char keyword limit. */
-export const serializeKeywords = (keywords: readonly string[]): string => {
+export function serializeKeywords(keywords: readonly string[]): string {
   return keywords.join(', ');
-};
+}
 /** Keep keywords from the front until adding the next would overflow the joined-string limit. */
-const clampKeywords = (keywords: readonly string[], maxCharacters: number): string[] => {
+function clampKeywords(keywords: readonly string[], maxCharacters: number): string[] {
   const keptKeywords: string[] = [];
   for (const keyword of keywords) {
     if (serializeKeywords([...keptKeywords, keyword]).length > maxCharacters) break;
     keptKeywords.push(keyword);
   }
   return keptKeywords;
-};
+}
 /**
  * Clamp every field of a draft to its App Store limit, returning the safe draft plus a warning per
  * field that had to be trimmed. A generator is asked to respect the limits, but this is the guarantee:
  * nothing over-length ever reaches the config, and the user sees exactly what was cut in the preview.
  */
-export const clampDraft = (
-  listingDraft: DraftListing,
-): {
+export function clampDraft(listingDraft: DraftListing): {
   draft: DraftListing;
   warnings: string[];
-} => {
+} {
   const warningMessages: string[] = [];
   const clampedDraft: MutableDeep<DraftListing> = {};
   /** Clamp one optional text field, recording a warning when it was over the limit. */
-  const fitText = (
+  function fitText(
     listingText: string | undefined,
     maxCharacters: number,
     fieldLabel: string,
-  ): string | undefined => {
+  ): string | undefined {
     if (listingText == null) return undefined;
     if (listingText.length > maxCharacters) {
       warningMessages.push(
@@ -67,7 +65,7 @@ export const clampDraft = (
       return clampText(listingText, maxCharacters);
     }
     return listingText;
-  };
+  }
   const title = fitText(listingDraft.title, APPLE_LIMITS.title, 'title');
   if (title != null) clampedDraft.title = title;
   const subtitle = fitText(listingDraft.subtitle, APPLE_LIMITS.subtitle, 'subtitle');
@@ -90,19 +88,19 @@ export const clampDraft = (
     if (keptKeywords.length > 0) clampedDraft.keywords = keptKeywords;
   }
   return { draft: clampedDraft, warnings: warningMessages };
-};
+}
 /**
  * Build the brief for one locale. The creative seed is `aboutOverride` (a `--about` flag) when given,
  * else the locale's existing promotional text or subtitle - so by default the model refines what's
  * already there rather than inventing from nothing. Existing keywords and the whole current listing are
  * passed through for the same reason.
  */
-export const briefFor = (
+export function briefFor(
   localeName: string,
   displayName: string,
   currentListing: AppleLocaleInfo | undefined,
   aboutOverride: string | undefined,
-): ListingBrief => {
+): ListingBrief {
   const listingBrief: MutableDeep<ListingBrief> = { locale: localeName, appName: displayName };
   let aboutText = aboutOverride;
   if (aboutText == null && currentListing != null) aboutText = currentListing.promotionalText;
@@ -112,13 +110,13 @@ export const briefFor = (
     listingBrief.keywords = currentListing.keywords;
   if (currentListing != null) listingBrief.current = currentListing;
   return listingBrief;
-};
+}
 /**
  * Derive a Play listing from the App Store draft: the Play short description has no Apple twin, so it
  * borrows the subtitle (falling back to the promotional text), clamped to Play's tighter limit. Title
  * and full description map straight across. Returns only the fields the draft actually supplies.
  */
-export const deriveAndroidLocale = (listingDraft: DraftListing): AndroidLocaleInfo => {
+export function deriveAndroidLocale(listingDraft: DraftListing): AndroidLocaleInfo {
   const androidListing: AndroidLocaleInfo = {};
   if (listingDraft.title != null)
     androidListing.title = clampText(listingDraft.title, ANDROID_LIMITS.title);
@@ -133,17 +131,17 @@ export const deriveAndroidLocale = (listingDraft: DraftListing): AndroidLocaleIn
       ANDROID_LIMITS.fullDescription,
     );
   return androidListing;
-};
+}
 /**
  * Fold a draft into a config for one locale, immutably: spread the draft over the locale's existing
  * fields (so untouched fields and other locales survive), per targeted platform. The App Store fields
  * map 1:1; the Play fields are derived via {@link deriveAndroidLocale}. Returns a new config.
  */
 /** Merge a draft over one locale's existing App Store listing, copying keywords into a mutable array. */
-const mergeAppleLocale = (
+function mergeAppleLocale(
   existingLocale: AppleLocaleInfo | undefined,
   listingDraft: DraftListing,
-): AppleLocaleInfo => {
+): AppleLocaleInfo {
   const mergedLocale: MutableDeep<AppleLocaleInfo> = {};
   if (existingLocale != null) {
     if (existingLocale.title != null) mergedLocale.title = existingLocale.title;
@@ -167,9 +165,9 @@ const mergeAppleLocale = (
     mergedLocale.promotionalText = listingDraft.promotionalText;
   if (listingDraft.keywords != null) mergedLocale.keywords = [...listingDraft.keywords];
   return mergedLocale;
-};
+}
 
-export const applyDraft = (
+export function applyDraft(
   storeConfiguration: StoreConfig,
   localeName: string,
   listingDraft: DraftListing,
@@ -177,7 +175,7 @@ export const applyDraft = (
     ios: boolean;
     android: boolean;
   },
-): StoreConfig => {
+): StoreConfig {
   const updatedStoreConfiguration: StoreConfig = { ...storeConfiguration };
   if (listingTargets.ios) {
     let appleListing = storeConfiguration.apple;
@@ -204,35 +202,43 @@ export const applyDraft = (
     };
   }
   return updatedStoreConfiguration;
-};
+}
 /** Collapse a long field to a single trimmed line for the preview, with an ellipsis when cut. */
-const previewText = (listingText: string): string => {
+function previewText(listingText: string): string {
   const singleLineText = listingText.replace(/\s+/g, ' ').trim();
   if (singleLineText.length > 60) return `${singleLineText.slice(0, 57)}...`;
   return singleLineText;
-};
+}
 /** Format one aligned preview line with its character budget. */
-const previewLine = (
+function previewLine(
   fieldLabel: string,
   listingText: string,
   usedCharacters: number,
   characterLimit: number,
-): string => {
+): string {
   return `    ${fieldLabel.padEnd(13)} ${previewText(listingText)}  (${usedCharacters}/${characterLimit})`;
-};
+}
 /**
  * Render the drafts for confirmation: per locale, the App Store fields (and, when Android is targeted,
  * the derived Play fields), each with its character budget, followed by any clamp warnings. This is the
  * "review" half of the plan->confirm->apply loop - what the user reads before agreeing to write.
  */
-export const renderDraftPreview = (
+export function renderDraftPreview(
   listingDrafts: LocaleDraft[],
   listingTargets: {
     ios: boolean;
     android: boolean;
   },
-): string => {
-  const localePreviews = listingDrafts.map(({ locale, draft, warnings }) => {
+): string {
+  function mapPiece({
+    locale,
+    draft,
+    warnings,
+  }: {
+    readonly locale: string;
+    readonly draft: DraftListing;
+    readonly warnings: readonly string[];
+  }) {
     const lines = [`  ${locale}`];
     if (listingTargets.ios) {
       if (draft.title != null)
@@ -290,8 +296,10 @@ export const renderDraftPreview = (
     }
     for (const warning of warnings) lines.push(`    WARN ${warning}`);
     return lines.join('\n');
-  });
+  }
+
+  const localePreviews = listingDrafts.map(mapPiece);
   return ['listing draft (nothing is written until you confirm):', '', ...localePreviews].join(
     '\n',
   );
-};
+}

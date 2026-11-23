@@ -10,11 +10,11 @@ const SURFACE = 'accessibility';
 export const accessibilityPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  plan: (planContext) =>
-    planAppStoreSurface(planContext, {
+  plan(planContext) {
+    return planAppStoreSurface(planContext, {
       surface: SURFACE,
       direction: 'additive',
-      configFor: () => {
+      configFor() {
         let configPath = planContext.config.configFiles?.accessibility;
         if (configPath == null) configPath = 'accessibility.config.json';
         return resolveSidecarConfig({
@@ -24,7 +24,9 @@ export const accessibilityPlanner: SurfacePlanner = {
           load: loadAccessibilityConfig,
         });
       },
-      reconcile: (api, bundleId, config) =>
-        reconcileAccessibility(api, { bundleId, config, dryRun: true }),
-    }),
+      reconcile(api, bundleId, config) {
+        return reconcileAccessibility(api, { bundleId, config, dryRun: true });
+      },
+    });
+  },
 };

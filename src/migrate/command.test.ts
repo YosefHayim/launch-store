@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MigrateCommandInputSchema } from './command.ts';
-
-describe('MigrateCommandInputSchema', () => {
-  it('accepts eas and fastlane with force, dryRun, and optional out', () => {
+function describeMigrateCommandPieceSchema() {
+  function acceptsEasAndFastlaneWithForceDryRunAndOptionalOut() {
     const migrateCommandSchema = MigrateCommandInputSchema({
       source: 'eas',
       force: false,
@@ -26,15 +25,25 @@ describe('MigrateCommandInputSchema', () => {
       force: true,
       dryRun: false,
     });
-  });
+  }
 
-  it('rejects an unknown migration source', () => {
-    expect(() =>
-      MigrateCommandInputSchema({
+  it(
+    'accepts eas and fastlane with force, dryRun, and optional out',
+    acceptsEasAndFastlaneWithForceDryRunAndOptionalOut,
+  );
+  function rejectsAnUnknownMigrationPiece() {
+    function callMigrateCommandPieceSchema() {
+      return MigrateCommandInputSchema({
         source: 'codemagic',
         force: false,
         dryRun: false,
-      }),
-    ).toThrow();
-  });
-});
+      });
+    }
+
+    expect(callMigrateCommandPieceSchema).toThrow();
+  }
+
+  it('rejects an unknown migration source', rejectsAnUnknownMigrationPiece);
+}
+
+describe('MigrateCommandInputSchema', describeMigrateCommandPieceSchema);

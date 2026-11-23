@@ -7,7 +7,7 @@ import type { OtaCarSpec } from './orchestrator.ts';
  * Map an App Store release verdict to a native car state.
  * `null` keeps the car put on transient/unknown reads.
  */
-export const iosCarState = (verdict: ReleaseVerdict): NativeCarState | null => {
+export function iosCarState(verdict: ReleaseVerdict): NativeCarState | null {
   switch (verdict.state) {
     case 'released':
       return 'released';
@@ -22,13 +22,13 @@ export const iosCarState = (verdict: ReleaseVerdict): NativeCarState | null => {
     case 'unknown':
       return null;
   }
-};
+}
 
 /**
  * Map a Play production track to a native car state.
  * Processed track releases count as live; empty/unknown holds the car put.
  */
-export const androidCarState = (releases: readonly PlayRelease[]): NativeCarState | null => {
+export function androidCarState(releases: readonly PlayRelease[]): NativeCarState | null {
   const release = releases[0];
   if (release == null) return null;
   switch (release.status) {
@@ -41,7 +41,7 @@ export const androidCarState = (releases: readonly PlayRelease[]): NativeCarStat
     default:
       return null;
   }
-};
+}
 
 /** Native legs plus OTA followers a train coordinates. */
 type TrainCarPlan = Readonly<{
@@ -64,17 +64,21 @@ export type TrainCarPlanInput = Readonly<{
  * Plan train cars from config + flags: native legs for declared
  * platforms, OTA followers when cloud storage is configured.
  */
-export const planTrainCars = (planInput: TrainCarPlanInput): TrainCarPlan => {
+export function planTrainCars(planInput: TrainCarPlanInput): TrainCarPlan {
   const platforms: TrainPlatform[] = [];
   if (planInput.hasBundleId && planInput.platformFilter != 'android') platforms.push('ios');
   if (planInput.hasPackageName && planInput.platformFilter != 'ios') platforms.push('android');
   let ota: OtaCarSpec[] = [];
   if (!planInput.noOta && planInput.hasCloudStorage) {
-    ota = platforms.map((platform) => ({
-      platform,
-      channel: planInput.channel,
-      runtimeVersion: planInput.runtimeVersion,
-    }));
+    function mapPlatform(platform: 'ios' | 'android') {
+      return {
+        platform,
+        channel: planInput.channel,
+        runtimeVersion: planInput.runtimeVersion,
+      };
+    }
+
+    ota = platforms.map(mapPlatform);
   }
   return { platforms, ota };
-};
+}

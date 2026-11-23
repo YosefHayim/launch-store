@@ -10,26 +10,51 @@ const easJson = `Building...
     "artifacts": { "applicationArchiveUrl": "https://expo.dev/artifacts/abc/app.ipa" }
   }
 ]`;
-describe('EAS adapter - parsing `eas build --json` output', () => {
-  it('extracts the downloadable artifact URL despite leading log lines', () => {
+function describeEASAdapterParsingEasBuildPiecePiece() {
+  function extractsTheDownloadableArtifactURLDespiteLeadingLogLines() {
     const artifactUrl = parseArtifactUrl(easJson);
     expect(artifactUrl).toBe('https://expo.dev/artifacts/abc/app.ipa');
-  });
-  it('falls back to buildUrl when applicationArchiveUrl is absent', () => {
+  }
+
+  it(
+    'extracts the downloadable artifact URL despite leading log lines',
+    extractsTheDownloadableArtifactURLDespiteLeadingLogLines,
+  );
+  function fallsBackToBuildUrlWhenApplicationArchiveUrlIsAbsent() {
     const json = '[{"artifacts":{"buildUrl":"https://expo.dev/b/x.ipa"}}]';
     const artifactUrl = parseArtifactUrl(json);
     expect(artifactUrl).toBe('https://expo.dev/b/x.ipa');
-  });
-  it('returns null when no artifact URL is present (CLI shape drift)', () => {
+  }
+
+  it(
+    'falls back to buildUrl when applicationArchiveUrl is absent',
+    fallsBackToBuildUrlWhenApplicationArchiveUrlIsAbsent,
+  );
+  function returnsNullWhenNoArtifactURLIsPresentCLIShapeDrift() {
     const artifactUrl = parseArtifactUrl('[{"status":"ERRORED"}]');
     expect(artifactUrl).toBeNull();
     expect(parseArtifactUrl('not json at all')).toBeNull();
-  });
-  it("reads the build number, defaulting to 0 when EAS doesn't report one", () => {
+  }
+
+  it(
+    'returns null when no artifact URL is present (CLI shape drift)',
+    returnsNullWhenNoArtifactURLIsPresentCLIShapeDrift,
+  );
+  function readsTheBuildNumberDefaultingTo0WhenEASDoesnTReportOne() {
     const buildNumber = parseBuildNumber(easJson);
     expect(buildNumber).toBe(42);
     expect(parseBuildNumber('[{"buildNumber":7}]')).toBe(7);
     expect(parseBuildNumber('[{}]')).toBe(0);
     expect(parseBuildNumber('garbage')).toBe(0);
-  });
-});
+  }
+
+  it(
+    "reads the build number, defaulting to 0 when EAS doesn't report one",
+    readsTheBuildNumberDefaultingTo0WhenEASDoesnTReportOne,
+  );
+}
+
+describe(
+  'EAS adapter - parsing `eas build --json` output',
+  describeEASAdapterParsingEasBuildPiecePiece,
+);

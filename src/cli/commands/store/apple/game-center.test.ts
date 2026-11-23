@@ -1,20 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from '../../../command.ts';
+import { Command, type CommandOption } from '../../../command.ts';
 import { registerGameCenterCommand } from './game-center.ts';
-
-describe('registerGameCenterCommand', () => {
-  it('attaches a `game-center` command with app, config, dry-run, and yes options', () => {
+function describeRegisterGameCenterCommand() {
+  function attachesAGameCenterCommandWithAppPieceDryRunAndYesPiece() {
     const program = new Command();
     registerGameCenterCommand(program);
-    const gameCenterCommand = program.commands.find(
-      (registeredCommand) => registeredCommand.name() == 'game-center',
-    );
+    function findRegisteredCommand(registeredCommand: Command) {
+      return registeredCommand.name() == 'game-center';
+    }
+
+    const gameCenterCommand = program.commands.find(findRegisteredCommand);
     expect(gameCenterCommand).toBeDefined();
     if (gameCenterCommand == null) return;
-    const optionFlags = gameCenterCommand.options.map((option) => option.long);
+    function readLong(option: CommandOption) {
+      return option.long;
+    }
+
+    const optionFlags = gameCenterCommand.options.map(readLong);
     expect(optionFlags).toContain('--app');
     expect(optionFlags).toContain('--config');
     expect(optionFlags).toContain('--dry-run');
     expect(optionFlags).toContain('--yes');
-  });
-});
+  }
+
+  it(
+    'attaches a `game-center` command with app, config, dry-run, and yes options',
+    attachesAGameCenterCommandWithAppPieceDryRunAndYesPiece,
+  );
+}
+
+describe('registerGameCenterCommand', describeRegisterGameCenterCommand);

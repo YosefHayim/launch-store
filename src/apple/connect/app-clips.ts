@@ -16,12 +16,18 @@ export class ConnectAppClips {
     const appleResources = await this.client.requestAll<{
       bundleId?: string;
     }>(`/apps/${appId}/appClips?limit=200`);
-    return appleResources.map((clip) => {
+    function mapClip(clip: {
+      id: string;
+      attributes: { bundleId?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const appClip: AppClipResource = { id: clip.id };
       if (clip.attributes.bundleId != null)
         Object.assign(appClip, { bundleId: clip.attributes.bundleId });
       return appClip;
-    });
+    }
+
+    return appleResources.map(mapClip);
   }
 
   async listAppClipDefaultExperiences(
@@ -99,7 +105,11 @@ export class ConnectAppClips {
     }>(
       `/appClipDefaultExperiences/${experienceId}/appClipDefaultExperienceLocalizations?limit=200`,
     );
-    return appleResources.map((localization) => {
+    function mapLocalization(localization: {
+      id: string;
+      attributes: { locale?: string; subtitle?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let locale = localization.attributes.locale;
       if (locale == null) locale = '';
       const localizedExperience: MutableDeep<AppClipLocalizationResource> = {
@@ -109,7 +119,9 @@ export class ConnectAppClips {
       if (localization.attributes.subtitle != null)
         localizedExperience.subtitle = localization.attributes.subtitle;
       return localizedExperience;
-    });
+    }
+
+    return appleResources.map(mapLocalization);
   }
 
   async createAppClipDefaultExperienceLocalization(

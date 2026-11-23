@@ -15,7 +15,7 @@ type UpdateOptions = EnvFlags &
   }>;
 
 /** Attach the over-the-air update publishing command. */
-export const registerUpdateCommand = (program: Command): void => {
+export function registerUpdateCommand(program: Command): void {
   const updateCommand = program
     .command('update')
     .description('publish an over-the-air JS update (Expo Updates protocol) to your own bucket')
@@ -40,7 +40,7 @@ export const registerUpdateCommand = (program: Command): void => {
       'rehearse: print the layout, worker, and app config without exporting or uploading',
       false,
     );
-  addEnvFlags(updateCommand).action((commandOptions: UpdateOptions) => {
+  function runCommand(commandOptions: UpdateOptions) {
     const requiredCommandInput = {
       channel: commandOptions.channel,
       platform: commandOptions.platform,
@@ -60,5 +60,7 @@ export const registerUpdateCommand = (program: Command): void => {
     }
     const updateProgram = updateCommandProgram(commandInput);
     return runCliProgram(updateProgram);
-  });
-};
+  }
+
+  addEnvFlags(updateCommand).action(runCommand);
+}

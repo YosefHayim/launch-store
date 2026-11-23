@@ -7,18 +7,21 @@ const SURFACE = 'app-clips';
 export const appClipsPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  plan: (planContext) =>
-    planAppStoreSurface(planContext, {
+  plan(planContext) {
+    return planAppStoreSurface(planContext, {
       surface: SURFACE,
       direction: 'additive',
-      configFor: (bundleId) =>
-        resolveSidecarConfig({
+      configFor(bundleId) {
+        return resolveSidecarConfig({
           typed: planContext.config.appClips?.[bundleId],
           configPath: 'appclips.config.json',
           explicitPath: false,
           load: loadAppClipsConfig,
-        }),
-      reconcile: (api, bundleId, config) =>
-        reconcileAppClips(api, { bundleId, config, dryRun: true }),
-    }),
+        });
+      },
+      reconcile(api, bundleId, config) {
+        return reconcileAppClips(api, { bundleId, config, dryRun: true });
+      },
+    });
+  },
 };

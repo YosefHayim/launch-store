@@ -55,7 +55,7 @@ function surfaceFailure(
 }
 
 /** Render one planned App Store surface action with ASCII markers. */
-export const renderStoreSurfaceAction = (plannedAction: PlannedAction): string => {
+export function renderStoreSurfaceAction(plannedAction: PlannedAction): string {
   if (plannedAction.status == 'skipped') return `- ${plannedAction.description}`;
   if (plannedAction.status == 'failed') {
     let failureText = '';
@@ -63,10 +63,10 @@ export const renderStoreSurfaceAction = (plannedAction: PlannedAction): string =
     return `x ${plannedAction.description}${failureText}`;
   }
   return `+ ${plannedAction.description}`;
-};
+}
 
 /** Render one applied App Store surface action with ASCII markers. */
-export const renderAppliedStoreSurfaceAction = (appliedAction: PlannedAction): string => {
+export function renderAppliedStoreSurfaceAction(appliedAction: PlannedAction): string {
   if (appliedAction.status == 'failed') {
     let failureText = 'failed';
     if (appliedAction.error != null) failureText = appliedAction.error;
@@ -74,7 +74,7 @@ export const renderAppliedStoreSurfaceAction = (appliedAction: PlannedAction): s
   }
   if (appliedAction.status == 'skipped') return `- ${appliedAction.description}`;
   return `OK ${appliedAction.description}`;
-};
+}
 
 function shouldUseTypedSection<StoreSurfaceSection>(
   explicitPath: boolean,

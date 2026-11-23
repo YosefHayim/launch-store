@@ -33,19 +33,25 @@ afterEach(function removeTempDirectories() {
     rmSync(directory, { recursive: true, force: true });
   }
 });
-
-describe('paths - one canonical layout for ~/.launch', () => {
-  it('nests all local state under ~/.launch', () => {
+function describePathsOneCanonicalLayoutForLaunch() {
+  function nestsAllLocalPieceUnderLaunch() {
     expect(LAUNCH_HOME.endsWith('.launch')).toBe(true);
     expect(ARTIFACTS_DIR.startsWith(LAUNCH_HOME)).toBe(true);
     expect(ARTIFACT_INDEX.startsWith(ARTIFACTS_DIR)).toBe(true);
     expect(CREDENTIALS_INDEX.startsWith(CREDENTIALS_DIR)).toBe(true);
-  });
-  it('points the profile install dir at where Xcode looks', () => {
+  }
+
+  it('nests all local state under ~/.launch', nestsAllLocalPieceUnderLaunch);
+  function pointsTheProfileInstallDirAtWhereXcodeLooks() {
     const provisioningProfilesPath = join('Library', 'MobileDevice', 'Provisioning Profiles');
     expect(PROVISIONING_PROFILES_DIR).toContain(provisioningProfilesPath);
-  });
-  it('creates directories through the file system', async () => {
+  }
+
+  it(
+    'points the profile install dir at where Xcode looks',
+    pointsTheProfileInstallDirAtWhereXcodeLooks,
+  );
+  async function createsDirectoriesThroughTheFileSystem() {
     const systemTemporaryDirectory = tmpdir();
     const launchEffectPathsPath = join(systemTemporaryDirectory, 'launch-effect-paths-');
     const rootDirectory = mkdtempSync(launchEffectPathsPath);
@@ -54,23 +60,27 @@ describe('paths - one canonical layout for ~/.launch', () => {
     const directoryExists = ensureDirectoryExists(nestedDirectory);
     await expect(directoryExists).resolves.toBe(nestedDirectory);
     expect(statSync(nestedDirectory).isDirectory()).toBe(true);
-  });
-  it('builds account paths from the home directory', () => {
+  }
+
+  it('creates directories through the file system', createsDirectoriesThroughTheFileSystem);
+  function buildsAccountPathsFromTheHomeDirectory() {
     const accountDirectory = resolveAccountCredentialsDirectory('KEY/42');
     const homeDirectory = homedir();
     const key42Path = join(homeDirectory, '.launch', 'credentials', 'KEY42');
     expect(accountDirectory).toBe(key42Path);
-  });
-});
+  }
 
-describe('stats paths', () => {
+  it('builds account paths from the home directory', buildsAccountPathsFromTheHomeDirectory);
+}
+
+describe('paths - one canonical layout for ~/.launch', describePathsOneCanonicalLayoutForLaunch);
+function describeStatsPaths() {
   const homeDirectory = '/test-home';
 
   function useTestHome(): void {
     useLaunchDirectories({ homeDirectory, workingDirectory: '/workspace' });
   }
-
-  it('puts the stats folder and portfolio file under ~/.launch', () => {
+  function putsTheStatsFolderAndPortfolioFileUnderLaunch() {
     useTestHome();
     const statsDirectory = locateStatsDirectory();
     const statsPath = join(homeDirectory, '.launch', 'stats');
@@ -78,16 +88,21 @@ describe('stats paths', () => {
     const portfolioFilePath = locatePortfolioFilePath();
     const portfolioPath = join(homeDirectory, '.launch', 'portfolio.json');
     expect(portfolioFilePath).toBe(portfolioPath);
-  });
+  }
 
-  it('puts the stats of one app in its own folder', () => {
+  it(
+    'puts the stats folder and portfolio file under ~/.launch',
+    putsTheStatsFolderAndPortfolioFileUnderLaunch,
+  );
+  function putsTheStatsOfOneAppInItsOwnFolder() {
     useTestHome();
     const appStatsDirectory = locateAppStatsDirectory('android-com.acme.app');
     const androidComPath = join(homeDirectory, '.launch', 'stats', 'android-com.acme.app');
     expect(appStatsDirectory).toBe(androidComPath);
-  });
+  }
 
-  it('refuses an app key that could leave the stats folder', () => {
+  it('puts the stats of one app in its own folder', putsTheStatsOfOneAppInItsOwnFolder);
+  function refusesAnAppKeyThatCouldLeaveTheStatsFolder() {
     useTestHome();
     let failure: unknown = null;
 
@@ -101,5 +116,12 @@ describe('stats paths', () => {
       _tag: 'InvalidAppKeyFailure',
       message: expect.stringContaining('not a valid app key'),
     });
-  });
-});
+  }
+
+  it(
+    'refuses an app key that could leave the stats folder',
+    refusesAnAppKeyThatCouldLeaveTheStatsFolder,
+  );
+}
+
+describe('stats paths', describeStatsPaths);

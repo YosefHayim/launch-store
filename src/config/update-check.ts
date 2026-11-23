@@ -381,13 +381,13 @@ function reexecLaunch(
       stdio: 'inherit',
       env: childEnvironment,
     });
-
-    child.on('error', () => {
+    function onPiece() {
       const commandExit = makeCommandExit({ exitCode: 1 });
       reject(commandExit);
-    });
+    }
 
-    child.on('exit', (exitCode) => {
+    child.on('error', onPiece);
+    function onExitCode(exitCode: number | null) {
       let code = 1;
 
       if (exitCode != null) {
@@ -396,7 +396,9 @@ function reexecLaunch(
 
       const commandExit = makeCommandExit({ exitCode: code });
       reject(commandExit);
-    });
+    }
+
+    child.on('exit', onExitCode);
   });
 }
 

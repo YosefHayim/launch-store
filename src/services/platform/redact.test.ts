@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeLogRedactor, redactLine, redactText } from './redact.ts';
-describe('redactLine', () => {
-  it('masks secret-looking assignments but leaves publishable ones', () => {
+function describeRedactLine() {
+  function masksSecretLookingAssignmentsButLeavesPublishableOnes() {
     expect(redactLine('API_TOKEN=abc123')).toBe('API_TOKEN=***');
     expect(redactLine('ANDROID_KEYSTORE_PASSWORD: testpass1')).toBe(
       'ANDROID_KEYSTORE_PASSWORD: ***',
@@ -12,22 +12,35 @@ describe('redactLine', () => {
       'EXPO_PUBLIC_API_KEY=pk_live_visible',
     );
     expect(redactLine('BUILD_NUMBER=42')).toBe('BUILD_NUMBER=42');
-  });
-  it('strips JWTs, bearer tokens, and AWS access keys', () => {
+  }
+
+  it(
+    'masks secret-looking assignments but leaves publishable ones',
+    masksSecretLookingAssignmentsButLeavesPublishableOnes,
+  );
+  function stripsJWTsBearerTokensAndAWSAccessKeys() {
     expect(redactLine('auth eyJhbGciOi.eyJpayload1.sigsigsig done')).toContain('[redacted-jwt]');
     expect(redactLine('Authorization: Bearer abc.def-ghi')).toBe('Authorization: Bearer ***');
     expect(redactLine('using AKIAIOSFODNN7EXAMPLE here')).toContain('[redacted-aws-key]');
-  });
-  it('leaves ordinary build output untouched', () => {
+  }
+
+  it('strips JWTs, bearer tokens, and AWS access keys', stripsJWTsBearerTokensAndAWSAccessKeys);
+  function leavesOrdinaryBuildPieceUntouched() {
     expect(redactLine('▸ Compiling main.m')).toBe('▸ Compiling main.m');
     expect(redactLine('> Task :app:bundleRelease')).toBe('> Task :app:bundleRelease');
-  });
-});
-describe('redactText', () => {
-  it('removes multi-line PEM key blocks while keeping surrounding lines', () => {
+  }
+
+  it('leaves ordinary build output untouched', leavesOrdinaryBuildPieceUntouched);
+}
+
+describe('redactLine', describeRedactLine);
+function describeRedactPiece() {
+  function removesMultiLinePEMKeyBlocksWhileKeepingSurroundingLines() {
     // The PEM fences are assembled at runtime so no scannable private-key literal lives in this file;
     // the body is obvious filler, not a real DER prefix. redactText still sees a valid block to strip.
-    const fence = (edge: 'BEGIN' | 'END'): string => ['-----', edge, ' PRIVATE KEY-----'].join('');
+    function fence(edge: 'BEGIN' | 'END'): string {
+      return ['-----', edge, ' PRIVATE KEY-----'].join('');
+    }
     const log = [
       'before the key',
       fence('BEGIN'),
@@ -41,19 +54,28 @@ describe('redactText', () => {
     expect(out).toContain('after the key');
     expect(out).toContain('[redacted-key-material]');
     expect(out).not.toContain('AAAAfakekeybodyAAAA');
-  });
-});
+  }
 
-describe('makeLogRedactor', () => {
-  it('shows the error lines that follow a PEM block that never closes', () => {
+  it(
+    'removes multi-line PEM key blocks while keeping surrounding lines',
+    removesMultiLinePEMKeyBlocksWhileKeepingSurroundingLines,
+  );
+}
+
+describe('redactText', describeRedactPiece);
+function describeMakeLogRedactor() {
+  function showsTheErrorLinesThatFollowAPEMBlockThatNeverCloses() {
     const redactOutputLine = makeLogRedactor();
+    function mapLine(line: string) {
+      return redactOutputLine(line);
+    }
 
     const redactedLines = [
       '-----BEGIN PRIVATE KEY-----',
       'MIIEvQIBADANBgkqhkiG9w0BAQEFAASC',
       'a1b2c3d4e5f6',
       'error: signing failed',
-    ].map((line) => redactOutputLine(line));
+    ].map(mapLine);
 
     expect(redactedLines).toEqual([
       '[redacted-key-material]',
@@ -61,12 +83,25 @@ describe('makeLogRedactor', () => {
       '[redacted-key-material]',
       'error: signing failed',
     ]);
-  });
-});
+  }
 
-describe('structured and streamed secrets', () => {
-  it('masks JSON properties including quoted secret values', () => {
+  it(
+    'shows the error lines that follow a PEM block that never closes',
+    showsTheErrorLinesThatFollowAPEMBlockThatNeverCloses,
+  );
+}
+
+describe('makeLogRedactor', describeMakeLogRedactor);
+function describeStructuredAndStreamedSecrets() {
+  function masksJSONPropertiesIncludingQuotedSecretValues() {
     expect(redactLine('{"private_key":"dummy-private-key"}')).not.toContain('dummy-private-key');
     expect(redactLine('{"password":"dummy\\"rest-of-password"}')).not.toContain('rest-of-password');
-  });
-});
+  }
+
+  it(
+    'masks JSON properties including quoted secret values',
+    masksJSONPropertiesIncludingQuotedSecretValues,
+  );
+}
+
+describe('structured and streamed secrets', describeStructuredAndStreamedSecrets);

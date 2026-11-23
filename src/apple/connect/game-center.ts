@@ -44,14 +44,20 @@ export class ConnectGameCenter {
     }>(
       `/gameCenterDetails/${detailId}/gameCenterAchievementsV2?fields[gameCenterAchievements]=vendorIdentifier&limit=200`,
     );
-    return appleResources.map((achievement) => {
+    function mapAchievement(achievement: {
+      id: string;
+      attributes: { vendorIdentifier?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const achievementResource: GameCenterAchievementResource = { id: achievement.id };
       if (achievement.attributes.vendorIdentifier != null)
         Object.assign(achievementResource, {
           vendorIdentifier: achievement.attributes.vendorIdentifier,
         });
       return achievementResource;
-    });
+    }
+
+    return appleResources.map(mapAchievement);
   }
 
   async createGameCenterAchievement(
@@ -122,14 +128,20 @@ export class ConnectGameCenter {
     }>(
       `/gameCenterDetails/${detailId}/gameCenterLeaderboardsV2?fields[gameCenterLeaderboards]=vendorIdentifier&limit=200`,
     );
-    return appleResources.map((leaderboard) => {
+    function mapLeaderboard(leaderboard: {
+      id: string;
+      attributes: { vendorIdentifier?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const leaderboardResource: GameCenterLeaderboardResource = { id: leaderboard.id };
       if (leaderboard.attributes.vendorIdentifier != null)
         Object.assign(leaderboardResource, {
           vendorIdentifier: leaderboard.attributes.vendorIdentifier,
         });
       return leaderboardResource;
-    });
+    }
+
+    return appleResources.map(mapLeaderboard);
   }
 
   async createGameCenterLeaderboard(

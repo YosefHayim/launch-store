@@ -199,7 +199,7 @@ export async function probeKeyPermissions(
   );
 }
 
-export const formatPermissionLine = (permission: AscPermissionResult): string => {
+export function formatPermissionLine(permission: AscPermissionResult): string {
   switch (permission.status) {
     case 'available':
       return `OK ${permission.label}`;
@@ -213,4 +213,4 @@ export const formatPermissionLine = (permission: AscPermissionResult): string =>
       return `- ${permission.label} - couldn't determine (${explanation})`;
     }
   }
-};
+}

@@ -102,41 +102,48 @@ async function runProgram(startProgram: () => Promise<void>): Promise<{
 
   return { outcome, lines };
 }
-
-describe('parsePlatformFlag', () => {
-  test('accepts ios, android and no flag', async () => {
+function describeParsePlatformFlag() {
+  async function acceptsIosAndroidAndNoFlag() {
     const platformFlag = await parsePlatformFlag('ios');
     expect(platformFlag).toBe('ios');
     expect(await parsePlatformFlag('android')).toBe('android');
     expect(await parsePlatformFlag(undefined)).toBeNull();
-  });
+  }
 
-  test('rejects another platform', async () => {
+  test('accepts ios, android and no flag', acceptsIosAndroidAndNoFlag);
+  async function rejectsAnotherPlatform() {
     const platformFlag = parsePlatformFlag('web');
     await expect(platformFlag).rejects.toMatchObject({
       message: '--platform must be ios or android.',
     });
-  });
-});
+  }
 
-describe('parseOwnerFlag', () => {
-  test('accepts mine, client and no flag', async () => {
+  test('rejects another platform', rejectsAnotherPlatform);
+}
+
+describe('parsePlatformFlag', describeParsePlatformFlag);
+function describeParseOwnerFlag() {
+  async function acceptsMineClientAndNoFlag() {
     const ownerFlag = await parseOwnerFlag('mine');
     expect(ownerFlag).toBe('mine');
     expect(await parseOwnerFlag('client')).toBe('client');
     expect(await parseOwnerFlag(undefined)).toBeNull();
-  });
+  }
 
-  test('rejects another owner', async () => {
+  test('accepts mine, client and no flag', acceptsMineClientAndNoFlag);
+  async function rejectsAnotherOwner() {
     const ownerFlag = parseOwnerFlag('me');
     await expect(ownerFlag).rejects.toMatchObject({
       message: '--owner must be mine or client.',
     });
-  });
-});
+  }
 
-describe('parseTagRequest', () => {
-  test('needs one of --app or --account', async () => {
+  test('rejects another owner', rejectsAnotherOwner);
+}
+
+describe('parseOwnerFlag', describeParseOwnerFlag);
+function describeParseTagRequest() {
+  async function needsOneOfAppOrAccount() {
     const expected = 'Pass exactly one of --app <name> or --account <label>.';
 
     const tagRequest = parseTagRequest({ ...TAG_BASE, app: undefined });
@@ -146,30 +153,34 @@ describe('parseTagRequest', () => {
     await expect(parseTagRequest({ ...TAG_BASE, account: 'alpha' })).rejects.toMatchObject({
       message: expected,
     });
-  });
+  }
 
-  test('needs at least one change', async () => {
+  test('needs one of --app or --account', needsOneOfAppOrAccount);
+  async function needsAtLeastOneChange() {
     const tagRequest = parseTagRequest({ ...TAG_BASE, owner: undefined });
     await expect(tagRequest).rejects.toMatchObject({
       message: 'Pass --owner mine|client and/or --ga4-property <id>.',
     });
-  });
+  }
 
-  test('rejects a GA4 property that is not a number', async () => {
+  test('needs at least one change', needsAtLeastOneChange);
+  async function rejectsAGA4PropertyThatIsNotANumber() {
     const tagRequest = parseTagRequest({ ...TAG_BASE, ga4Property: 'abc' });
     await expect(tagRequest).rejects.toMatchObject({
       message: '--ga4-property must be the numeric GA4 property id.',
     });
-  });
+  }
 
-  test('rejects an unknown owner', async () => {
+  test('rejects a GA4 property that is not a number', rejectsAGA4PropertyThatIsNotANumber);
+  async function rejectsAnUnknownOwner() {
     const tagRequest = parseTagRequest({ ...TAG_BASE, owner: 'boss' });
     await expect(tagRequest).rejects.toMatchObject({
       message: '--owner must be mine or client.',
     });
-  });
+  }
 
-  test('accepts owner only, property only, or both', async () => {
+  test('rejects an unknown owner', rejectsAnUnknownOwner);
+  async function acceptsOwnerOnlyPropertyOnlyOrBoth() {
     const ownerOnly = await parseTagRequest(TAG_BASE);
     const propertyOnly = await parseTagRequest({
       ...TAG_BASE,
@@ -181,10 +192,13 @@ describe('parseTagRequest', () => {
     expect(ownerOnly).toEqual({ owner: 'mine', ga4PropertyId: null });
     expect(propertyOnly).toEqual({ owner: null, ga4PropertyId: '123' });
     expect(both).toEqual({ owner: 'mine', ga4PropertyId: '123' });
-  });
-});
+  }
 
-describe('appsListProgram and appsTagProgram', () => {
+  test('accepts owner only, property only, or both', acceptsOwnerOnlyPropertyOnlyOrBoth);
+}
+
+describe('parseTagRequest', describeParseTagRequest);
+function describeAppsListProgramAndAppsTagProgram() {
   let homeDirectory: string;
 
   beforeEach(function setAppsHome() {
@@ -220,8 +234,7 @@ describe('appsListProgram and appsTagProgram', () => {
     resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
-
-  test('apps list prints one JSON object with the apps and the warnings', async () => {
+  async function appsListPrintsOneJSONObjectWithTheAppsAndTheWarnings() {
     const { outcome, lines } = await runProgram(function startList() {
       return appsListProgram({ platform: undefined, owner: undefined, isJson: true });
     });
@@ -230,31 +243,56 @@ describe('appsListProgram and appsTagProgram', () => {
     expect(lines).toHaveLength(1);
     const listing = JSON.parse(lines[0] ?? '');
     expect(listing.ok).toBe(true);
-    expect(listing.apps.map((app: { name: string }) => app.name)).toEqual(['Cal Friend AI', 'Fit']);
-    expect(listing.warnings).toEqual([{ accountLabel: 'beta', message: '401 revoked' }]);
-  });
+    function readName(app: { name: string }) {
+      return app.name;
+    }
 
-  test('apps list shows warnings and one line per app, filtered by platform', async () => {
+    expect(listing.apps.map(readName)).toEqual(['Cal Friend AI', 'Fit']);
+    expect(listing.warnings).toEqual([{ accountLabel: 'beta', message: '401 revoked' }]);
+  }
+
+  test(
+    'apps list prints one JSON object with the apps and the warnings',
+    appsListPrintsOneJSONObjectWithTheAppsAndTheWarnings,
+  );
+  async function appsListShowsWarningsAndOneLinePerAppFilteredByPlatform() {
     const { lines } = await runProgram(function startList() {
       return appsListProgram({ platform: 'android', owner: undefined, isJson: false });
     });
+    function someLine(line: string) {
+      return line.includes('beta: 401 revoked');
+    }
 
-    expect(lines.some((line) => line.includes('beta: 401 revoked'))).toBe(true);
-    expect(lines.filter((line) => line.includes('Fit (com.jts.fit) - Google Play'))).toHaveLength(
-      1,
-    );
-    expect(lines.some((line) => line.includes('Cal Friend AI'))).toBe(false);
-  });
+    expect(lines.some(someLine)).toBe(true);
+    function filterLine(line: string) {
+      return line.includes('Fit (com.jts.fit) - Google Play');
+    }
 
-  test('apps list says so when no app matches the filter', async () => {
+    expect(lines.filter(filterLine)).toHaveLength(1);
+    function someLine2(line: string) {
+      return line.includes('Cal Friend AI');
+    }
+
+    expect(lines.some(someLine2)).toBe(false);
+  }
+
+  test(
+    'apps list shows warnings and one line per app, filtered by platform',
+    appsListShowsWarningsAndOneLinePerAppFilteredByPlatform,
+  );
+  async function appsListSaysSoWhenNoAppMatchesTheFilter() {
     const { lines } = await runProgram(function startList() {
       return appsListProgram({ platform: undefined, owner: 'client', isJson: false });
     });
+    function someLine3(line: string) {
+      return line.includes('No apps found.');
+    }
 
-    expect(lines.some((line) => line.includes('No apps found.'))).toBe(true);
-  });
+    expect(lines.some(someLine3)).toBe(true);
+  }
 
-  test('apps list exits 2 on a bad platform, as JSON with --json', async () => {
+  test('apps list says so when no app matches the filter', appsListSaysSoWhenNoAppMatchesTheFilter);
+  async function appsListExits2OnABadPlatformAsJSONWithPiece() {
     const { outcome, lines } = await runProgram(function startList() {
       return appsListProgram({ platform: 'web', owner: undefined, isJson: true });
     });
@@ -265,14 +303,21 @@ describe('appsListProgram and appsTagProgram', () => {
       ok: false,
       error: '--platform must be ios or android.',
     });
-  });
+  }
 
-  test('apps tag saves the owner so the next list shows it', async () => {
+  test(
+    'apps list exits 2 on a bad platform, as JSON with --json',
+    appsListExits2OnABadPlatformAsJSONWithPiece,
+  );
+  async function appsTagSavesTheOwnerSoTheNextListShowsIt() {
     const tagged = await runProgram(function startTag() {
       return appsTagProgram(TAG_BASE);
     });
+    function someLine4(line: string) {
+      return line.includes('Tagged Cal Friend AI');
+    }
 
-    expect(tagged.lines.some((line) => line.includes('Tagged Cal Friend AI'))).toBe(true);
+    expect(tagged.lines.some(someLine4)).toBe(true);
     const portfolioPath = join(homeDirectory, '.launch', 'portfolio.json');
     const loadedFile = readFileSync(portfolioPath, 'utf8');
     const savedFile = JSON.parse(loadedFile);
@@ -282,9 +327,13 @@ describe('appsListProgram and appsTagProgram', () => {
     });
     const parsed = JSON.parse(listed.lines[0] ?? '');
     expect(parsed.apps).toHaveLength(1);
-  });
+  }
 
-  test('apps tag --account tags every app of that account and prints JSON with --json', async () => {
+  test(
+    'apps tag saves the owner so the next list shows it',
+    appsTagSavesTheOwnerSoTheNextListShowsIt,
+  );
+  async function appsTagAccountTagsEveryAppOfThatAccountAndPrintsJSONWithPiece() {
     const { lines } = await runProgram(function startTag() {
       return appsTagProgram({
         ...TAG_BASE,
@@ -298,9 +347,13 @@ describe('appsListProgram and appsTagProgram', () => {
     const tagging = JSON.parse(lines[0] ?? '');
     expect(tagging.tagged).toHaveLength(1);
     expect(tagging.tagged[0]).toMatchObject({ name: 'Fit', owner: 'client' });
-  });
+  }
 
-  test('apps tag keeps the old owner when only the property is given', async () => {
+  test(
+    'apps tag --account tags every app of that account and prints JSON with --json',
+    appsTagAccountTagsEveryAppOfThatAccountAndPrintsJSONWithPiece,
+  );
+  async function appsTagKeepsTheOldOwnerWhenOnlyThePropertyIsGiven() {
     await runProgram(function startTag() {
       return appsTagProgram(TAG_BASE);
     });
@@ -314,22 +367,38 @@ describe('appsListProgram and appsTagProgram', () => {
       owner: 'mine',
       ga4PropertyId: '555',
     });
-  });
+  }
 
-  test('apps tag exits 2 and lists the known apps when nothing matches', async () => {
+  test(
+    'apps tag keeps the old owner when only the property is given',
+    appsTagKeepsTheOldOwnerWhenOnlyThePropertyIsGiven,
+  );
+  async function appsTagExits2AndListsTheKnownAppsWhenNothingMatches() {
     const { outcome, lines } = await runProgram(function startTag() {
       return appsTagProgram({ ...TAG_BASE, app: 'zzz' });
     });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { exitCode: 2 } });
-    expect(lines.some((line) => line.includes('Known apps: Cal Friend AI, Fit'))).toBe(true);
-  });
+    function someLine5(line: string) {
+      return line.includes('Known apps: Cal Friend AI, Fit');
+    }
 
-  test('apps tag exits 2 on bad flags', async () => {
+    expect(lines.some(someLine5)).toBe(true);
+  }
+
+  test(
+    'apps tag exits 2 and lists the known apps when nothing matches',
+    appsTagExits2AndListsTheKnownAppsWhenNothingMatches,
+  );
+  async function appsTagExits2OnBadFlags() {
     const { outcome } = await runProgram(function startTag() {
       return appsTagProgram({ ...TAG_BASE, owner: undefined });
     });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { exitCode: 2 } });
-  });
-});
+  }
+
+  test('apps tag exits 2 on bad flags', appsTagExits2OnBadFlags);
+}
+
+describe('appsListProgram and appsTagProgram', describeAppsListProgramAndAppsTagProgram);

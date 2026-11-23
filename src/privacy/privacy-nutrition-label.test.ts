@@ -4,19 +4,37 @@ import {
   APP_PRIVACY_STEPS,
   appPrivacyChecklist,
 } from './privacy-nutrition-label.ts';
-describe('appPrivacyChecklist', () => {
-  it('emits a UI-only verdict, every numbered step, and the help link', () => {
+function describeAppPrivacyChecklist() {
+  function emitsAUIOnlyVerdictEveryNumberedStepAndTheHelpLink() {
     const lines = appPrivacyChecklist();
     expect(lines[0]).toContain('UI-only');
-    APP_PRIVACY_STEPS.forEach((step, index) => {
-      expect(lines.some((line) => line.includes(`${index + 1}. ${step}`))).toBe(true);
-    });
+    function forEachStep(step: string, index: number) {
+      function someLine(line: string) {
+        return line.includes(`${index + 1}. ${step}`);
+      }
+
+      expect(lines.some(someLine)).toBe(true);
+    }
+
+    APP_PRIVACY_STEPS.forEach(forEachStep);
     expect(lines.at(-1)).toContain(APP_PRIVACY_HELP_URL);
-  });
-  it("covers the questionnaire's dimensions: categories, purposes, linkage, tracking, publish", () => {
+  }
+
+  it(
+    'emits a UI-only verdict, every numbered step, and the help link',
+    emitsAUIOnlyVerdictEveryNumberedStepAndTheHelpLink,
+  );
+  function coversTheQuestionnaireSDimensionsCategoriesPurposesLinkageTrackingPublish() {
     const text = APP_PRIVACY_STEPS.join(' ').toLowerCase();
     for (const dimension of ['categor', 'purpose', 'linked', 'track', 'publish']) {
       expect(text).toContain(dimension);
     }
-  });
-});
+  }
+
+  it(
+    "covers the questionnaire's dimensions: categories, purposes, linkage, tracking, publish",
+    coversTheQuestionnaireSDimensionsCategoriesPurposesLinkageTrackingPublish,
+  );
+}
+
+describe('appPrivacyChecklist', describeAppPrivacyChecklist);

@@ -32,7 +32,7 @@ function isCommandFailed(caught: unknown): caught is CommandFailed {
 }
 /** Hermetic scratch dir holding the fixture configs the `config validate` cases point at. */
 let workdir: string;
-beforeAll(() => {
+function prepareAll() {
   const systemTemporaryDirectory = tmpdir();
   const launchE2ePath = join(systemTemporaryDirectory, 'launch-e2e-');
   workdir = mkdtempSync(launchE2ePath);
@@ -108,47 +108,77 @@ beforeAll(() => {
       },
     }),
   );
-});
-afterAll(() => {
+}
+
+beforeAll(prepareAll);
+function cleanupAll() {
   rmSync(workdir, { recursive: true, force: true });
-});
-describe('launch-store CLI - offline surface (compiled dist)', () => {
-  it('reports its semver version', async () => {
+}
+
+afterAll(cleanupAll);
+function describeLaunchStoreCLIOfflineSurfaceCompiledDist() {
+  async function reportsItsSemverVersion() {
     expect(await launch('--version')).toMatch(/^\d+\.\d+\.\d+/);
-  });
-  it('prints help that lists the config command', async () => {
+  }
+
+  it('reports its semver version', reportsItsSemverVersion);
+  async function printsHelpThatListsThePieceCommand() {
     const help = await launch('--help');
     expect(help).toContain('Usage:');
     expect(help).toContain('config');
-  });
-  it('explains a glossary topic', async () => {
+  }
+
+  it('prints help that lists the config command', printsHelpThatListsThePieceCommand);
+  async function explainsAGlossaryTopic() {
     expect((await launch('explain', 'csr')).length).toBeGreaterThan(0);
-  });
-  it('emits a JSON Schema that describes the config', async () => {
+  }
+
+  it('explains a glossary topic', explainsAGlossaryTopic);
+  async function emitsAJSONSchemaThatDescribesThePiece() {
     const raw = await launch('config', 'schema');
-    expect(() => JSON.parse(raw)).not.toThrow();
+    function expectCall() {
+      return JSON.parse(raw);
+    }
+
+    expect(expectCall).not.toThrow();
     expect(raw).toContain('profiles');
-  });
-  it('prints the config field reference', async () => {
+  }
+
+  it('emits a JSON Schema that describes the config', emitsAJSONSchemaThatDescribesThePiece);
+  async function printsThePieceFieldReference() {
     expect((await launch('config', 'docs')).length).toBeGreaterThan(0);
-  });
-  it('validates a good config with exit 0', async () => {
+  }
+
+  it('prints the config field reference', printsThePieceFieldReference);
+  async function validatesAGoodPieceWithExit0() {
     const goodPath = join(workdir, 'good.json');
     expect(await launch('config', 'validate', goodPath)).toContain('Config valid');
-  });
-  it('rejects a bad config with a non-zero exit that names the offending key', async () => {
+  }
+
+  it('validates a good config with exit 0', validatesAGoodPieceWithExit0);
+  async function rejectsABadPieceWithANonZeroExitThatNamesTheOffendingKey() {
     const badPath = join(workdir, 'bad.json');
     await expect(launch('config', 'validate', badPath)).rejects.toMatchObject({
       stderr: expect.stringMatching(/totallyBogusKey|unknown|unrecognized/i),
     });
-  });
-  it('rejects invalid Apple product IDs and explains the allowed characters', async () => {
+  }
+
+  it(
+    'rejects a bad config with a non-zero exit that names the offending key',
+    rejectsABadPieceWithANonZeroExitThatNamesTheOffendingKey,
+  );
+  async function rejectsInvalidAppleProductIDsAndExplainsTheAllowedCharacters() {
     const badProductIdPath = join(workdir, 'bad-product-id.json');
     await expect(launch('config', 'validate', badProductIdPath)).rejects.toMatchObject({
       stderr: expect.stringMatching(/productId.*only letters, digits, underscores, and periods/i),
     });
-  });
-  it("prints a failed command's message, not its raw failure object", async () => {
+  }
+
+  it(
+    'rejects invalid Apple product IDs and explains the allowed characters',
+    rejectsInvalidAppleProductIDsAndExplainsTheAllowedCharacters,
+  );
+  async function printsAFailedCommandSMessageNotItsPieceFailureObject() {
     let commandFailure: CommandFailed | null = null;
 
     try {
@@ -165,5 +195,15 @@ describe('launch-store CLI - offline surface (compiled dist)', () => {
 
     expect(commandFailure?.stderr).toContain('[ERROR] No apps found.');
     expect(commandFailure?.stderr).not.toContain('"_tag"');
-  });
-});
+  }
+
+  it(
+    "prints a failed command's message, not its raw failure object",
+    printsAFailedCommandSMessageNotItsPieceFailureObject,
+  );
+}
+
+describe(
+  'launch-store CLI - offline surface (compiled dist)',
+  describeLaunchStoreCLIOfflineSurfaceCompiledDist,
+);

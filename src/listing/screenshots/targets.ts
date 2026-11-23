@@ -321,30 +321,34 @@ const appleTargetsWithPreviews = APPLE_ASSET_TARGETS.filter(
   (assetTarget): assetTarget is AppleAssetTarget & { readonly previewType: string } =>
     assetTarget.previewType != null,
 );
-const appleTargetByPreviewType = new Map(
-  appleTargetsWithPreviews.map((assetTarget) => [assetTarget.previewType, assetTarget]),
-);
+function mapAssetTarget(
+  assetTarget: AppleAssetTarget & { readonly previewType: string },
+): readonly [string, AppleAssetTarget & { readonly previewType: string }] {
+  return [assetTarget.previewType, assetTarget];
+}
+
+const appleTargetByPreviewType = new Map(appleTargetsWithPreviews.map(mapAssetTarget));
 /** Find an Apple asset target by its stable Launch key. */
-export const findAppleAssetTarget = (targetKey: string): AppleAssetTarget | undefined => {
+export function findAppleAssetTarget(targetKey: string): AppleAssetTarget | undefined {
   return appleTargetByKey.get(targetKey);
-};
+}
 /** Find an Apple asset target by its App Store screenshot display type. */
-export const findAppleScreenshotTarget = (displayType: string): AppleAssetTarget | undefined => {
+export function findAppleScreenshotTarget(displayType: string): AppleAssetTarget | undefined {
   return appleTargetByDisplayType.get(displayType);
-};
+}
 /** Find an Apple asset target by its App Store preview type. */
-export const findApplePreviewTarget = (previewType: string): AppleAssetTarget | undefined => {
+export function findApplePreviewTarget(previewType: string): AppleAssetTarget | undefined {
   return appleTargetByPreviewType.get(previewType);
-};
+}
 /** Return a display type's friendly label, falling back to an unknown future enum value. */
-export const appleDisplayTypeLabel = (displayType: string): string => {
+export function appleDisplayTypeLabel(displayType: string): string {
   const assetTarget = findAppleScreenshotTarget(displayType);
   if (assetTarget == null) return displayType;
   return assetTarget.label;
-};
+}
 /** Return a preview type's friendly label, falling back to an unknown future enum value. */
-export const applePreviewTypeLabel = (previewType: string): string => {
+export function applePreviewTypeLabel(previewType: string): string {
   const assetTarget = findApplePreviewTarget(previewType);
   if (assetTarget == null) return previewType;
   return assetTarget.label;
-};
+}

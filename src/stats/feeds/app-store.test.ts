@@ -218,30 +218,33 @@ function makePromiseAppStoreClient(scenario: Partial<FakeAppStoreStatsScenario> 
   };
 }
 
-const makeApp = (fields: Partial<PortfolioApp> = {}): PortfolioApp => ({
-  key: `ios-${APP_ID}`,
-  platform: 'ios',
-  storeId: APP_ID,
-  name: 'Calfriend',
-  bundleId: 'com.calfriend',
-  packageName: null,
-  accountKeyId: 'KEY1',
-  accountLabel: 'alpha',
-  owner: null,
-  ga4PropertyId: null,
-  ...fields,
-});
-
-afterEach(() => {
+function makeApp(fields: Partial<PortfolioApp> = {}): PortfolioApp {
+  return {
+    key: `ios-${APP_ID}`,
+    platform: 'ios',
+    storeId: APP_ID,
+    name: 'Calfriend',
+    bundleId: 'com.calfriend',
+    packageName: null,
+    accountKeyId: 'KEY1',
+    accountLabel: 'alpha',
+    owner: null,
+    ga4PropertyId: null,
+    ...fields,
+  };
+}
+function cleanup() {
   useStatsCredentials(null);
-});
+}
 
-const fetchReply = async (
+afterEach(cleanup);
+
+async function fetchReply(
   scenario: Partial<FakeAppStoreStatsScenario>,
   vendorNumber: string | null,
   range: DateRange = SHORT_RANGE,
   app: PortfolioApp = makeApp(),
-) => {
+) {
   const fake = makePromiseAppStoreClient(scenario);
   const credentials = makeStatsCredentialsTest({
     async ascClientForAccount() {
@@ -259,55 +262,77 @@ const fetchReply = async (
   } catch (left) {
     return { reply: { _tag: 'Left', left } satisfies FeedOutcome, calls: fake.calls };
   }
-};
+}
 
-const readFetched = (reply: FeedOutcome) => {
+function readFetched(reply: FeedOutcome) {
   if (reply._tag != 'Right') throw new Error('expected a reply');
   if (reply.right.status != 'fetched') throw new Error('expected a fetched reply');
   return reply.right;
-};
+}
 
-const findStat = (stats: readonly DailyStat[], metric: string, date: string) =>
-  stats.find((stat) => stat.metric == metric && stat.date == date);
+function findStat(stats: readonly DailyStat[], metric: string, date: string) {
+  function findStat2(stat: DailyStat) {
+    return stat.metric == metric && stat.date == date;
+  }
 
-describe('pickStatsPath', () => {
-  test('picks sales reports when the account has a vendor number', () => {
+  return stats.find(findStat2);
+}
+function describePickStatsPath() {
+  function picksSalesReportsWhenTheAccountHasAVendorNumber() {
     const statsPath = pickStatsPath('90000001');
     expect(statsPath).toBe('sales');
-  });
+  }
 
-  test('picks analytics reports when it has none', () => {
+  test(
+    'picks sales reports when the account has a vendor number',
+    picksSalesReportsWhenTheAccountHasAVendorNumber,
+  );
+  function picksAnalyticsReportsWhenItHasNone() {
     const statsPath = pickStatsPath(null);
     expect(statsPath).toBe('analytics');
-  });
-});
+  }
 
-describe('isHistoryNeeded', () => {
-  test('is true when the range reaches past the refresh tail', () => {
+  test('picks analytics reports when it has none', picksAnalyticsReportsWhenItHasNone);
+}
+
+describe('pickStatsPath', describePickStatsPath);
+function describeIsHistoryNeeded() {
+  function isTrueWhenTheRangeReachesPastTheRefreshTail() {
     expect(isHistoryNeeded({ from: '2026-09-01', to: '2026-10-10' })).toBe(true);
-  });
+  }
 
-  test('is false for a short range', () => {
+  test(
+    'is true when the range reaches past the refresh tail',
+    isTrueWhenTheRangeReachesPastTheRefreshTail,
+  );
+  function isFalseForAShortRange() {
     expect(isHistoryNeeded(SHORT_RANGE)).toBe(false);
-  });
-});
+  }
 
-describe('readHttpStatus', () => {
-  test('reads the status of a transport failure', () => {
+  test('is false for a short range', isFalseForAShortRange);
+}
+
+describe('isHistoryNeeded', describeIsHistoryNeeded);
+function describeReadHttpStatus() {
+  function readsTheStatusOfATransportFailure() {
     const httpStatus = readHttpStatus({ status: 403 });
     expect(httpStatus).toBe(403);
-  });
+  }
 
-  test('is null for anything without a numeric status', () => {
+  test('reads the status of a transport failure', readsTheStatusOfATransportFailure);
+  function isNullForAnythingWithoutANumericStatus() {
     const httpStatus = readHttpStatus(null);
     expect(httpStatus).toBeNull();
     expect(readHttpStatus('boom')).toBeNull();
     expect(readHttpStatus({ message: 'boom' })).toBeNull();
     expect(readHttpStatus({ status: '403' })).toBeNull();
-  });
-});
+  }
 
-describe('createAppStoreReply', () => {
+  test('is null for anything without a numeric status', isNullForAnythingWithoutANumericStatus);
+}
+
+describe('readHttpStatus', describeReadHttpStatus);
+function describeCreateAppStoreReply() {
   const request = { app: makeApp(), range: SHORT_RANGE, credentials: null as never };
   const salesStat: DailyStat = {
     date: '2026-10-09',
@@ -316,8 +341,7 @@ describe('createAppStoreReply', () => {
     value: 2,
     currency: null,
   };
-
-  test('covers through the latest analytics date', () => {
+  function coversThroughTheLatestAnalyticsDate() {
     const reply = createAppStoreReply(
       {
         salesStats: [salesStat],
@@ -333,9 +357,10 @@ describe('createAppStoreReply', () => {
       coveredThrough: '2026-10-09',
       notes: [],
     });
-  });
+  }
 
-  test('skips with the preparing reason when there are no stats at all', () => {
+  test('covers through the latest analytics date', coversThroughTheLatestAnalyticsDate);
+  function skipsWithThePreparingReasonWhenThereAreNoStatsAtAll() {
     const reply = createAppStoreReply(
       { salesStats: [], analyticsSummary: { stats: [], latestDate: null }, ratingStats: [] },
       request,
@@ -345,9 +370,13 @@ describe('createAppStoreReply', () => {
       status: 'skipped',
       reason: 'Apple is preparing analytics reports for Calfriend; first data within 1-2 days',
     });
-  });
+  }
 
-  test('keeps the rating stats but leaves the days uncovered while analytics are prepared', () => {
+  test(
+    'skips with the preparing reason when there are no stats at all',
+    skipsWithThePreparingReasonWhenThereAreNoStatsAtAll,
+  );
+  function keepsTheRatingStatsButLeavesTheDaysUncoveredWhileAnalyticsArePrepared() {
     const ratingStat: DailyStat = { ...salesStat, metric: 'ratingAverage', value: 4.5 };
     const reply = createAppStoreReply(
       {
@@ -364,9 +393,13 @@ describe('createAppStoreReply', () => {
       coveredThrough: '2026-10-07',
       notes: ['Apple is preparing analytics reports for Calfriend; first data within 1-2 days'],
     });
-  });
+  }
 
-  test('keeps the sales stats but leaves the days uncovered', () => {
+  test(
+    'keeps the rating stats but leaves the days uncovered while analytics are prepared',
+    keepsTheRatingStatsButLeavesTheDaysUncoveredWhileAnalyticsArePrepared,
+  );
+  function keepsTheSalesStatsButLeavesTheDaysUncovered() {
     const reply = createAppStoreReply(
       {
         salesStats: [salesStat],
@@ -382,25 +415,33 @@ describe('createAppStoreReply', () => {
       coveredThrough: '2026-10-07',
       notes: ['Apple is preparing analytics reports for Calfriend; first data within 1-2 days'],
     });
-  });
-});
+  }
 
-describe('appStoreFeed', () => {
-  test('applies to iOS apps only', () => {
+  test(
+    'keeps the sales stats but leaves the days uncovered',
+    keepsTheSalesStatsButLeavesTheDaysUncovered,
+  );
+}
+
+describe('createAppStoreReply', describeCreateAppStoreReply);
+function describeAppStoreFeed() {
+  function appliesToIOSAppsOnly() {
     expect(appStoreFeed.isApplicable(makeApp())).toBe(true);
     expect(appStoreFeed.isApplicable(makeApp({ platform: 'android' }))).toBe(false);
-  });
+  }
 
-  test('skips an app with no App Store Connect account', async () => {
+  test('applies to iOS apps only', appliesToIOSAppsOnly);
+  async function skipsAnAppWithNoAppStoreConnectAccount() {
     const { reply } = await fetchReply({}, null, SHORT_RANGE, makeApp({ accountKeyId: null }));
 
     expect(reply).toMatchObject({
       _tag: 'Right',
       right: { status: 'skipped', reason: 'Calfriend has no App Store Connect account' },
     });
-  });
+  }
 
-  test('skips when the account has no saved key', async () => {
+  test('skips an app with no App Store Connect account', skipsAnAppWithNoAppStoreConnectAccount);
+  async function skipsWhenTheAccountHasNoSavedKey() {
     const credentials = makeStatsCredentialsTest();
     const reply = await appStoreFeed.fetchDays({
       app: makeApp(),
@@ -412,9 +453,10 @@ describe('appStoreFeed', () => {
       status: 'skipped',
       reason: 'No saved App Store Connect key for account alpha',
     });
-  });
+  }
 
-  test('skips with the preparing reason while Apple has no analytics instances', async () => {
+  test('skips when the account has no saved key', skipsWhenTheAccountHasNoSavedKey);
+  async function skipsWithThePreparingReasonWhileAppleHasNoAnalyticsInstances() {
     const { reply, calls } = await fetchReply(
       { analyticsInstances: { [`ONGOING|${DISCOVERY_NAME}`]: [] } },
       null,
@@ -428,9 +470,13 @@ describe('appStoreFeed', () => {
       },
     });
     expect(calls.listCustomerReviews).toHaveBeenCalledTimes(1);
-  });
+  }
 
-  test('reads downloads, proceeds and discovery from analytics without a vendor number', async () => {
+  test(
+    'skips with the preparing reason while Apple has no analytics instances',
+    skipsWithThePreparingReasonWhileAppleHasNoAnalyticsInstances,
+  );
+  async function readsDownloadsProceedsAndDiscoveryFromAnalyticsWithoutAVendorNumber() {
     const tsv = createTsv(DISCOVERY_HEADERS, [
       ['2026-10-09', APP_ID, 'Impression', '40', '30'],
       ['2026-10-09', APP_ID, 'Page view', '7', '6'],
@@ -490,9 +536,13 @@ describe('appStoreFeed', () => {
     expect(findStat(fetched.stats, 'ratingAverage', '2026-10-10')?.value).toBe(4.3);
     expect(calls.getSalesReport).not.toHaveBeenCalled();
     expect(calls.createAnalyticsReportRequest).not.toHaveBeenCalled();
-  });
+  }
 
-  test('reads sales reports with a vendor number, treats a 404 day as no sales and ignores other apps', async () => {
+  test(
+    'reads downloads, proceeds and discovery from analytics without a vendor number',
+    readsDownloadsProceedsAndDiscoveryFromAnalyticsWithoutAVendorNumber,
+  );
+  async function readsSalesReportsWithAVendorNumberTreatsA404DayAsNoSalesAndIgnoresOtherApps() {
     const tsv = createTsv(SALES_HEADERS, [
       [APP_ID, 'calfriend', '', '1', '4', '0', 'USD'],
       [APP_ID, 'calfriend', '', '7', '9', '0', 'USD'],
@@ -517,12 +567,20 @@ describe('appStoreFeed', () => {
       value: 3,
       currency: 'ILS',
     });
-    expect(fetched.stats.filter((stat) => stat.date == '2026-10-08')).toEqual([]);
+    function filterStat(stat: DailyStat) {
+      return stat.date == '2026-10-08';
+    }
+
+    expect(fetched.stats.filter(filterStat)).toEqual([]);
     expect(fetched.coveredThrough).toBe('2026-10-07');
     expect(calls.getSalesReport).toHaveBeenCalledTimes(3);
-  });
+  }
 
-  test('fetches one sales report per vendor and date for every app of a sync run', async () => {
+  test(
+    'reads sales reports with a vendor number, treats a 404 day as no sales and ignores other apps',
+    readsSalesReportsWithAVendorNumberTreatsA404DayAsNoSalesAndIgnoresOtherApps,
+  );
+  async function fetchesOneSalesReportPerVendorAndDateForEveryAppOfASyncRun() {
     const scenario = {
       salesTsvByDate: {
         '2026-10-09': createTsv(SALES_HEADERS, [
@@ -545,9 +603,13 @@ describe('appStoreFeed', () => {
     expect(stat?.value).toBe(6);
     expect(firstApp.calls.getSalesReport).toHaveBeenCalledTimes(3);
     expect(secondApp.calls.getSalesReport).not.toHaveBeenCalled();
-  });
+  }
 
-  test('covers through the analytics date and keeps sales stats on the sales path', async () => {
+  test(
+    'fetches one sales report per vendor and date for every app of a sync run',
+    fetchesOneSalesReportPerVendorAndDateForEveryAppOfASyncRun,
+  );
+  async function coversThroughTheAnalyticsDateAndKeepsSalesStatsOnTheSalesPath() {
     const tsv = createTsv(SALES_HEADERS, [[APP_ID, 'calfriend', '', '1', '1', '0', 'USD']]);
     const { reply } = await fetchReply(
       {
@@ -573,9 +635,13 @@ describe('appStoreFeed', () => {
     const stat = findStat(fetched.stats, 'downloads', '2026-10-10');
     expect(stat?.value).toBe(1);
     expect(findStat(fetched.stats, 'impressions', '2026-10-08')?.value).toBe(5);
-  });
+  }
 
-  test('reads the one-time snapshot only for a long range', async () => {
+  test(
+    'covers through the analytics date and keeps sales stats on the sales path',
+    coversThroughTheAnalyticsDateAndKeepsSalesStatsOnTheSalesPath,
+  );
+  async function readsTheOneTimeSnapshotOnlyForALongRange() {
     const scenario = {
       analyticsInstances: {
         [`ONE_TIME_SNAPSHOT|${DISCOVERY_NAME}`]: [
@@ -606,13 +672,21 @@ describe('appStoreFeed', () => {
     expect(
       findStat(readFetched(shortRange.reply).stats, 'impressions', '2026-09-02'),
     ).toBeUndefined();
+    function mapCall(call: [_appId: string, accessType: string]) {
+      return call[1];
+    }
+
     const shortRangeAccessTypes = new Set(
-      shortRange.calls.listAnalyticsReportRequests.mock.calls.map((call) => call[1]),
+      shortRange.calls.listAnalyticsReportRequests.mock.calls.map(mapCall),
     );
     expect([...shortRangeAccessTypes]).toEqual(['ONGOING']);
-  });
+  }
 
-  test('skips with the role it needs when Apple answers 403', async () => {
+  test(
+    'reads the one-time snapshot only for a long range',
+    readsTheOneTimeSnapshotOnlyForALongRange,
+  );
+  async function skipsWithTheRoleItNeedsWhenAppleAnswers403() {
     const { reply } = await fetchReply(
       { failure: { method: 'listAnalyticsReportRequests', status: 403 } },
       null,
@@ -623,9 +697,13 @@ describe('appStoreFeed', () => {
     expect(reply._tag == 'Right' && 'reason' in reply.right && reply.right.reason).toContain(
       'Admin',
     );
-  });
+  }
 
-  test('fails the feed on any other Apple failure', async () => {
+  test(
+    'skips with the role it needs when Apple answers 403',
+    skipsWithTheRoleItNeedsWhenAppleAnswers403,
+  );
+  async function failsTheFeedOnAnyOtherAppleFailure() {
     const { reply } = await fetchReply(
       { failure: { method: 'listCustomerReviews', status: 500 } },
       null,
@@ -637,9 +715,10 @@ describe('appStoreFeed', () => {
       feed: 'app-store',
       appKey: `ios-${APP_ID}`,
     });
-  });
+  }
 
-  test('writes no rating stats when the app has no reviews', async () => {
+  test('fails the feed on any other Apple failure', failsTheFeedOnAnyOtherAppleFailure);
+  async function writesNoRatingStatsWhenTheAppHasNoReviews() {
     const tsv = createTsv(DISCOVERY_HEADERS, [['2026-10-09', APP_ID, 'Impression', '1', '1']]);
     const { reply } = await fetchReply(
       {
@@ -655,7 +734,17 @@ describe('appStoreFeed', () => {
       },
       null,
     );
+    function readMetric(stat: DailyStat) {
+      return stat.metric;
+    }
 
-    expect(readFetched(reply).stats.map((stat) => stat.metric)).toEqual(['impressions']);
-  });
-});
+    expect(readFetched(reply).stats.map(readMetric)).toEqual(['impressions']);
+  }
+
+  test(
+    'writes no rating stats when the app has no reviews',
+    writesNoRatingStatsWhenTheAppHasNoReviews,
+  );
+}
+
+describe('appStoreFeed', describeAppStoreFeed);

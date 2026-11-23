@@ -3,7 +3,12 @@ import { type StatusCommandFlags, statusCommandProgram } from '../../../release/
 import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the App Store status command. */
-export const registerStatusCommand = (program: Command): void => {
+export function registerStatusCommand(program: Command): void {
+  function runStatus(commandFlags: StatusCommandFlags) {
+    const statusProgram = statusCommandProgram(commandFlags);
+    return runCliProgram(statusProgram);
+  }
+
   program
     .command('status')
     .description("show each app's App Store version, build, review, and phased-rollout state")
@@ -19,8 +24,5 @@ export const registerStatusCommand = (program: Command): void => {
       'list each app recent builds: version, build, processing state, upload time',
     )
     .option('--json', 'machine-readable output for CI', false)
-    .action((commandFlags: StatusCommandFlags) => {
-      const statusProgram = statusCommandProgram(commandFlags);
-      return runCliProgram(statusProgram);
-    });
-};
+    .action(runStatus);
+}

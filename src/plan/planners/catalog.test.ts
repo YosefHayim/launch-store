@@ -7,71 +7,78 @@ import type { AppDescriptor } from '../../types/app.ts';
 import type { AppProducts } from '../../types/catalog.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { PlanContext } from '../../types/plan.ts';
+import type { ActionStatus } from '../../types/reconcile.ts';
+
 /** A fully-stubbed {@link AscCatalogApi}: reads default to "nothing exists yet", writes resolve to a created resource. */
-const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
+function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
+  function mockImplementationB(_b: string, capabilityType: string) {
+    return Promise.resolve({ id: 'cap-new', capabilityType });
+  }
+
+  function mockImplementationA(
+    _a: string,
+    input: {
+      productId: string;
+      name: string;
+      inAppPurchaseType: string;
+    },
+  ) {
+    return Promise.resolve({
+      id: 'iap-new',
+      productId: input.productId,
+      name: input.name,
+      inAppPurchaseType: input.inAppPurchaseType,
+    });
+  }
+
+  function mockImplementationI(
+    _i: string,
+    input: {
+      locale: string;
+      name: string;
+    },
+  ) {
+    return Promise.resolve({ id: 'iloc', locale: input.locale, name: input.name });
+  }
+
+  function mockImplementationI2(_i: string, territory: string, price: number) {
+    const asString = String(price);
+    return Promise.resolve({ id: 'ipp', customerPrice: asString, territory });
+  }
+
+  function mockImplementationA2(_a: string, referenceName: string) {
+    return Promise.resolve({ id: 'grp-new', referenceName });
+  }
+
+  function mockImplementationG(
+    _g: string,
+    input: {
+      productId: string;
+      name: string;
+    },
+  ) {
+    return Promise.resolve({ id: 'sub-new', productId: input.productId, name: input.name });
+  }
+
   const base: AscCatalogApi = {
     getAppId: vi.fn().mockResolvedValue('app1'),
     findBundleId: vi.fn().mockResolvedValue({ id: 'bundle1', identifier: 'com.acme.alpha' }),
     listBundleIdCapabilities: vi.fn().mockResolvedValue([]),
-    enableCapability: vi
-      .fn()
-      .mockImplementation((_b: string, capabilityType: string) =>
-        Promise.resolve({ id: 'cap-new', capabilityType }),
-      ),
+    enableCapability: vi.fn().mockImplementation(mockImplementationB),
     disableCapability: vi.fn().mockResolvedValue(undefined),
     listInAppPurchases: vi.fn().mockResolvedValue([]),
-    createInAppPurchase: vi.fn().mockImplementation(
-      (
-        _a: string,
-        input: {
-          productId: string;
-          name: string;
-          inAppPurchaseType: string;
-        },
-      ) =>
-        Promise.resolve({
-          id: 'iap-new',
-          productId: input.productId,
-          name: input.name,
-          inAppPurchaseType: input.inAppPurchaseType,
-        }),
-    ),
+    createInAppPurchase: vi.fn().mockImplementation(mockImplementationA),
     listInAppPurchaseLocalizations: vi.fn().mockResolvedValue([]),
-    createInAppPurchaseLocalization: vi.fn().mockImplementation(
-      (
-        _i: string,
-        input: {
-          locale: string;
-          name: string;
-        },
-      ) => Promise.resolve({ id: 'iloc', locale: input.locale, name: input.name }),
-    ),
+    createInAppPurchaseLocalization: vi.fn().mockImplementation(mockImplementationI),
     inAppPurchaseHasPrice: vi.fn().mockResolvedValue(false),
-    findInAppPurchasePricePoint: vi
-      .fn()
-      .mockImplementation((_i: string, territory: string, price: number) => {
-        const asString = String(price);
-        return Promise.resolve({ id: 'ipp', customerPrice: asString, territory });
-      }),
+    findInAppPurchasePricePoint: vi.fn().mockImplementation(mockImplementationI2),
     createInAppPurchasePriceSchedule: vi.fn().mockResolvedValue(undefined),
     listSubscriptionGroups: vi.fn().mockResolvedValue([]),
-    createSubscriptionGroup: vi
-      .fn()
-      .mockImplementation((_a: string, referenceName: string) =>
-        Promise.resolve({ id: 'grp-new', referenceName }),
-      ),
+    createSubscriptionGroup: vi.fn().mockImplementation(mockImplementationA2),
     listSubscriptionGroupLocalizations: vi.fn().mockResolvedValue([]),
     createSubscriptionGroupLocalization: vi.fn().mockResolvedValue({ id: 'gloc' }),
     listSubscriptions: vi.fn().mockResolvedValue([]),
-    createSubscription: vi.fn().mockImplementation(
-      (
-        _g: string,
-        input: {
-          productId: string;
-          name: string;
-        },
-      ) => Promise.resolve({ id: 'sub-new', productId: input.productId, name: input.name }),
-    ),
+    createSubscription: vi.fn().mockImplementation(mockImplementationG),
     listSubscriptionLocalizations: vi.fn().mockResolvedValue([]),
     createSubscriptionLocalization: vi.fn().mockResolvedValue({ id: 'sloc' }),
     subscriptionHasPrice: vi.fn().mockResolvedValue(false),
@@ -87,7 +94,7 @@ const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
     updateVersionLocalization: vi.fn().mockResolvedValue(undefined),
   };
   return { ...base, ...overrides };
-};
+}
 const PRODUCTS: AppProducts = {
   inAppPurchases: [
     {
@@ -105,10 +112,10 @@ const alpha: AppDescriptor = {
   configPath: '/no/such/dir/alpha/app.json',
   bundleId: 'com.acme.alpha',
 };
-const makeCtx = (
+function makeCtx(
   api: AscCatalogApi | null,
   products: Record<string, AppProducts> = {},
-): PlanContext => {
+): PlanContext {
   const baseConfig: LaunchConfig = {
     profiles: {},
     credentials: 'local',
@@ -123,28 +130,37 @@ const makeCtx = (
     apps: [alpha],
     // Widen the catalog-only fake to the full surface API the context now exposes; the catalog methods
     // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
-    resolveAscApi: () => {
+    resolveAscApi() {
       if (api == null) return Promise.resolve(null);
       const ascApiFake = makeAscApiFake(api);
       return Promise.resolve(ascApiFake);
     },
-    resolvePlayApi: () => Promise.resolve(null),
+    resolvePlayApi() {
+      return Promise.resolve(null);
+    },
   };
-};
-describe('catalogPlanner', () => {
-  it('omits itself when no app declares a catalog', async () => {
+}
+function describeCatalogPlanner() {
+  async function omitsItselfWhenNoAppDeclaresACatalog() {
     const api = makeApi();
     const plan = await runPlanner(catalogPlanner, makeCtx(api, {}));
     expect(plan.state).toBe('omitted');
-  });
-  it('skips with an actionable hint when no Apple account is active', async () => {
+  }
+
+  it('omits itself when no app declares a catalog', omitsItselfWhenNoAppDeclaresACatalog);
+  async function skipsWithAnActionableHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(catalogPlanner, makeCtx(null, { 'com.acme.alpha': PRODUCTS }));
     expect(plan.state).toBe('skipped');
     if (plan.state != 'skipped') return;
     expect(plan.reason).toMatch(/Apple account/);
     expect(plan.hint).toMatch(/creds/);
-  });
-  it('reports the per-app diff a fresh catalog would create', async () => {
+  }
+
+  it(
+    'skips with an actionable hint when no Apple account is active',
+    skipsWithAnActionableHintWhenNoAppleAccountIsActive,
+  );
+  async function reportsThePerAppDiffAFreshCatalogWouldCreate() {
     const api = makeApi();
     const plan = await runPlanner(catalogPlanner, makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
     expect(plan.state).toBe('planned');
@@ -152,13 +168,23 @@ describe('catalogPlanner', () => {
     if (plan.scope != 'app') return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
-    expect(
-      plan.apps[0]?.actions.some((a) =>
-        a.description.includes('create in-app purchase com.acme.coins'),
-      ),
-    ).toBe(true);
-  });
-  it('captures a missing app record as a per-app error, not a thrown plan', async () => {
+    function someA(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.description.includes('create in-app purchase com.acme.coins');
+    }
+
+    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+  }
+
+  it(
+    'reports the per-app diff a fresh catalog would create',
+    reportsThePerAppDiffAFreshCatalogWouldCreate,
+  );
+  async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await runPlanner(catalogPlanner, makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
     expect(plan.state).toBe('planned');
@@ -166,8 +192,13 @@ describe('catalogPlanner', () => {
     if (plan.scope != 'app') return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
-  });
-  it('is strictly read-only: never invokes a write endpoint', async () => {
+  }
+
+  it(
+    'captures a missing app record as a per-app error, not a thrown plan',
+    capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan,
+  );
+  async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeApi();
     await runPlanner(catalogPlanner, makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
     expect(api.getAppId).toHaveBeenCalled();
@@ -178,5 +209,12 @@ describe('catalogPlanner', () => {
     expect(api.createInAppPurchasePriceSchedule).toHaveBeenCalledTimes(0);
     expect(api.createSubscription).toHaveBeenCalledTimes(0);
     expect(api.createSubscriptionGroup).toHaveBeenCalledTimes(0);
-  });
-});
+  }
+
+  it(
+    'is strictly read-only: never invokes a write endpoint',
+    isStrictlyReadOnlyNeverInvokesAWriteEndpoint,
+  );
+}
+
+describe('catalogPlanner', describeCatalogPlanner);

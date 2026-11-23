@@ -78,9 +78,8 @@ function failedAction(action: { status: string }): boolean {
 function insertedSku(insertedProduct: InAppProductResource): string {
   return insertedProduct.sku;
 }
-
-describe('toPlayProduct', () => {
-  it('maps shared fields + the play override into an active managed product', () => {
+function describeToPlayProduct() {
+  function mapsSharedFieldsThePlayOverrideIntoAnActiveManagedProduct() {
     expect(toPlayProduct(product())).toEqual({
       sku: 'com.acme.coins.100',
       status: 'active',
@@ -89,9 +88,13 @@ describe('toPlayProduct', () => {
       defaultPrice: { priceMicros: '1990000', currency: 'USD' },
       listings: { 'en-US': { title: '100 Coins', description: 'A pile of coins' } },
     });
-  });
+  }
 
-  it('prefers play.sku over the shared productId and carries per-region prices', () => {
+  it(
+    'maps shared fields + the play override into an active managed product',
+    mapsSharedFieldsThePlayOverrideIntoAnActiveManagedProduct,
+  );
+  function prefersPlaySkuOverTheSharedProductIdAndCarriesPerRegionPrices() {
     const mapped = toPlayProduct(
       product({
         play: {
@@ -104,19 +107,30 @@ describe('toPlayProduct', () => {
 
     expect(mapped.sku).toBe('coins_100');
     expect(mapped.prices).toEqual({ GB: { priceMicros: '1790000', currency: 'GBP' } });
-  });
+  }
 
-  it('throws when the product has no localization to derive a default language from', () => {
-    expect(() => {
+  it(
+    'prefers play.sku over the shared productId and carries per-region prices',
+    prefersPlaySkuOverTheSharedProductIdAndCarriesPerRegionPrices,
+  );
+  function throwsWhenTheProductHasNoLocalizationToDeriveADefaultLanguageFrom() {
+    function expectCall() {
       return toPlayProduct(product({ localizations: [] }));
-    }).toThrow(/at least one localization/);
-  });
-});
+    }
 
-describe('productInSync', () => {
+    expect(expectCall).toThrow(/at least one localization/);
+  }
+
+  it(
+    'throws when the product has no localization to derive a default language from',
+    throwsWhenTheProductHasNoLocalizationToDeriveADefaultLanguageFrom,
+  );
+}
+
+describe('toPlayProduct', describeToPlayProduct);
+function describeProductInSync() {
   const desired = toPlayProduct(product());
-
-  it("ignores Play's auto-fanned regional prices not named in config", () => {
+  function ignoresPlaySAutoFannedRegionalPricesNotNamedInPiece() {
     const live: InAppProductResource = {
       ...desired,
       prices: {
@@ -126,9 +140,13 @@ describe('productInSync', () => {
     };
 
     expect(productInSync(live, desired)).toBe(true);
-  });
+  }
 
-  it('detects a drifted listing title and a changed default price', () => {
+  it(
+    "ignores Play's auto-fanned regional prices not named in config",
+    ignoresPlaySAutoFannedRegionalPricesNotNamedInPiece,
+  );
+  function detectsADriftedListingTitleAndAChangedDefaultPrice() {
     expect(
       productInSync({ ...desired, listings: { 'en-US': { title: 'Old name' } } }, desired),
     ).toBe(false);
@@ -138,11 +156,17 @@ describe('productInSync', () => {
         desired,
       ),
     ).toBe(false);
-  });
-});
+  }
 
-describe('reconcilePlayProducts', () => {
-  it('throws when the Play app record is unreachable', async () => {
+  it(
+    'detects a drifted listing title and a changed default price',
+    detectsADriftedListingTitleAndAChangedDefaultPrice,
+  );
+}
+
+describe('productInSync', describeProductInSync);
+function describeReconcilePlayProducts() {
+  async function throwsWhenThePlayAppPieceIsUnreachable() {
     const { api } = makeApi([], { reachable: false });
 
     await expect(
@@ -152,9 +176,10 @@ describe('reconcilePlayProducts', () => {
         dryRun: true,
       }),
     ).rejects.toThrow(/No reachable Play app/);
-  });
+  }
 
-  it("creates a product Play doesn't have yet", async () => {
+  it('throws when the Play app record is unreachable', throwsWhenThePlayAppPieceIsUnreachable);
+  async function createsAProductPlayDoesnTHaveYet() {
     const { api, calls } = makeApi([]);
     const productsOutcome = await reconcilePlayProducts(api, {
       packageName: 'com.acme.app',
@@ -167,9 +192,10 @@ describe('reconcilePlayProducts', () => {
     ]);
     expect(calls.inserts).toHaveLength(1);
     expect(calls.inserts[0]?.defaultPrice).toEqual({ priceMicros: '1990000', currency: 'USD' });
-  });
+  }
 
-  it("emits no action when the live product already matches (subset diff vs Play's extra regions)", async () => {
+  it("creates a product Play doesn't have yet", createsAProductPlayDoesnTHaveYet);
+  async function emitsNoActionWhenTheLiveProductAlreadyMatchesSubsetDiffVsPlaySExtraRegions() {
     const live: InAppProductResource = {
       ...toPlayProduct(product()),
       prices: {
@@ -187,9 +213,13 @@ describe('reconcilePlayProducts', () => {
     expect(productsOutcome.actions).toEqual([]);
     expect(calls.inserts).toHaveLength(0);
     expect(calls.updates).toHaveLength(0);
-  });
+  }
 
-  it("updates a drifted product, merging managed fields onto the live one so Play's regions survive", async () => {
+  it(
+    "emits no action when the live product already matches (subset diff vs Play's extra regions)",
+    emitsNoActionWhenTheLiveProductAlreadyMatchesSubsetDiffVsPlaySExtraRegions,
+  );
+  async function updatesADriftedProductMergingManagedFieldsOntoTheLiveOneSoPlaySRegionsSurvive() {
     const live: InAppProductResource = {
       sku: 'com.acme.coins.100',
       status: 'active',
@@ -214,9 +244,13 @@ describe('reconcilePlayProducts', () => {
     expect(sent.defaultPrice).toEqual({ priceMicros: '1990000', currency: 'USD' });
     expect(sent.listings?.['en-US']?.title).toBe('100 Coins');
     expect(sent.prices?.['JP']).toEqual({ priceMicros: '150000000', currency: 'JPY' });
-  });
+  }
 
-  it("leaves a Play product whose SKU isn't in config untouched (additive)", async () => {
+  it(
+    "updates a drifted product, merging managed fields onto the live one so Play's regions survive",
+    updatesADriftedProductMergingManagedFieldsOntoTheLiveOneSoPlaySRegionsSurvive,
+  );
+  async function leavesAPlayProductWhoseSKUIsnTInPieceUntouchedAdditive() {
     const orphan: InAppProductResource = {
       sku: 'com.acme.legacy',
       status: 'active',
@@ -232,9 +266,13 @@ describe('reconcilePlayProducts', () => {
     expect(productsOutcome.actions).toHaveLength(1);
     expect(productsOutcome.actions[0]?.description).toBe('create Play product com.acme.coins.100');
     expect(calls.updates).toHaveLength(0);
-  });
+  }
 
-  it('plans without writing on a dry run', async () => {
+  it(
+    "leaves a Play product whose SKU isn't in config untouched (additive)",
+    leavesAPlayProductWhoseSKUIsnTInPieceUntouchedAdditive,
+  );
+  async function plansWithoutWritingOnADryRun() {
     const { api, calls } = makeApi([]);
     const productsOutcome = await reconcilePlayProducts(api, {
       packageName: 'com.acme.app',
@@ -244,9 +282,10 @@ describe('reconcilePlayProducts', () => {
 
     expect(productsOutcome.actions[0]?.status).toBe('planned');
     expect(calls.inserts).toHaveLength(0);
-  });
+  }
 
-  it('isolates a per-product failure so the rest of the run continues', async () => {
+  it('plans without writing on a dry run', plansWithoutWritingOnADryRun);
+  async function isolatesAPerProductFailureSoTheRestOfTheRunContinues() {
     const { api, calls } = makeApi([], { failSku: 'com.acme.coins.100' });
     const productsOutcome = await reconcilePlayProducts(api, {
       packageName: 'com.acme.app',
@@ -264,5 +303,12 @@ describe('reconcilePlayProducts', () => {
     expect(productsSummary).toEqual({ applied: 1, failed: 1, skipped: 0 });
     expect(productsOutcome.actions.find(failedAction)?.error).toMatch(/valid tier/);
     expect(calls.inserts.map(insertedSku)).toEqual(['com.acme.coins.500']);
-  });
-});
+  }
+
+  it(
+    'isolates a per-product failure so the rest of the run continues',
+    isolatesAPerProductFailureSoTheRestOfTheRunContinues,
+  );
+}
+
+describe('reconcilePlayProducts', describeReconcilePlayProducts);

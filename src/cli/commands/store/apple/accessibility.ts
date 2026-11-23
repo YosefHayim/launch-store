@@ -10,7 +10,24 @@ type AccessibilityOptions = Readonly<{
 }>;
 
 /** Attach the accessibility reconciliation command. */
-export const registerAccessibilityCommand = (program: Command): void => {
+export function registerAccessibilityCommand(program: Command): void {
+  function runAccessibility(commandOptions: AccessibilityOptions) {
+    const requiredInput = {
+      configPath: commandOptions.config,
+      dryRun: commandOptions.dryRun == true,
+      yes: commandOptions.yes == true,
+    };
+    if (commandOptions.app == null) {
+      const accessibilityProgram = accessibilityCommandProgram(requiredInput);
+      return runCliProgram(accessibilityProgram);
+    }
+    const accessibilityProgram = accessibilityCommandProgram({
+      ...requiredInput,
+      app: commandOptions.app,
+    });
+    return runCliProgram(accessibilityProgram);
+  }
+
   program
     .command('accessibility')
     .description(
@@ -20,20 +37,5 @@ export const registerAccessibilityCommand = (program: Command): void => {
     .option('--config <path>', 'path to the accessibility config file', 'accessibility.config.json')
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: AccessibilityOptions) => {
-      const requiredInput = {
-        configPath: commandOptions.config,
-        dryRun: commandOptions.dryRun == true,
-        yes: commandOptions.yes == true,
-      };
-      if (commandOptions.app == null) {
-        const accessibilityProgram = accessibilityCommandProgram(requiredInput);
-        return runCliProgram(accessibilityProgram);
-      }
-      const accessibilityProgram = accessibilityCommandProgram({
-        ...requiredInput,
-        app: commandOptions.app,
-      });
-      return runCliProgram(accessibilityProgram);
-    });
-};
+    .action(runAccessibility);
+}

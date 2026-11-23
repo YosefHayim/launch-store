@@ -28,7 +28,7 @@ export type SchemaViolation = {
 };
 
 /** The JSON type name of a runtime value, using `"null"`/`"array"` rather than the bare `typeof`. */
-const jsonTypeOf = (candidateValue: unknown): string => {
+function jsonTypeOf(candidateValue: unknown): string {
   if (candidateValue == null) {
     return 'null';
   }
@@ -36,10 +36,10 @@ const jsonTypeOf = (candidateValue: unknown): string => {
     return 'array';
   }
   return typeof candidateValue;
-};
+}
 
 /** Whether `candidateValue` satisfies a single schema `type` name (`integer` narrows `number` to whole values). */
-const matchesType = (candidateValue: unknown, typeName: string): boolean => {
+function matchesType(candidateValue: unknown, typeName: string): boolean {
   if (typeName == 'integer') {
     return typeof candidateValue == 'number' && Number.isInteger(candidateValue);
   }
@@ -47,10 +47,10 @@ const matchesType = (candidateValue: unknown, typeName: string): boolean => {
     return typeof candidateValue == 'number';
   }
   return jsonTypeOf(candidateValue) == typeName;
-};
+}
 
 /** Resolve a percent-encoded JSON pointer (`#/definitions/Foo`) against the root document, or undefined. */
-const resolveRef = (ref: string, root: JsonSchema): JsonSchema | undefined => {
+function resolveRef(ref: string, root: JsonSchema): JsonSchema | undefined {
   if (!ref.startsWith('#/')) {
     return undefined;
   }
@@ -66,10 +66,10 @@ const resolveRef = (ref: string, root: JsonSchema): JsonSchema | undefined => {
     return undefined;
   }
   return root.definitions?.[definitionName];
-};
+}
 
 /** Append a child key to a dotted path, bracket-quoting keys that aren't plain identifiers. */
-const joinPath = (path: string, key: string): string => {
+function joinPath(path: string, key: string): string {
   if (/^[A-Za-z_$][\w$]*$/.test(key)) {
     if (path.length > 0) {
       return `${path}.${key}`;
@@ -77,12 +77,16 @@ const joinPath = (path: string, key: string): string => {
     return key;
   }
   return `${path}[${JSON.stringify(key)}]`;
-};
+}
 
 /** Render a schema's accepted types/enum for an error message, e.g. `string` or `"a" | "b"`. */
-const describeExpected = (schema: JsonSchema): string => {
+function describeExpected(schema: JsonSchema): string {
   if (schema.enum) {
-    return schema.enum.map((entry) => JSON.stringify(entry)).join(' | ');
+    function mapPiece(entry: unknown) {
+      return JSON.stringify(entry);
+    }
+
+    return schema.enum.map(mapPiece).join(' | ');
   }
   if (Array.isArray(schema.type)) {
     return schema.type.join(' | ');
@@ -98,22 +102,22 @@ const describeExpected = (schema: JsonSchema): string => {
     return decodeURIComponent(referenceName);
   }
   return 'the expected shape';
-};
+}
 
-const typeNames = (schemaType: string | string[]): string[] => {
+function typeNames(schemaType: string | string[]): string[] {
   if (Array.isArray(schemaType)) {
     return schemaType;
   }
   return [schemaType];
-};
+}
 
 /** Validate an object's `required`, `properties`, and `additionalProperties` constraints. */
-const validateObject = (
+function validateObject(
   configObject: Record<string, unknown>,
   schema: JsonSchema,
   root: JsonSchema,
   path: string,
-): SchemaViolation[] => {
+): SchemaViolation[] {
   const violations: SchemaViolation[] = [];
   let requiredFields = schema.required;
   if (requiredFields == null) {
@@ -135,7 +139,7 @@ const validateObject = (
     }
   }
   return violations;
-};
+}
 
 /** Validate an `anyOf`/`oneOf`. A matching branch is enough. Otherwise report the branch that got furthest into the value, or one type mismatch when every branch failed at this path. */
 const validateCombinator = (
@@ -146,7 +150,11 @@ const validateCombinator = (
   kind: 'anyOf' | 'oneOf',
 ): SchemaViolation[] => {
   const branchViolations = branches.map((branch) => validate(candidateValue, branch, root, path));
-  const matchCount = branchViolations.filter((violations) => violations.length == 0).length;
+  function filterViolations(violations: SchemaViolation[]) {
+    return violations.length == 0;
+  }
+
+  const matchCount = branchViolations.filter(filterViolations).length;
   let matchesExpectedCount = matchCount == 1;
   if (kind == 'anyOf') {
     matchesExpectedCount = matchCount >= 1;
@@ -163,10 +171,10 @@ const validateCombinator = (
 };
 
 /** When every branch fails at the combinator itself, keep the short type message. A branch that got inside the value has the useful errors. */
-const pickNestedBranchViolations = (
+function pickNestedBranchViolations(
   branchViolations: SchemaViolation[][],
   path: string,
-): SchemaViolation[] | null => {
+): SchemaViolation[] | null {
   let chosen: SchemaViolation[] | null = null;
   let chosenDepth = -1;
   for (const violations of branchViolations) {
@@ -186,7 +194,7 @@ const pickNestedBranchViolations = (
     }
   }
   return chosen;
-};
+}
 
 /**
  * Validate `candidateValue` against `schema`, collecting every violation (rather than failing on the first) so a
@@ -218,7 +226,11 @@ export const validate = (
   const violations: SchemaViolation[] = [];
   if (schema.type) {
     const expectedTypes = typeNames(schema.type);
-    if (!expectedTypes.some((typeName) => matchesType(candidateValue, typeName))) {
+    function someTypeName(typeName: string) {
+      return matchesType(candidateValue, typeName);
+    }
+
+    if (!expectedTypes.some(someTypeName)) {
       const typeOf = jsonTypeOf(candidateValue);
       violations.push({
         path,
@@ -228,7 +240,11 @@ export const validate = (
       return violations;
     }
   }
-  if (schema.enum && !schema.enum.some((allowed) => Object.is(allowed, candidateValue))) {
+  function someAllowed(allowed: unknown) {
+    return Object.is(allowed, candidateValue);
+  }
+
+  if (schema.enum && !schema.enum.some(someAllowed)) {
     const expected = describeExpected(schema);
     const serialized = JSON.stringify(candidateValue);
     violations.push({

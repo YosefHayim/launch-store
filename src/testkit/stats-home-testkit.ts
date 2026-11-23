@@ -34,19 +34,28 @@ export const STATS_PORTFOLIO_FILE: PortfolioFile = {
 };
 
 /** A `YYYY-MM-DD` date some whole days before now, in UTC. */
-export const readDateDaysAgo = (dayCount: number): string =>
-  new Date(Date.now() - dayCount * dayMilliseconds).toISOString().slice(0, 10);
+export function readDateDaysAgo(dayCount: number): string {
+  return new Date(Date.now() - dayCount * dayMilliseconds).toISOString().slice(0, 10);
+}
 
 /** Write one month file per month the stats touch, as the stats store would. */
-export const writeStatsMonthFiles = (
+export function writeStatsMonthFiles(
   homeDirectory: string,
   appKey: string,
   stats: readonly DailyStat[],
-): void => {
-  const months = [...new Set(stats.map((dailyStat) => dailyStat.date.slice(0, 7)))];
+): void {
+  function mapDailyStat(dailyStat: DailyStat) {
+    return dailyStat.date.slice(0, 7);
+  }
+
+  const months = [...new Set(stats.map(mapDailyStat))];
   for (const month of months) {
-    const monthStats = stats.filter((dailyStat) => dailyStat.date.startsWith(month));
+    function filterDailyStat(dailyStat: DailyStat) {
+      return dailyStat.date.startsWith(month);
+    }
+
+    const monthStats = stats.filter(filterDailyStat);
     const serialized = JSON.stringify({ version: 1, appKey, month, stats: monthStats });
     writeLaunchHomeFile(homeDirectory, `stats/${appKey}/${month}.json`, serialized);
   }
-};
+}

@@ -10,7 +10,22 @@ type ReleaseConfigOptions = Readonly<{
 }>;
 
 /** Attach the App Store release-attribute reconciliation command. */
-export const registerReleaseConfigCommand = (program: Command): void => {
+export function registerReleaseConfigCommand(program: Command): void {
+  function runReleasePiece(commandOptions: ReleaseConfigOptions, command: Command) {
+    const requiredCommandInput = {
+      configPath: commandOptions.config,
+      explicitConfigPath: command.getOptionValueSource('config') == 'cli',
+      dryRun: commandOptions.dryRun == true,
+      yes: commandOptions.yes == true,
+    };
+    const commandInput: typeof requiredCommandInput & { app?: string } = {
+      ...requiredCommandInput,
+    };
+    if (commandOptions.app != null) commandInput.app = commandOptions.app;
+    const releaseCommandProgram = releaseConfigCommandProgram(commandInput);
+    return runCliProgram(releaseCommandProgram);
+  }
+
   program
     .command('release-config')
     .description(
@@ -20,18 +35,5 @@ export const registerReleaseConfigCommand = (program: Command): void => {
     .option('--config <path>', 'path to the release config file', 'release.config.json')
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: ReleaseConfigOptions, command: Command) => {
-      const requiredCommandInput = {
-        configPath: commandOptions.config,
-        explicitConfigPath: command.getOptionValueSource('config') == 'cli',
-        dryRun: commandOptions.dryRun == true,
-        yes: commandOptions.yes == true,
-      };
-      const commandInput: typeof requiredCommandInput & { app?: string } = {
-        ...requiredCommandInput,
-      };
-      if (commandOptions.app != null) commandInput.app = commandOptions.app;
-      const releaseCommandProgram = releaseConfigCommandProgram(commandInput);
-      return runCliProgram(releaseCommandProgram);
-    });
-};
+    .action(runReleasePiece);
+}

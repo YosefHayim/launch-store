@@ -57,11 +57,17 @@ export class ConnectScreenshots {
     }>(
       `/${ownerType}/${ownerId}/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=200`,
     );
-    return appleResources.map((screenshotSet) => {
+    function mapScreenshotSet(screenshotSet: {
+      id: string;
+      attributes: { screenshotDisplayType?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let screenshotDisplayType = screenshotSet.attributes.screenshotDisplayType;
       if (screenshotDisplayType == null) screenshotDisplayType = '';
       return { id: screenshotSet.id, screenshotDisplayType };
-    });
+    }
+
+    return appleResources.map(mapScreenshotSet);
   }
 
   private async createScreenshotSetOf(
@@ -92,7 +98,15 @@ export class ConnectScreenshots {
     }>(
       `/appScreenshotSets/${setId}/appScreenshots?fields[appScreenshots]=fileName,sourceFileChecksum,assetDeliveryState&limit=200`,
     );
-    return appleResources.map((screenshot) => {
+    function mapScreenshot(screenshot: {
+      id: string;
+      attributes: {
+        fileName?: string;
+        sourceFileChecksum?: string;
+        assetDeliveryState?: { state?: string };
+      };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let fileName = screenshot.attributes.fileName;
       if (fileName == null) fileName = '';
       const screenshotResource: ScreenshotResource = { id: screenshot.id, fileName };
@@ -105,7 +119,9 @@ export class ConnectScreenshots {
           assetDeliveryState: screenshot.attributes.assetDeliveryState.state,
         });
       return screenshotResource;
-    });
+    }
+
+    return appleResources.map(mapScreenshot);
   }
 
   async deleteScreenshot(screenshotId: string): Promise<void> {
@@ -115,11 +131,15 @@ export class ConnectScreenshots {
   }
 
   async reorderScreenshots(setId: string, screenshotIds: readonly string[]): Promise<void> {
+    function mapScreenshotId(screenshotId: string) {
+      return { type: 'appScreenshots', id: screenshotId };
+    }
+
     await this.client.request<unknown>(
       'PATCH',
       `/appScreenshotSets/${setId}/relationships/appScreenshots`,
       {
-        data: screenshotIds.map((screenshotId) => ({ type: 'appScreenshots', id: screenshotId })),
+        data: screenshotIds.map(mapScreenshotId),
       },
     );
   }
@@ -189,11 +209,17 @@ export class ConnectScreenshots {
     }>(
       `/appStoreVersionLocalizations/${versionLocalizationId}/appPreviewSets?fields[appPreviewSets]=previewType&limit=200`,
     );
-    return appleResources.map((previewSet) => {
+    function mapPreviewSet(previewSet: {
+      id: string;
+      attributes: { previewType?: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let previewType = previewSet.attributes.previewType;
       if (previewType == null) previewType = '';
       return { id: previewSet.id, previewType };
-    });
+    }
+
+    return appleResources.map(mapPreviewSet);
   }
 
   async createPreviewSet(
@@ -226,7 +252,15 @@ export class ConnectScreenshots {
     }>(
       `/appPreviewSets/${setId}/appPreviews?fields[appPreviews]=fileName,sourceFileChecksum,assetDeliveryState&limit=200`,
     );
-    return appleResources.map((preview) => {
+    function mapPreview(preview: {
+      id: string;
+      attributes: {
+        fileName?: string;
+        sourceFileChecksum?: string;
+        assetDeliveryState?: { state?: string };
+      };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let fileName = preview.attributes.fileName;
       if (fileName == null) fileName = '';
       const previewResource: PreviewResource = { id: preview.id, fileName };
@@ -239,7 +273,9 @@ export class ConnectScreenshots {
           assetDeliveryState: preview.attributes.assetDeliveryState.state,
         });
       return previewResource;
-    });
+    }
+
+    return appleResources.map(mapPreview);
   }
 
   async uploadPreview(setId: string, fileName: string, filePath: string): Promise<void> {

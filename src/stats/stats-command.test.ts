@@ -15,9 +15,11 @@ import { resetLaunchDirectories, useLaunchDirectories } from '../services/platfo
 import { makeStatsCredentialsTest, useStatsCredentials } from './stats-credentials.ts';
 import { statsReportProgram, type StatsCommandRequest } from './stats-command.ts';
 
-const fakeFeed = vi.hoisted(() => ({ isFailing: false }));
+const fakeFeed = vi.hoisted(function hoistFakeFeed() {
+  return { isFailing: false };
+});
 
-vi.mock('./feed-registry.ts', () => {
+vi.mock('./feed-registry.ts', function mockFeedRegistry() {
   const iosFeed = {
     feed: 'app-store' as const,
     isApplicable(app: { platform: string }) {
@@ -52,11 +54,9 @@ const ALL_APPS_REQUEST: StatsCommandRequest = {
 type CommandOutcome =
   | { readonly _tag: 'Right' }
   | { readonly _tag: 'Left'; readonly left: unknown };
-
-describe('statsReportProgram', () => {
+function describeStatsReportProgram() {
   let homeDirectory: string;
-
-  beforeEach(() => {
+  function prepareStatsReportProgram() {
     homeDirectory = createTemporaryHomeDirectory();
     const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
@@ -77,16 +77,19 @@ describe('statsReportProgram', () => {
     ]);
     makeStatsCredentialsTest();
     fakeFeed.isFailing = false;
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareStatsReportProgram);
+  function cleanupStatsReportProgram() {
     useStatsCredentials(null);
     resetLogger();
     resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
-  });
+  }
 
-  const run = async (request: StatsCommandRequest) => {
+  afterEach(cleanupStatsReportProgram);
+
+  async function run(request: StatsCommandRequest) {
     const lines: string[] = [];
     useLoggerSink(function writeLine(text: string) {
       lines.push(text);
@@ -102,9 +105,8 @@ describe('statsReportProgram', () => {
     }
 
     return { outcome, lines };
-  };
-
-  test('prints one JSON object with the report with --json', async () => {
+  }
+  async function printsOneJSONObjectWithTheReportWithPiece() {
     const { outcome, lines } = await run({ ...ALL_APPS_REQUEST, json: true, days: '7' });
 
     expect(outcome._tag).toBe('Right');
@@ -113,24 +115,30 @@ describe('statsReportProgram', () => {
     expect(report.ok).toBe(true);
     expect(report.days).toBe(7);
     expect(report.apps).toHaveLength(2);
-  });
+  }
 
-  test('prints a block per app without --json', async () => {
+  test(
+    'prints one JSON object with the report with --json',
+    printsOneJSONObjectWithTheReportWithPiece,
+  );
+  async function printsABlockPerAppWithoutPiece() {
     const { lines } = await run(ALL_APPS_REQUEST);
 
     const text = lines.join('');
     expect(text).toContain('Cal Friend AI (ios, mine, alpha)');
     expect(text).toContain('1,200');
     expect(text).not.toContain('Some numbers are old');
-  });
+  }
 
-  test('says when no app matches the filters', async () => {
+  test('prints a block per app without --json', printsABlockPerAppWithoutPiece);
+  async function saysWhenNoAppMatchesTheFilters() {
     const { lines } = await run({ ...ALL_APPS_REQUEST, owner: 'client' });
 
     expect(lines.join('')).toContain('No apps found.');
-  });
+  }
 
-  test('prints a warning when a sync failed', async () => {
+  test('says when no app matches the filters', saysWhenNoAppMatchesTheFilters);
+  async function printsAWarningWhenASyncFailed() {
     fakeFeed.isFailing = true;
 
     const { outcome, lines } = await run(ALL_APPS_REQUEST);
@@ -138,19 +146,25 @@ describe('statsReportProgram', () => {
     expect(outcome._tag).toBe('Right');
     expect(lines.join('')).toContain('[WARN]');
     expect(lines.join('')).toContain('Some numbers are old');
-  });
+  }
 
-  test('exits 2 with a JSON error for a bad --days', async () => {
+  test('prints a warning when a sync failed', printsAWarningWhenASyncFailed);
+  async function exits2WithAJSONErrorForABadDays() {
     const { outcome, lines } = await run({ ...ALL_APPS_REQUEST, days: '0', json: true });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { _tag: 'CommandExit', exitCode: 2 } });
     const parsed = JSON.parse(lines[0] ?? '');
     expect(parsed.ok).toBe(false);
-  });
+  }
 
-  test('exits 2 when no app matches the name', async () => {
+  test('exits 2 with a JSON error for a bad --days', exits2WithAJSONErrorForABadDays);
+  async function exits2WhenNoAppMatchesTheName() {
     const { outcome } = await run({ ...ALL_APPS_REQUEST, app: 'nothing' });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { _tag: 'CommandExit', exitCode: 2 } });
-  });
-});
+  }
+
+  test('exits 2 when no app matches the name', exits2WhenNoAppMatchesTheName);
+}
+
+describe('statsReportProgram', describeStatsReportProgram);

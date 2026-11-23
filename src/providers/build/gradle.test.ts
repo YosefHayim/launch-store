@@ -2,44 +2,53 @@ import { describe, expect, it } from 'vitest';
 import type { ResolvedBuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
 import { gradleBuildArguments, makeGradleBuildEngine, parseBundletoolSize } from './gradle.ts';
-
-describe('gradleBuildArguments - signed release build', () => {
+function describeGradleBuildArgumentsSignedReleaseBuild() {
   const keystore = {
     path: '/keys/upload.jks',
     alias: 'upload',
     storePassword: 'store-secret',
     keyPassword: 'key-secret',
   };
-
-  it('reuses cached task outputs and signs with the upload key', () => {
+  function reusesCachedTaskOutputsAndSignsWithTheUploadKey() {
     expect(gradleBuildArguments(':app:bundleRelease', false, keystore)).toEqual([
       ':app:bundleRelease',
       '--build-cache',
       '-Pandroid.injected.signing.store.file=/keys/upload.jks',
       '-Pandroid.injected.signing.key.alias=upload',
     ]);
-  });
+  }
 
-  it('prepends the clean task for a from-scratch build', () => {
+  it(
+    'reuses cached task outputs and signs with the upload key',
+    reusesCachedTaskOutputsAndSignsWithTheUploadKey,
+  );
+  function prependsTheCleanTaskForAFromScratchBuild() {
     const cleanArguments = gradleBuildArguments(':app:assembleRelease', true, keystore);
     expect(cleanArguments.slice(0, 3)).toEqual([
       ':app:clean',
       ':app:assembleRelease',
       '--build-cache',
     ]);
-  });
-});
+  }
 
-describe('parseBundletoolSize - honest worst-case download from get-size total', () => {
-  it('reads MIN/MAX from a single-row total', () => {
+  it('prepends the clean task for a from-scratch build', prependsTheCleanTaskForAFromScratchBuild);
+}
+
+describe(
+  'gradleBuildArguments - signed release build',
+  describeGradleBuildArgumentsSignedReleaseBuild,
+);
+function describeParseBundletoolSizeHonestWorstCaseDownloadFromGetSizeTotal() {
+  function readsMINMAXFromASinglePieceTotal() {
     const bundletoolSize = parseBundletoolSize('MIN,MAX\n1048576,2097152');
     expect(bundletoolSize).toEqual({
       minBytes: 1048576,
       maxBytes: 2097152,
     });
-  });
+  }
 
-  it('takes the largest MAX and smallest MIN across device dimensions', () => {
+  it('reads MIN/MAX from a single-row total', readsMINMAXFromASinglePieceTotal);
+  function takesTheLargestMAXAndSmallestMINAcrossDeviceDimensions() {
     const csv = [
       'SDK,ABI,SCREEN_DENSITY,LANGUAGE,MIN,MAX',
       '21,armeabi-v7a,MDPI,en,3000000,4000000',
@@ -48,16 +57,29 @@ describe('parseBundletoolSize - honest worst-case download from get-size total',
     ].join('\n');
     const bundletoolSize = parseBundletoolSize(csv);
     expect(bundletoolSize).toEqual({ minBytes: 3000000, maxBytes: 6000000 });
-  });
+  }
 
-  it('degrades to zeros on unrecognized output rather than throwing', () => {
+  it(
+    'takes the largest MAX and smallest MIN across device dimensions',
+    takesTheLargestMAXAndSmallestMINAcrossDeviceDimensions,
+  );
+  function degradesToZerosOnUnrecognizedPieceRatherThanThrowing() {
     const bundletoolSize = parseBundletoolSize('totally unrelated');
     expect(bundletoolSize).toEqual({ minBytes: 0, maxBytes: 0 });
     expect(parseBundletoolSize('')).toEqual({ minBytes: 0, maxBytes: 0 });
-  });
-});
+  }
 
-describe('gradleBuildEngine - dry-run rehearses without building or signing', () => {
+  it(
+    'degrades to zeros on unrecognized output rather than throwing',
+    degradesToZerosOnUnrecognizedPieceRatherThanThrowing,
+  );
+}
+
+describe(
+  'parseBundletoolSize - honest worst-case download from get-size total',
+  describeParseBundletoolSizeHonestWorstCaseDownloadFromGetSizeTotal,
+);
+function describeGradleBuildEngineDryRunRehearsesWithoutBuildingOrSigning() {
   const buildContext = {
     platform: 'android',
     app: {
@@ -73,15 +95,18 @@ describe('gradleBuildEngine - dry-run rehearses without building or signing', ()
     forceClean: false,
   } satisfies ResolvedBuildContext;
   const buildCredentials: BuildCredentials = { platform: 'android', serviceAccountJson: '' };
-
-  it('returns a zero-byte report and never touches the keystore', async () => {
+  async function returnsAZeroByteReportAndNeverTouchesTheKeystore() {
     const buildEngine = makeGradleBuildEngine();
     const builtArtifact = await buildEngine.buildArtifact(buildContext, buildCredentials);
     expect(builtArtifact.artifactPath).toBe('(dry-run, not built)');
     expect(builtArtifact.sizeReport).toEqual({ artifactBytes: 0, entries: [] });
-  });
+  }
 
-  it('rejects iOS credentials (wrong platform) outside dry-run', async () => {
+  it(
+    'returns a zero-byte report and never touches the keystore',
+    returnsAZeroByteReportAndNeverTouchesTheKeystore,
+  );
+  async function rejectsIOSCredentialsWrongPlatformOutsideDryRun() {
     const realBuildContext = { ...buildContext, dryRun: false };
     const buildEngine = makeGradleBuildEngine();
     await expect(
@@ -90,5 +115,15 @@ describe('gradleBuildEngine - dry-run rehearses without building or signing', ()
         ascKey: { keyId: 'x', issuerId: 'y', p8: '' },
       }),
     ).rejects.toThrow(/Android only/);
-  });
-});
+  }
+
+  it(
+    'rejects iOS credentials (wrong platform) outside dry-run',
+    rejectsIOSCredentialsWrongPlatformOutsideDryRun,
+  );
+}
+
+describe(
+  'gradleBuildEngine - dry-run rehearses without building or signing',
+  describeGradleBuildEngineDryRunRehearsesWithoutBuildingOrSigning,
+);

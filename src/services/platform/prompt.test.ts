@@ -7,33 +7,47 @@ afterEach(function resetPromptSinks() {
   resetPrompts();
   resetLogger();
 });
-
-describe("fuzzyMatch - the picker's subsequence filter", () => {
-  it('matches an in-order subsequence, case-insensitively', () => {
+function describeFuzzyPieceThePickerSSubsequenceFilter() {
+  function matchesAnInOrderSubsequenceCaseInsensitively() {
     const fuzzy = fuzzyMatch('sml', 'sampleapp');
     expect(fuzzy).toBe(true);
     expect(fuzzyMatch('MPL', 'Mapleleaf')).toBe(true);
     expect(fuzzyMatch('sampleapp', 'sampleapp')).toBe(true);
-  });
-  it("rejects characters that aren't a subsequence", () => {
+  }
+
+  it(
+    'matches an in-order subsequence, case-insensitively',
+    matchesAnInOrderSubsequenceCaseInsensitively,
+  );
+  function rejectsCharactersThatArenTASubsequence() {
     const fuzzy = fuzzyMatch('pms', 'sampleapp');
     expect(fuzzy).toBe(false);
     expect(fuzzyMatch('xyz', 'sampleapp')).toBe(false);
-  });
-  it('treats a blank query as a match so the full list shows', () => {
+  }
+
+  it("rejects characters that aren't a subsequence", rejectsCharactersThatArenTASubsequence);
+  function treatsABlankQueryAsAPieceSoTheFullListShows() {
     const fuzzy = fuzzyMatch('', 'anything');
     expect(fuzzy).toBe(true);
     expect(fuzzyMatch('   ', 'anything')).toBe(true);
-  });
-});
+  }
 
-describe('pickOne - non-interactive policy (no TTY)', () => {
+  it(
+    'treats a blank query as a match so the full list shows',
+    treatsABlankQueryAsAPieceSoTheFullListShows,
+  );
+}
+
+describe(
+  "fuzzyMatch - the picker's subsequence filter",
+  describeFuzzyPieceThePickerSSubsequenceFilter,
+);
+function describePickOneNonInteractivePolicyNoTTY() {
   const choices = [
     { selection: 'a', label: 'Alpha' },
     { selection: 'b', label: 'Beta' },
   ];
-
-  it('throws with the flag hint under the require policy', async () => {
+  async function throwsWithTheFlagHintUnderTheRequirePolicy() {
     const one = pickOne({
       message: 'Which app? (2 found)',
       choices,
@@ -41,9 +55,13 @@ describe('pickOne - non-interactive policy (no TTY)', () => {
       nonInteractive: { kind: 'require', flagHint: '- pass --app <name>.' },
     });
     await expect(one).rejects.toMatchObject({ message: expect.stringContaining('--app') });
-  });
+  }
 
-  it('returns the fallback value and prints its note under the fallback policy', async () => {
+  it(
+    'throws with the flag hint under the require policy',
+    throwsWithTheFlagHintUnderTheRequirePolicy,
+  );
+  async function returnsTheFallbackPieceAndPrintsItsNoteUnderTheFallbackPolicy() {
     const terminalWrites: string[] = [];
     useLoggerSink(function writeLine(text: string) {
       terminalWrites.push(text);
@@ -60,11 +78,17 @@ describe('pickOne - non-interactive policy (no TTY)', () => {
     });
     expect(chosen).toBe('b');
     expect(terminalWrites.join('')).toContain('using Beta; pass --p8 to choose another.');
-  });
-});
+  }
 
-describe('LaunchPrompt.selectMany test answers', () => {
-  it('returns the configured domain selections', async () => {
+  it(
+    'returns the fallback value and prints its note under the fallback policy',
+    returnsTheFallbackPieceAndPrintsItsNoteUnderTheFallbackPolicy,
+  );
+}
+
+describe('pickOne - non-interactive policy (no TTY)', describePickOneNonInteractivePolicyNoTTY);
+function describeLaunchPromptSelectManyTestAnswers() {
+  async function returnsTheConfiguredDomainSelections() {
     usePromptAnswers({ selectionIndexes: [0, 2] });
     const selectedAgents = await LaunchPrompt.selectMany({
       message: 'Choose agents',
@@ -75,5 +99,9 @@ describe('LaunchPrompt.selectMany test answers', () => {
       ],
     });
     expect(selectedAgents).toEqual(['claude', 'cursor']);
-  });
-});
+  }
+
+  it('returns the configured domain selections', returnsTheConfiguredDomainSelections);
+}
+
+describe('LaunchPrompt.selectMany test answers', describeLaunchPromptSelectManyTestAnswers);

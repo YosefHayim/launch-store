@@ -42,11 +42,14 @@ const keystore: KeystoreAssets = {
   storePassword,
   keyPassword,
 };
-
-describe('assertResignablePlatform', () => {
-  it('allows IPA and Android formats and rejects macOS packages', () => {
+function describeAssertResignablePlatform() {
+  function allowsIPAAndAndroidFormatsAndRejectsMacOSPackages() {
     for (const platform of ['ios', 'tvos', 'visionos', 'android'] as const) {
-      expect(() => assertResignablePlatform(platform)).not.toThrow();
+      function callAssertResignablePlatform() {
+        return assertResignablePlatform(platform);
+      }
+
+      expect(callAssertResignablePlatform).not.toThrow();
     }
 
     try {
@@ -55,43 +58,63 @@ describe('assertResignablePlatform', () => {
     } catch (error) {
       expect(error).toMatchObject({ _tag: 'ResignCommandFailure' });
     }
-  });
-});
+  }
 
-describe('resignOutputPath', () => {
-  it('uses natural identifiers and the source extension', () => {
+  it(
+    'allows IPA and Android formats and rejects macOS packages',
+    allowsIPAAndAndroidFormatsAndRejectsMacOSPackages,
+  );
+}
+
+describe('assertResignablePlatform', describeAssertResignablePlatform);
+function describeResignPiecePath() {
+  function usesNaturalIdentifiersAndThePieceExtension() {
     const resignPath = resignOutputPath(ipa, '/out', '.ipa');
     expect(resignPath).toBe('/out/sampleapp-1.2.0-42-resigned.ipa');
-  });
-});
+  }
 
-describe('storedArtifactReference', () => {
-  it('keeps an explicit build id', () => {
+  it(
+    'uses natural identifiers and the source extension',
+    usesNaturalIdentifiersAndThePieceExtension,
+  );
+}
+
+describe('resignOutputPath', describeResignPiecePath);
+function describeStoredArtifactReference() {
+  function keepsAnExplicitBuildId() {
     expect(
       storedArtifactReference({
         id: 'sampleapp-1.2.0-42',
         dryRun: false,
       }),
     ).toBe('sampleapp-1.2.0-42');
-  });
+  }
 
-  it('defaults to latest when no id is provided', () => {
+  it('keeps an explicit build id', keepsAnExplicitBuildId);
+  function defaultsToLatestWhenNoIdIsProvided() {
     expect(storedArtifactReference({ dryRun: true })).toBe('latest');
-  });
-});
+  }
 
-describe('filterStoredArtifactsByApp', () => {
-  it('returns the full history when no app scope is set', () => {
+  it('defaults to latest when no id is provided', defaultsToLatestWhenNoIdIsProvided);
+}
+
+describe('storedArtifactReference', describeStoredArtifactReference);
+function describeFilterStoredArtifactsByApp() {
+  function returnsTheFullHistoryWhenNoAppScopeIsSet() {
     expect(filterStoredArtifactsByApp([ipa, androidApk], undefined)).toEqual([ipa, androidApk]);
-  });
+  }
 
-  it('keeps only artifacts for the selected app handle', () => {
+  it('returns the full history when no app scope is set', returnsTheFullHistoryWhenNoAppScopeIsSet);
+  function keepsOnlyArtifactsForTheSelectedAppHandle() {
     expect(filterStoredArtifactsByApp([ipa, androidApk], 'otherapp')).toEqual([androidApk]);
-  });
-});
+  }
 
-describe('Apple signing arguments', () => {
-  it('creates the expected unzip, zip, profile, and codesign arguments', () => {
+  it('keeps only artifacts for the selected app handle', keepsOnlyArtifactsForTheSelectedAppHandle);
+}
+
+describe('filterStoredArtifactsByApp', describeFilterStoredArtifactsByApp);
+function describeAppleSigningArguments() {
+  function createsTheExpectedUnzipZipProfileAndCodesignArguments() {
     const unzip = unzipArgs('/a.ipa', '/w');
     expect(unzip).toEqual(['-oq', '/a.ipa', '-d', '/w']);
     const zip = zipArgs('/out.ipa');
@@ -109,33 +132,56 @@ describe('Apple signing arguments', () => {
       '/w/ent.plist',
       '/w/Payload/App.app',
     ]);
-  });
-});
+  }
 
-describe('androidResignSpec', () => {
-  it('uses apksigner for APK files without putting passwords in argv', () => {
+  it(
+    'creates the expected unzip, zip, profile, and codesign arguments',
+    createsTheExpectedUnzipZipProfileAndCodesignArguments,
+  );
+}
+
+describe('Apple signing arguments', describeAppleSigningArguments);
+function describeAndroidResignSpec() {
+  function usesApksignerForAPKFilesWithoutPuttingPasswordsInArgv() {
     const resignSpec = androidResignSpec('/out.apk', keystore);
     expect(resignSpec.command).toBe('apksigner');
     expect(resignSpec.arguments).not.toContain(storePassword);
     expect(resignSpec.environment['LAUNCH_KS_STOREPASS']).toBe(storePassword);
-  });
+  }
 
-  it('uses jarsigner for AAB files without putting passwords in argv', () => {
+  it(
+    'uses apksigner for APK files without putting passwords in argv',
+    usesApksignerForAPKFilesWithoutPuttingPasswordsInArgv,
+  );
+  function usesJarsignerForAABFilesWithoutPuttingPasswordsInArgv() {
     const resignSpec = androidResignSpec('/out.aab', keystore);
     expect(resignSpec.command).toBe('jarsigner');
     expect(resignSpec.arguments).toContain('-storepass:env');
     expect(resignSpec.arguments).not.toContain(storePassword);
     expect(resignSpec.environment['LAUNCH_KS_KEYPASS']).toBe(keyPassword);
-  });
-});
+  }
 
-describe('makeResignCommandFailure', () => {
-  it('tags operation-specific resign failures for the public error channel', () => {
+  it(
+    'uses jarsigner for AAB files without putting passwords in argv',
+    usesJarsignerForAABFilesWithoutPuttingPasswordsInArgv,
+  );
+}
+
+describe('androidResignSpec', describeAndroidResignSpec);
+function describeMakeResignCommandFailure() {
+  function tagsOperationSpecificResignFailuresForThePublicErrorChannel() {
     const failure = makeResignCommandFailure({
       operation: 'select stored artifact',
       message: 'No stored build matches "latest".',
     });
     expect(failure._tag).toBe('ResignCommandFailure');
     expect(failure.operation).toBe('select stored artifact');
-  });
-});
+  }
+
+  it(
+    'tags operation-specific resign failures for the public error channel',
+    tagsOperationSpecificResignFailuresForThePublicErrorChannel,
+  );
+}
+
+describe('makeResignCommandFailure', describeMakeResignCommandFailure);

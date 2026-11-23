@@ -88,20 +88,25 @@ function appDescriptor(
 
   return descriptor;
 }
-
-describe('describeAdoptSignal', () => {
-  it('joins live version and build count, with singular build label', () => {
+function describeDescribeAdoptSignal() {
+  function joinsLiveVersionAndBuildCountWithSingularBuildLabel() {
     const adoptSignal = describeAdoptSignal('2.1', 12);
     expect(adoptSignal).toBe('v2.1 live - 12 builds');
     expect(describeAdoptSignal('1.0', 1)).toBe('v1.0 live - 1 build');
     expect(describeAdoptSignal(null, 0)).toBe('registered, no builds yet');
     expect(describeAdoptSignal(null, 3)).toBe('3 builds');
     expect(describeAdoptSignal('3.0', 0)).toBe('v3.0 live');
-  });
-});
+  }
 
-describe('detectTargets', () => {
-  it('separates apps with a live record from those skipped, with a confirming signal', async () => {
+  it(
+    'joins live version and build count, with singular build label',
+    joinsLiveVersionAndBuildCountWithSingularBuildLabel,
+  );
+}
+
+describe('describeAdoptSignal', describeDescribeAdoptSignal);
+function describeDetectTargets() {
+  async function separatesAppsWithALivePieceFromThoseSkippedWithAConfirmingSignal() {
     const appleCatalog = emptyAdoptCatalog({
       getAppId(bundleId: string) {
         if (bundleId == 'com.acme.good') {
@@ -133,15 +138,25 @@ describe('detectTargets', () => {
     }
 
     expect(detectedApp.signal).toBe('v2.1 live - 12 builds');
-    expect(detection.skipped.map((skipped) => `${skipped.app.name}: ${skipped.reason}`)).toEqual([
+    function mapSkipped(skipped: { readonly app: AppDescriptor; readonly reason: string }) {
+      return `${skipped.app.name}: ${skipped.reason}`;
+    }
+
+    expect(detection.skipped.map(mapSkipped)).toEqual([
       'android: no iOS bundle id',
       'norec: no App Store Connect record (create the app once in App Store Connect)',
     ]);
-  });
-});
+  }
 
-describe('planTargets', () => {
-  it("collects each adopter's writes and isolates an adopter that fails", async () => {
+  it(
+    'separates apps with a live record from those skipped, with a confirming signal',
+    separatesAppsWithALivePieceFromThoseSkippedWithAConfirmingSignal,
+  );
+}
+
+describe('detectTargets', describeDetectTargets);
+function describePlanTargets() {
+  async function collectsEachAdopterSWritesAndIsolatesAnAdopterThatFails() {
     const goodAdopter: Adopter = {
       domain: 'good',
       fidelity: 'importable',
@@ -190,11 +205,17 @@ describe('planTargets', () => {
 
     expect(targetPlan.writes).toHaveLength(1);
     expect(targetPlan.errors).toEqual([{ domain: 'bad', message: 'boom' }]);
-  });
-});
+  }
 
-describe('collectAdoptedProducts', () => {
-  it('aggregates launch.config product pieces by bundle id', () => {
+  it(
+    "collects each adopter's writes and isolates an adopter that fails",
+    collectsEachAdopterSWritesAndIsolatesAnAdopterThatFails,
+  );
+}
+
+describe('planTargets', describePlanTargets);
+function describeCollectAdoptedProducts() {
+  function aggregatesLaunchPieceProductPiecesByBundleId() {
     const iap: InAppPurchaseConfig = {
       productId: 'com.acme.coins',
       referenceName: 'Coins',
@@ -236,21 +257,29 @@ describe('collectAdoptedProducts', () => {
     expect(products).toEqual({
       'com.acme.app': { inAppPurchases: [iap] },
     });
-  });
-});
+  }
 
-describe('applyAdopt', () => {
+  it(
+    'aggregates launch.config product pieces by bundle id',
+    aggregatesLaunchPieceProductPiecesByBundleId,
+  );
+}
+
+describe('collectAdoptedProducts', describeCollectAdoptedProducts);
+function describeApplyAdopt() {
   let workspaceDir: string;
-
-  beforeEach(() => {
+  function prepareApplyAdopt() {
     const systemTemporaryDirectory = tmpdir();
     const launchAdoptTestPath = join(systemTemporaryDirectory, 'launch-adopt-test-');
     workspaceDir = mkdtempSync(launchAdoptTestPath);
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareApplyAdopt);
+  function cleanupApplyAdopt() {
     rmSync(workspaceDir, { recursive: true, force: true });
-  });
+  }
+
+  afterEach(cleanupApplyAdopt);
 
   const IAP: InAppPurchaseConfig = {
     productId: 'com.acme.coins',
@@ -279,8 +308,7 @@ describe('applyAdopt', () => {
       pullListing,
     };
   }
-
-  it('writes a fresh launch.config.ts with the imported products when the repo has none', async () => {
+  async function writesAFreshLaunchPieceTsWithTheImportedProductsWhenTheRepoHasNone() {
     const target: AdoptTarget = {
       app: appDescriptor('acme', 'com.acme.app'),
       appId: 'a',
@@ -312,9 +340,13 @@ describe('applyAdopt', () => {
     const written = readFileSync(joinedPath, 'utf8');
     expect(written).toContain('"com.acme.app"');
     expect(written).toContain('"com.acme.coins"');
-  });
+  }
 
-  it('prints (does not splice) the products block when a launch.config.ts already exists', async () => {
+  it(
+    'writes a fresh launch.config.ts with the imported products when the repo has none',
+    writesAFreshLaunchPieceTsWithTheImportedProductsWhenTheRepoHasNone,
+  );
+  async function printsDoesNotSpliceTheProductsBlockWhenALaunchPieceTsAlreadyExists() {
     const target: AdoptTarget = {
       app: appDescriptor('acme', 'com.acme.app'),
       appId: 'a',
@@ -346,9 +378,13 @@ describe('applyAdopt', () => {
     );
     expect(adoptionSummary.configWritten).toBeUndefined();
     expect(adoptionSummary.configBlock).toContain('products: {');
-  });
+  }
 
-  it("patches a static app.json's entitlements and reports the added keys", async () => {
+  it(
+    'prints (does not splice) the products block when a launch.config.ts already exists',
+    printsDoesNotSpliceTheProductsBlockWhenALaunchPieceTsAlreadyExists,
+  );
+  async function patchesAStaticAppPieceSEntitlementsAndReportsTheAddedKeys() {
     const configPath = join(workspaceDir, 'app.json');
     const serialized = JSON.stringify(
       { expo: { ios: { bundleIdentifier: 'com.acme.app' } } },
@@ -389,9 +425,13 @@ describe('applyAdopt', () => {
     expect(patchedDocument).toMatchObject({
       expo: { ios: { entitlements: { 'aps-environment': 'production' } } },
     });
-  });
+  }
 
-  it('prints a paste block (writes nothing) for a dynamic app.config.js', async () => {
+  it(
+    "patches a static app.json's entitlements and reports the added keys",
+    patchesAStaticAppPieceSEntitlementsAndReportsTheAddedKeys,
+  );
+  async function printsAPasteBlockWritesNothingForADynamicAppPieceJs() {
     const configPath = join(workspaceDir, 'app.config.js');
     const target: AdoptTarget = {
       app: appDescriptor('acme', 'com.acme.app', configPath),
@@ -428,9 +468,13 @@ describe('applyAdopt', () => {
     }
 
     expect(pasteBlock.block).toContain('aps-environment');
-  });
+  }
 
-  it('delegates a listing pull and records success; captures a delegate failure', async () => {
+  it(
+    'prints a paste block (writes nothing) for a dynamic app.config.js',
+    printsAPasteBlockWritesNothingForADynamicAppPieceJs,
+  );
+  async function delegatesAListingPullAndRecordsSuccessCapturesADelegateFailure() {
     const target: AdoptTarget = {
       app: appDescriptor('acme', 'com.acme.app'),
       appId: 'a',
@@ -476,5 +520,12 @@ describe('applyAdopt', () => {
     expect(failedAdoption.listingErrors).toEqual([
       { app: 'acme', message: 'App Store Connect unreachable' },
     ]);
-  });
-});
+  }
+
+  it(
+    'delegates a listing pull and records success; captures a delegate failure',
+    delegatesAListingPullAndRecordsSuccessCapturesADelegateFailure,
+  );
+}
+
+describe('applyAdopt', describeApplyAdopt);

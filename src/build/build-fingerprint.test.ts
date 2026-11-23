@@ -20,14 +20,14 @@ const FINGERPRINT_PARTS: FingerprintParts = {
   appConfigSlice: '{"plugins":["expo-router"],"newArchEnabled":true,"iosDeploymentTarget":"15.1"}',
   toolchainVersion: 'Xcode 16.0\nBuild version 16A242d',
 };
-
-describe('computeBuildFingerprint', () => {
-  it('is deterministic for identical inputs', () => {
+function describeComputeBuildFingerprint() {
+  function isDeterministicForIdenticalInputs() {
     const buildFingerprint = computeBuildFingerprint(FINGERPRINT_PARTS);
     expect(buildFingerprint).toBe(computeBuildFingerprint({ ...FINGERPRINT_PARTS }));
-  });
+  }
 
-  it('changes when any native input changes', () => {
+  it('is deterministic for identical inputs', isDeterministicForIdenticalInputs);
+  function changesWhenAnyNativePieceChanges() {
     const baseFingerprint = computeBuildFingerprint(FINGERPRINT_PARTS);
     const buildFingerprint = computeBuildFingerprint({
       ...FINGERPRINT_PARTS,
@@ -43,9 +43,10 @@ describe('computeBuildFingerprint', () => {
     expect(
       computeBuildFingerprint({ ...FINGERPRINT_PARTS, toolchainVersion: 'Xcode 16.1' }),
     ).not.toBe(baseFingerprint);
-  });
+  }
 
-  it('separates adjacent fields', () => {
+  it('changes when any native input changes', changesWhenAnyNativePieceChanges);
+  function separatesAdjacentFields() {
     const firstFingerprint = computeBuildFingerprint({
       ...FINGERPRINT_PARTS,
       podfileLock: 'ab',
@@ -57,11 +58,14 @@ describe('computeBuildFingerprint', () => {
       podfileProperties: 'bc',
     });
     expect(firstFingerprint).not.toBe(secondFingerprint);
-  });
-});
+  }
 
-describe('extractNativeConfigSlice', () => {
-  it('reads native fields through the Expo wrapper', () => {
+  it('separates adjacent fields', separatesAdjacentFields);
+}
+
+describe('computeBuildFingerprint', describeComputeBuildFingerprint);
+function describeExtractNativePieceSlice() {
+  function readsNativeFieldsThroughTheExpoWrapper() {
     const serialized = JSON.stringify({
       expo: {
         name: 'Demo',
@@ -77,18 +81,23 @@ describe('extractNativeConfigSlice', () => {
       newArchEnabled: true,
       iosDeploymentTarget: '15.1',
     });
-  });
+  }
 
-  it('ignores fields that do not affect the native graph', () => {
+  it('reads native fields through the Expo wrapper', readsNativeFieldsThroughTheExpoWrapper);
+  function ignoresFieldsThatDoNotAffectTheNativeGraph() {
     const serialized = JSON.stringify({ expo: { name: 'Before', plugins: ['x'] } });
     const beforeSlice = extractNativeConfigSlice(serialized);
     const afterSlice = extractNativeConfigSlice(
       JSON.stringify({ expo: { name: 'After', plugins: ['x'] } }),
     );
     expect(beforeSlice).toBe(afterSlice);
-  });
+  }
 
-  it('supports a flat config shape', () => {
+  it(
+    'ignores fields that do not affect the native graph',
+    ignoresFieldsThatDoNotAffectTheNativeGraph,
+  );
+  function supportsAFlatPieceShape() {
     const serialized = JSON.stringify({ plugins: ['a'], newArchEnabled: false });
     const nativeSlice = extractNativeConfigSlice(serialized);
     const parsed = JSON.parse(nativeSlice);
@@ -97,23 +106,29 @@ describe('extractNativeConfigSlice', () => {
       newArchEnabled: false,
       iosDeploymentTarget: null,
     });
-  });
+  }
 
-  it('keeps dynamic config text so edits invalidate the fingerprint', () => {
+  it('supports a flat config shape', supportsAFlatPieceShape);
+  function keepsDynamicPiecePieceSoEditsInvalidateTheFingerprint() {
     const dynamicConfig = "export default ({ config }) => ({ ...config, plugins: ['x'] });";
     const extractNativeSlice = extractNativeConfigSlice(dynamicConfig);
     expect(extractNativeSlice).toBe(dynamicConfig);
-  });
-});
+  }
 
-describe('resolveClean', () => {
+  it(
+    'keeps dynamic config text so edits invalidate the fingerprint',
+    keepsDynamicPiecePieceSoEditsInvalidateTheFingerprint,
+  );
+}
+
+describe('extractNativeConfigSlice', describeExtractNativePieceSlice);
+function describeResolveClean() {
   const storedBuild: BuildState = {
     fingerprint: 'abc',
     builtAt: '2026-06-14T00:00:00Z',
     cleanBuilt: true,
   };
-
-  it('forces a clean when requested', () => {
+  function forcesACleanWhenRequested() {
     const clean = resolveClean(true, storedBuild, 'abc');
     expect(clean).toMatchObject({
       clean: true,
@@ -123,45 +138,55 @@ describe('resolveClean', () => {
       clean: true,
       nativeChanged: true,
     });
-  });
+  }
 
-  it('cleans on the first build or a changed fingerprint', () => {
+  it('forces a clean when requested', forcesACleanWhenRequested);
+  function cleansOnTheFirstBuildOrAChangedFingerprint() {
     const clean = resolveClean(false, null, 'abc');
     expect(clean).toMatchObject({ clean: true, nativeChanged: true });
     expect(resolveClean(false, storedBuild, 'xyz')).toMatchObject({
       clean: true,
       nativeChanged: true,
     });
-  });
+  }
 
-  it('reuses caches when the fingerprint matches', () => {
+  it(
+    'cleans on the first build or a changed fingerprint',
+    cleansOnTheFirstBuildOrAChangedFingerprint,
+  );
+  function reusesCachesWhenTheFingerprintMatches() {
     const clean = resolveClean(false, storedBuild, 'abc');
     expect(clean).toMatchObject({
       clean: false,
       nativeChanged: false,
     });
-  });
-});
+  }
 
-describe('build state storage', () => {
+  it('reuses caches when the fingerprint matches', reusesCachesWhenTheFingerprintMatches);
+}
+
+describe('resolveClean', describeResolveClean);
+function describeBuildPieceStorage() {
   let temporaryDirectory: string;
-
-  beforeEach(() => {
+  function prepareBuildPieceStorage() {
     const systemTemporaryDirectory = tmpdir();
     const launchFpPath = join(systemTemporaryDirectory, 'launch-fp-');
     temporaryDirectory = mkdtempSync(launchFpPath);
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareBuildPieceStorage);
+  function cleanupBuildPieceStorage() {
     rmSync(temporaryDirectory, { recursive: true, force: true });
-  });
+  }
 
-  it('returns null before a state is written', async () => {
+  afterEach(cleanupBuildPieceStorage);
+  async function returnsNullBeforeAPieceIsWritten() {
     const storedBuild = await readBuildState('demo', 'ios', temporaryDirectory);
     expect(storedBuild).toBeNull();
-  });
+  }
 
-  it('round-trips state by app and platform', async () => {
+  it('returns null before a state is written', returnsNullBeforeAPieceIsWritten);
+  async function roundTripsPieceByAppAndPlatform() {
     const buildState: BuildState = {
       fingerprint: 'abc',
       builtAt: '2026-06-14T00:00:00Z',
@@ -175,11 +200,14 @@ describe('build state storage', () => {
     const readBuild = await readBuildState('demo', 'ios', temporaryDirectory);
     expect(readBuild).toEqual(buildState);
     expect(await readBuildState('demo', 'android', temporaryDirectory)).toBeNull();
-  });
-});
+  }
 
-describe('build estimates', () => {
-  it('adopts the first sample and smooths later samples', () => {
+  it('round-trips state by app and platform', roundTripsPieceByAppAndPlatform);
+}
+
+describe('build state storage', describeBuildPieceStorage);
+function describeBuildEstimates() {
+  function adoptsTheFirstSampleAndSmoothsLaterSamples() {
     const estimate = updateEstimate(undefined, { ms: 41000, steps: 28 });
     expect(estimate).toEqual({
       ms: 41000,
@@ -189,17 +217,22 @@ describe('build estimates', () => {
       ms: 60500,
       steps: 34,
     });
-  });
+  }
 
-  it('uses a custom smoothing weight', () => {
+  it(
+    'adopts the first sample and smooths later samples',
+    adoptsTheFirstSampleAndSmoothsLaterSamples,
+  );
+  function usesACustomSmoothingWeight() {
     const estimate = updateEstimate({ ms: 100, steps: 10 }, { ms: 200, steps: 20 }, 0.25);
     expect(estimate).toEqual({
       ms: 125,
       steps: 13,
     });
-  });
+  }
 
-  it('selects the estimate for the requested build kind', () => {
+  it('uses a custom smoothing weight', usesACustomSmoothingWeight);
+  function selectsTheEstimateForTheRequestedBuildKind() {
     const buildState: BuildState = {
       fingerprint: 'abc',
       builtAt: '2026-06-14T00:00:00Z',
@@ -209,5 +242,12 @@ describe('build estimates', () => {
     expect(estimateFor(buildState, 'incremental')).toEqual({ ms: 41000, steps: 28 });
     expect(estimateFor(buildState, 'clean')).toBeUndefined();
     expect(estimateFor(null, 'clean')).toBeUndefined();
-  });
-});
+  }
+
+  it(
+    'selects the estimate for the requested build kind',
+    selectsTheEstimateForTheRequestedBuildKind,
+  );
+}
+
+describe('build estimates', describeBuildEstimates);

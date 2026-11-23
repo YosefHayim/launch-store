@@ -19,15 +19,17 @@ import { walletPlanner } from './planners/wallet.ts';
 const PLANNERS = new Map<string, SurfacePlanner>();
 
 /** Register (or replace) a surface planner by its id. */
-const registerSurfacePlanner = (planner: SurfacePlanner): void => {
+function registerSurfacePlanner(planner: SurfacePlanner): void {
   PLANNERS.set(planner.id, planner);
-};
+}
 
 /** Every registered planner in registration order. */
-export const listSurfacePlanners = (): SurfacePlanner[] => [...PLANNERS.values()];
+export function listSurfacePlanners(): SurfacePlanner[] {
+  return [...PLANNERS.values()];
+}
 
 /** Register built-in planners. Idempotent for command entry and tests. */
-export const registerBuiltinPlanners = (): void => {
+export function registerBuiltinPlanners(): void {
   for (const planner of [
     catalogPlanner,
     listingPlanner,
@@ -47,4 +49,4 @@ export const registerBuiltinPlanners = (): void => {
   ]) {
     registerSurfacePlanner(planner);
   }
-};
+}

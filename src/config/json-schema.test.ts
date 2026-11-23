@@ -1,43 +1,50 @@
 import { describe, expect, it } from 'vitest';
 import { type JsonSchema, validate } from './json-schema.ts';
-
-describe('validate', () => {
-  it('flags a base-type mismatch and reports nothing valid alongside it', () => {
+function describeValidate() {
+  function flagsABaseTypeMismatchAndReportsNothingValidAlongsideIt() {
     const violations = validate(5, { type: 'string' });
     expect(violations).toHaveLength(1);
     expect(violations[0]?.message).toContain('expected string, got number');
-  });
+  }
 
-  it('accepts integer only for whole numbers', () => {
+  it(
+    'flags a base-type mismatch and reports nothing valid alongside it',
+    flagsABaseTypeMismatchAndReportsNothingValidAlongsideIt,
+  );
+  function acceptsIntegerOnlyForWholeNumbers() {
     expect(validate(3, { type: 'integer' })).toEqual([]);
     expect(validate(3.5, { type: 'integer' })).toHaveLength(1);
     expect(validate(3.5, { type: 'number' })).toEqual([]);
-  });
+  }
 
-  it('accepts a union type list', () => {
+  it('accepts integer only for whole numbers', acceptsIntegerOnlyForWholeNumbers);
+  function acceptsAUnionTypeList() {
     const schema: JsonSchema = { type: ['string', 'number'] };
     expect(validate('x', schema)).toEqual([]);
     expect(validate(1, schema)).toEqual([]);
     expect(validate(true, schema)).toHaveLength(1);
-  });
+  }
 
-  it('accepts an enum member and rejects a non-member', () => {
+  it('accepts a union type list', acceptsAUnionTypeList);
+  function acceptsAnEnumMemberAndRejectsANonMember() {
     const schema: JsonSchema = { type: 'string', enum: ['a', 'b'] };
     expect(validate('a', schema)).toEqual([]);
     const violations = validate('c', schema);
     expect(violations).toHaveLength(1);
     expect(violations[0]?.message).toContain('"a" | "b"');
-  });
+  }
 
-  it('enforces const equality', () => {
+  it('accepts an enum member and rejects a non-member', acceptsAnEnumMemberAndRejectsANonMember);
+  function enforcesConstEquality() {
     const schema: JsonSchema = { const: 'ship' };
     expect(validate('ship', schema)).toEqual([]);
     expect(validate('hold', schema)).toEqual([
       { path: '', message: 'expected "ship", got "hold"' },
     ]);
-  });
+  }
 
-  it('enforces string patterns', () => {
+  it('enforces const equality', enforcesConstEquality);
+  function enforcesStringPatterns() {
     const schema: JsonSchema = { type: 'string', pattern: '^[A-Za-z0-9._]+$' };
     expect(validate('com.acme.coins_100', schema)).toEqual([]);
     expect(validate('com.acme.coins-100', schema)).toEqual([
@@ -46,9 +53,10 @@ describe('validate', () => {
         message: 'expected a string matching ^[A-Za-z0-9._]+$, got "com.acme.coins-100"',
       },
     ]);
-  });
+  }
 
-  it('reports a missing required property at its own path', () => {
+  it('enforces string patterns', enforcesStringPatterns);
+  function reportsAMissingRequiredPropertyAtItsOwnPath() {
     const schema: JsonSchema = {
       type: 'object',
       properties: { name: { type: 'string' } },
@@ -56,9 +64,13 @@ describe('validate', () => {
     };
     const violations = validate({}, schema);
     expect(violations).toEqual([{ path: 'name', message: 'missing required property' }]);
-  });
+  }
 
-  it('rejects an unknown property when additionalProperties is false', () => {
+  it(
+    'reports a missing required property at its own path',
+    reportsAMissingRequiredPropertyAtItsOwnPath,
+  );
+  function rejectsAnUnknownPropertyWhenAdditionalPropertiesIsFalse() {
     const schema: JsonSchema = {
       type: 'object',
       properties: { name: { type: 'string' } },
@@ -66,9 +78,13 @@ describe('validate', () => {
     };
     const violations = validate({ name: 'ok', extra: 1 }, schema);
     expect(violations).toEqual([{ path: 'extra', message: 'unknown property' }]);
-  });
+  }
 
-  it('validates additionalProperties when it is a nested schema', () => {
+  it(
+    'rejects an unknown property when additionalProperties is false',
+    rejectsAnUnknownPropertyWhenAdditionalPropertiesIsFalse,
+  );
+  function validatesAdditionalPropertiesWhenItIsANestedSchema() {
     const schema: JsonSchema = {
       type: 'object',
       additionalProperties: { type: 'number' },
@@ -77,9 +93,13 @@ describe('validate', () => {
     expect(validate({ a: 1, b: 'x' }, schema)).toEqual([
       { path: 'b', message: 'expected number, got string' },
     ]);
-  });
+  }
 
-  it("resolves a percent-encoded $ref pointer and validates the referenced map's values", () => {
+  it(
+    'validates additionalProperties when it is a nested schema',
+    validatesAdditionalPropertiesWhenItIsANestedSchema,
+  );
+  function resolvesAPercentEncodedRefPointerAndValidatesTheReferencedMapSValues() {
     const root: JsonSchema = {
       definitions: {
         // The generator decodes definition KEYS but percent-encodes the $ref that points at them.
@@ -91,22 +111,28 @@ describe('validate', () => {
     expect(validate({ counts: { a: 1, b: 2 } }, root)).toEqual([]);
     const violations = validate({ counts: { a: 1, b: 'two' } }, root);
     expect(violations).toEqual([{ path: 'counts.b', message: 'expected number, got string' }]);
-  });
+  }
 
-  it('reports an unresolved $ref', () => {
+  it(
+    "resolves a percent-encoded $ref pointer and validates the referenced map's values",
+    resolvesAPercentEncodedRefPointerAndValidatesTheReferencedMapSValues,
+  );
+  function reportsAnUnresolvedRef() {
     expect(validate(1, { $ref: '#/definitions/Missing' })).toEqual([
       { path: '', message: 'unresolved schema reference #/definitions/Missing' },
     ]);
-  });
+  }
 
-  it('passes anyOf when at least one branch matches', () => {
+  it('reports an unresolved $ref', reportsAnUnresolvedRef);
+  function passesAnyOfWhenAtLeastOneBranchMatches() {
     const schema: JsonSchema = { anyOf: [{ type: 'string' }, { type: 'number' }] };
     expect(validate('x', schema)).toEqual([]);
     expect(validate(7, schema)).toEqual([]);
     expect(validate(true, schema)).toHaveLength(1);
-  });
+  }
 
-  it('requires exactly one oneOf branch to match', () => {
+  it('passes anyOf when at least one branch matches', passesAnyOfWhenAtLeastOneBranchMatches);
+  function requiresExactlyOneOneOfBranchToPiece() {
     const schema: JsonSchema = {
       oneOf: [
         { type: 'string', enum: ['a'] },
@@ -118,9 +144,10 @@ describe('validate', () => {
     // 'a' matches both branches -> oneOf failure.
     expect(validate('a', schema)).toHaveLength(1);
     expect(validate(1, schema)).toHaveLength(1);
-  });
+  }
 
-  it('aggregates allOf branch violations', () => {
+  it('requires exactly one oneOf branch to match', requiresExactlyOneOneOfBranchToPiece);
+  function aggregatesAllOfBranchViolations() {
     const schema: JsonSchema = {
       allOf: [
         { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
@@ -131,24 +158,30 @@ describe('validate', () => {
     const violations = validate({}, schema);
     expect(violations).toContainEqual({ path: 'name', message: 'missing required property' });
     expect(violations).toContainEqual({ path: 'age', message: 'missing required property' });
-  });
+  }
 
-  it('validates array items by index', () => {
+  it('aggregates allOf branch violations', aggregatesAllOfBranchViolations);
+  function validatesArrayPieceByIndex() {
     const schema: JsonSchema = { type: 'array', items: { type: 'number' } };
     const violations = validate([1, 'x', 3], schema);
     expect(violations).toEqual([{ path: '[1]', message: 'expected number, got string' }]);
-  });
+  }
 
-  it('bracket-quotes non-identifier object keys in paths', () => {
+  it('validates array items by index', validatesArrayPieceByIndex);
+  function bracketQuotesNonIdentifierObjectKeysInPaths() {
     const schema: JsonSchema = {
       type: 'object',
       additionalProperties: { type: 'number' },
     };
     const violations = validate({ 'a.b': 'nope' }, schema);
     expect(violations).toEqual([{ path: '["a.b"]', message: 'expected number, got string' }]);
-  });
+  }
 
-  it('returns no violations for a value that matches a nested object schema', () => {
+  it(
+    'bracket-quotes non-identifier object keys in paths',
+    bracketQuotesNonIdentifierObjectKeysInPaths,
+  );
+  function returnsNoViolationsForAPieceThatMatchesANestedObjectSchema() {
     const schema: JsonSchema = {
       type: 'object',
       properties: {
@@ -157,5 +190,12 @@ describe('validate', () => {
       required: ['profile'],
     };
     expect(validate({ profile: { name: 'production' } }, schema)).toEqual([]);
-  });
-});
+  }
+
+  it(
+    'returns no violations for a value that matches a nested object schema',
+    returnsNoViolationsForAPieceThatMatchesANestedObjectSchema,
+  );
+}
+
+describe('validate', describeValidate);

@@ -13,9 +13,9 @@ type CustomPagesOptions = Readonly<{
 }>;
 
 /** Map Commander values without explicit undefined optionals. */
-const toCustomProductPagesInput = (
+function toCustomProductPagesInput(
   commandOptions: CustomPagesOptions,
-): CustomProductPagesCommandInput => {
+): CustomProductPagesCommandInput {
   let customPagesInput: CustomProductPagesCommandInput = {
     config: commandOptions.config,
     dryRun: commandOptions.dryRun,
@@ -25,10 +25,16 @@ const toCustomProductPagesInput = (
     customPagesInput = { ...customPagesInput, app: commandOptions.app };
   }
   return customPagesInput;
-};
+}
 
 /** Attach the custom-pages command. */
-export const registerCustomPagesCommand = (program: Command): void => {
+export function registerCustomPagesCommand(program: Command): void {
+  function runCustomPages(commandOptions: CustomPagesOptions) {
+    const customProductPages = toCustomProductPagesInput(commandOptions);
+    const customProductPagesProgram = customProductPagesCommandProgram(customProductPages);
+    return runCliProgram(customProductPagesProgram);
+  }
+
   program
     .command('custom-pages')
     .description(
@@ -38,9 +44,5 @@ export const registerCustomPagesCommand = (program: Command): void => {
     .option('--config <path>', 'path to the custom pages config file', 'custom-pages.config.json')
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: CustomPagesOptions) => {
-      const customProductPages = toCustomProductPagesInput(commandOptions);
-      const customProductPagesProgram = customProductPagesCommandProgram(customProductPages);
-      return runCliProgram(customProductPagesProgram);
-    });
-};
+    .action(runCustomPages);
+}

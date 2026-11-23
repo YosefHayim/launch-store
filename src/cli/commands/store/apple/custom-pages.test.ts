@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderStoreSurfaceAction } from './app-store-surface-command.ts';
-describe('renderAction', () => {
-  it('marks a change with +, a skip with -', () => {
+function describeRenderAction() {
+  function marksAChangeWithASkipWith() {
     const storeSurfaceAction = renderStoreSurfaceAction({
       description: 'create custom product page "Spring Sale"',
       destructive: false,
@@ -15,8 +15,10 @@ describe('renderAction', () => {
         status: 'skipped',
       }),
     ).toBe('- promotional text on "Spring Sale": skipped - no editable version');
-  });
-  it("renders a failed action with x and Apple's error detail", () => {
+  }
+
+  it('marks a change with +, a skip with -', marksAChangeWithASkipWith);
+  function rendersAFailedActionWithXAndAppleSErrorDetail() {
     const storeSurfaceAction = renderStoreSurfaceAction({
       description: 'create custom product page "Spring Sale"',
       destructive: false,
@@ -24,5 +26,12 @@ describe('renderAction', () => {
       error: 'page name taken',
     });
     expect(storeSurfaceAction).toBe('x create custom product page "Spring Sale" - page name taken');
-  });
-});
+  }
+
+  it(
+    "renders a failed action with x and Apple's error detail",
+    rendersAFailedActionWithXAndAppleSErrorDetail,
+  );
+}
+
+describe('renderAction', describeRenderAction);

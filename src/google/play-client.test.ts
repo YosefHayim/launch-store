@@ -8,8 +8,10 @@ import {
   serviceAccountJwtOptions,
   type GooglePlayTransport,
 } from './play-client.ts';
+import type { PlayMoneyUnits } from '../types/play-pricing.ts';
+
 /** Minimal valid service-account JSON for adapter construction. */
-const makeServiceAccountJson = (): string => {
+function makeServiceAccountJson(): string {
   return JSON.stringify({
     type: 'service_account',
     client_email: 'launch@proj.iam.gserviceaccount.com',
@@ -17,7 +19,7 @@ const makeServiceAccountJson = (): string => {
     private_key_id: 'kid-123',
     token_uri: 'https://oauth2.googleapis.com/token',
   });
-};
+}
 const insertEdit = vi.fn();
 const commitEdit = vi.fn();
 const deleteEdit = vi.fn();
@@ -46,7 +48,7 @@ const listReviews = vi.fn();
 const getReview = vi.fn();
 const replyToReview = vi.fn();
 /** Build the generated-client slice exercised by this adapter test. */
-const generatedPublisherFake = (): GooglePlayTransport => {
+function generatedPublisherFake(): GooglePlayTransport {
   return {
     edits: {
       insert: insertEdit,
@@ -89,20 +91,22 @@ const generatedPublisherFake = (): GooglePlayTransport => {
       reply: replyToReview,
     },
   };
-};
-const openReadEdit = (): void => {
+}
+function openReadEdit(): void {
   insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
   deleteEdit.mockResolvedValue({ data: undefined });
-};
+}
 let client: GooglePlayClient;
-beforeEach(() => {
+function prepare() {
   vi.clearAllMocks();
   const makeServiceAccount = makeServiceAccountJson();
   const serviceAccount = parseServiceAccount(makeServiceAccount);
   client = new GooglePlayClient(serviceAccount, generatedPublisherFake());
-});
-describe('parseServiceAccount', () => {
-  it('extracts the fields Launch needs from a valid key', () => {
+}
+
+beforeEach(prepare);
+function describeParseServiceAccount() {
+  function extractsTheFieldsLaunchNeedsFromAValidKey() {
     const makeServiceAccount = makeServiceAccountJson();
     const account = parseServiceAccount(makeServiceAccount);
     expect(account.clientEmail).toBe('launch@proj.iam.gserviceaccount.com');
@@ -110,16 +114,23 @@ describe('parseServiceAccount', () => {
     expect(account.tokenUri).toBe('https://oauth2.googleapis.com/token');
     expect(account.privateKeyId).toBe('kid-123');
     expect(client.serviceAccountEmail).toBe('launch@proj.iam.gserviceaccount.com');
-  });
-  it('defaults the token endpoint when absent', () => {
+  }
+
+  it(
+    'extracts the fields Launch needs from a valid key',
+    extractsTheFieldsLaunchNeedsFromAValidKey,
+  );
+  function defaultsTheTokenEndpointWhenAbsent() {
     const serialized = JSON.stringify({
       client_email: 'a@b.iam',
       private_key: '-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----',
     });
     const account = parseServiceAccount(serialized);
     expect(account.tokenUri).toBe('https://oauth2.googleapis.com/token');
-  });
-  it('rejects non-JSON and the wrong key kind with actionable text', () => {
+  }
+
+  it('defaults the token endpoint when absent', defaultsTheTokenEndpointWhenAbsent);
+  function rejectsNonJSONAndTheWrongKeyKindWithActionablePiece() {
     let invalidJson: unknown;
 
     try {
@@ -146,10 +157,17 @@ describe('parseServiceAccount', () => {
       _tag: 'ServiceAccountParseError',
       message: expect.stringMatching(/client_email.*private_key/),
     });
-  });
-});
-describe('serviceAccountJwtOptions / nonEmptyPageToken', () => {
-  it('copies the key id when present and drops empty page tokens', () => {
+  }
+
+  it(
+    'rejects non-JSON and the wrong key kind with actionable text',
+    rejectsNonJSONAndTheWrongKeyKindWithActionablePiece,
+  );
+}
+
+describe('parseServiceAccount', describeParseServiceAccount);
+function describeServiceAccountJwtPieceNonEmptyPageToken() {
+  function copiesTheKeyIdWhenPresentAndDropsEmptyPageTokens() {
     const makeServiceAccount = makeServiceAccountJson();
     const account = parseServiceAccount(makeServiceAccount);
     const serviceAccountJwt = serviceAccountJwtOptions(account, ['scope-a']);
@@ -162,15 +180,27 @@ describe('serviceAccountJwtOptions / nonEmptyPageToken', () => {
     expect(nonEmptyPageToken(undefined)).toBeUndefined();
     expect(nonEmptyPageToken('')).toBeUndefined();
     expect(nonEmptyPageToken('next')).toBe('next');
-  });
-});
-describe('describePlayErrors', () => {
-  it("extracts Google's error message", () => {
+  }
+
+  it(
+    'copies the key id when present and drops empty page tokens',
+    copiesTheKeyIdWhenPresentAndDropsEmptyPageTokens,
+  );
+}
+
+describe(
+  'serviceAccountJwtOptions / nonEmptyPageToken',
+  describeServiceAccountJwtPieceNonEmptyPageToken,
+);
+function describeDescribePlayErrors() {
+  function extractsGoogleSErrorMessage() {
     const serialized = JSON.stringify({ error: { message: 'The app was not found.' } });
     const playErrors = describePlayErrors(serialized);
     expect(playErrors).toBe('The app was not found.');
-  });
-  it('flags a sensitive-permission rejection with the fix', () => {
+  }
+
+  it("extracts Google's error message", extractsGoogleSErrorMessage);
+  function flagsASensitivePermissionRejectionWithTheFix() {
     const errorText = JSON.stringify({
       error: { message: 'Your app uses a sensitive permission.' },
     });
@@ -182,8 +212,13 @@ describe('describePlayErrors', () => {
     expect(describePlayErrors(genericPermissionErrorText)).toBe(
       'The caller does not have permission',
     );
-  });
-  it('falls back across string error, description, raw text, then empty placeholder', () => {
+  }
+
+  it(
+    'flags a sensitive-permission rejection with the fix',
+    flagsASensitivePermissionRejectionWithTheFix,
+  );
+  function fallsBackAcrossStringErrorDescriptionPiecePieceThenEmptyPlaceholder() {
     const serialized = JSON.stringify({ error: 'quota exceeded' });
     const playErrors = describePlayErrors(serialized);
     expect(playErrors).toBe('quota exceeded');
@@ -192,10 +227,17 @@ describe('describePlayErrors', () => {
     );
     expect(describePlayErrors('plain failure')).toBe('plain failure');
     expect(describePlayErrors('')).toBe('no response body');
-  });
-});
-describe('GooglePlayClient generated reads', () => {
-  it('returns the highest uploaded version code and abandons the read edit', async () => {
+  }
+
+  it(
+    'falls back across string error, description, raw text, then empty placeholder',
+    fallsBackAcrossStringErrorDescriptionPiecePieceThenEmptyPlaceholder,
+  );
+}
+
+describe('describePlayErrors', describeDescribePlayErrors);
+function describeGooglePlayClientGeneratedReads() {
+  async function returnsTheHighestUploadedVersionCodeAndAbandonsTheReadEdit() {
     openReadEdit();
     listBundles.mockResolvedValue({
       data: { bundles: [{ versionCode: 3 }, { versionCode: 7 }] },
@@ -210,21 +252,33 @@ describe('GooglePlayClient generated reads', () => {
       packageName: 'com.example.hello',
       editId: 'edit1',
     });
-  });
-  it('reports zero when no bundles have been uploaded', async () => {
+  }
+
+  it(
+    'returns the highest uploaded version code and abandons the read edit',
+    returnsTheHighestUploadedVersionCodeAndAbandonsTheReadEdit,
+  );
+  async function reportsZeroWhenNoBundlesHaveBeenUploaded() {
     openReadEdit();
     listBundles.mockResolvedValue({ data: {} });
     expect(await client.getLatestVersionCode('com.example.fresh')).toBe(0);
-  });
-  it('raises PlayAppNotFoundError when edit creation reports a missing app', async () => {
+  }
+
+  it('reports zero when no bundles have been uploaded', reportsZeroWhenNoBundlesHaveBeenUploaded);
+  async function raisesPlayAppNotFoundErrorWhenEditCreationReportsAMissingApp() {
     insertEdit.mockRejectedValue(
       Object.assign(new Error('Application not found.'), { status: 404 }),
     );
     await expect(client.assertAppExists('com.example.missing')).rejects.toMatchObject({
       _tag: 'PlayAppNotFoundError',
     });
-  });
-  it('normalizes track releases and tester groups inside a throwaway edit', async () => {
+  }
+
+  it(
+    'raises PlayAppNotFoundError when edit creation reports a missing app',
+    raisesPlayAppNotFoundErrorWhenEditCreationReportsAMissingApp,
+  );
+  async function normalizesTrackReleasesAndTesterGroupsInsideAThrowawayEdit() {
     openReadEdit();
     getTrack.mockResolvedValue({
       data: {
@@ -260,8 +314,13 @@ describe('GooglePlayClient generated reads', () => {
       countries: [{ countryCode: 'US' }],
       restOfWorld: true,
     });
-  });
-  it('lists every track with normalized releases', async () => {
+  }
+
+  it(
+    'normalizes track releases and tester groups inside a throwaway edit',
+    normalizesTrackReleasesAndTesterGroupsInsideAThrowawayEdit,
+  );
+  async function listsEveryTrackWithNormalizedReleases() {
     openReadEdit();
     listTracks.mockResolvedValue({
       data: {
@@ -279,29 +338,39 @@ describe('GooglePlayClient generated reads', () => {
       },
       { track: 'production', releases: [] },
     ]);
-  });
-});
-describe('GooglePlayClient.withEdit', () => {
-  it('opens an edit, applies the write, then commits', async () => {
+  }
+
+  it('lists every track with normalized releases', listsEveryTrackWithNormalizedReleases);
+}
+
+describe('GooglePlayClient generated reads', describeGooglePlayClientGeneratedReads);
+function describeGooglePlayClientWithEdit() {
+  async function opensAnEditAppliesTheWriteThenCommits() {
     insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
     commitEdit.mockResolvedValue({ data: {} });
-    const returnEditId = async (editId: string): Promise<string> => editId;
+    async function returnEditId(editId: string): Promise<string> {
+      return editId;
+    }
     const appliedEditId = await client.withEdit('com.example.app', returnEditId);
     expect(appliedEditId).toBe('edit1');
     expect(commitEdit).toHaveBeenCalledWith({ packageName: 'com.example.app', editId: 'edit1' });
     expect(deleteEdit).not.toHaveBeenCalled();
-  });
-  it('abandons the edit when the write fails', async () => {
+  }
+
+  it('opens an edit, applies the write, then commits', opensAnEditAppliesTheWriteThenCommits);
+  async function abandonsTheEditWhenTheWriteFails() {
     insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
     deleteEdit.mockResolvedValue({ data: undefined });
-    const failWrite = async (): Promise<void> => {
+    async function failWrite(): Promise<void> {
       throw new Error('boom');
-    };
+    }
     await expect(client.withEdit('com.example.app', failWrite)).rejects.toThrow('boom');
     expect(commitEdit).not.toHaveBeenCalled();
     expect(deleteEdit).toHaveBeenCalledWith({ packageName: 'com.example.app', editId: 'edit1' });
-  });
-  it('commits setTrackReleases and setTesters inside one edit each', async () => {
+  }
+
+  it('abandons the edit when the write fails', abandonsTheEditWhenTheWriteFails);
+  async function commitsSetTrackReleasesAndSetTestersInsideOneEditEach() {
     insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
     commitEdit.mockResolvedValue({ data: {} });
     updateTrack.mockResolvedValue({ data: {} });
@@ -326,8 +395,13 @@ describe('GooglePlayClient.withEdit', () => {
       requestBody: { googleGroups: ['group@x.com'] },
     });
     expect(commitEdit).toHaveBeenCalledTimes(2);
-  });
-  it('uploads a bundle and releases its version code on the track in one edit', async () => {
+  }
+
+  it(
+    'commits setTrackReleases and setTesters inside one edit each',
+    commitsSetTrackReleasesAndSetTestersInsideOneEditEach,
+  );
+  async function uploadsABundleAndReleasesItsVersionCodeOnTheTrackInOneEdit() {
     insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
     commitEdit.mockResolvedValue({ data: {} });
     uploadBundle.mockResolvedValue({ data: { versionCode: 31 } });
@@ -354,8 +428,13 @@ describe('GooglePlayClient.withEdit', () => {
       },
     });
     expect(commitEdit).toHaveBeenCalledTimes(1);
-  });
-  it('abandons the edit when the uploaded bundle has no version code', async () => {
+  }
+
+  it(
+    'uploads a bundle and releases its version code on the track in one edit',
+    uploadsABundleAndReleasesItsVersionCodeOnTheTrackInOneEdit,
+  );
+  async function abandonsTheEditWhenTheUploadedBundleHasNoVersionCode() {
     insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
     deleteEdit.mockResolvedValue({ data: undefined });
     uploadBundle.mockResolvedValue({ data: {} });
@@ -370,10 +449,17 @@ describe('GooglePlayClient.withEdit', () => {
     expect(updateTrack).not.toHaveBeenCalled();
     expect(commitEdit).not.toHaveBeenCalled();
     expect(deleteEdit).toHaveBeenCalledWith({ packageName: 'com.example.app', editId: 'edit1' });
-  });
-});
-describe('GooglePlayClient store listings', () => {
-  it('lists the localized listings and drops entries without a language', async () => {
+  }
+
+  it(
+    'abandons the edit when the uploaded bundle has no version code',
+    abandonsTheEditWhenTheUploadedBundleHasNoVersionCode,
+  );
+}
+
+describe('GooglePlayClient.withEdit', describeGooglePlayClientWithEdit);
+function describeGooglePlayClientStoreListings() {
+  async function listsTheLocalizedListingsAndDropsEntriesWithoutALanguage() {
     openReadEdit();
     listListings.mockResolvedValue({
       data: {
@@ -403,13 +489,20 @@ describe('GooglePlayClient store listings', () => {
     expect(listListings).toHaveBeenCalledWith({ packageName: 'com.example.app', editId: 'edit1' });
     expect(deleteEdit).toHaveBeenCalledWith({ packageName: 'com.example.app', editId: 'edit1' });
     expect(commitEdit).not.toHaveBeenCalled();
-  });
-  it('returns no listings when the app has none', async () => {
+  }
+
+  it(
+    'lists the localized listings and drops entries without a language',
+    listsTheLocalizedListingsAndDropsEntriesWithoutALanguage,
+  );
+  async function returnsNoListingsWhenTheAppHasNone() {
     openReadEdit();
     listListings.mockResolvedValue({ data: {} });
     expect(await client.listListings('com.example.app')).toEqual([]);
-  });
-  it('patches every language inside one committed edit', async () => {
+  }
+
+  it('returns no listings when the app has none', returnsNoListingsWhenTheAppHasNone);
+  async function patchesEveryLanguageInsideOneCommittedEdit() {
     insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
     commitEdit.mockResolvedValue({ data: {} });
     patchListing.mockResolvedValue({ data: {} });
@@ -432,8 +525,13 @@ describe('GooglePlayClient store listings', () => {
     });
     expect(insertEdit).toHaveBeenCalledTimes(1);
     expect(commitEdit).toHaveBeenCalledTimes(1);
-  });
-  it('abandons the edit when a listing patch fails', async () => {
+  }
+
+  it(
+    'patches every language inside one committed edit',
+    patchesEveryLanguageInsideOneCommittedEdit,
+  );
+  async function abandonsTheEditWhenAListingPatchFails() {
     insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
     deleteEdit.mockResolvedValue({ data: undefined });
     patchListing.mockRejectedValue(Object.assign(new Error('bad title'), { status: 400 }));
@@ -442,10 +540,14 @@ describe('GooglePlayClient store listings', () => {
     ).rejects.toMatchObject({ _tag: 'GooglePlayApiError', statusCode: 400 });
     expect(commitEdit).not.toHaveBeenCalled();
     expect(deleteEdit).toHaveBeenCalledWith({ packageName: 'com.example.app', editId: 'edit1' });
-  });
-});
-describe('GooglePlayClient.convertRegionPrices', () => {
-  it('normalizes generated prices into sorted regions and fallback money', async () => {
+  }
+
+  it('abandons the edit when a listing patch fails', abandonsTheEditWhenAListingPatchFails);
+}
+
+describe('GooglePlayClient store listings', describeGooglePlayClientStoreListings);
+function describeGooglePlayClientConvertRegionPrices() {
+  async function normalizesGeneratedPricesIntoSortedRegionsAndFallbackMoney() {
     convertRegionPrices.mockResolvedValue({
       data: {
         convertedRegionPrices: {
@@ -476,19 +578,27 @@ describe('GooglePlayClient.convertRegionPrices', () => {
         price: { currencyCode: 'USD', units: '4', nanos: 990000000 },
       },
     });
-    expect(convertedPrices.regions.map((regionPrice) => regionPrice.regionCode)).toEqual([
-      'DE',
-      'JP',
-      'US',
-    ]);
+    function readRegionCode(regionPrice: {
+      readonly regionCode: string;
+      readonly price: PlayMoneyUnits;
+    }) {
+      return regionPrice.regionCode;
+    }
+
+    expect(convertedPrices.regions.map(readRegionCode)).toEqual(['DE', 'JP', 'US']);
     expect(convertedPrices.regions[2]).toEqual({
       regionCode: 'US',
       price: { currencyCode: 'USD', units: '4', nanos: 990000000 },
     });
     expect(convertedPrices.otherRegions?.usdPrice.units).toBe('4');
     expect(convertedPrices.otherRegions?.eurPrice.currencyCode).toBe('EUR');
-  });
-  it('drops missing region codes, fills missing money fields, and omits absent fallback', async () => {
+  }
+
+  it(
+    'normalizes generated prices into sorted regions and fallback money',
+    normalizesGeneratedPricesIntoSortedRegionsAndFallbackMoney,
+  );
+  async function dropsMissingRegionCodesFillsMissingMoneyFieldsAndOmitsAbsentFallback() {
     convertRegionPrices.mockResolvedValue({
       data: {
         convertedRegionPrices: {
@@ -506,8 +616,13 @@ describe('GooglePlayClient.convertRegionPrices', () => {
       { regionCode: 'GB', price: { currencyCode: 'GBP', units: '0', nanos: 0 } },
     ]);
     expect(convertedPrices.otherRegions).toBeUndefined();
-  });
-  it('passes the optional product tax category to the generated request', async () => {
+  }
+
+  it(
+    'drops missing region codes, fills missing money fields, and omits absent fallback',
+    dropsMissingRegionCodesFillsMissingMoneyFieldsAndOmitsAbsentFallback,
+  );
+  async function passesTheOptionalProductTaxCategoryToTheGeneratedRequest() {
     convertRegionPrices.mockResolvedValue({ data: { convertedRegionPrices: {} } });
     await client.convertRegionPrices(
       'com.example.app',
@@ -521,10 +636,17 @@ describe('GooglePlayClient.convertRegionPrices', () => {
         productTaxCategoryCode: 'TAX_CATEGORY',
       },
     });
-  });
-});
-describe('GooglePlayClient catalog + reviews', () => {
-  it('pages in-app products and normalizes money/listings', async () => {
+  }
+
+  it(
+    'passes the optional product tax category to the generated request',
+    passesTheOptionalProductTaxCategoryToTheGeneratedRequest,
+  );
+}
+
+describe('GooglePlayClient.convertRegionPrices', describeGooglePlayClientConvertRegionPrices);
+function describeGooglePlayClientCatalogReviews() {
+  async function pagesInAppProductsAndNormalizesMoneyListings() {
     listInAppProducts
       .mockResolvedValueOnce({
         data: {
@@ -564,8 +686,13 @@ describe('GooglePlayClient catalog + reviews', () => {
     ]);
     expect(listInAppProducts).toHaveBeenCalledTimes(2);
     expect(listInAppProducts.mock.calls[1]?.[0].token).toBe('page-2');
-  });
-  it('writes in-app products and subscriptions through the generated client', async () => {
+  }
+
+  it(
+    'pages in-app products and normalizes money/listings',
+    pagesInAppProductsAndNormalizesMoneyListings,
+  );
+  async function writesInAppProductsAndSubscriptionsThroughTheGeneratedClient() {
     insertInAppProduct.mockResolvedValue({ data: {} });
     updateInAppProduct.mockResolvedValue({ data: {} });
     createSubscription.mockResolvedValue({ data: {} });
@@ -608,8 +735,13 @@ describe('GooglePlayClient catalog + reviews', () => {
     });
     expect(createOffer.mock.calls[0]?.[0].offerId).toBe('trial');
     expect(activateOffer.mock.calls[0]?.[0].offerId).toBe('trial');
-  });
-  it('pages subscriptions and offers, dropping incomplete generated documents', async () => {
+  }
+
+  it(
+    'writes in-app products and subscriptions through the generated client',
+    writesInAppProductsAndSubscriptionsThroughTheGeneratedClient,
+  );
+  async function pagesSubscriptionsAndOffersDroppingIncompleteGeneratedDocuments() {
     listSubscriptions
       .mockResolvedValueOnce({
         data: {
@@ -716,8 +848,13 @@ describe('GooglePlayClient catalog + reviews', () => {
         offerTags: [{ tag: 'welcome' }],
       },
     ]);
-  });
-  it('lists, gets, and replies to reviews with flattened fields', async () => {
+  }
+
+  it(
+    'pages subscriptions and offers, dropping incomplete generated documents',
+    pagesSubscriptionsAndOffersDroppingIncompleteGeneratedDocuments,
+  );
+  async function listsGetsAndRepliesToReviewsWithFlattenedFields() {
     listReviews.mockResolvedValue({
       data: {
         reviews: [
@@ -784,8 +921,13 @@ describe('GooglePlayClient catalog + reviews', () => {
       replyText: 'Thanks for the review!',
       lastEdited: new Date(1710000100 * 1000).toISOString(),
     });
-  });
-  it('tags generated failures with status and operation text', async () => {
+  }
+
+  it(
+    'lists, gets, and replies to reviews with flattened fields',
+    listsGetsAndRepliesToReviewsWithFlattenedFields,
+  );
+  async function tagsGeneratedFailuresWithStatusAndOperationPiece() {
     const serialized = JSON.stringify({ error: { message: 'rate limited' } });
     listInAppProducts.mockRejectedValue(
       Object.assign(new Error(serialized), {
@@ -798,5 +940,12 @@ describe('GooglePlayClient catalog + reviews', () => {
       statusCode: 429,
       message: expect.stringMatching(/rate limited/),
     });
-  });
-});
+  }
+
+  it(
+    'tags generated failures with status and operation text',
+    tagsGeneratedFailuresWithStatusAndOperationPiece,
+  );
+}
+
+describe('GooglePlayClient catalog + reviews', describeGooglePlayClientCatalogReviews);

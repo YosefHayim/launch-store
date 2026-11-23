@@ -8,14 +8,17 @@ import {
   resolveReleaseType,
   resolveWhatsNew,
 } from './release-inputs.ts';
-
-describe('resolveReleaseType - CLI flags override the configured default', () => {
-  it('defaults to AFTER_APPROVAL with no config and no overrides', () => {
+function describeResolveReleaseTypeCLIFlagsOverrideTheConfiguredDefault() {
+  function defaultsToAFTERAPPROVALWithNoPieceAndNoOverrides() {
     const releaseType = resolveReleaseType(undefined, {});
     expect(releaseType).toEqual({ releaseType: 'AFTER_APPROVAL' });
-  });
+  }
 
-  it('passes the configured releaseType and earliestReleaseDate through', () => {
+  it(
+    'defaults to AFTER_APPROVAL with no config and no overrides',
+    defaultsToAFTERAPPROVALWithNoPieceAndNoOverrides,
+  );
+  function passesTheConfiguredReleaseTypeAndEarliestReleaseDateThrough() {
     expect(
       resolveReleaseType(
         { releaseType: 'SCHEDULED', earliestReleaseDate: '2026-07-01T00:00:00Z' },
@@ -25,23 +28,32 @@ describe('resolveReleaseType - CLI flags override the configured default', () =>
       releaseType: 'SCHEDULED',
       earliestReleaseDate: '2026-07-01T00:00:00Z',
     });
-  });
+  }
 
-  it('--scheduled forces SCHEDULED at the given instant', () => {
+  it(
+    'passes the configured releaseType and earliestReleaseDate through',
+    passesTheConfiguredReleaseTypeAndEarliestReleaseDateThrough,
+  );
+  function scheduledForcesSCHEDULEDAtTheGivenInstant() {
     const releaseType = resolveReleaseType(undefined, { scheduled: '2026-08-01T12:00:00Z' });
     expect(releaseType).toEqual({
       releaseType: 'SCHEDULED',
       earliestReleaseDate: '2026-08-01T12:00:00Z',
     });
-  });
+  }
 
-  it('--manual forces MANUAL', () => {
+  it(
+    '--scheduled forces SCHEDULED at the given instant',
+    scheduledForcesSCHEDULEDAtTheGivenInstant,
+  );
+  function manualForcesMANUAL() {
     expect(resolveReleaseType({ releaseType: 'AFTER_APPROVAL' }, { manual: true })).toEqual({
       releaseType: 'MANUAL',
     });
-  });
+  }
 
-  it('--scheduled beats --manual when both are set', () => {
+  it('--manual forces MANUAL', manualForcesMANUAL);
+  function scheduledBeatsManualWhenBothAreSet() {
     const releaseType = resolveReleaseType(undefined, {
       scheduled: '2026-08-01T12:00:00Z',
       manual: true,
@@ -50,39 +62,54 @@ describe('resolveReleaseType - CLI flags override the configured default', () =>
       releaseType: 'SCHEDULED',
       earliestReleaseDate: '2026-08-01T12:00:00Z',
     });
-  });
-});
+  }
 
-describe('resolveReleaseNotes - config notes -> per-locale map', () => {
-  it('returns {} when no notes are configured', () => {
+  it('--scheduled beats --manual when both are set', scheduledBeatsManualWhenBothAreSet);
+}
+
+describe(
+  'resolveReleaseType - CLI flags override the configured default',
+  describeResolveReleaseTypeCLIFlagsOverrideTheConfiguredDefault,
+);
+function describeResolveReleaseNotesPieceNotesPerLocaleMap() {
+  function returnsWhenNoNotesAreConfigured() {
     const releaseNotes = resolveReleaseNotes(undefined, 'en-US');
     expect(releaseNotes).toEqual({});
-  });
+  }
 
-  it('targets the primary locale for a bare string', () => {
+  it('returns {} when no notes are configured', returnsWhenNoNotesAreConfigured);
+  function targetsThePrimaryLocaleForABareString() {
     expect(resolveReleaseNotes({ releaseNotes: 'Bug fixes.' }, 'en-GB')).toEqual({
       'en-GB': 'Bug fixes.',
     });
-  });
+  }
 
-  it('passes a per-locale map through unchanged', () => {
+  it('targets the primary locale for a bare string', targetsThePrimaryLocaleForABareString);
+  function passesAPerLocaleMapThroughUnchanged() {
     const notes = { 'en-US': 'A', 'fr-FR': 'B' };
 
     expect(resolveReleaseNotes({ releaseNotes: notes }, 'en-US')).toEqual(notes);
-  });
-});
+  }
 
-describe('readStoreReleaseNotes - per-locale releaseNotes from store.config.json', () => {
-  it('returns {} when the app has no store.config.json', async () => {
+  it('passes a per-locale map through unchanged', passesAPerLocaleMapThroughUnchanged);
+}
+
+describe(
+  'resolveReleaseNotes - config notes -> per-locale map',
+  describeResolveReleaseNotesPieceNotesPerLocaleMap,
+);
+function describeReadStoreReleaseNotesPerLocaleReleaseNotesFromStorePiecePiece() {
+  async function returnsWhenTheAppHasNoStorePiecePiece() {
     const systemTemporaryDirectory = tmpdir();
     const launchReleasePath = join(systemTemporaryDirectory, 'launch-release-');
     const appDirectory = mkdtempSync(launchReleasePath);
 
     const storeReleaseNotes = await readStoreReleaseNotes(appDirectory);
     expect(storeReleaseNotes).toEqual({});
-  });
+  }
 
-  it("reads each locale's releaseNotes and skips locales without them", async () => {
+  it('returns {} when the app has no store.config.json', returnsWhenTheAppHasNoStorePiecePiece);
+  async function readsEachLocaleSReleaseNotesAndSkipsLocalesWithoutThem() {
     const systemTemporaryDirectory = tmpdir();
     const launchReleasePath = join(systemTemporaryDirectory, 'launch-release-');
     const appDirectory = mkdtempSync(launchReleasePath);
@@ -96,11 +123,20 @@ describe('readStoreReleaseNotes - per-locale releaseNotes from store.config.json
 
     const storeReleaseNotes = await readStoreReleaseNotes(appDirectory);
     expect(storeReleaseNotes).toEqual({ 'en-US': 'Hello' });
-  });
-});
+  }
 
-describe('resolveWhatsNew - store.config.json overrides release.releaseNotes per locale', () => {
-  it('merges both sources, store.config.json winning for a shared locale', async () => {
+  it(
+    "reads each locale's releaseNotes and skips locales without them",
+    readsEachLocaleSReleaseNotesAndSkipsLocalesWithoutThem,
+  );
+}
+
+describe(
+  'readStoreReleaseNotes - per-locale releaseNotes from store.config.json',
+  describeReadStoreReleaseNotesPerLocaleReleaseNotesFromStorePiecePiece,
+);
+function describeResolveWhatsNewStorePiecePieceOverridesReleaseReleaseNotesPerLocale() {
+  async function mergesBothSourcesStorePiecePieceWinningForASharedLocale() {
     const systemTemporaryDirectory = tmpdir();
     const launchReleasePath = join(systemTemporaryDirectory, 'launch-release-');
     const appDirectory = mkdtempSync(launchReleasePath);
@@ -116,9 +152,13 @@ describe('resolveWhatsNew - store.config.json overrides release.releaseNotes per
     );
 
     expect(merged).toEqual({ 'en-US': 'From the store config', 'fr-FR': 'Config only' });
-  });
+  }
 
-  it("falls back to release.releaseNotes when there's no store.config.json", async () => {
+  it(
+    'merges both sources, store.config.json winning for a shared locale',
+    mergesBothSourcesStorePiecePieceWinningForASharedLocale,
+  );
+  async function fallsBackToReleaseReleaseNotesWhenThereSNoStorePiecePiece() {
     const systemTemporaryDirectory = tmpdir();
     const launchReleasePath = join(systemTemporaryDirectory, 'launch-release-');
     const appDirectory = mkdtempSync(launchReleasePath);
@@ -127,5 +167,15 @@ describe('resolveWhatsNew - store.config.json overrides release.releaseNotes per
     expect(whatsNew).toEqual({
       'en-US': 'Just the config.',
     });
-  });
-});
+  }
+
+  it(
+    "falls back to release.releaseNotes when there's no store.config.json",
+    fallsBackToReleaseReleaseNotesWhenThereSNoStorePiecePiece,
+  );
+}
+
+describe(
+  'resolveWhatsNew - store.config.json overrides release.releaseNotes per locale',
+  describeResolveWhatsNewStorePiecePieceOverridesReleaseReleaseNotesPerLocale,
+);

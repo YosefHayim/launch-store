@@ -13,15 +13,20 @@ import type {
   LocalPreview,
   LocalScreenshot,
 } from '../../listing/screenshots/assets.ts';
+import type { ActionStatus } from '../../types/reconcile.ts';
 
-const effectMethods = <Api extends object>(api: Api): Api => {
+function effectMethods<Api extends object>(api: Api): Api {
   return api;
-};
+}
 /**
  * A fully-stubbed {@link ScreenshotsApi}. Reads default to "an editable version with one en-US locale and
  * no screenshots yet"; writes resolve to a created resource. Override per test to set up other states.
  */
-const makeApi = (overrides: Partial<ScreenshotsApi> = {}): ScreenshotsApi => {
+function makeApi(overrides: Partial<ScreenshotsApi> = {}): ScreenshotsApi {
+  function mockImplementationLoc(_loc: string, displayType: string) {
+    return Promise.resolve({ id: 'set-new', screenshotDisplayType: displayType });
+  }
+
   const base: ScreenshotsApi = {
     getAppId: vi.fn().mockResolvedValue('app1'),
     getEditableVersionId: vi.fn().mockResolvedValue('ver1'),
@@ -29,11 +34,7 @@ const makeApi = (overrides: Partial<ScreenshotsApi> = {}): ScreenshotsApi => {
       .fn()
       .mockResolvedValue([{ id: 'loc-en', locale: 'en-US', fields: {} }]),
     listScreenshotSets: vi.fn().mockResolvedValue([]),
-    createScreenshotSet: vi
-      .fn()
-      .mockImplementation((_loc: string, displayType: string) =>
-        Promise.resolve({ id: 'set-new', screenshotDisplayType: displayType }),
-      ),
+    createScreenshotSet: vi.fn().mockImplementation(mockImplementationLoc),
     listScreenshots: vi.fn().mockResolvedValue([]),
     uploadScreenshot: vi.fn().mockResolvedValue(undefined),
     deleteScreenshot: vi.fn().mockResolvedValue(undefined),
@@ -44,9 +45,9 @@ const makeApi = (overrides: Partial<ScreenshotsApi> = {}): ScreenshotsApi => {
     uploadSubscriptionReviewScreenshot: vi.fn().mockResolvedValue(undefined),
   };
   return effectMethods({ ...base, ...overrides });
-};
+}
 /** Build a {@link LocalScreenshot} with sensible defaults for the field under test. */
-const shot = (overrides: Partial<LocalScreenshot> = {}): LocalScreenshot => {
+function shot(overrides: Partial<LocalScreenshot> = {}): LocalScreenshot {
   return {
     locale: 'en-US',
     displayType: 'APP_IPHONE_67',
@@ -56,8 +57,8 @@ const shot = (overrides: Partial<LocalScreenshot> = {}): LocalScreenshot => {
     size: 100,
     ...overrides,
   };
-};
-const asset = (overrides: Partial<LocalAsset> = {}): LocalAsset => {
+}
+function asset(overrides: Partial<LocalAsset> = {}): LocalAsset {
   return {
     path: '/tmp/review.png',
     fileName: 'review.png',
@@ -65,8 +66,8 @@ const asset = (overrides: Partial<LocalAsset> = {}): LocalAsset => {
     size: 50,
     ...overrides,
   };
-};
-const input = (overrides: Partial<ScreenshotReconcileInput> = {}): ScreenshotReconcileInput => {
+}
+function input(overrides: Partial<ScreenshotReconcileInput> = {}): ScreenshotReconcileInput {
   return {
     bundleId: 'com.acme.app',
     screenshots: [],
@@ -75,17 +76,23 @@ const input = (overrides: Partial<ScreenshotReconcileInput> = {}): ScreenshotRec
     allowDestructive: false,
     ...overrides,
   };
-};
-const runScreenshots = (api: ScreenshotsApi, reconcileInput: ScreenshotReconcileInput) =>
-  reconcileScreenshots(api, reconcileInput);
-describe('reconcileScreenshots - app screenshots', () => {
-  it('does nothing when there are no assets to reconcile', async () => {
+}
+function runScreenshots(api: ScreenshotsApi, reconcileInput: ScreenshotReconcileInput) {
+  return reconcileScreenshots(api, reconcileInput);
+}
+function describeReconcileScreenshotsAppScreenshots() {
+  async function doesNothingWhenThereAreNoAssetsToReconcile() {
     const api = makeApi();
     const actions = await runScreenshots(api, input());
     expect(actions).toEqual([]);
     expect(api.getAppId).not.toHaveBeenCalled();
-  });
-  it('skips with guidance when the app has no App Store Connect record', async () => {
+  }
+
+  it(
+    'does nothing when there are no assets to reconcile',
+    doesNothingWhenThereAreNoAssetsToReconcile,
+  );
+  async function skipsWithGuidanceWhenTheAppHasNoAppStoreConnectPiece() {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
     const actions = await runScreenshots(api, input({ screenshots: [shot()] }));
     expect(actions).toHaveLength(1);
@@ -93,37 +100,82 @@ describe('reconcileScreenshots - app screenshots', () => {
       status: 'skipped',
       description: expect.stringContaining('no App Store Connect app record'),
     });
-  });
-  it('plans set creation + upload from an empty version without performing writes (dry-run)', async () => {
+  }
+
+  it(
+    'skips with guidance when the app has no App Store Connect record',
+    skipsWithGuidanceWhenTheAppHasNoAppStoreConnectPiece,
+  );
+  async function plansSetCreationUploadFromAnEmptyVersionWithoutPerformingWritesDryRun() {
     const api = makeApi();
     const actions = await runScreenshots(api, input({ screenshots: [shot()], dryRun: true }));
-    expect(actions.map((a) => a.description)).toEqual([
+    function readDescription(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.description;
+    }
+
+    expect(actions.map(readDescription)).toEqual([
       'create screenshot set iPhone 6.7" [en-US]',
       'upload screenshot iPhone 6.7" [en-US] 01.png',
     ]);
-    expect(actions.every((a) => a.status == 'planned')).toBe(true);
+    function everyA(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.status == 'planned';
+    }
+
+    expect(actions.every(everyA)).toBe(true);
     expect(api.createScreenshotSet).not.toHaveBeenCalled();
     expect(api.uploadScreenshot).not.toHaveBeenCalled();
-  });
-  it('creates the set and uploads on apply', async () => {
+  }
+
+  it(
+    'plans set creation + upload from an empty version without performing writes (dry-run)',
+    plansSetCreationUploadFromAnEmptyVersionWithoutPerformingWritesDryRun,
+  );
+  async function createsTheSetAndUploadsOnApply() {
     const api = makeApi();
     const actions = await runScreenshots(api, input({ screenshots: [shot()] }));
-    expect(actions.every((a) => a.status == 'applied')).toBe(true);
+    function everyA2(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.status == 'applied';
+    }
+
+    expect(actions.every(everyA2)).toBe(true);
     expect(api.createScreenshotSet).toHaveBeenCalledWith('loc-en', 'APP_IPHONE_67');
     expect(api.uploadScreenshot).toHaveBeenCalledWith('set-new', '01.png', '/tmp/01.png');
-  });
-  it('uploads display-type sets in parallel and keeps their actions in set order', async () => {
+  }
+
+  it('creates the set and uploads on apply', createsTheSetAndUploadsOnApply);
+  async function uploadsDisplayTypeSetsInParallelAndKeepsTheirActionsInSetOrder() {
     let inFlightUploads = 0;
     let peakInFlightUploads = 0;
+    async function mockImplementationSetId(_setId: string, fileName: string) {
+      inFlightUploads += 1;
+      peakInFlightUploads = Math.max(peakInFlightUploads, inFlightUploads);
+      let uploadDelayMs = 1;
+      if (fileName == '01.png') uploadDelayMs = 10;
+      function createPromiseWork(resumeUpload: (value: unknown) => void) {
+        return setTimeout(resumeUpload, uploadDelayMs);
+      }
+
+      await new Promise(createPromiseWork);
+      inFlightUploads -= 1;
+    }
+
     const api = makeApi({
-      uploadScreenshot: vi.fn().mockImplementation(async (_setId: string, fileName: string) => {
-        inFlightUploads += 1;
-        peakInFlightUploads = Math.max(peakInFlightUploads, inFlightUploads);
-        let uploadDelayMs = 1;
-        if (fileName == '01.png') uploadDelayMs = 10;
-        await new Promise((resumeUpload) => setTimeout(resumeUpload, uploadDelayMs));
-        inFlightUploads -= 1;
-      }),
+      uploadScreenshot: vi.fn().mockImplementation(mockImplementationSetId),
     });
     const ipadShot = shot({
       displayType: 'APP_IPAD_PRO_3GEN_129',
@@ -133,14 +185,28 @@ describe('reconcileScreenshots - app screenshots', () => {
     });
     const actions = await runScreenshots(api, input({ screenshots: [shot(), ipadShot] }));
     expect(peakInFlightUploads).toBe(2);
-    expect(actions.map((a) => a.description)).toEqual([
+    function readDescription2(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.description;
+    }
+
+    expect(actions.map(readDescription2)).toEqual([
       'create screenshot set iPhone 6.7" [en-US]',
       'upload screenshot iPhone 6.7" [en-US] 01.png',
       expect.stringMatching(/^create screenshot set .+ \[en-US\]$/),
       expect.stringMatching(/^upload screenshot .+ \[en-US\] 02\.png$/),
     ]);
-  });
-  it('reuses an existing set and skips a screenshot already uploaded byte-for-byte (idempotent)', async () => {
+  }
+
+  it(
+    'uploads display-type sets in parallel and keeps their actions in set order',
+    uploadsDisplayTypeSetsInParallelAndKeepsTheirActionsInSetOrder,
+  );
+  async function reusesAnExistingSetAndSkipsAScreenshotAlreadyUploadedByteForByteIdempotent() {
     const api = makeApi({
       listScreenshotSets: vi
         .fn()
@@ -156,8 +222,13 @@ describe('reconcileScreenshots - app screenshots', () => {
     expect(actions).toEqual([]);
     expect(api.createScreenshotSet).not.toHaveBeenCalled();
     expect(api.uploadScreenshot).not.toHaveBeenCalled();
-  });
-  it('uploads a changed file (same name, new checksum) into the existing set', async () => {
+  }
+
+  it(
+    'reuses an existing set and skips a screenshot already uploaded byte-for-byte (idempotent)',
+    reusesAnExistingSetAndSkipsAScreenshotAlreadyUploadedByteForByteIdempotent,
+  );
+  async function uploadsAChangedFileSameNameNewChecksumIntoTheExistingSet() {
     const api = makeApi({
       listScreenshotSets: vi
         .fn()
@@ -170,10 +241,24 @@ describe('reconcileScreenshots - app screenshots', () => {
       api,
       input({ screenshots: [shot({ checksum: 'new-sum' })] }),
     );
-    expect(actions.map((a) => a.status)).toEqual(['applied']);
+    function readStatus(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.status;
+    }
+
+    expect(actions.map(readStatus)).toEqual(['applied']);
     expect(api.uploadScreenshot).toHaveBeenCalledWith('set1', '01.png', '/tmp/01.png');
-  });
-  it('re-uploads a matching checksum whose previous delivery FAILED', async () => {
+  }
+
+  it(
+    'uploads a changed file (same name, new checksum) into the existing set',
+    uploadsAChangedFileSameNameNewChecksumIntoTheExistingSet,
+  );
+  async function reUploadsAMatchingChecksumWhosePreviousDeliveryFAILED() {
     const api = makeApi({
       listScreenshotSets: vi
         .fn()
@@ -191,10 +276,24 @@ describe('reconcileScreenshots - app screenshots', () => {
       api,
       input({ screenshots: [shot({ checksum: 'sum-01' })] }),
     );
-    expect(actions.map((a) => a.status)).toEqual(['applied']);
+    function readStatus2(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.status;
+    }
+
+    expect(actions.map(readStatus2)).toEqual(['applied']);
     expect(api.uploadScreenshot).toHaveBeenCalledWith('set1', '01.png', '/tmp/01.png');
-  });
-  it("skips a locale that isn't on the editable version", async () => {
+  }
+
+  it(
+    're-uploads a matching checksum whose previous delivery FAILED',
+    reUploadsAMatchingChecksumWhosePreviousDeliveryFAILED,
+  );
+  async function skipsALocaleThatIsnTOnTheEditableVersion() {
     const api = makeApi({
       listVersionLocalizations: vi
         .fn()
@@ -207,8 +306,10 @@ describe('reconcileScreenshots - app screenshots', () => {
       description: expect.stringContaining('locale not on the editable version'),
     });
     expect(api.uploadScreenshot).not.toHaveBeenCalled();
-  });
-  it('skips when there is no editable App Store version', async () => {
+  }
+
+  it("skips a locale that isn't on the editable version", skipsALocaleThatIsnTOnTheEditableVersion);
+  async function skipsWhenThereIsNoEditableAppStoreVersion() {
     const api = makeApi({ getEditableVersionId: vi.fn().mockResolvedValue(null) });
     const actions = await runScreenshots(api, input({ screenshots: [shot()] }));
     expect(actions).toHaveLength(1);
@@ -216,13 +317,22 @@ describe('reconcileScreenshots - app screenshots', () => {
       status: 'skipped',
       description: expect.stringContaining('no editable App Store version'),
     });
-  });
-  it("skips screenshots beyond Apple's per-set maximum", async () => {
-    const existing = Array.from({ length: 10 }, (_, i) => ({
-      id: `s${i}`,
-      fileName: `${i}.png`,
-      sourceFileChecksum: `old-${i}`,
-    }));
+  }
+
+  it(
+    'skips when there is no editable App Store version',
+    skipsWhenThereIsNoEditableAppStoreVersion,
+  );
+  async function skipsScreenshotsBeyondAppleSPerSetMaximum() {
+    function fromPiece(_: unknown, i: number) {
+      return {
+        id: `s${i}`,
+        fileName: `${i}.png`,
+        sourceFileChecksum: `old-${i}`,
+      };
+    }
+
+    const existing = Array.from({ length: 10 }, fromPiece);
     const api = makeApi({
       listScreenshotSets: vi
         .fn()
@@ -239,13 +349,19 @@ describe('reconcileScreenshots - app screenshots', () => {
       description: expect.stringContaining('set is full'),
     });
     expect(api.uploadScreenshot).not.toHaveBeenCalled();
-  });
-});
-describe('reconcileScreenshots - subscription review screenshots', () => {
-  const reviewInput = (
+  }
+
+  it("skips screenshots beyond Apple's per-set maximum", skipsScreenshotsBeyondAppleSPerSetMaximum);
+}
+
+describe('reconcileScreenshots - app screenshots', describeReconcileScreenshotsAppScreenshots);
+function describeReconcileScreenshotsSubscriptionReviewScreenshots() {
+  function reviewInput(
     items: SubscriptionReviewScreenshot[],
     over: Partial<ScreenshotReconcileInput> = {},
-  ) => input({ subscriptionReviewScreenshots: items, ...over });
+  ) {
+    return input({ subscriptionReviewScreenshots: items, ...over });
+  }
   function apiWithSubscription(over: Partial<ScreenshotsApi> = {}): ScreenshotsApi {
     return makeApi({
       listSubscriptionGroups: vi.fn().mockResolvedValue([{ id: 'g1', referenceName: 'Pro' }]),
@@ -255,20 +371,34 @@ describe('reconcileScreenshots - subscription review screenshots', () => {
       ...over,
     });
   }
-  it('uploads the review screenshot when the subscription exists and the checksum differs', async () => {
+  async function uploadsTheReviewScreenshotWhenTheSubscriptionExistsAndTheChecksumDiffers() {
     const api = apiWithSubscription();
     const actions = await runScreenshots(
       api,
       reviewInput([{ productId: 'com.acme.pro', asset: asset() }]),
     );
-    expect(actions.map((a) => a.status)).toEqual(['applied']);
+    function readStatus3(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.status;
+    }
+
+    expect(actions.map(readStatus3)).toEqual(['applied']);
     expect(api.uploadSubscriptionReviewScreenshot).toHaveBeenCalledWith(
       'sub1',
       'review.png',
       '/tmp/review.png',
     );
-  });
-  it('skips when the live review screenshot already matches the local checksum', async () => {
+  }
+
+  it(
+    'uploads the review screenshot when the subscription exists and the checksum differs',
+    uploadsTheReviewScreenshotWhenTheSubscriptionExistsAndTheChecksumDiffers,
+  );
+  async function skipsWhenTheLiveReviewScreenshotAlreadyMatchesTheLocalChecksum() {
     const api = apiWithSubscription({
       getSubscriptionReviewScreenshot: vi
         .fn()
@@ -280,8 +410,13 @@ describe('reconcileScreenshots - subscription review screenshots', () => {
     );
     expect(actions).toEqual([]);
     expect(api.uploadSubscriptionReviewScreenshot).not.toHaveBeenCalled();
-  });
-  it("notes (skips) a subscription that isn't on App Store Connect yet", async () => {
+  }
+
+  it(
+    'skips when the live review screenshot already matches the local checksum',
+    skipsWhenTheLiveReviewScreenshotAlreadyMatchesTheLocalChecksum,
+  );
+  async function notesSkipsASubscriptionThatIsnTOnAppStoreConnectYet() {
     const api = makeApi(); // no subscription groups
     const actions = await runScreenshots(
       api,
@@ -293,13 +428,27 @@ describe('reconcileScreenshots - subscription review screenshots', () => {
       description: expect.stringContaining('not on App Store Connect yet'),
     });
     expect(api.uploadSubscriptionReviewScreenshot).not.toHaveBeenCalled();
-  });
-});
+  }
+
+  it(
+    "notes (skips) a subscription that isn't on App Store Connect yet",
+    notesSkipsASubscriptionThatIsnTOnAppStoreConnectYet,
+  );
+}
+
+describe(
+  'reconcileScreenshots - subscription review screenshots',
+  describeReconcileScreenshotsSubscriptionReviewScreenshots,
+);
 /**
  * A fully-stubbed {@link PreviewsApi}. Reads default to "an editable version with one en-US locale and no
  * previews yet"; writes resolve to a created resource. Override per test to set up other states.
  */
-const makePreviewsApi = (overrides: Partial<PreviewsApi> = {}): PreviewsApi => {
+function makePreviewsApi(overrides: Partial<PreviewsApi> = {}): PreviewsApi {
+  function mockImplementationLoc2(_loc: string, previewType: string) {
+    return Promise.resolve({ id: 'set-new', previewType });
+  }
+
   const base: PreviewsApi = {
     getAppId: vi.fn().mockResolvedValue('app1'),
     getEditableVersionId: vi.fn().mockResolvedValue('ver1'),
@@ -307,18 +456,14 @@ const makePreviewsApi = (overrides: Partial<PreviewsApi> = {}): PreviewsApi => {
       .fn()
       .mockResolvedValue([{ id: 'loc-en', locale: 'en-US', fields: {} }]),
     listPreviewSets: vi.fn().mockResolvedValue([]),
-    createPreviewSet: vi
-      .fn()
-      .mockImplementation((_loc: string, previewType: string) =>
-        Promise.resolve({ id: 'set-new', previewType }),
-      ),
+    createPreviewSet: vi.fn().mockImplementation(mockImplementationLoc2),
     listPreviews: vi.fn().mockResolvedValue([]),
     uploadPreview: vi.fn().mockResolvedValue(undefined),
   };
   return effectMethods({ ...base, ...overrides });
-};
+}
 /** Build a {@link LocalPreview} with sensible defaults for the field under test. */
-const preview = (overrides: Partial<LocalPreview> = {}): LocalPreview => {
+function preview(overrides: Partial<LocalPreview> = {}): LocalPreview {
   return {
     locale: 'en-US',
     previewType: 'IPHONE_67',
@@ -328,8 +473,8 @@ const preview = (overrides: Partial<LocalPreview> = {}): LocalPreview => {
     size: 1000,
     ...overrides,
   };
-};
-const previewInput = (overrides: Partial<PreviewReconcileInput> = {}): PreviewReconcileInput => {
+}
+function previewInput(overrides: Partial<PreviewReconcileInput> = {}): PreviewReconcileInput {
   return {
     bundleId: 'com.acme.app',
     previews: [],
@@ -337,17 +482,23 @@ const previewInput = (overrides: Partial<PreviewReconcileInput> = {}): PreviewRe
     allowDestructive: false,
     ...overrides,
   };
-};
-const runPreviews = (api: PreviewsApi, reconcileInput: PreviewReconcileInput) =>
-  reconcilePreviews(api, reconcileInput);
-describe('reconcilePreviews', () => {
-  it('does nothing when there are no previews to reconcile', async () => {
+}
+function runPreviews(api: PreviewsApi, reconcileInput: PreviewReconcileInput) {
+  return reconcilePreviews(api, reconcileInput);
+}
+function describeReconcilePreviews() {
+  async function doesNothingWhenThereAreNoPreviewsToReconcile() {
     const api = makePreviewsApi();
     const actions = await runPreviews(api, previewInput());
     expect(actions).toEqual([]);
     expect(api.getAppId).not.toHaveBeenCalled();
-  });
-  it('skips with guidance when the app has no App Store Connect record', async () => {
+  }
+
+  it(
+    'does nothing when there are no previews to reconcile',
+    doesNothingWhenThereAreNoPreviewsToReconcile,
+  );
+  async function skipsWithGuidanceWhenTheAppHasNoAppStoreConnectPiece2() {
     const api = makePreviewsApi({ getAppId: vi.fn().mockResolvedValue(null) });
     const actions = await runPreviews(api, previewInput({ previews: [preview()] }));
     expect(actions).toHaveLength(1);
@@ -355,8 +506,13 @@ describe('reconcilePreviews', () => {
       status: 'skipped',
       description: expect.stringContaining('no App Store Connect app record'),
     });
-  });
-  it('skips when there is no editable App Store version', async () => {
+  }
+
+  it(
+    'skips with guidance when the app has no App Store Connect record',
+    skipsWithGuidanceWhenTheAppHasNoAppStoreConnectPiece2,
+  );
+  async function skipsWhenThereIsNoEditableAppStoreVersion2() {
     const api = makePreviewsApi({ getEditableVersionId: vi.fn().mockResolvedValue(null) });
     const actions = await runPreviews(api, previewInput({ previews: [preview()] }));
     expect(actions).toHaveLength(1);
@@ -364,26 +520,65 @@ describe('reconcilePreviews', () => {
       status: 'skipped',
       description: expect.stringContaining('no editable App Store version'),
     });
-  });
-  it('plans set creation + upload from an empty version without performing writes (dry-run)', async () => {
+  }
+
+  it(
+    'skips when there is no editable App Store version',
+    skipsWhenThereIsNoEditableAppStoreVersion2,
+  );
+  async function plansSetCreationUploadFromAnEmptyVersionWithoutPerformingWritesDryRun2() {
     const api = makePreviewsApi();
     const actions = await runPreviews(api, previewInput({ previews: [preview()], dryRun: true }));
-    expect(actions.map((a) => a.description)).toEqual([
+    function readDescription3(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.description;
+    }
+
+    expect(actions.map(readDescription3)).toEqual([
       'create preview set iPhone 6.7" [en-US]',
       'upload preview iPhone 6.7" [en-US] 01.mp4',
     ]);
-    expect(actions.every((a) => a.status == 'planned')).toBe(true);
+    function everyA3(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.status == 'planned';
+    }
+
+    expect(actions.every(everyA3)).toBe(true);
     expect(api.createPreviewSet).not.toHaveBeenCalled();
     expect(api.uploadPreview).not.toHaveBeenCalled();
-  });
-  it('creates the set and uploads on apply', async () => {
+  }
+
+  it(
+    'plans set creation + upload from an empty version without performing writes (dry-run)',
+    plansSetCreationUploadFromAnEmptyVersionWithoutPerformingWritesDryRun2,
+  );
+  async function createsTheSetAndUploadsOnApply2() {
     const api = makePreviewsApi();
     const actions = await runPreviews(api, previewInput({ previews: [preview()] }));
-    expect(actions.every((a) => a.status == 'applied')).toBe(true);
+    function everyA4(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.status == 'applied';
+    }
+
+    expect(actions.every(everyA4)).toBe(true);
     expect(api.createPreviewSet).toHaveBeenCalledWith('loc-en', 'IPHONE_67');
     expect(api.uploadPreview).toHaveBeenCalledWith('set-new', '01.mp4', '/tmp/01.mp4');
-  });
-  it('reuses an existing set and skips a preview already uploaded byte-for-byte (idempotent)', async () => {
+  }
+
+  it('creates the set and uploads on apply', createsTheSetAndUploadsOnApply2);
+  async function reusesAnExistingSetAndSkipsAPreviewAlreadyUploadedByteForByteIdempotent() {
     const api = makePreviewsApi({
       listPreviewSets: vi.fn().mockResolvedValue([{ id: 'set1', previewType: 'IPHONE_67' }]),
       listPreviews: vi
@@ -397,8 +592,13 @@ describe('reconcilePreviews', () => {
     expect(actions).toEqual([]);
     expect(api.createPreviewSet).not.toHaveBeenCalled();
     expect(api.uploadPreview).not.toHaveBeenCalled();
-  });
-  it('uploads a changed file (same name, new checksum) into the existing set', async () => {
+  }
+
+  it(
+    'reuses an existing set and skips a preview already uploaded byte-for-byte (idempotent)',
+    reusesAnExistingSetAndSkipsAPreviewAlreadyUploadedByteForByteIdempotent,
+  );
+  async function uploadsAChangedFileSameNameNewChecksumIntoTheExistingSet2() {
     const api = makePreviewsApi({
       listPreviewSets: vi.fn().mockResolvedValue([{ id: 'set1', previewType: 'IPHONE_67' }]),
       listPreviews: vi
@@ -409,10 +609,24 @@ describe('reconcilePreviews', () => {
       api,
       previewInput({ previews: [preview({ checksum: 'new-sum' })] }),
     );
-    expect(actions.map((a) => a.status)).toEqual(['applied']);
+    function readStatus4(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.status;
+    }
+
+    expect(actions.map(readStatus4)).toEqual(['applied']);
     expect(api.uploadPreview).toHaveBeenCalledWith('set1', '01.mp4', '/tmp/01.mp4');
-  });
-  it('re-uploads a matching checksum whose previous delivery FAILED', async () => {
+  }
+
+  it(
+    'uploads a changed file (same name, new checksum) into the existing set',
+    uploadsAChangedFileSameNameNewChecksumIntoTheExistingSet2,
+  );
+  async function reUploadsAMatchingChecksumWhosePreviousDeliveryFAILED2() {
     const api = makePreviewsApi({
       listPreviewSets: vi.fn().mockResolvedValue([{ id: 'set1', previewType: 'IPHONE_67' }]),
       listPreviews: vi.fn().mockResolvedValue([
@@ -428,10 +642,24 @@ describe('reconcilePreviews', () => {
       api,
       previewInput({ previews: [preview({ checksum: 'sum-01' })] }),
     );
-    expect(actions.map((a) => a.status)).toEqual(['applied']);
+    function readStatus5(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.status;
+    }
+
+    expect(actions.map(readStatus5)).toEqual(['applied']);
     expect(api.uploadPreview).toHaveBeenCalledWith('set1', '01.mp4', '/tmp/01.mp4');
-  });
-  it('treats an in-processing (non-FAILED) preview as already uploaded, so a re-run uploads nothing', async () => {
+  }
+
+  it(
+    're-uploads a matching checksum whose previous delivery FAILED',
+    reUploadsAMatchingChecksumWhosePreviousDeliveryFAILED2,
+  );
+  async function treatsAnInProcessingNonFAILEDPreviewAsAlreadyUploadedSoAReRunUploadsNothing() {
     const api = makePreviewsApi({
       listPreviewSets: vi.fn().mockResolvedValue([{ id: 'set1', previewType: 'IPHONE_67' }]),
       listPreviews: vi.fn().mockResolvedValue([
@@ -449,8 +677,13 @@ describe('reconcilePreviews', () => {
     );
     expect(actions).toEqual([]);
     expect(api.uploadPreview).not.toHaveBeenCalled();
-  });
-  it("skips a locale that isn't on the editable version", async () => {
+  }
+
+  it(
+    'treats an in-processing (non-FAILED) preview as already uploaded, so a re-run uploads nothing',
+    treatsAnInProcessingNonFAILEDPreviewAsAlreadyUploadedSoAReRunUploadsNothing,
+  );
+  async function skipsALocaleThatIsnTOnTheEditableVersion2() {
     const api = makePreviewsApi();
     const actions = await runPreviews(
       api,
@@ -462,13 +695,22 @@ describe('reconcilePreviews', () => {
       description: expect.stringContaining('locale not on the editable version'),
     });
     expect(api.uploadPreview).not.toHaveBeenCalled();
-  });
-  it("skips previews beyond Apple's per-set maximum", async () => {
-    const existing = Array.from({ length: 3 }, (_, i) => ({
-      id: `p${i}`,
-      fileName: `${i}.mp4`,
-      sourceFileChecksum: `old-${i}`,
-    }));
+  }
+
+  it(
+    "skips a locale that isn't on the editable version",
+    skipsALocaleThatIsnTOnTheEditableVersion2,
+  );
+  async function skipsPreviewsBeyondAppleSPerSetMaximum() {
+    function fromPiece2(_: unknown, i: number) {
+      return {
+        id: `p${i}`,
+        fileName: `${i}.mp4`,
+        sourceFileChecksum: `old-${i}`,
+      };
+    }
+
+    const existing = Array.from({ length: 3 }, fromPiece2);
     const api = makePreviewsApi({
       listPreviewSets: vi.fn().mockResolvedValue([{ id: 'set1', previewType: 'IPHONE_67' }]),
       listPreviews: vi.fn().mockResolvedValue(existing),
@@ -483,5 +725,9 @@ describe('reconcilePreviews', () => {
       description: expect.stringContaining('set is full'),
     });
     expect(api.uploadPreview).not.toHaveBeenCalled();
-  });
-});
+  }
+
+  it("skips previews beyond Apple's per-set maximum", skipsPreviewsBeyondAppleSPerSetMaximum);
+}
+
+describe('reconcilePreviews', describeReconcilePreviews);

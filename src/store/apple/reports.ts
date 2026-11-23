@@ -7,35 +7,44 @@ import type {
 } from '../../types/apple-catalog.ts';
 import { appRecordNotFound } from '../shared/reconcile.ts';
 /** Decompress an Apple report to UTF-8 text. */
-export const decompressReport = (bytes: Buffer): string => {
+export function decompressReport(bytes: Buffer): string {
   return gunzipSync(bytes).toString('utf8');
-};
+}
 /** A parsed tab-separated report. */
 export type ParsedReport = {
   headers: string[];
   rows: Record<string, string>[];
 };
 /** Parse an Apple tab-separated report, filling missing cells with empty text. */
-export const parseTsv = (text: string): ParsedReport => {
-  const lines = text
-    .split('\n')
-    .map((line) => line.replace(/\r$/, ''))
-    .filter((line) => line.length > 0);
+export function parseTsv(text: string): ParsedReport {
+  function mapLine(line: string) {
+    return line.replace(/\r$/, '');
+  }
+
+  function filterLine(line: string) {
+    return line.length > 0;
+  }
+
+  const lines = text.split('\n').map(mapLine).filter(filterLine);
   const headerLine = lines.shift();
   if (!headerLine) return { headers: [], rows: [] };
   const headers = headerLine.split('\t');
-  const rows = lines.map((line) => {
+  function mapLine2(line: string) {
     const cells = line.split('\t');
     const reportFields: Record<string, string> = {};
-    headers.forEach((header, index) => {
+    function forEachHeader(header: string, index: number) {
       let cellText = '';
       if (cells[index] != null) cellText = cells[index];
       reportFields[header] = cellText;
-    });
+    }
+
+    headers.forEach(forEachHeader);
     return reportFields;
-  });
+  }
+
+  const rows = lines.map(mapLine2);
   return { headers, rows };
-};
+}
 /** Milliseconds in a day - the step for {@link eachDate}'s UTC walk. */
 const dayMs = 24 * 60 * 60 * 1000;
 

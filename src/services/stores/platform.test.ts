@@ -43,59 +43,104 @@ function thrownMessage(read: () => unknown): string {
 
   throw new Error('expected a throw');
 }
-
-describe('isApplePlatform - Apple vs Android toolchain split', () => {
-  it('is true for every Apple platform and false for Android', () => {
+function describeIsApplePlatformAppleVsAndroidToolchainSplit() {
+  function isTrueForEveryApplePlatformAndFalseForAndroid() {
     for (const platform of APPLE) expect(isApplePlatform(platform)).toBe(true);
     expect(isApplePlatform('android')).toBe(false);
-  });
-  it('APPLE_PLATFORMS and PLATFORMS agree on membership', () => {
+  }
+
+  it(
+    'is true for every Apple platform and false for Android',
+    isTrueForEveryApplePlatformAndFalseForAndroid,
+  );
+  function aPPLEPLATFORMSAndPLATFORMSAgreeOnMembership() {
     expect([...APPLE_PLATFORMS].sort()).toEqual([...APPLE].sort());
     expect(PLATFORMS.filter(isApplePlatform).sort()).toEqual([...APPLE].sort());
     expect(PLATFORMS).toContain('android');
-  });
-});
-describe('parsePlatform - the single CLI `<platform>` guard', () => {
-  it('accepts all five platforms verbatim', () => {
+  }
+
+  it(
+    'APPLE_PLATFORMS and PLATFORMS agree on membership',
+    aPPLEPLATFORMSAndPLATFORMSAgreeOnMembership,
+  );
+}
+
+describe(
+  'isApplePlatform - Apple vs Android toolchain split',
+  describeIsApplePlatformAppleVsAndroidToolchainSplit,
+);
+function describeParsePlatformTheSingleCLIPlatformGuard() {
+  function acceptsAllFivePlatformsVerbatim() {
     for (const platform of PLATFORMS) {
       expect(parsePlatform(platform)).toBe(platform);
     }
-  });
-  it('rejects junk with a message that lists the valid values', () => {
+  }
+
+  it('accepts all five platforms verbatim', acceptsAllFivePlatformsVerbatim);
+  function rejectsJunkWithAMessageThatListsTheValidValues() {
     const platformFailure = thrownMessage(function readPlatform() {
       parsePlatform('web');
     });
     expect(platformFailure).toMatch(/Unknown platform "web"/);
     expect(platformFailure).toMatch(/ios, android, tvos, macos, visionos/);
-  });
-});
-describe('platformLabel - human-facing names', () => {
-  it('maps each platform to its canonical casing', () => {
+  }
+
+  it(
+    'rejects junk with a message that lists the valid values',
+    rejectsJunkWithAMessageThatListsTheValidValues,
+  );
+}
+
+describe(
+  'parsePlatform - the single CLI `<platform>` guard',
+  describeParsePlatformTheSingleCLIPlatformGuard,
+);
+function describePlatformLabelHumanFacingNames() {
+  function mapsEachPlatformToItsCanonicalCasing() {
     expect(platformLabel('ios')).toBe('iOS');
     expect(platformLabel('android')).toBe('Android');
     expect(platformLabel('tvos')).toBe('tvOS');
     expect(platformLabel('macos')).toBe('macOS');
     expect(platformLabel('visionos')).toBe('visionOS');
-  });
-});
-describe('toAscPlatform vs toBundleIdPlatform - the two ASC enums are NOT the same mapping', () => {
-  it('maps the version/filter platform to the four distinct ASC values', () => {
+  }
+
+  it('maps each platform to its canonical casing', mapsEachPlatformToItsCanonicalCasing);
+}
+
+describe('platformLabel - human-facing names', describePlatformLabelHumanFacingNames);
+function describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMapping() {
+  function mapsTheVersionFilterPlatformToTheFourDistinctASCValues() {
     expect(toAscPlatform('ios')).toBe('IOS');
     expect(toAscPlatform('tvos')).toBe('TV_OS');
     expect(toAscPlatform('macos')).toBe('MAC_OS');
     expect(toAscPlatform('visionos')).toBe('VISION_OS');
-  });
-  it('collapses the bundle-id platform - tvOS/visionOS register as iOS-family, only macOS is MAC_OS', () => {
+  }
+
+  it(
+    'maps the version/filter platform to the four distinct ASC values',
+    mapsTheVersionFilterPlatformToTheFourDistinctASCValues,
+  );
+  function collapsesTheBundleIdPlatformTvOSVisionOSRegisterAsIOSFamilyOnlyMacOSIsMACOS() {
     expect(toBundleIdPlatform('ios')).toBe('IOS');
     expect(toBundleIdPlatform('tvos')).toBe('IOS');
     expect(toBundleIdPlatform('visionos')).toBe('IOS');
     expect(toBundleIdPlatform('macos')).toBe('MAC_OS');
-  });
-  it('proves the split: visionOS is VISION_OS for a version filter but IOS for a bundle id', () => {
+  }
+
+  it(
+    'collapses the bundle-id platform - tvOS/visionOS register as iOS-family, only macOS is MAC_OS',
+    collapsesTheBundleIdPlatformTvOSVisionOSRegisterAsIOSFamilyOnlyMacOSIsMACOS,
+  );
+  function provesTheSplitVisionOSIsVISIONOSForAVersionFilterButIOSForABundleId() {
     expect(toAscPlatform('visionos')).toBe('VISION_OS');
     expect(toBundleIdPlatform('visionos')).toBe('IOS');
-  });
-  it('both throw for Android (no App Store Connect presence)', () => {
+  }
+
+  it(
+    'proves the split: visionOS is VISION_OS for a version filter but IOS for a bundle id',
+    provesTheSplitVisionOSIsVISIONOSForAVersionFilterButIOSForABundleId,
+  );
+  function bothThrowForAndroidNoAppStoreConnectPresence() {
     const ascPlatformFailure = thrownMessage(function readAscPlatform() {
       toAscPlatform('android');
     });
@@ -104,22 +149,42 @@ describe('toAscPlatform vs toBundleIdPlatform - the two ASC enums are NOT the sa
     });
     expect(ascPlatformFailure).toMatch(/Android/);
     expect(bundleIdPlatformFailure).toMatch(/Android/);
-  });
-});
-describe('provisioning profile types - visionOS reuses iOS, macOS has no ad-hoc', () => {
-  it('appStoreProfileType maps each Apple platform (visionOS -> IOS_APP_STORE)', () => {
+  }
+
+  it(
+    'both throw for Android (no App Store Connect presence)',
+    bothThrowForAndroidNoAppStoreConnectPresence,
+  );
+}
+
+describe(
+  'toAscPlatform vs toBundleIdPlatform - the two ASC enums are NOT the same mapping',
+  describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMapping,
+);
+function describeProvisioningProfileTypesVisionOSReusesIOSMacOSHasNoAdHoc() {
+  function appStoreProfileTypeMapsEachApplePlatformVisionOSIOSAPPSTORE() {
     expect(appStoreProfileType('ios')).toBe('IOS_APP_STORE');
     expect(appStoreProfileType('visionos')).toBe('IOS_APP_STORE');
     expect(appStoreProfileType('tvos')).toBe('TVOS_APP_STORE');
     expect(appStoreProfileType('macos')).toBe('MAC_APP_STORE');
-  });
-  it('adHocProfileType is defined for the device-installable platforms, undefined for macOS', () => {
+  }
+
+  it(
+    'appStoreProfileType maps each Apple platform (visionOS -> IOS_APP_STORE)',
+    appStoreProfileTypeMapsEachApplePlatformVisionOSIOSAPPSTORE,
+  );
+  function adHocProfileTypeIsDefinedForTheDeviceInstallablePlatformsUndefinedForMacOS() {
     expect(adHocProfileType('ios')).toBe('IOS_APP_ADHOC');
     expect(adHocProfileType('visionos')).toBe('IOS_APP_ADHOC');
     expect(adHocProfileType('tvos')).toBe('TVOS_APP_ADHOC');
     expect(adHocProfileType('macos')).toBeUndefined();
-  });
-  it('both throw for Android', () => {
+  }
+
+  it(
+    'adHocProfileType is defined for the device-installable platforms, undefined for macOS',
+    adHocProfileTypeIsDefinedForTheDeviceInstallablePlatformsUndefinedForMacOS,
+  );
+  function bothThrowForAndroid() {
     const appStoreProfileFailure = thrownMessage(function readAppStoreProfile() {
       appStoreProfileType('android');
     });
@@ -128,43 +193,79 @@ describe('provisioning profile types - visionOS reuses iOS, macOS has no ad-hoc'
     });
     expect(appStoreProfileFailure).toMatch(/Android/);
     expect(adHocProfileFailure).toMatch(/Android/);
-  });
-});
-describe('archiveDestination - every Apple platform targets generic/platform', () => {
-  it('targets a generic device for iOS so an archive never builds for a simulator', () => {
+  }
+
+  it('both throw for Android', bothThrowForAndroid);
+}
+
+describe(
+  'provisioning profile types - visionOS reuses iOS, macOS has no ad-hoc',
+  describeProvisioningProfileTypesVisionOSReusesIOSMacOSHasNoAdHoc,
+);
+function describeArchiveDestinationEveryApplePlatformTargetsGenericPlatform() {
+  function targetsAGenericDeviceForIOSSoAnArchiveNeverBuildsForASimulator() {
     expect(archiveDestination('ios')).toBe('generic/platform=iOS');
-  });
-  it('returns the xcodebuild generic destination for each other Apple platform', () => {
+  }
+
+  it(
+    'targets a generic device for iOS so an archive never builds for a simulator',
+    targetsAGenericDeviceForIOSSoAnArchiveNeverBuildsForASimulator,
+  );
+  function returnsTheXcodebuildGenericDestinationForEachOtherApplePlatform() {
     expect(archiveDestination('tvos')).toBe('generic/platform=tvOS');
     expect(archiveDestination('macos')).toBe('generic/platform=macOS');
     expect(archiveDestination('visionos')).toBe('generic/platform=visionOS');
-  });
-  it('throws for Android (not an Xcode build)', () => {
+  }
+
+  it(
+    'returns the xcodebuild generic destination for each other Apple platform',
+    returnsTheXcodebuildGenericDestinationForEachOtherApplePlatform,
+  );
+  function throwsForAndroidNotAnXcodeBuild() {
     const destinationFailure = thrownMessage(function readDestination() {
       archiveDestination('android');
     });
     expect(destinationFailure).toMatch(/Xcode/);
-  });
-});
-describe('nativeProjectDirName / nativeTargetHint / appleArtifactExtension', () => {
-  it('maps each Apple platform to its committed native directory (tvOS shares ios/)', () => {
+  }
+
+  it('throws for Android (not an Xcode build)', throwsForAndroidNotAnXcodeBuild);
+}
+
+describe(
+  'archiveDestination - every Apple platform targets generic/platform',
+  describeArchiveDestinationEveryApplePlatformTargetsGenericPlatform,
+);
+function describeNativeProjectDirNameNativeTargetHintAppleArtifactExtension() {
+  function mapsEachApplePlatformToItsCommittedNativeDirectoryTvOSSharesIos() {
     expect(nativeProjectDirName('ios')).toBe('ios');
     expect(nativeProjectDirName('tvos')).toBe('ios');
     expect(nativeProjectDirName('macos')).toBe('macos');
     expect(nativeProjectDirName('visionos')).toBe('visionos');
-  });
-  it('hints the right RN fork for the non-iOS platforms', () => {
+  }
+
+  it(
+    'maps each Apple platform to its committed native directory (tvOS shares ios/)',
+    mapsEachApplePlatformToItsCommittedNativeDirectoryTvOSSharesIos,
+  );
+  function hintsTheRightRNForkForTheNonIOSPlatforms() {
     expect(nativeTargetHint('tvos')).toMatch(/tvos/i);
     expect(nativeTargetHint('macos')).toMatch(/macos/i);
     expect(nativeTargetHint('visionos')).toMatch(/visionos/i);
-  });
-  it('exports .ipa for the iOS-family platforms and .pkg for macOS', () => {
+  }
+
+  it('hints the right RN fork for the non-iOS platforms', hintsTheRightRNForkForTheNonIOSPlatforms);
+  function exportsIpaForTheIOSFamilyPlatformsAndPkgForMacOS() {
     expect(appleArtifactExtension('ios')).toBe('ipa');
     expect(appleArtifactExtension('tvos')).toBe('ipa');
     expect(appleArtifactExtension('visionos')).toBe('ipa');
     expect(appleArtifactExtension('macos')).toBe('pkg');
-  });
-  it('all three throw for Android', () => {
+  }
+
+  it(
+    'exports .ipa for the iOS-family platforms and .pkg for macOS',
+    exportsIpaForTheIOSFamilyPlatformsAndPkgForMacOS,
+  );
+  function allThreeThrowForAndroid() {
     const directoryFailure = thrownMessage(function readDirectory() {
       nativeProjectDirName('android');
     });
@@ -177,5 +278,12 @@ describe('nativeProjectDirName / nativeTargetHint / appleArtifactExtension', () 
     expect(directoryFailure).toMatch(/Android/);
     expect(targetFailure).toMatch(/Android/);
     expect(artifactFailure).toMatch(/Android/);
-  });
-});
+  }
+
+  it('all three throw for Android', allThreeThrowForAndroid);
+}
+
+describe(
+  'nativeProjectDirName / nativeTargetHint / appleArtifactExtension',
+  describeNativeProjectDirNameNativeTargetHintAppleArtifactExtension,
+);

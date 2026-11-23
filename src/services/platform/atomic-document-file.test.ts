@@ -42,22 +42,23 @@ beforeEach(function createHome() {
 afterEach(function removeHome() {
   removeTemporaryHomeDirectory(homeDirectory);
 });
-
-describe('readDocumentFile', () => {
-  test('returns null when the file does not exist', async () => {
+function describeReadDocumentFile() {
+  async function returnsNullWhenTheFileDoesNotExist() {
     const missingPath = join(homeDirectory, 'missing.json');
     const note = await readDocumentFile(missingPath, decodeNote);
     expect(note).toBeNull();
-  });
+  }
 
-  test('reads a file that matches the note shape', async () => {
+  test('returns null when the file does not exist', returnsNullWhenTheFileDoesNotExist);
+  async function readsAFileThatMatchesTheNoteShape() {
     const filePath = join(homeDirectory, 'note.json');
     writeFileSync(filePath, '{"title":"hello"}');
     const note = await readDocumentFile(filePath, decodeNote);
     expect(note).toEqual({ title: 'hello' });
-  });
+  }
 
-  test('fails with the file path when the text is not a note', async () => {
+  test('reads a file that matches the note shape', readsAFileThatMatchesTheNoteShape);
+  async function failsWithTheFilePathWhenThePieceIsNotANote() {
     const filePath = join(homeDirectory, 'note.json');
     writeFileSync(filePath, '{"title":5}');
     const documentFile = readDocumentFile(filePath, decodeNote);
@@ -65,11 +66,17 @@ describe('readDocumentFile', () => {
       _tag: 'DocumentFileFailure',
       filePath,
     });
-  });
-});
+  }
 
-describe('writeDocumentFileAtomically', () => {
-  test('writes the document, creates missing folders and leaves no temp file', async () => {
+  test(
+    'fails with the file path when the text is not a note',
+    failsWithTheFilePathWhenThePieceIsNotANote,
+  );
+}
+
+describe('readDocumentFile', describeReadDocumentFile);
+function describeWriteDocumentFileAtomically() {
+  async function writesTheDocumentCreatesMissingFoldersAndLeavesNoPieceFile() {
     const filePath = join(homeDirectory, 'a', 'b', 'note.json');
     await writeDocumentFileAtomically(filePath, { title: 'saved' });
     const loadedFile = readFileSync(filePath, 'utf8');
@@ -77,18 +84,23 @@ describe('writeDocumentFileAtomically', () => {
     expect(parsed).toEqual({ title: 'saved' });
     const bPath = join(homeDirectory, 'a', 'b');
     expect(readdirSync(bPath)).toEqual(['note.json']);
-  });
+  }
 
-  test('replaces an existing file', async () => {
+  test(
+    'writes the document, creates missing folders and leaves no temp file',
+    writesTheDocumentCreatesMissingFoldersAndLeavesNoPieceFile,
+  );
+  async function replacesAnExistingFile() {
     const filePath = join(homeDirectory, 'note.json');
     writeFileSync(filePath, '{"title":"old"}');
     await writeDocumentFileAtomically(filePath, { title: 'new' });
     const loadedFile = readFileSync(filePath, 'utf8');
     const parsed = JSON.parse(loadedFile);
     expect(parsed).toEqual({ title: 'new' });
-  });
+  }
 
-  test('fails with the file path when the folder cannot be created', async () => {
+  test('replaces an existing file', replacesAnExistingFile);
+  async function failsWithTheFilePathWhenTheFolderCannotBeCreated() {
     const blockingFilePath = join(homeDirectory, 'blocker');
     writeFileSync(blockingFilePath, 'x');
     const filePath = join(blockingFilePath, 'note.json');
@@ -97,5 +109,12 @@ describe('writeDocumentFileAtomically', () => {
       _tag: 'DocumentFileFailure',
       filePath,
     });
-  });
-});
+  }
+
+  test(
+    'fails with the file path when the folder cannot be created',
+    failsWithTheFilePathWhenTheFolderCannotBeCreated,
+  );
+}
+
+describe('writeDocumentFileAtomically', describeWriteDocumentFileAtomically);

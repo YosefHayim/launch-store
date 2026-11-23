@@ -47,7 +47,7 @@ type RolloutEvent = NotifyEventBase & {
 /** Every transition Launch can notify on - a discriminated union keyed on `event`. */
 export type NotifyEvent = CompletionEvent | ReviewEvent | RolloutEvent;
 /** A one-line human summary of the event, used as the Slack/Discord message text. */
-export const notifyMessage = (event: NotifyEvent): string => {
+export function notifyMessage(event: NotifyEvent): string {
   switch (event.event) {
     case 'build':
     case 'submit': {
@@ -80,13 +80,13 @@ export const notifyMessage = (event: NotifyEvent): string => {
       return head;
     }
   }
-};
+}
 /**
  * The JSON body POSTed to the webhook. `text` (Slack) and `content` (Discord) both carry the human
  * message so the same URL works for either; the structured event fields ride alongside for a custom
  * endpoint. Pure - the exact bytes are determined by the event.
  */
-export const notificationDocument = (event: NotifyEvent): Record<string, unknown> => {
+export function notificationDocument(event: NotifyEvent): Record<string, unknown> {
   const message = notifyMessage(event);
   const notification: Record<string, unknown> = {
     text: redactText(message),
@@ -97,9 +97,9 @@ export const notificationDocument = (event: NotifyEvent): Record<string, unknown
     else notification[field] = eventValue;
   }
   return notification;
-};
+}
 /** The `LAUNCH_*` environment a shell hook receives. Omitted fields simply don't appear. */
-export const notifyEnv = (event: NotifyEvent): Record<string, string> => {
+export function notifyEnv(event: NotifyEvent): Record<string, string> {
   const message = notifyMessage(event);
   const env: Record<string, string> = {
     LAUNCH_EVENT: event.event,
@@ -120,7 +120,7 @@ export const notifyEnv = (event: NotifyEvent): Record<string, string> => {
     if (event.error) env['LAUNCH_ERROR'] = event.error;
   }
   return env;
-};
+}
 function isSuccessfulStatus(status: number): boolean {
   if (status < 200) {
     return false;

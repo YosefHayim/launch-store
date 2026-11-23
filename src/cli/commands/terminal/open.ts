@@ -6,10 +6,10 @@ import { runCliProgram } from '../../run-cli-program.ts';
 type OpenCommandOptions = Readonly<{ platform?: string; app?: string }>;
 
 /** Map open arguments without explicit undefined optionals. */
-const toOpenCommandInput = (
+function toOpenCommandInput(
   target: string | undefined,
   commandOptions: OpenCommandOptions,
-): OpenCommandInput => {
+): OpenCommandInput {
   let commandInput: OpenCommandInput = {};
   if (target != null) commandInput = { ...commandInput, target };
   if (commandOptions.platform != null) {
@@ -19,10 +19,16 @@ const toOpenCommandInput = (
     commandInput = { ...commandInput, app: commandOptions.app };
   }
   return commandInput;
-};
+}
 
 /** Attach the top-level `open` command to the program. */
-export const registerOpenCommand = (program: Command): void => {
+export function registerOpenCommand(program: Command): void {
+  function runOpen(target: string | undefined, commandOptions: OpenCommandOptions) {
+    const openCommand = toOpenCommandInput(target, commandOptions);
+    const openProgram = openCommandProgram(openCommand);
+    return runCliProgram(openProgram);
+  }
+
   program
     .command('open')
     .description("deep-link the app's App Store Connect / Play Console page in your browser")
@@ -32,9 +38,5 @@ export const registerOpenCommand = (program: Command): void => {
       'ios/tvos/macos/visionos (App Store Connect) or android (Play Console)',
     )
     .option('-a, --app <name>', 'app handle to open (default: the first app for the platform)')
-    .action((target: string | undefined, commandOptions: OpenCommandOptions) => {
-      const openCommand = toOpenCommandInput(target, commandOptions);
-      const openProgram = openCommandProgram(openCommand);
-      return runCliProgram(openProgram);
-    });
-};
+    .action(runOpen);
+}

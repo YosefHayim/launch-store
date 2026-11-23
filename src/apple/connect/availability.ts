@@ -18,12 +18,18 @@ export class ConnectAvailability {
     }>(() => this.client.request('GET', `/apps/${appId}/appAvailabilityV2`));
     if (!head?.data) return null;
     const territoryAvailabilities = await this.listAppTerritoryAvailabilities(head.data.id);
-    const availableTerritories = territoryAvailabilities.flatMap((territoryAvailability) => {
+    function flatMapTerritoryAvailability(territoryAvailability: {
+      id: string;
+      attributes?: { available?: boolean };
+      relationships?: { territory?: { data?: { id: string } | null } };
+    }) {
       if (!territoryAvailability.attributes?.available) return [];
       const territoryCode = territoryAvailability.relationships?.territory?.data?.id;
       if (territoryCode == null) return [];
       return [territoryCode];
-    });
+    }
+
+    const availableTerritories = territoryAvailabilities.flatMap(flatMapTerritoryAvailability);
     let availableInNewTerritories = head.data.attributes?.availableInNewTerritories;
     if (availableInNewTerritories == null) availableInNewTerritories = false;
     return {
@@ -59,14 +65,18 @@ export class ConnectAvailability {
       territories: string[];
     },
   ): Promise<void> {
+    function mapCode(code: string) {
+      return {
+        type: 'territoryAvailabilities',
+        id: code,
+        attributes: { available: true },
+        relationships: { territory: { data: { type: 'territories', id: code } } },
+      } as const;
+    }
+
     const included: (components['schemas']['TerritoryAvailabilityInlineCreate'] & {
       id: string;
-    })[] = input.territories.map((code) => ({
-      type: 'territoryAvailabilities',
-      id: code,
-      attributes: { available: true },
-      relationships: { territory: { data: { type: 'territories', id: code } } },
-    }));
+    })[] = input.territories.map(mapCode);
     const requestDocument: components['schemas']['AppAvailabilityV2CreateRequest'] = {
       data: {
         type: 'appAvailabilities',
@@ -93,27 +103,41 @@ export class ConnectAvailability {
   ): Promise<void> {
     const desired = new Set(territories);
     const territoryAvailabilities = await this.listAppTerritoryAvailabilities(availabilityId);
-    const returnedCodes = new Set(
-      territoryAvailabilities.flatMap((territoryAvailability) => {
-        const territoryCode = territoryAvailability.relationships?.territory?.data?.id;
-        if (territoryCode == null) return [];
-        return [territoryCode];
-      }),
-    );
-    const missingTerritories = [...desired].filter((code) => !returnedCodes.has(code)).sort();
+    function flatMapTerritoryAvailability2(territoryAvailability: {
+      id: string;
+      attributes?: { available?: boolean };
+      relationships?: { territory?: { data?: { id: string } | null } };
+    }) {
+      const territoryCode = territoryAvailability.relationships?.territory?.data?.id;
+      if (territoryCode == null) return [];
+      return [territoryCode];
+    }
+
+    const returnedCodes = new Set(territoryAvailabilities.flatMap(flatMapTerritoryAvailability2));
+    function filterCode(code: string) {
+      return !returnedCodes.has(code);
+    }
+
+    const missingTerritories = [...desired].filter(filterCode).sort();
     if (missingTerritories.length > 0) {
       throw new AscAvailabilityUpdateError({
         message: `Apple did not return updatable availability rows for: ${missingTerritories.join(', ')}.`,
         missingTerritories,
       });
     }
-    const changes = territoryAvailabilities.flatMap((territoryAvailability) => {
+    function flatMapTerritoryAvailability3(territoryAvailability: {
+      id: string;
+      attributes?: { available?: boolean };
+      relationships?: { territory?: { data?: { id: string } | null } };
+    }) {
       const territoryCode = territoryAvailability.relationships?.territory?.data?.id;
       if (territoryCode == null) return [];
       const available = desired.has(territoryCode);
       if (territoryAvailability.attributes?.available == available) return [];
       return [{ id: territoryAvailability.id, available }];
-    });
+    }
+
+    const changes = territoryAvailabilities.flatMap(flatMapTerritoryAvailability3);
     for (
       let offset = 0;
       offset < changes.length;

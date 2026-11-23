@@ -53,7 +53,7 @@ export type AppleCredentialsClientFactory = Readonly<{
 }>;
 
 /** Translate the Apple transport shape without leaking explicit `undefined` fields into the domain. */
-const toDomainBundleId = (bundleIdentifier: AscBundleIdResource): BundleIdResource => {
+function toDomainBundleId(bundleIdentifier: AscBundleIdResource): BundleIdResource {
   if (bundleIdentifier.seedId == null)
     return { id: bundleIdentifier.id, identifier: bundleIdentifier.identifier };
   return {
@@ -61,18 +61,18 @@ const toDomainBundleId = (bundleIdentifier: AscBundleIdResource): BundleIdResour
     identifier: bundleIdentifier.identifier,
     seedId: bundleIdentifier.seedId,
   };
-};
+}
 
 /** Preserve a missing bundle identifier while translating a present Apple transport resource. */
-const toOptionalDomainBundleId = (
+function toOptionalDomainBundleId(
   bundleIdentifier: AscBundleIdResource | null,
-): BundleIdResource | null => {
+): BundleIdResource | null {
   if (bundleIdentifier == null) return null;
   return toDomainBundleId(bundleIdentifier);
-};
+}
 
 /** Translate an Apple certificate while preserving an absent expiration date as an absent field. */
-const toDomainCertificate = (certificate: AscCertificateResource): CertificateResource => {
+function toDomainCertificate(certificate: AscCertificateResource): CertificateResource {
   if (certificate.expirationDate == null) {
     return {
       id: certificate.id,
@@ -86,29 +86,32 @@ const toDomainCertificate = (certificate: AscCertificateResource): CertificateRe
     certificateContent: certificate.certificateContent,
     expirationDate: certificate.expirationDate,
   };
-};
+}
 
 /** Translate an Apple device while preserving an absent status as an absent field. */
-const toDomainDevice = (device: AscDeviceResource): AppleDeviceResource => {
+function toDomainDevice(device: AscDeviceResource): AppleDeviceResource {
   if (device.status == null) return { id: device.id, udid: device.udid, name: device.name };
   return { id: device.id, udid: device.udid, name: device.name, status: device.status };
-};
+}
 
 /** Translate one enabled capability and its optional setting choices into the domain API. */
-const toDomainCapability = (
-  capability: AscBundleIdCapabilityResource,
-): BundleIdCapabilityResource => {
+function toDomainCapability(capability: AscBundleIdCapabilityResource): BundleIdCapabilityResource {
   if (capability.settings == null)
     return { id: capability.id, capabilityType: capability.capabilityType };
+  function mapSetting(setting: {
+    readonly key: string;
+    readonly options?: Readonly<{ key: string }>[];
+  }) {
+    if (setting.options == null) return { key: setting.key };
+    return { key: setting.key, options: setting.options };
+  }
+
   return {
     id: capability.id,
     capabilityType: capability.capabilityType,
-    settings: capability.settings.map((setting) => {
-      if (setting.options == null) return { key: setting.key };
-      return { key: setting.key, options: setting.options };
-    }),
+    settings: capability.settings.map(mapSetting),
   };
-};
+}
 
 async function createAppleCredentialsClient(ascKey: AscKey): Promise<AppleCredentialsClient> {
   const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);

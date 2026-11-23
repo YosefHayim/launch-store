@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderConfigDocs } from './config-docs.ts';
 import type { JsonSchema } from '../config/json-schema.ts';
-describe('renderConfigDocs', () => {
+function describeRenderPieceDocs() {
   const schema: JsonSchema = {
     $ref: '#/definitions/LaunchConfigInput',
     definitions: {
@@ -33,22 +33,36 @@ describe('renderConfigDocs', () => {
       },
     },
   };
-  it('renders the top-level fields table with required flags and rendered types', () => {
+  function rendersTheTopLevelFieldsTableWithRequiredFlagsAndRenderedTypes() {
     const docs = renderConfigDocs(schema);
     expect(docs).toContain('# Launch config reference');
     expect(docs).toContain('## Top-level fields');
     expect(docs).toContain('| `profiles` | `Record<string,BuildProfile>` | Yes |');
     expect(docs).toContain('| `appRoots` | `string[]` | No |');
-  });
-  it('renders a section per nested object definition but not for the root or Record/enum defs', () => {
+  }
+
+  it(
+    'renders the top-level fields table with required flags and rendered types',
+    rendersTheTopLevelFieldsTableWithRequiredFlagsAndRenderedTypes,
+  );
+  function rendersASectionPerNestedObjectDefinitionButNotForTheRootOrPieceEnumDefs() {
     const docs = renderConfigDocs(schema);
     expect(docs).toContain('### `BuildProfile`');
     expect(docs).toContain('A named build profile.');
     expect(docs).not.toContain('### `LaunchConfigInput`');
     expect(docs).not.toContain('### `Record<string,BuildProfile>`');
-  });
-  it('strips {@link} tags from rendered descriptions', () => {
+  }
+
+  it(
+    'renders a section per nested object definition but not for the root or Record/enum defs',
+    rendersASectionPerNestedObjectDefinitionButNotForTheRootOrPieceEnumDefs,
+  );
+  function stripsLinkTagsFromRenderedDescriptions() {
     const renderDocs = renderConfigDocs(schema);
     expect(renderDocs).not.toContain('@link');
-  });
-});
+  }
+
+  it('strips {@link} tags from rendered descriptions', stripsLinkTagsFromRenderedDescriptions);
+}
+
+describe('renderConfigDocs', describeRenderPieceDocs);

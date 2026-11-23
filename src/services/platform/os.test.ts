@@ -5,12 +5,13 @@ import {
   detectHostOperatingSystem,
   resolveHostOperatingSystemLabel,
 } from './os.ts';
-vi.mock('node:os', () => ({ platform: vi.fn(() => 'darwin') }));
+vi.mock('node:os', function mockOs() {
+  return { platform: vi.fn(() => 'darwin') };
+});
 
 const platformMock = vi.mocked(platform);
-
-describe('host OS detection', () => {
-  it('maps darwin -> macOS (the only local-signing host)', () => {
+function describeHostOSDetection() {
+  function mapsDarwinMacOSTheOnlyLocalSigningHost() {
     platformMock.mockReturnValue('darwin');
     const hostOperatingSystem = detectHostOperatingSystem();
     expect(hostOperatingSystem).toBe('macos');
@@ -18,8 +19,10 @@ describe('host OS detection', () => {
     expect(isMacOperatingSystem).toBe(true);
     const hostOperatingSystemLabel = resolveHostOperatingSystemLabel();
     expect(hostOperatingSystemLabel).toBe('macOS');
-  });
-  it('maps win32 -> windows (must build remotely)', () => {
+  }
+
+  it('maps darwin -> macOS (the only local-signing host)', mapsDarwinMacOSTheOnlyLocalSigningHost);
+  function mapsWin32WindowsMustBuildRemotely() {
     platformMock.mockReturnValue('win32');
     const hostOperatingSystem = detectHostOperatingSystem();
     expect(hostOperatingSystem).toBe('windows');
@@ -27,8 +30,10 @@ describe('host OS detection', () => {
     expect(isMacOperatingSystem).toBe(false);
     const hostOperatingSystemLabel = resolveHostOperatingSystemLabel();
     expect(hostOperatingSystemLabel).toBe('Windows');
-  });
-  it('treats everything else as linux', () => {
+  }
+
+  it('maps win32 -> windows (must build remotely)', mapsWin32WindowsMustBuildRemotely);
+  function treatsEverythingElseAsLinux() {
     platformMock.mockReturnValue('linux');
     const hostOperatingSystem = detectHostOperatingSystem();
     expect(hostOperatingSystem).toBe('linux');
@@ -36,5 +41,9 @@ describe('host OS detection', () => {
     expect(isMacOperatingSystem).toBe(false);
     const hostOperatingSystemLabel = resolveHostOperatingSystemLabel();
     expect(hostOperatingSystemLabel).toBe('Linux');
-  });
-});
+  }
+
+  it('treats everything else as linux', treatsEverythingElseAsLinux);
+}
+
+describe('host OS detection', describeHostOSDetection);

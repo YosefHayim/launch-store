@@ -16,14 +16,16 @@ const salesReportKinds: readonly SalesReportKind[] = [
 ];
 
 /** What a Sales Report line counts as, or null for a product type the stats do not use (app bundles). */
-export const findSalesReportKind = (productTypeId: string): SalesReportKind | null => {
-  const reportKind = salesReportKinds.find((kind) =>
-    productTypeIdsByKind[kind].includes(productTypeId),
-  );
+export function findSalesReportKind(productTypeId: string): SalesReportKind | null {
+  function findKind(kind: 'download' | 'redownload' | 'update' | 'in-app-purchase') {
+    return productTypeIdsByKind[kind].includes(productTypeId);
+  }
+
+  const reportKind = salesReportKinds.find(findKind);
 
   if (reportKind == null) {
     return null;
   }
 
   return reportKind;
-};
+}

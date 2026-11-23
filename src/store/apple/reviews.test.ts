@@ -54,48 +54,67 @@ async function captureThrown(work: Promise<unknown>): Promise<{ message: string 
 }
 
 /** Build one customer-review fixture. */
-const customerReview = (
+function customerReview(
   overrides: Partial<CustomerReviewResource> & { id: string; rating: number },
-): CustomerReviewResource => ({ answered: false, ...overrides });
+): CustomerReviewResource {
+  return { answered: false, ...overrides };
+}
+function mockCall(reviewId: string, responseText: string) {
+  return Promise.resolve({
+    id: `resp-${reviewId}`,
+    responseBody: responseText,
+    state: 'PENDING_PUBLISH',
+  });
+}
+
+function mockCall2() {
+  return Promise.resolve();
+}
 
 /** Build a deterministic reviews transport fake. */
-const makeReviewsStore = (fixtures: {
+function makeReviewsStore(fixtures: {
   appIds?: Readonly<Record<string, string>>;
   customerReviews?: CustomerReviewResource[];
   existingReply?: CustomerReviewResponseResource | null;
-}): AscReviewsApi => ({
-  getAppId: vi.fn((bundleId: string) => {
+}): AscReviewsApi {
+  function mockCall3(bundleId: string) {
     const appId = fixtures.appIds?.[bundleId];
     if (appId == null) return Promise.resolve(null);
     return Promise.resolve(appId);
-  }),
-  listCustomerReviews: vi.fn(() => {
+  }
+
+  function mockCall4() {
     if (fixtures.customerReviews == null) return Promise.resolve([]);
     return Promise.resolve(fixtures.customerReviews);
-  }),
-  getCustomerReviewResponse: vi.fn(() => {
+  }
+
+  function mockCall5() {
     if (fixtures.existingReply == null) return Promise.resolve(null);
     return Promise.resolve(fixtures.existingReply);
-  }),
-  createCustomerReviewResponse: vi.fn((reviewId: string, responseText: string) =>
-    Promise.resolve({
-      id: `resp-${reviewId}`,
-      responseBody: responseText,
-      state: 'PENDING_PUBLISH',
-    }),
-  ),
-  deleteCustomerReviewResponse: vi.fn(() => Promise.resolve()),
-});
+  }
+
+  return {
+    getAppId: vi.fn(mockCall3),
+    listCustomerReviews: vi.fn(mockCall4),
+    getCustomerReviewResponse: vi.fn(mockCall5),
+    createCustomerReviewResponse: vi.fn(mockCall),
+    deleteCustomerReviewResponse: vi.fn(mockCall2),
+  };
+}
 
 describe('listReviews', () => {
-  it('returns an actionable failure when the app record is missing', async () => {
+  async function returnsAnActionableFailureWhenTheAppPieceIsMissing() {
     const reviewsStore = makeReviewsStore({ appIds: {} });
     const reviews = listReviews(reviewsStore, 'com.x.missing');
     const missingApp = await captureThrown(reviews);
     expect(missingApp.message).toContain('No App Store Connect app record');
-  });
+  }
 
-  it('pushes rating and territory to Apple and returns the list unchanged', async () => {
+  it(
+    'returns an actionable failure when the app record is missing',
+    returnsAnActionableFailureWhenTheAppPieceIsMissing,
+  );
+  async function pushesRatingAndTerritoryToAppleAndReturnsTheListUnchanged() {
     const customerReviews = [
       customerReview({ id: 'r1', rating: 5 }),
       customerReview({ id: 'r2', rating: 5 }),
@@ -110,7 +129,12 @@ describe('listReviews', () => {
       rating: 5,
       territory: 'USA',
     });
-  });
+  }
+
+  it(
+    'pushes rating and territory to Apple and returns the list unchanged',
+    pushesRatingAndTerritoryToAppleAndReturnsTheListUnchanged,
+  );
 
   it('applies unanswered-only filtering after the server read', async () => {
     const customerReviews = [
@@ -126,9 +150,8 @@ describe('listReviews', () => {
     expect(reviewsStore.listCustomerReviews).toHaveBeenCalledWith('app1', {});
   });
 });
-
-describe('replyToReview', () => {
-  it('posts a new reply and reports that it did not replace one', async () => {
+function describeReplyToReview() {
+  async function postsANewReplyAndReportsThatItDidNotReplaceOne() {
     const reviewsStore = makeReviewsStore({ existingReply: null });
     const replyOutcome = await replyToReview(reviewsStore, 'r1', 'Thanks for the feedback!');
     expect(replyOutcome.replaced).toBe(false);
@@ -137,31 +160,43 @@ describe('replyToReview', () => {
       'r1',
       'Thanks for the feedback!',
     );
-  });
+  }
 
-  it('reports replacement when a reply already exists', async () => {
+  it(
+    'posts a new reply and reports that it did not replace one',
+    postsANewReplyAndReportsThatItDidNotReplaceOne,
+  );
+  async function reportsReplacementWhenAReplyAlreadyExists() {
     const reviewsStore = makeReviewsStore({
       existingReply: { id: 'resp-old', responseBody: 'old' },
     });
     const replyOutcome = await replyToReview(reviewsStore, 'r1', 'Updated reply');
     expect(replyOutcome.replaced).toBe(true);
-  });
-});
+  }
 
-describe('deleteReviewResponse', () => {
-  it('returns false when no reply exists', async () => {
+  it('reports replacement when a reply already exists', reportsReplacementWhenAReplyAlreadyExists);
+}
+
+describe('replyToReview', describeReplyToReview);
+function describeDeleteReviewPiece() {
+  async function returnsFalseWhenNoReplyExists() {
     const reviewsStore = makeReviewsStore({ existingReply: null });
     const deleteReview = await deleteReviewResponse(reviewsStore, 'r1');
     expect(deleteReview).toBe(false);
     expect(reviewsStore.deleteCustomerReviewResponse).not.toHaveBeenCalled();
-  });
+  }
 
-  it('deletes the reply resource and returns true', async () => {
+  it('returns false when no reply exists', returnsFalseWhenNoReplyExists);
+  async function deletesTheReplyResourceAndReturnsTrue() {
     const reviewsStore = makeReviewsStore({
       existingReply: { id: 'resp-1', responseBody: 'hi' },
     });
     const deleteReview = await deleteReviewResponse(reviewsStore, 'r1');
     expect(deleteReview).toBe(true);
     expect(reviewsStore.deleteCustomerReviewResponse).toHaveBeenCalledWith('resp-1');
-  });
-});
+  }
+
+  it('deletes the reply resource and returns true', deletesTheReplyResourceAndReturnsTrue);
+}
+
+describe('deleteReviewResponse', describeDeleteReviewPiece);

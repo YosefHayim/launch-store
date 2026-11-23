@@ -23,9 +23,11 @@ const systemTemporaryDirectory = tmpdir();
 const launchCredentialsTestPath = join(systemTemporaryDirectory, 'launch-credentials-test-');
 const home = { dir: mkdtempSync(launchCredentialsTestPath) };
 
-vi.mock('../adopt/profile-entitlements.ts', () => ({
-  extractProfileEntitlements: vi.fn(),
-}));
+vi.mock('../adopt/profile-entitlements.ts', function mockProfileEntitlements() {
+  return {
+    extractProfileEntitlements: vi.fn(),
+  };
+});
 
 const KEY_ID = 'ABC123';
 const MAIN = 'com.example.sampleapp';
@@ -73,28 +75,33 @@ function seedCredentials(
     writeFileSync(joinedPath, 'profile-bytes');
   }
 }
-
-beforeEach(() => {
+function prepare() {
   useLaunchDirectories({ homeDirectory: home.dir, workingDirectory: home.dir });
   rmSync(home.dir, { recursive: true, force: true });
-});
+}
 
-afterAll(() => {
+beforeEach(prepare);
+function cleanupAll() {
   resetLaunchDirectories();
   rmSync(home.dir, { recursive: true, force: true });
-});
+}
 
-describe('loadCachedSigningAssets - multi-bundle (app + extensions) fast path (#221)', () => {
-  it("returns the main app's assets with no extensionProfiles when no extensions are requested", async () => {
+afterAll(cleanupAll);
+function describeLoadCachedSigningAssetsMultiBundleAppExtensionsFastPath221() {
+  async function returnsTheMainAppSAssetsWithNoExtensionProfilesWhenNoExtensionsAreRequested() {
     seedCredentials({ [MAIN]: { uuid: 'uuid-main' } }, ['uuid-main']);
 
     const assets = await loadCachedSigningAssets(KEY_ID, MAIN);
 
     expect(assets?.profileName).toBe(`Launch_${MAIN}_AppStore`);
     expect(assets?.extensionProfiles).toBeUndefined();
-  });
+  }
 
-  it("folds each extension's bundle id -> profile name in when every extension profile is cached", async () => {
+  it(
+    "returns the main app's assets with no extensionProfiles when no extensions are requested",
+    returnsTheMainAppSAssetsWithNoExtensionProfilesWhenNoExtensionsAreRequested,
+  );
+  async function foldsEachExtensionSBundleIdProfileNameInWhenEveryExtensionProfileIsCached() {
     seedCredentials({ [MAIN]: { uuid: 'uuid-main' }, [WIDGET]: { uuid: 'uuid-widget' } }, [
       'uuid-main',
       'uuid-widget',
@@ -103,27 +110,44 @@ describe('loadCachedSigningAssets - multi-bundle (app + extensions) fast path (#
     const assets = await loadCachedSigningAssets(KEY_ID, MAIN, [WIDGET]);
 
     expect(assets?.extensionProfiles).toEqual({ [WIDGET]: `Launch_${WIDGET}_AppStore` });
-  });
+  }
 
-  it('returns null when a requested extension has no profile in the index', async () => {
+  it(
+    "folds each extension's bundle id -> profile name in when every extension profile is cached",
+    foldsEachExtensionSBundleIdProfileNameInWhenEveryExtensionProfileIsCached,
+  );
+  async function returnsNullWhenARequestedExtensionHasNoProfileInTheIndex() {
     seedCredentials({ [MAIN]: { uuid: 'uuid-main' } }, ['uuid-main']);
 
     const cachedSigningAssets = await loadCachedSigningAssets(KEY_ID, MAIN, [WIDGET]);
     expect(cachedSigningAssets).toBeNull();
-  });
+  }
 
-  it("returns null when an extension's profile is in the index but not installed on disk", async () => {
+  it(
+    'returns null when a requested extension has no profile in the index',
+    returnsNullWhenARequestedExtensionHasNoProfileInTheIndex,
+  );
+  async function returnsNullWhenAnExtensionSProfileIsInTheIndexButNotInstalledOnDisk() {
     seedCredentials({ [MAIN]: { uuid: 'uuid-main' }, [WIDGET]: { uuid: 'uuid-widget' } }, [
       'uuid-main',
     ]);
 
     const cachedSigningAssets = await loadCachedSigningAssets(KEY_ID, MAIN, [WIDGET]);
     expect(cachedSigningAssets).toBeNull();
-  });
-});
+  }
 
-describe('ensureAdHocSigningCredentials - macOS has no ad-hoc distribution', () => {
-  it('rejects macOS up front (even in dry-run) before touching the network or keychain', async () => {
+  it(
+    "returns null when an extension's profile is in the index but not installed on disk",
+    returnsNullWhenAnExtensionSProfileIsInTheIndexButNotInstalledOnDisk,
+  );
+}
+
+describe(
+  'loadCachedSigningAssets - multi-bundle (app + extensions) fast path (#221)',
+  describeLoadCachedSigningAssetsMultiBundleAppExtensionsFastPath221,
+);
+function describeEnsureAdHocSigningCredentialsMacOSHasNoAdHocDistribution() {
+  async function rejectsMacOSUpFrontEvenInDryRunBeforeTouchingTheNetworkOrKeychain() {
     const logger = createLogger(false);
     const adHocSigningCredentials = ensureAdHocSigningCredentials({
       platform: 'macos',
@@ -139,10 +163,19 @@ describe('ensureAdHocSigningCredentials - macOS has no ad-hoc distribution', () 
     await expect(adHocSigningCredentials).rejects.toMatchObject({
       message: expect.stringMatching(/macOS has no ad-hoc/i),
     });
-  });
-});
+  }
 
-describe('profileStaleAgainstCapabilities - regenerate-vs-reuse decision (#261)', () => {
+  it(
+    'rejects macOS up front (even in dry-run) before touching the network or keychain',
+    rejectsMacOSUpFrontEvenInDryRunBeforeTouchingTheNetworkOrKeychain,
+  );
+}
+
+describe(
+  'ensureAdHocSigningCredentials - macOS has no ad-hoc distribution',
+  describeEnsureAdHocSigningCredentialsMacOSHasNoAdHocDistribution,
+);
+function describeProfileStaleAgainstCapabilitiesRegenerateVsReuseDecision261() {
   const PROFILE: ProfileResource = {
     id: 'prof-1',
     name: `Launch_${MAIN}_AppStore`,
@@ -163,8 +196,7 @@ describe('profileStaleAgainstCapabilities - regenerate-vs-reuse decision (#261)'
       }),
     };
   }
-
-  it('regenerates when App Groups was enabled after the profile was minted', async () => {
+  async function regeneratesWhenAppGroupsWasEnabledAfterTheProfileWasMinted() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
 
     const stale = await profileStaleAgainstCapabilities(
@@ -174,9 +206,13 @@ describe('profileStaleAgainstCapabilities - regenerate-vs-reuse decision (#261)'
     );
 
     expect(stale).toEqual(['APP_GROUPS']);
-  });
+  }
 
-  it('reuses when the profile already covers every enabled capability', async () => {
+  it(
+    'regenerates when App Groups was enabled after the profile was minted',
+    regeneratesWhenAppGroupsWasEnabledAfterTheProfileWasMinted,
+  );
+  async function reusesWhenTheProfileAlreadyCoversEveryEnabledCapability() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue({
       'aps-environment': 'production',
       'com.apple.security.application-groups': ['group.com.acme'],
@@ -189,10 +225,19 @@ describe('profileStaleAgainstCapabilities - regenerate-vs-reuse decision (#261)'
     );
 
     expect(stale).toEqual([]);
-  });
-});
+  }
 
-describe('staleCachedSigningTargets - build-path reuse guard (#292)', () => {
+  it(
+    'reuses when the profile already covers every enabled capability',
+    reusesWhenTheProfileAlreadyCoversEveryEnabledCapability,
+  );
+}
+
+describe(
+  'profileStaleAgainstCapabilities - regenerate-vs-reuse decision (#261)',
+  describeProfileStaleAgainstCapabilitiesRegenerateVsReuseDecision261,
+);
+function describeStaleCachedSigningTargetsBuildPathReuseGuard292() {
   const MAIN_ONLY: SigningAssets = {
     bundleId: MAIN,
     teamId: 'TEAM01',
@@ -245,8 +290,7 @@ describe('staleCachedSigningTargets - build-path reuse guard (#292)', () => {
 
     return { ...client, ...overrides };
   }
-
-  it('flags every target whose profile predates an enabled capability (App Groups)', async () => {
+  async function flagsEveryTargetWhoseProfilePredatesAnEnabledCapabilityAppGroups() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
 
     const stale = await staleCachedSigningTargets(
@@ -258,9 +302,13 @@ describe('staleCachedSigningTargets - build-path reuse guard (#292)', () => {
       { bundleId: MAIN, missing: ['APP_GROUPS'] },
       { bundleId: WIDGET, missing: ['APP_GROUPS'] },
     ]);
-  });
+  }
 
-  it('returns [] when every cached profile already covers the enabled capabilities', async () => {
+  it(
+    'flags every target whose profile predates an enabled capability (App Groups)',
+    flagsEveryTargetWhoseProfilePredatesAnEnabledCapabilityAppGroups,
+  );
+  async function returnsWhenEveryCachedProfileAlreadyCoversTheEnabledCapabilities() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue({
       'com.apple.security.application-groups': ['group.com.example.sampleapp'],
     });
@@ -271,9 +319,13 @@ describe('staleCachedSigningTargets - build-path reuse guard (#292)', () => {
     );
 
     expect(stale).toEqual([]);
-  });
+  }
 
-  it('treats an unreadable profile as current - best-effort, never a needless regenerate', async () => {
+  it(
+    'returns [] when every cached profile already covers the enabled capabilities',
+    returnsWhenEveryCachedProfileAlreadyCoversTheEnabledCapabilities,
+  );
+  async function treatsAnUnreadableProfileAsCurrentBestEffortNeverANeedlessRegenerate() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue(null);
 
     const stale = await staleCachedSigningTargets(
@@ -282,9 +334,13 @@ describe('staleCachedSigningTargets - build-path reuse guard (#292)', () => {
     );
 
     expect(stale).toEqual([]);
-  });
+  }
 
-  it('grades the main bundle alone when the app has no extension profiles', async () => {
+  it(
+    'treats an unreadable profile as current - best-effort, never a needless regenerate',
+    treatsAnUnreadableProfileAsCurrentBestEffortNeverANeedlessRegenerate,
+  );
+  async function gradesTheMainBundleAloneWhenTheAppHasNoExtensionProfiles() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
 
     const stale = await staleCachedSigningTargets(
@@ -293,9 +349,13 @@ describe('staleCachedSigningTargets - build-path reuse guard (#292)', () => {
     );
 
     expect(stale).toEqual([{ bundleId: MAIN, missing: ['APP_GROUPS'] }]);
-  });
+  }
 
-  it('skips an unregistered target (findBundleId -> null)', async () => {
+  it(
+    'grades the main bundle alone when the app has no extension profiles',
+    gradesTheMainBundleAloneWhenTheAppHasNoExtensionProfiles,
+  );
+  async function skipsAnUnregisteredTargetFindBundleIdNull() {
     vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
 
     const stale = await staleCachedSigningTargets(
@@ -311,5 +371,15 @@ describe('staleCachedSigningTargets - build-path reuse guard (#292)', () => {
     );
 
     expect(stale).toEqual([]);
-  });
-});
+  }
+
+  it(
+    'skips an unregistered target (findBundleId -> null)',
+    skipsAnUnregisteredTargetFindBundleIdNull,
+  );
+}
+
+describe(
+  'staleCachedSigningTargets - build-path reuse guard (#292)',
+  describeStaleCachedSigningTargetsBuildPathReuseGuard292,
+);

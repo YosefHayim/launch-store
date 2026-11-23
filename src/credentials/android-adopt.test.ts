@@ -14,15 +14,16 @@ import {
 } from './android-keystore-assets.ts';
 
 const directories: string[] = [];
-
-afterEach(() => {
+function cleanup() {
   resetLaunchDirectories();
   resetSecretStore();
 
   for (const directory of directories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
   }
-});
+}
+
+afterEach(cleanup);
 
 function setup() {
   const systemTemporaryDirectory = tmpdir();
@@ -83,9 +84,8 @@ function setup() {
 function allowPlayAccess(): Promise<void> {
   return Promise.resolve();
 }
-
-describe('legacy Android credential adoption', () => {
-  it('validates and copies both assets without removing the originals', async () => {
+function describeLegacyAndroidCredentialAdoption() {
+  async function validatesAndCopiesBothAssetsWithoutRemovingTheOriginals() {
     const sandbox = setup();
     const calls: string[] = [];
 
@@ -123,9 +123,14 @@ describe('legacy Android credential adoption', () => {
     await expect(legacyAndroidCredentials).rejects.toMatchObject({
       message: expect.stringMatching(/--yes/),
     });
-  }, 30_000);
+  }
 
-  it('rejects an incorrect private key password before copying anything', async () => {
+  it(
+    'validates and copies both assets without removing the originals',
+    validatesAndCopiesBothAssetsWithoutRemovingTheOriginals,
+    30_000,
+  );
+  async function rejectsAnIncorrectPrivateKeyPasswordBeforeCopyingAnything() {
     const sandbox = setup();
 
     sandbox.secrets.set('android-keystore-key-password', 'wrongpass');
@@ -142,9 +147,14 @@ describe('legacy Android credential adoption', () => {
     expect(serviceAccount).toBeNull();
     const cachedKeystore = await loadCachedKeystore('com.example.app');
     expect(cachedKeystore).toBeNull();
-  }, 30_000);
+  }
 
-  it('does not copy when the Play key cannot read the package', async () => {
+  it(
+    'rejects an incorrect private key password before copying anything',
+    rejectsAnIncorrectPrivateKeyPasswordBeforeCopyingAnything,
+    30_000,
+  );
+  async function doesNotCopyWhenThePlayKeyCannotReadThePackage() {
     setup();
 
     const legacyAndroidCredentials = adoptLegacyAndroidCredentials(
@@ -159,9 +169,14 @@ describe('legacy Android credential adoption', () => {
     expect(serviceAccount).toBeNull();
     const cachedKeystore = await loadCachedKeystore('com.example.app');
     expect(cachedKeystore).toBeNull();
-  }, 30_000);
+  }
 
-  it('rejects a wrong key password when importing a keystore', async () => {
+  it(
+    'does not copy when the Play key cannot read the package',
+    doesNotCopyWhenThePlayKeyCannotReadThePackage,
+    30_000,
+  );
+  async function rejectsAWrongKeyPasswordWhenImportingAKeystore() {
     const sandbox = setup();
 
     const logger = createLogger(false);
@@ -185,5 +200,13 @@ describe('legacy Android credential adoption', () => {
     });
     const cachedKeystore = await loadCachedKeystore('com.example.app');
     expect(cachedKeystore).toBeNull();
-  }, 30_000);
-});
+  }
+
+  it(
+    'rejects a wrong key password when importing a keystore',
+    rejectsAWrongKeyPasswordWhenImportingAKeystore,
+    30_000,
+  );
+}
+
+describe('legacy Android credential adoption', describeLegacyAndroidCredentialAdoption);

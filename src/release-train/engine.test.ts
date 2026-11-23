@@ -2,15 +2,16 @@ import { describe, expect, it } from 'vitest';
 import type { ReleaseVerdict } from '../release/app-store-release.ts';
 import { androidCarState, iosCarState, planTrainCars } from './engine.ts';
 
-const verdict = (state: ReleaseVerdict['state']): ReleaseVerdict => ({
-  label: state,
-  state,
-  done: true,
-  exitCode: 0,
-});
-
-describe('iosCarState', () => {
-  it('maps each verdict to a native car state, keeping the car put on unknown', () => {
+function verdict(state: ReleaseVerdict['state']): ReleaseVerdict {
+  return {
+    label: state,
+    state,
+    done: true,
+    exitCode: 0,
+  };
+}
+function describeIosCarPiece() {
+  function mapsEachVerdictToANativeCarPieceKeepingTheCarPutOnUnknown() {
     const iosCar = iosCarState(verdict('released'));
     expect(iosCar).toBe('released');
     expect(iosCarState(verdict('pending-release'))).toBe('approved');
@@ -18,29 +19,44 @@ describe('iosCarState', () => {
     expect(iosCarState(verdict('rejected'))).toBe('rejected');
     expect(iosCarState(verdict('preparing'))).toBe('submitted');
     expect(iosCarState(verdict('unknown'))).toBeNull();
-  });
-});
+  }
 
-describe('androidCarState', () => {
-  it('treats a processed production release as live and a draft as submitted', () => {
+  it(
+    'maps each verdict to a native car state, keeping the car put on unknown',
+    mapsEachVerdictToANativeCarPieceKeepingTheCarPutOnUnknown,
+  );
+}
+
+describe('iosCarState', describeIosCarPiece);
+function describeAndroidCarPiece() {
+  function treatsAProcessedProductionReleaseAsLiveAndADraftAsSubmitted() {
     const androidCar = androidCarState([{ status: 'completed' }]);
     expect(androidCar).toBe('released');
     expect(androidCarState([{ status: 'inProgress', userFraction: 0.1 }])).toBe('released');
     expect(androidCarState([{ status: 'halted' }])).toBe('released');
     expect(androidCarState([{ status: 'draft' }])).toBe('submitted');
-  });
+  }
 
-  it('keeps the car put when the track is empty or in an unknown status', () => {
+  it(
+    'treats a processed production release as live and a draft as submitted',
+    treatsAProcessedProductionReleaseAsLiveAndADraftAsSubmitted,
+  );
+  function keepsTheCarPutWhenTheTrackIsEmptyOrInAnUnknownStatus() {
     const androidCar = androidCarState([]);
     expect(androidCar).toBeNull();
     expect(androidCarState([{ status: 'weird' }])).toBeNull();
-  });
-});
+  }
 
-describe('planTrainCars', () => {
+  it(
+    'keeps the car put when the track is empty or in an unknown status',
+    keepsTheCarPutWhenTheTrackIsEmptyOrInAnUnknownStatus,
+  );
+}
+
+describe('androidCarState', describeAndroidCarPiece);
+function describePlanTrainCars() {
   const base = { runtimeVersion: '1.0.0', channel: 'production', noOta: false };
-
-  it('coordinates both native legs and one OTA follower each by default', () => {
+  function coordinatesBothNativeLegsAndOneOTAFollowerEachByDefault() {
     const plan = planTrainCars({
       ...base,
       hasBundleId: true,
@@ -52,9 +68,13 @@ describe('planTrainCars', () => {
       { platform: 'ios', channel: 'production', runtimeVersion: '1.0.0' },
       { platform: 'android', channel: 'production', runtimeVersion: '1.0.0' },
     ]);
-  });
+  }
 
-  it('drops OTA followers under --no-ota or with no cloud storage', () => {
+  it(
+    'coordinates both native legs and one OTA follower each by default',
+    coordinatesBothNativeLegsAndOneOTAFollowerEachByDefault,
+  );
+  function dropsOTAFollowersUnderNoOtaOrWithNoCloudStorage() {
     const trainCars = planTrainCars({
       ...base,
       hasBundleId: true,
@@ -71,9 +91,13 @@ describe('planTrainCars', () => {
         hasCloudStorage: false,
       }).ota,
     ).toEqual([]);
-  });
+  }
 
-  it('narrows to one native leg under --platform', () => {
+  it(
+    'drops OTA followers under --no-ota or with no cloud storage',
+    dropsOTAFollowersUnderNoOtaOrWithNoCloudStorage,
+  );
+  function narrowsToOneNativeLegUnderPlatform() {
     const plan = planTrainCars({
       ...base,
       hasBundleId: true,
@@ -83,9 +107,10 @@ describe('planTrainCars', () => {
     });
     expect(plan.platforms).toEqual(['ios']);
     expect(plan.ota).toEqual([{ platform: 'ios', channel: 'production', runtimeVersion: '1.0.0' }]);
-  });
+  }
 
-  it("omits a native leg the app doesn't declare", () => {
+  it('narrows to one native leg under --platform', narrowsToOneNativeLegUnderPlatform);
+  function omitsANativeLegTheAppDoesnTDeclare() {
     const plan = planTrainCars({
       ...base,
       hasBundleId: false,
@@ -93,5 +118,9 @@ describe('planTrainCars', () => {
       hasCloudStorage: false,
     });
     expect(plan.platforms).toEqual(['android']);
-  });
-});
+  }
+
+  it("omits a native leg the app doesn't declare", omitsANativeLegTheAppDoesnTDeclare);
+}
+
+describe('planTrainCars', describePlanTrainCars);

@@ -39,16 +39,16 @@ function renderBuiltDiagnostics(): Promise<string> {
   `;
   return captureCommandOutput('node', ['--input-type=module', '--eval', diagnosticScript]);
 }
-
-beforeAll(() => {
+function prepareAll() {
   if (!existsSync(CLI)) throw new Error('Build dist before running the built-CLI e2e suite.');
   if (!existsSync(PLAY_SUBSCRIPTIONS)) {
     throw new Error('The built Play subscriptions program is missing from dist.');
   }
-});
+}
 
-describe('launch-store play-subscriptions setup guidance - compiled dist', () => {
-  it('ships the distinct catalog permission and payments-profile fixes', async () => {
+beforeAll(prepareAll);
+function describeLaunchStorePlaySubscriptionsSetupGuidanceCompiledDist() {
+  async function shipsTheDistinctCatalogPermissionAndPaymentsProfileFixes() {
     expect(await launch('play-subscriptions', '--help')).toContain('play-subscriptions');
     const diagnosticText = await renderBuiltDiagnostics();
     expect(diagnosticText).toContain('launch-catalog@proj.iam.gserviceaccount.com');
@@ -61,5 +61,15 @@ describe('launch-store play-subscriptions setup guidance - compiled dist', () =>
     );
     expect(diagnosticText).toContain('Setup > Payments profile');
     expect(diagnosticText).toContain('https://play.google.com/console/developers/paymentssettings');
-  });
-});
+  }
+
+  it(
+    'ships the distinct catalog permission and payments-profile fixes',
+    shipsTheDistinctCatalogPermissionAndPaymentsProfileFixes,
+  );
+}
+
+describe(
+  'launch-store play-subscriptions setup guidance - compiled dist',
+  describeLaunchStorePlaySubscriptionsSetupGuidanceCompiledDist,
+);

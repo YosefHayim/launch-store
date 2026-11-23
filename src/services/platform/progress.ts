@@ -13,27 +13,27 @@ import { resolveLogsDirectory } from './paths.ts';
 /** Process-wide toggle: when true, `runWithProgress` streams the raw tool output instead of a spinner. */
 let streamRawOutput = false;
 /** Set by the CLI's `--verbose` flag - makes every {@link runWithProgress} stream the full tool output. */
-export const setVerboseOutput = (verbose: boolean): void => {
+export function setVerboseOutput(verbose: boolean): void {
   streamRawOutput = verbose;
-};
+}
 /**
  * Whether to render a spinner or stream raw output. Pure so the decision is unit-testable. A spinner
  * needs a real interactive TTY that isn't CI and hasn't asked for verbose output; everything else
  * gets the raw stream so the full log survives in transcripts. `--json` always takes the quiet path,
  * so child output never reaches the NDJSON stdout.
  */
-export const selectProgressMode = (
+export function selectProgressMode(
   isTTY: boolean,
   env: Readonly<Record<string, string | undefined>>,
   verbose: boolean,
-  json = false,
-): 'spinner' | 'stream' => {
+  json: boolean = false,
+): 'spinner' | 'stream' {
   if (json) return 'spinner';
   if (verbose) return 'stream';
   if (!isTTY) return 'stream';
   if (env['CI']) return 'stream';
   return 'spinner';
-};
+}
 /** Options for {@link runWithProgress}. */
 export type ProgressRunOptions = {
   cwd?: string;
@@ -43,11 +43,11 @@ export type ProgressRunOptions = {
   estimate?: BuildEstimate;
 };
 /** Cap a step string so the spinner stays on one terminal line. */
-const truncateStep = (step: string): string => {
+function truncateStep(step: string): string {
   const max = 52;
   if (step.length > max) return `${step.slice(0, max - 3)}...`;
   return step;
-};
+}
 /**
  * Render the "candy" Aurora progress bar - rounded violet/cyan end-caps (``...``) around a heavy ``
  * fill that ramps violet->cyan, over a dim `` track. `fraction` is clamped to 0-1 so an over-budget
@@ -55,11 +55,11 @@ const truncateStep = (step: string): string => {
  * On a color TTY each fill cell is its own gradient step; off a TTY / under `NO_COLOR` it degrades to a
  * plain ``, still legible in any captured log.
  */
-export const renderBar = (fraction: number, width = 14): string => {
+export function renderBar(fraction: number, width: number = 14): string {
   const clamped = Math.max(0, Math.min(1, fraction));
   const filled = Math.floor(clamped * width);
   return `[${'#'.repeat(filled)}${'-'.repeat(width - filled)}]`;
-};
+}
 /**
  * Compose the one spinner line. With a {@link BuildEstimate} it shows a bar plus `count/~total` and
  * `elapsed / ~eta`; the bar fills by step-count (a good time proxy once steps parse) and falls back to
@@ -67,13 +67,13 @@ export const renderBar = (fraction: number, width = 14): string => {
  * kind, or a step-less tool like prebuild) it degrades to the plain `label - step   elapsed` clock. The
  * fraction is capped at 99% so the bar never reads "done" until the process actually exits. Pure -> testable.
  */
-export const formatProgressLine = (parts: {
+export function formatProgressLine(parts: {
   label: string;
   step: string;
   elapsedMs: number;
   steps: number;
   estimate?: BuildEstimate;
-}): string => {
+}): string {
   const { label, step, elapsedMs, steps, estimate } = parts;
   let stepSuffix = '';
   if (step) stepSuffix = ` - ${step}`;
@@ -91,9 +91,9 @@ export const formatProgressLine = (parts: {
   let counter = '';
   if (bySteps) counter = ` ${steps}/~${estimate.steps}`;
   return `${head}   ${bar} ${pct}${counter} - ${elapsed} / ~${formatElapsed(estimate.ms)}`;
-};
+}
 /** Pull a compact step out of a raw `xcodebuild` line such as `CompileC ...`, `Ld ...` or `** ARCHIVE SUCCEEDED **`. */
-export const xcodeProgressStep = (line: string): string | undefined => {
+export function xcodeProgressStep(line: string): string | undefined {
   const trimmedLine = line.trim();
   const successMatch = /^\*\* (ARCHIVE|EXPORT|BUILD) SUCCEEDED \*\*/.exec(trimmedLine);
   if (successMatch?.[1]) return `${successMatch[1].toLowerCase()} succeeded`;
@@ -110,33 +110,37 @@ export const xcodeProgressStep = (line: string): string | undefined => {
     if (!scriptMatch?.[1]) return truncateStep(verb);
     return truncateStep(`${verb} ${scriptMatch[1].replace(/\\ /g, ' ')}`);
   }
-  const pathToken = detail.split(' ').find((token) => token.includes('/'));
+  function findToken(token: string) {
+    return token.includes('/');
+  }
+
+  const pathToken = detail.split(' ').find(findToken);
   if (pathToken == null) return truncateStep(verb);
   const fileName = pathToken.slice(pathToken.lastIndexOf('/') + 1);
   return truncateStep(`${verb} ${fileName}`);
-};
+}
 /**
  * Pull a compact step out of a Gradle line. Gradle announces work as `> Task :app:bundleRelease`,
  * so we surface the task path; bundletool/other lines are ignored.
  */
-export const gradleProgressStep = (line: string): string | undefined => {
+export function gradleProgressStep(line: string): string | undefined {
   const match = /^> Task (\S+)/.exec(line.trim());
   if (match?.[1]) return truncateStep(match[1]);
   return undefined;
-};
+}
 /** A safe-for-a-filename slug of a label, e.g. `"Building iOS - SampleApp"` -> `"building-ios-sampleapp"`. */
-const logSlug = (label: string): string => {
+function logSlug(label: string): string {
   const normalizedLabel = label
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
   if (normalizedLabel.length == 0) return 'run';
   return normalizedLabel;
-};
+}
 /** A filesystem-safe timestamp, e.g. `2026-06-14T02-56-32`. */
-const logStamp = (epochMilliseconds: number): string => {
+function logStamp(epochMilliseconds: number): string {
   return new Date(epochMilliseconds).toISOString().replace(/:/g, '-').replace(/\..+$/, '');
-};
+}
 /**
  * Print a failed tool's captured tail and the path to its full log, then - when the log matches a known
  * native-build failure - the likely cause and the fix (see {@link diagnoseBuildLog}). Diagnostics scan
@@ -300,13 +304,13 @@ export function checkTerminalIsInteractive(): boolean {
   const launchEnvironment = readLaunchEnvironment();
   return isInteractiveTerminal(terminalIsInteractive, launchEnvironment.rawVariables);
 }
-export const isInteractiveTerminal = (
+export function isInteractiveTerminal(
   isTTY: boolean,
   environment: Readonly<Record<string, string | undefined>>,
-): boolean => {
+): boolean {
   if (!isTTY) return false;
   return environment['CI'] == null;
-};
+}
 /**
  * Run a silent async step under a spinner so long network round-trips (App Store Connect / Google
  * Play lookups, the TestFlight processing poll) don't show a frozen screen. Degrades to a plain

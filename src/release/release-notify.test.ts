@@ -6,7 +6,7 @@ import {
 } from './release-notify.ts';
 import { classifyVerdict, type ReleaseStatus } from './app-store-release.ts';
 /** A minimal {@link ReleaseStatus} for one poll; `appStoreState` drives the verdict unless overridden. */
-const status = (over: Partial<ReleaseStatus> = {}): ReleaseStatus => {
+function status(over: Partial<ReleaseStatus> = {}): ReleaseStatus {
   const base: ReleaseStatus = {
     bundleId: 'com.acme.app',
     versionString: '1.2.0',
@@ -23,31 +23,46 @@ const status = (over: Partial<ReleaseStatus> = {}): ReleaseStatus => {
     merged.verdict = classifyVerdict(appStoreState);
   }
   return merged;
-};
-describe('reviewStatusForVerdict', () => {
-  it('notifies rejected on a rejection', () => {
+}
+function describeReviewStatusForVerdict() {
+  function notifiesRejectedOnARejection() {
     const verdict = classifyVerdict('REJECTED');
     expect(reviewStatusForVerdict(verdict)).toBe('rejected');
-  });
-  it('notifies approved on a released verdict', () => {
+  }
+
+  it('notifies rejected on a rejection', notifiesRejectedOnARejection);
+  function notifiesApprovedOnAReleasedVerdict() {
     const verdict = classifyVerdict('READY_FOR_SALE');
     expect(reviewStatusForVerdict(verdict)).toBe('approved');
-  });
-  it('notifies approved on a pending-release verdict', () => {
+  }
+
+  it('notifies approved on a released verdict', notifiesApprovedOnAReleasedVerdict);
+  function notifiesApprovedOnAPendingReleaseVerdict() {
     const verdict = classifyVerdict('PENDING_DEVELOPER_RELEASE');
     expect(reviewStatusForVerdict(verdict)).toBe('approved');
-  });
-  it('stays silent while in review', () => {
+  }
+
+  it('notifies approved on a pending-release verdict', notifiesApprovedOnAPendingReleaseVerdict);
+  function staysSilentWhileInReview() {
     const verdict = classifyVerdict('IN_REVIEW');
     expect(reviewStatusForVerdict(verdict)).toBeNull();
-  });
-  it('stays silent on a preparing (not-yet-submitted) verdict', () => {
+  }
+
+  it('stays silent while in review', staysSilentWhileInReview);
+  function staysSilentOnAPreparingNotYetSubmittedVerdict() {
     const verdict = classifyVerdict('PREPARE_FOR_SUBMISSION');
     expect(reviewStatusForVerdict(verdict)).toBeNull();
-  });
-});
-describe('planTransitionNotifications - review', () => {
-  it('notifies a real verdict even after an earlier silent terminal state', () => {
+  }
+
+  it(
+    'stays silent on a preparing (not-yet-submitted) verdict',
+    staysSilentOnAPreparingNotYetSubmittedVerdict,
+  );
+}
+
+describe('reviewStatusForVerdict', describeReviewStatusForVerdict);
+function describePlanTransitionNotificationsReview() {
+  function notifiesARealVerdictEvenAfterAnEarlierSilentTerminalPiece() {
     const tracker = createTransitionTracker();
     // `PREPARE_FOR_SUBMISSION` is terminal (`verdict.done`) but not a review outcome, so it must stay
     // silent AND must not mark the app reviewed - otherwise a later approved/rejected ping is suppressed.
@@ -73,8 +88,13 @@ describe('planTransitionNotifications - review', () => {
       }),
     ]);
     expect(tracker.reviewed.size).toBe(1);
-  });
-  it('fires an approved review once, then stays silent on repeat polls', () => {
+  }
+
+  it(
+    'notifies a real verdict even after an earlier silent terminal state',
+    notifiesARealVerdictEvenAfterAnEarlierSilentTerminalPiece,
+  );
+  function firesAnApprovedReviewOnceThenStaysSilentOnRepeatPolls() {
     const tracker = createTransitionTracker();
     const transitionNotifications = planTransitionNotifications(
       'alpha',
@@ -87,8 +107,13 @@ describe('planTransitionNotifications - review', () => {
     expect(
       planTransitionNotifications('alpha', status({ appStoreState: 'READY_FOR_SALE' }), tracker),
     ).toEqual([]);
-  });
-  it('stays silent while the verdict is still in progress', () => {
+  }
+
+  it(
+    'fires an approved review once, then stays silent on repeat polls',
+    firesAnApprovedReviewOnceThenStaysSilentOnRepeatPolls,
+  );
+  function staysSilentWhileTheVerdictIsStillInProgress() {
     const tracker = createTransitionTracker();
     const transitionNotifications = planTransitionNotifications(
       'alpha',
@@ -97,8 +122,13 @@ describe('planTransitionNotifications - review', () => {
     );
     expect(transitionNotifications).toEqual([]);
     expect(tracker.reviewed.size).toBe(0);
-  });
-  it('notifies again for a new version of the same app in one session', () => {
+  }
+
+  it(
+    'stays silent while the verdict is still in progress',
+    staysSilentWhileTheVerdictIsStillInProgress,
+  );
+  function notifiesAgainForANewVersionOfTheSameAppInOneSession() {
     const tracker = createTransitionTracker();
     // v1.2.0 is rejected and notified.
     const transitionNotifications = planTransitionNotifications(
@@ -119,10 +149,17 @@ describe('planTransitionNotifications - review', () => {
     expect(events).toEqual([
       expect.objectContaining({ event: 'review', status: 'approved', version: '1.2.1' }),
     ]);
-  });
-});
-describe('planTransitionNotifications - rollout', () => {
-  it('treats the first phased state as a silent baseline, then notifies each change once', () => {
+  }
+
+  it(
+    'notifies again for a new version of the same app in one session',
+    notifiesAgainForANewVersionOfTheSameAppInOneSession,
+  );
+}
+
+describe('planTransitionNotifications - review', describePlanTransitionNotificationsReview);
+function describePlanTransitionNotificationsRollout() {
+  function treatsTheFirstPhasedPieceAsASilentBaselineThenNotifiesEachChangeOnce() {
     const tracker = createTransitionTracker();
     // Held at IN_REVIEW (not terminal) so the rollout transition is exercised without a review ping.
     const transitionNotifications = planTransitionNotifications(
@@ -147,8 +184,13 @@ describe('planTransitionNotifications - rollout', () => {
     expect(
       planTransitionNotifications('alpha', status({ phasedReleaseState: 'ACTIVE' }), tracker),
     ).toEqual([]);
-  });
-  it('tracks phased state per app independently', () => {
+  }
+
+  it(
+    'treats the first phased state as a silent baseline, then notifies each change once',
+    treatsTheFirstPhasedPieceAsASilentBaselineThenNotifiesEachChangeOnce,
+  );
+  function tracksPhasedPiecePerAppIndependently() {
     const tracker = createTransitionTracker();
     planTransitionNotifications('alpha', status({ phasedReleaseState: 'ACTIVE' }), tracker);
     // beta's first observation is its own baseline, regardless of alpha's state.
@@ -158,5 +200,9 @@ describe('planTransitionNotifications - rollout', () => {
       tracker,
     );
     expect(transitionNotifications).toEqual([]);
-  });
-});
+  }
+
+  it('tracks phased state per app independently', tracksPhasedPiecePerAppIndependently);
+}
+
+describe('planTransitionNotifications - rollout', describePlanTransitionNotificationsRollout);

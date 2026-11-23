@@ -17,9 +17,11 @@ const dayMs = 24 * 60 * 60 * 1000;
 /** A fixed reference "now" so age math is deterministic (no wall clock in the tests). */
 const NOW = Date.parse('2026-06-15T00:00:00.000Z');
 /** ISO stamp for a build created `days` before {@link NOW}. */
-const daysAgo = (days: number): string => new Date(NOW - days * dayMs).toISOString();
+function daysAgo(days: number): string {
+  return new Date(NOW - days * dayMs).toISOString();
+}
 /** A stored-build fixture; override any field to vary one dimension under test. */
-const artifact = (overrides: Partial<BuildArtifact> = {}): BuildArtifact => {
+function artifact(overrides: Partial<BuildArtifact> = {}): BuildArtifact {
   return {
     path: '/tmp/demo-1.0.0-7-ios.ipa',
     platform: 'ios',
@@ -32,9 +34,9 @@ const artifact = (overrides: Partial<BuildArtifact> = {}): BuildArtifact => {
     createdAt: daysAgo(1),
     ...overrides,
   };
-};
+}
 /** A minimal valid config; retention helpers only read `artifactRetentionDays`. */
-const config = (overrides: Partial<LaunchConfig> = {}): LaunchConfig => {
+function config(overrides: Partial<LaunchConfig> = {}): LaunchConfig {
   return {
     credentials: 'local',
     storage: 'local',
@@ -43,28 +45,38 @@ const config = (overrides: Partial<LaunchConfig> = {}): LaunchConfig => {
     profiles: {},
     ...overrides,
   };
-};
+}
 async function runArtifactEffect<Success>(artifactWork: Promise<Success>): Promise<Success> {
   return await artifactWork;
 }
-describe('planPrune - the keep-newest-per-app+platform policy', () => {
-  it('prunes a build past the window but keeps the newest of its app+platform', () => {
+function describePlanPruneTheKeepNewestPerAppPlatformPolicy() {
+  function prunesABuildPastTheWindowButKeepsTheNewestOfItsAppPlatform() {
     const pastDate = daysAgo(2);
     const newest = artifact({ buildNumber: 9, createdAt: pastDate });
     const old = artifact({ buildNumber: 7, createdAt: daysAgo(40) });
     const { prune, keep } = planPrune([newest, old], { now: NOW, retentionDays: 30 });
     expect(prune).toEqual([old]);
     expect(keep).toEqual([newest]);
-  });
-  it('never prunes the newest build even when it is itself past the window', () => {
+  }
+
+  it(
+    'prunes a build past the window but keeps the newest of its app+platform',
+    prunesABuildPastTheWindowButKeepsTheNewestOfItsAppPlatform,
+  );
+  function neverPrunesTheNewestBuildEvenWhenItIsItselfPastTheWindow() {
     const pastDate = daysAgo(40);
     const newest = artifact({ buildNumber: 9, createdAt: pastDate });
     const older = artifact({ buildNumber: 7, createdAt: daysAgo(60) });
     const { prune, keep } = planPrune([newest, older], { now: NOW, retentionDays: 30 });
     expect(prune).toEqual([older]); // the newest survives despite being 40d old
     expect(keep).toContain(newest);
-  });
-  it('keeps the newest of EACH app+platform group independently', () => {
+  }
+
+  it(
+    'never prunes the newest build even when it is itself past the window',
+    neverPrunesTheNewestBuildEvenWhenItIsItselfPastTheWindow,
+  );
+  function keepsTheNewestOfEACHAppPlatformGroupIndependently() {
     const pastDate = daysAgo(40);
     const iosNew = artifact({
       appName: 'a',
@@ -86,8 +98,13 @@ describe('planPrune - the keep-newest-per-app+platform policy', () => {
     });
     const { prune } = planPrune([iosNew, iosOld, androidNew], { now: NOW, retentionDays: 30 });
     expect(prune).toEqual([iosOld]); // each group's newest (iosNew, androidNew) is kept
-  });
-  it('prunes nothing inside the window', () => {
+  }
+
+  it(
+    'keeps the newest of EACH app+platform group independently',
+    keepsTheNewestOfEACHAppPlatformGroupIndependently,
+  );
+  function prunesNothingInsideTheWindow() {
     const pastDate = daysAgo(2);
     const builds = [
       artifact({ buildNumber: 9, createdAt: pastDate }),
@@ -95,8 +112,10 @@ describe('planPrune - the keep-newest-per-app+platform policy', () => {
     ];
     const prune = planPrune(builds, { now: NOW, retentionDays: 30 });
     expect(prune.prune).toEqual([]);
-  });
-  it('treats retentionDays <= 0 as disabled (prunes nothing)', () => {
+  }
+
+  it('prunes nothing inside the window', prunesNothingInsideTheWindow);
+  function treatsRetentionDays0AsDisabledPrunesNothing() {
     const pastDate = daysAgo(2);
     const builds = [
       artifact({ buildNumber: 9, createdAt: pastDate }),
@@ -104,22 +123,34 @@ describe('planPrune - the keep-newest-per-app+platform policy', () => {
     ];
     const prune = planPrune(builds, { now: NOW, retentionDays: 0 });
     expect(prune.prune).toEqual([]);
-  });
-  it('skips a row whose binary was already pruned', () => {
+  }
+
+  it(
+    'treats retentionDays <= 0 as disabled (prunes nothing)',
+    treatsRetentionDays0AsDisabledPrunesNothing,
+  );
+  function skipsAPieceWhoseBinaryWasAlreadyPruned() {
     const pastDate = daysAgo(2);
     const newest = artifact({ buildNumber: 9, createdAt: pastDate });
     const alreadyGone = artifact({ buildNumber: 7, createdAt: daysAgo(40), prunedAt: daysAgo(5) });
     const prune = planPrune([newest, alreadyGone], { now: NOW, retentionDays: 30 });
     expect(prune.prune).toEqual([]);
-  });
-  it("never prunes a row with a missing/unparseable createdAt (can't age it -> keep it)", () => {
+  }
+
+  it('skips a row whose binary was already pruned', skipsAPieceWhoseBinaryWasAlreadyPruned);
+  function neverPrunesAPieceWithAMissingUnparseableCreatedAtCanTAgeItKeepIt() {
     const pastDate = daysAgo(2);
     const newest = artifact({ buildNumber: 9, createdAt: pastDate });
     const undated = artifact({ buildNumber: 7, createdAt: 'not-a-date' });
     const prune = planPrune([newest, undated], { now: NOW, retentionDays: 30 });
     expect(prune.prune).toEqual([]);
-  });
-  it('limits the sweep to the named app, leaving other apps untouched', () => {
+  }
+
+  it(
+    "never prunes a row with a missing/unparseable createdAt (can't age it -> keep it)",
+    neverPrunesAPieceWithAMissingUnparseableCreatedAtCanTAgeItKeepIt,
+  );
+  function limitsTheSweepToTheNamedAppLeavingOtherAppsUntouched() {
     const pastDate = daysAgo(2);
     const aNew = artifact({ appName: 'a', buildNumber: 9, createdAt: pastDate });
     const aOld = artifact({ appName: 'a', buildNumber: 8, createdAt: daysAgo(40) });
@@ -132,8 +163,13 @@ describe('planPrune - the keep-newest-per-app+platform policy', () => {
     });
     expect(prune).toEqual([aOld]);
     expect(keep).toEqual(expect.arrayContaining([bOld, bOlder])); // app b not considered at all
-  });
-  it('limits the sweep to the named platform', () => {
+  }
+
+  it(
+    'limits the sweep to the named app, leaving other apps untouched',
+    limitsTheSweepToTheNamedAppLeavingOtherAppsUntouched,
+  );
+  function limitsTheSweepToTheNamedPlatform() {
     const pastDate = daysAgo(40);
     const iosOld = artifact({ buildNumber: 9, platform: 'ios', createdAt: pastDate });
     const iosOlder = artifact({ buildNumber: 8, platform: 'ios', createdAt: daysAgo(50) });
@@ -145,92 +181,154 @@ describe('planPrune - the keep-newest-per-app+platform policy', () => {
       platform: 'android',
     });
     expect(prune).toEqual([androidOlder]); // only android considered; its newest (androidOld) kept
-  });
-});
-describe("resolveRetentionDays - the automatic sweep's window", () => {
-  it('defaults to 30 when unset', () => {
+  }
+
+  it('limits the sweep to the named platform', limitsTheSweepToTheNamedPlatform);
+}
+
+describe(
+  'planPrune - the keep-newest-per-app+platform policy',
+  describePlanPruneTheKeepNewestPerAppPlatformPolicy,
+);
+function describeResolveRetentionDaysTheAutomaticSweepSWindow() {
+  function defaultsTo30WhenUnset() {
     const retentionDays = resolveRetentionDays(config());
     expect(retentionDays).toBe(DEFAULT_RETENTION_DAYS);
-  });
-  it('returns a configured value verbatim', () => {
+  }
+
+  it('defaults to 30 when unset', defaultsTo30WhenUnset);
+  function returnsAConfiguredPieceVerbatim() {
     const retentionDays = resolveRetentionDays(config({ artifactRetentionDays: 14 }));
     expect(retentionDays).toBe(14);
-  });
-  it("returns 0 when explicitly disabled (the pipeline reads this as 'skip')", () => {
+  }
+
+  it('returns a configured value verbatim', returnsAConfiguredPieceVerbatim);
+  function returns0WhenExplicitlyDisabledThePipelineReadsThisAsSkip() {
     const retentionDays = resolveRetentionDays(config({ artifactRetentionDays: 0 }));
     expect(retentionDays).toBe(0);
-  });
-});
-describe('resolveCommandRetentionDays - the explicit `builds prune` window', () => {
-  it('uses the configured value when no override is given', () => {
+  }
+
+  it(
+    "returns 0 when explicitly disabled (the pipeline reads this as 'skip')",
+    returns0WhenExplicitlyDisabledThePipelineReadsThisAsSkip,
+  );
+}
+
+describe(
+  "resolveRetentionDays - the automatic sweep's window",
+  describeResolveRetentionDaysTheAutomaticSweepSWindow,
+);
+function describeResolveCommandRetentionDaysTheExplicitBuildsPruneWindow() {
+  function usesTheConfiguredPieceWhenNoOverrideIsGiven() {
     const commandRetentionDays = resolveCommandRetentionDays(config({ artifactRetentionDays: 14 }));
     expect(commandRetentionDays).toBe(14);
-  });
-  it('lets a --days override win over config', () => {
+  }
+
+  it(
+    'uses the configured value when no override is given',
+    usesTheConfiguredPieceWhenNoOverrideIsGiven,
+  );
+  function letsADaysOverrideWinOverPiece() {
     const commandRetentionDays = resolveCommandRetentionDays(
       config({ artifactRetentionDays: 14 }),
       7,
     );
     expect(commandRetentionDays).toBe(7);
-  });
-  it('falls back to the default when auto is disabled (0) - an explicit prune still does something', () => {
+  }
+
+  it('lets a --days override win over config', letsADaysOverrideWinOverPiece);
+  function fallsBackToTheDefaultWhenAutoIsDisabled0AnExplicitPruneStillDoesSomething() {
     const commandRetentionDays = resolveCommandRetentionDays(config({ artifactRetentionDays: 0 }));
     expect(commandRetentionDays).toBe(DEFAULT_RETENTION_DAYS);
-  });
-  it('defaults to 30 when nothing is configured or passed', () => {
+  }
+
+  it(
+    'falls back to the default when auto is disabled (0) - an explicit prune still does something',
+    fallsBackToTheDefaultWhenAutoIsDisabled0AnExplicitPruneStillDoesSomething,
+  );
+  function defaultsTo30WhenNothingIsConfiguredOrPassed() {
     const commandRetentionDays = resolveCommandRetentionDays(config());
     expect(commandRetentionDays).toBe(DEFAULT_RETENTION_DAYS);
-  });
-});
-describe('readArtifactIndex / writeArtifactIndex - index I/O round-trip', () => {
+  }
+
+  it(
+    'defaults to 30 when nothing is configured or passed',
+    defaultsTo30WhenNothingIsConfiguredOrPassed,
+  );
+}
+
+describe(
+  'resolveCommandRetentionDays - the explicit `builds prune` window',
+  describeResolveCommandRetentionDaysTheExplicitBuildsPruneWindow,
+);
+function describeReadArtifactIndexWriteArtifactIndexIndexIORoundTrip() {
   let dir: string;
   let indexPath: string;
-  beforeEach(() => {
+  function prepareReadArtifactIndexWriteArtifactIndexIndexIORoundTrip() {
     const systemTemporaryDirectory = tmpdir();
     const launchIndexPath = join(systemTemporaryDirectory, 'launch-index-');
     dir = mkdtempSync(launchIndexPath);
     indexPath = join(dir, 'index.json');
-  });
-  afterEach(() => {
+  }
+
+  beforeEach(prepareReadArtifactIndexWriteArtifactIndexIndexIORoundTrip);
+  function cleanupReadArtifactIndexWriteArtifactIndexIndexIORoundTrip() {
     rmSync(dir, { recursive: true, force: true });
-  });
-  it('returns [] for a missing index', async () => {
+  }
+
+  afterEach(cleanupReadArtifactIndexWriteArtifactIndexIndexIORoundTrip);
+  async function returnsForAMissingIndex() {
     const artifactIndex = readArtifactIndex(indexPath);
     const artifactEffect = await runArtifactEffect(artifactIndex);
     expect(artifactEffect).toEqual([]);
-  });
-  it('rejects a malformed index', async () => {
+  }
+
+  it('returns [] for a missing index', returnsForAMissingIndex);
+  async function rejectsAMalformedIndex() {
     writeFileSync(indexPath, '{ not json');
     const artifactIndex = readArtifactIndex(indexPath);
     const artifactEffect = runArtifactEffect(artifactIndex);
     await expect(artifactEffect).rejects.toThrow();
-  });
-  it('round-trips a written index', async () => {
+  }
+
+  it('rejects a malformed index', rejectsAMalformedIndex);
+  async function roundTripsAWrittenIndex() {
     const artifactIndex = [artifact({ buildNumber: 9 }), artifact({ buildNumber: 7 })];
     await runArtifactEffect(writeArtifactIndex(artifactIndex, indexPath));
     const artifactEffect = await runArtifactEffect(readArtifactIndex(indexPath));
     expect(artifactEffect).toEqual(artifactIndex);
-  });
-});
-describe('runArtifactPrune - executes the plan against a real index + binaries', () => {
+  }
+
+  it('round-trips a written index', roundTripsAWrittenIndex);
+}
+
+describe(
+  'readArtifactIndex / writeArtifactIndex - index I/O round-trip',
+  describeReadArtifactIndexWriteArtifactIndexIndexIORoundTrip,
+);
+function describeRunArtifactPruneExecutesThePlanAgainstARealIndexBinaries() {
   let dir: string;
   let indexPath: string;
   /** Write a `bytes`-sized fake binary in the temp dir and return its absolute path. */
-  const makeBinary = (name: string, bytes: number): string => {
+  function makeBinary(name: string, bytes: number): string {
     const binaryPath = join(dir, name);
     writeFileSync(binaryPath, Buffer.alloc(bytes));
     return binaryPath;
-  };
-  beforeEach(() => {
+  }
+  function prepareRunArtifactPruneExecutesThePlanAgainstARealIndexBinaries() {
     const systemTemporaryDirectory = tmpdir();
     const launchPrunePath = join(systemTemporaryDirectory, 'launch-prune-');
     dir = mkdtempSync(launchPrunePath);
     indexPath = join(dir, 'index.json');
-  });
-  afterEach(() => {
+  }
+
+  beforeEach(prepareRunArtifactPruneExecutesThePlanAgainstARealIndexBinaries);
+  function cleanupRunArtifactPruneExecutesThePlanAgainstARealIndexBinaries() {
     rmSync(dir, { recursive: true, force: true });
-  });
-  it('deletes the old binary, keeps the newest, stamps prunedAt, and reports freed bytes', async () => {
+  }
+
+  afterEach(cleanupRunArtifactPruneExecutesThePlanAgainstARealIndexBinaries);
+  async function deletesTheOldBinaryKeepsTheNewestStampsPrunedAtAndReportsFreedBytes() {
     const newestPath = makeBinary('newest.ipa', 100);
     const oldPath = makeBinary('old.ipa', 4000);
     const pastDate = daysAgo(2);
@@ -248,14 +346,23 @@ describe('runArtifactPrune - executes the plan against a real index + binaries',
     expect(pathExists).toBe(false); // binary gone
     expect(existsSync(newestPath)).toBe(true); // newest survives
     const writtenArtifacts = await runArtifactEffect(readArtifactIndex(indexPath));
-    expect(writtenArtifacts.find((buildArtifact) => buildArtifact.buildNumber == 7)?.prunedAt).toBe(
-      new Date(NOW).toISOString(),
-    );
-    expect(
-      writtenArtifacts.find((buildArtifact) => buildArtifact.buildNumber == 9)?.prunedAt,
-    ).toBeUndefined();
-  });
-  it('dry-run deletes nothing and leaves the index untouched', async () => {
+    function findBuildArtifact(buildArtifact: BuildArtifact) {
+      return buildArtifact.buildNumber == 7;
+    }
+
+    expect(writtenArtifacts.find(findBuildArtifact)?.prunedAt).toBe(new Date(NOW).toISOString());
+    function findBuildArtifact2(buildArtifact: BuildArtifact) {
+      return buildArtifact.buildNumber == 9;
+    }
+
+    expect(writtenArtifacts.find(findBuildArtifact2)?.prunedAt).toBeUndefined();
+  }
+
+  it(
+    'deletes the old binary, keeps the newest, stamps prunedAt, and reports freed bytes',
+    deletesTheOldBinaryKeepsTheNewestStampsPrunedAtAndReportsFreedBytes,
+  );
+  async function dryRunDeletesNothingAndLeavesTheIndexUntouched() {
     const newestPath = makeBinary('newest.ipa', 100);
     const oldPath = makeBinary('old.ipa', 4000);
     const pastDate = daysAgo(2);
@@ -278,8 +385,13 @@ describe('runArtifactPrune - executes the plan against a real index + binaries',
     expect(pathExists).toBe(true); // nothing deleted
     const artifactEffect = await runArtifactEffect(readArtifactIndex(indexPath));
     expect(artifactEffect).toEqual(artifactIndex); // index unchanged
-  });
-  it('is a no-op (no index write) when nothing is eligible', async () => {
+  }
+
+  it(
+    'dry-run deletes nothing and leaves the index untouched',
+    dryRunDeletesNothingAndLeavesTheIndexUntouched,
+  );
+  async function isANoOpNoIndexWriteWhenNothingIsEligible() {
     const binaryPath = makeBinary('only.ipa', 100);
     const pastDate = daysAgo(2);
     const artifactIndex = writeArtifactIndex(
@@ -294,8 +406,13 @@ describe('runArtifactPrune - executes the plan against a real index + binaries',
     expect(pruneSummary.freedBytes).toBe(0);
     const loadedFile = readFileSync(indexPath, 'utf8');
     expect(loadedFile).toBe(indexSourceBeforePrune); // byte-identical: not rewritten
-  });
-  it('still records a prune when the binary is already missing (uses the recorded size)', async () => {
+  }
+
+  it(
+    'is a no-op (no index write) when nothing is eligible',
+    isANoOpNoIndexWriteWhenNothingIsEligible,
+  );
+  async function stillRecordsAPruneWhenTheBinaryIsAlreadyMissingUsesTheRecordedSize() {
     const newestPath = makeBinary('newest.ipa', 100);
     const pastDate = daysAgo(2);
     const newest = artifact({ buildNumber: 9, createdAt: pastDate, path: newestPath });
@@ -312,8 +429,20 @@ describe('runArtifactPrune - executes the plan against a real index + binaries',
     const pruneSummary = await runArtifactEffect(artifactPrune);
     expect(pruneSummary.freedBytes).toBe(555); // falls back to the recorded artifactBytes
     const writtenArtifacts = await runArtifactEffect(readArtifactIndex(indexPath));
-    expect(
-      writtenArtifacts.find((buildArtifact) => buildArtifact.buildNumber == 7)?.prunedAt,
-    ).toBeDefined();
-  });
-});
+    function findBuildArtifact3(buildArtifact: BuildArtifact) {
+      return buildArtifact.buildNumber == 7;
+    }
+
+    expect(writtenArtifacts.find(findBuildArtifact3)?.prunedAt).toBeDefined();
+  }
+
+  it(
+    'still records a prune when the binary is already missing (uses the recorded size)',
+    stillRecordsAPruneWhenTheBinaryIsAlreadyMissingUsesTheRecordedSize,
+  );
+}
+
+describe(
+  'runArtifactPrune - executes the plan against a real index + binaries',
+  describeRunArtifactPruneExecutesThePlanAgainstARealIndexBinaries,
+);

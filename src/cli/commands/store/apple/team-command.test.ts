@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderTeam, TeamCommandInputSchema } from './team-command.ts';
-
-describe('TeamCommandInputSchema', () => {
-  it('decodes every Commander operation', () => {
+function describeTeamCommandPieceSchema() {
+  function decodesEveryCommanderOperation() {
     const teamCommandSchema = TeamCommandInputSchema({ operation: 'list', json: false });
     expect(teamCommandSchema).toEqual({
       operation: 'list',
@@ -34,11 +33,14 @@ describe('TeamCommandInputSchema', () => {
         yes: true,
       }),
     ).toEqual({ operation: 'remove', email: 'old@acme.com', yes: true });
-  });
-});
+  }
 
-describe('renderTeam', () => {
-  it('renders members and pending invitations as one ASCII block', () => {
+  it('decodes every Commander operation', decodesEveryCommanderOperation);
+}
+
+describe('TeamCommandInputSchema', describeTeamCommandPieceSchema);
+function describeRenderTeam() {
+  function rendersMembersAndPendingInvitationsAsOneASCIIBlock() {
     const team = renderTeam({
       members: [
         {
@@ -61,5 +63,12 @@ describe('renderTeam', () => {
     expect(team).toBe(
       'Team - 1 member(s), 1 pending invitation(s)\n\nMembers:\n  member@acme.com  Ada Lovelace  [ADMIN]\n\nPending invitations:\n  invitee@acme.com  [DEVELOPER]  expires 2026-08-20',
     );
-  });
-});
+  }
+
+  it(
+    'renders members and pending invitations as one ASCII block',
+    rendersMembersAndPendingInvitationsAsOneASCIIBlock,
+  );
+}
+
+describe('renderTeam', describeRenderTeam);

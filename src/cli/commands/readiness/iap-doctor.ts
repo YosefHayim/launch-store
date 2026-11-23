@@ -9,8 +9,20 @@ type IapDoctorOptions = {
 };
 
 /** Attach the in-app-purchase readiness command group. */
-export const registerIapCommand = (program: Command): void => {
+export function registerIapCommand(program: Command): void {
   const iapCommand = program.command('iap').description('in-app-purchase readiness and operations');
+  function runDoctor(commandOptions: IapDoctorOptions) {
+    const readinessProgram = readinessCommandProgram({
+      category: 'iap',
+      labels: {
+        summary: 'IAP readiness',
+        empty: 'No IAP checks ran - no apps declare in-app purchases or subscriptions.',
+      },
+      ...commandOptions,
+    });
+    return runCliProgram(readinessProgram);
+  }
+
   iapCommand
     .command('doctor')
     .description(
@@ -18,15 +30,5 @@ export const registerIapCommand = (program: Command): void => {
     )
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((commandOptions: IapDoctorOptions) => {
-      const readinessProgram = readinessCommandProgram({
-        category: 'iap',
-        labels: {
-          summary: 'IAP readiness',
-          empty: 'No IAP checks ran - no apps declare in-app purchases or subscriptions.',
-        },
-        ...commandOptions,
-      });
-      return runCliProgram(readinessProgram);
-    });
-};
+    .action(runDoctor);
+}

@@ -9,44 +9,60 @@ import {
   type UpdateState,
   type UpgradeResult,
 } from './update-check.ts';
-describe('isNewer', () => {
-  it('compares dotted versions numerically', () => {
+function describeIsNewer() {
+  function comparesDottedVersionsNumerically() {
     expect(isNewer('0.2.0', '0.1.0')).toBe(true);
     expect(isNewer('0.1.10', '0.1.2')).toBe(true);
     expect(isNewer('1.0.0', '0.9.9')).toBe(true);
     expect(isNewer('0.1.0', '0.1.0')).toBe(false);
     expect(isNewer('0.1.0', '0.2.0')).toBe(false);
-  });
-  it('tolerates a leading v and a pre-release suffix', () => {
+  }
+
+  it('compares dotted versions numerically', comparesDottedVersionsNumerically);
+  function toleratesALeadingVAndAPreReleaseSuffix() {
     expect(isNewer('v0.2.0', '0.1.0')).toBe(true);
     expect(isNewer('0.2.0-beta.1', '0.1.0')).toBe(true);
-  });
-});
-describe('shouldCheck', () => {
+  }
+
+  it('tolerates a leading v and a pre-release suffix', toleratesALeadingVAndAPreReleaseSuffix);
+}
+
+describe('isNewer', describeIsNewer);
+function describeShouldCheck() {
   const DAY = 24 * 60 * 60 * 1000;
-  it("checks when there's no prior state", () => {
+  function checksWhenThereSNoPriorPiece() {
     expect(shouldCheck(DAY, null)).toBe(true);
-  });
-  it('skips within the interval and resumes after it', () => {
+  }
+
+  it("checks when there's no prior state", checksWhenThereSNoPriorPiece);
+  function skipsWithinTheIntervalAndResumesAfterIt() {
     expect(shouldCheck(DAY + 1000, { lastCheckedAt: DAY })).toBe(false);
     expect(shouldCheck(DAY + DAY, { lastCheckedAt: DAY })).toBe(true);
-  });
-});
-describe('autoUpgradeBlockedReason', () => {
+  }
+
+  it('skips within the interval and resumes after it', skipsWithinTheIntervalAndResumesAfterIt);
+}
+
+describe('shouldCheck', describeShouldCheck);
+function describeAutoUpgradeBlockedReason() {
   const base = {
     environmentVariables: {},
     isTTY: true,
     scriptPath: '/usr/local/lib/node_modules/launch-store/dist/cli/index.js',
   };
-  it('allows an interactive, installed, non-CI run', () => {
+  function allowsAnInteractiveInstalledNonCIRun() {
     expect(autoUpgradeBlockedReason(base)).toBeNull();
-  });
-  it('blocks the re-exec child (loop guard)', () => {
+  }
+
+  it('allows an interactive, installed, non-CI run', allowsAnInteractiveInstalledNonCIRun);
+  function blocksTheReExecChildLoopGuard() {
     expect(
       autoUpgradeBlockedReason({ ...base, environmentVariables: { LAUNCH_UPGRADED: '1' } }),
     ).toMatch(/loop guard/);
-  });
-  it('blocks on explicit opt-out, CI, non-TTY, and dev (source) runs', () => {
+  }
+
+  it('blocks the re-exec child (loop guard)', blocksTheReExecChildLoopGuard);
+  function blocksOnExplicitOptOutCINonTTYAndDevPieceRuns() {
     expect(
       autoUpgradeBlockedReason({ ...base, environmentVariables: { LAUNCH_NO_UPGRADE: '1' } }),
     ).toMatch(/LAUNCH_NO_UPGRADE/);
@@ -57,12 +73,17 @@ describe('autoUpgradeBlockedReason', () => {
     expect(autoUpgradeBlockedReason({ ...base, scriptPath: '/repo/src/cli/index.ts' })).toMatch(
       /dev/,
     );
-  });
-});
+  }
+
+  it(
+    'blocks on explicit opt-out, CI, non-TTY, and dev (source) runs',
+    blocksOnExplicitOptOutCINonTTYAndDevPieceRuns,
+  );
+}
+
+describe('autoUpgradeBlockedReason', describeAutoUpgradeBlockedReason);
 /** Build fully-injected deps over recorded call counters; overrides tweak individual behaviors. */
-const makeDeps = (
-  overrides: Partial<UpdateCheckDeps> = {},
-): {
+function makeDeps(overrides: Partial<UpdateCheckDeps> = {}): {
   deps: UpdateCheckDeps;
   calls: {
     fetch: number;
@@ -72,7 +93,7 @@ const makeDeps = (
     writes: UpdateState[];
     notes: string[];
   };
-} => {
+} {
   const calls: {
     fetch: number;
     resolveInstaller: number;
@@ -89,7 +110,9 @@ const makeDeps = (
     notes: [],
   };
   const deps: UpdateCheckDeps = {
-    now: () => 10000000000,
+    now() {
+      return 10000000000;
+    },
     currentVersion: '0.1.0',
     environmentVariables: {},
     isTTY: true,
@@ -99,7 +122,9 @@ const makeDeps = (
 
       return 'npm';
     },
-    readState: () => null,
+    readState() {
+      return null;
+    },
     async writeState(state) {
       calls.writes.push(state);
     },
@@ -122,20 +147,31 @@ const makeDeps = (
     ...overrides,
   };
   return { deps, calls };
-};
-describe('maybeAutoUpgrade', () => {
-  it('does nothing when blocked (e.g. CI) - no fetch, no upgrade', async () => {
+}
+function describeMaybeAutoUpgrade() {
+  async function doesNothingWhenBlockedEGCINoFetchNoUpgrade() {
     const { deps, calls } = makeDeps({ environmentVariables: { CI: '1' } });
     await maybeAutoUpgrade(deps);
     expect(calls.fetch).toBe(0);
     expect(calls.upgrade).toBe(0);
-  });
-  it('does nothing when checked recently (throttled)', async () => {
-    const { deps, calls } = makeDeps({ readState: () => ({ lastCheckedAt: 10000000000 }) });
+  }
+
+  it(
+    'does nothing when blocked (e.g. CI) - no fetch, no upgrade',
+    doesNothingWhenBlockedEGCINoFetchNoUpgrade,
+  );
+  async function doesNothingWhenCheckedRecentlyThrottled() {
+    const { deps, calls } = makeDeps({
+      readState() {
+        return { lastCheckedAt: 10000000000 };
+      },
+    });
     await maybeAutoUpgrade(deps);
     expect(calls.fetch).toBe(0);
-  });
-  it("records the check but doesn't upgrade when already current", async () => {
+  }
+
+  it('does nothing when checked recently (throttled)', doesNothingWhenCheckedRecentlyThrottled);
+  async function recordsTheCheckButDoesnTUpgradeWhenAlreadyCurrent() {
     const { deps, calls } = makeDeps({
       async fetchLatest() {
         return '0.1.0';
@@ -146,14 +182,24 @@ describe('maybeAutoUpgrade', () => {
     expect(calls.resolveInstaller).toBe(0);
     expect(calls.upgrade).toBe(0);
     expect(calls.reexec).toBe(0);
-  });
-  it('upgrades and re-execs when a newer version exists', async () => {
+  }
+
+  it(
+    "records the check but doesn't upgrade when already current",
+    recordsTheCheckButDoesnTUpgradeWhenAlreadyCurrent,
+  );
+  async function upgradesAndReExecsWhenANewerVersionExists() {
     const { deps, calls } = makeDeps();
     await maybeAutoUpgrade(deps);
     expect(calls.upgrade).toBe(1);
     expect(calls.reexec).toBe(1);
-  });
-  it("notifies (and does not re-exec) when the global dir isn't writable", async () => {
+  }
+
+  it(
+    'upgrades and re-execs when a newer version exists',
+    upgradesAndReExecsWhenANewerVersionExists,
+  );
+  async function notifiesAndDoesNotReExecWhenTheGlobalDirIsnTWritable() {
     const { deps, calls } = makeDeps({
       async upgrade() {
         return 'eacces';
@@ -161,9 +207,18 @@ describe('maybeAutoUpgrade', () => {
     });
     await maybeAutoUpgrade(deps);
     expect(calls.reexec).toBe(0);
-    expect(calls.notes.some((note) => note.includes('sudo npm install -g'))).toBe(true);
-  });
-  it('upgrades, relaunches, and names pnpm for a pnpm install', async () => {
+    function someNote(note: string) {
+      return note.includes('sudo npm install -g');
+    }
+
+    expect(calls.notes.some(someNote)).toBe(true);
+  }
+
+  it(
+    "notifies (and does not re-exec) when the global dir isn't writable",
+    notifiesAndDoesNotReExecWhenTheGlobalDirIsnTWritable,
+  );
+  async function upgradesRelaunchesAndNamesPnpmForAPnpmInstall() {
     const usedInstallers: GlobalInstaller[] = [];
     const { deps, calls } = makeDeps({
       async resolveInstaller() {
@@ -181,8 +236,13 @@ describe('maybeAutoUpgrade', () => {
     expect(calls.notes).toEqual([
       'launch-store 0.2.0 is available - pnpm add -g launch-store@0.2.0',
     ]);
-  });
-  it('only notifies for a project or npx install', async () => {
+  }
+
+  it(
+    'upgrades, relaunches, and names pnpm for a pnpm install',
+    upgradesRelaunchesAndNamesPnpmForAPnpmInstall,
+  );
+  async function onlyNotifiesForAProjectOrNpxInstall() {
     const { deps, calls } = makeDeps({
       async resolveInstaller() {
         return null;
@@ -192,8 +252,10 @@ describe('maybeAutoUpgrade', () => {
     expect(calls.upgrade).toBe(0);
     expect(calls.reexec).toBe(0);
     expect(calls.notes).toEqual(['launch-store 0.2.0 is available - you have 0.1.0']);
-  });
-  it('records the check and stays quiet when offline (fetch returns null)', async () => {
+  }
+
+  it('only notifies for a project or npx install', onlyNotifiesForAProjectOrNpxInstall);
+  async function recordsTheCheckAndStaysQuietWhenOfflineFetchReturnsNull() {
     const { deps, calls } = makeDeps({
       async fetchLatest() {
         return null;
@@ -202,5 +264,12 @@ describe('maybeAutoUpgrade', () => {
     await maybeAutoUpgrade(deps);
     expect(calls.writes).toHaveLength(1);
     expect(calls.upgrade).toBe(0);
-  });
-});
+  }
+
+  it(
+    'records the check and stays quiet when offline (fetch returns null)',
+    recordsTheCheckAndStaysQuietWhenOfflineFetchReturnsNull,
+  );
+}
+
+describe('maybeAutoUpgrade', describeMaybeAutoUpgrade);

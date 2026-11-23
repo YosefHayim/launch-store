@@ -20,9 +20,8 @@ function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
     ...overrides,
   };
 }
-
-describe('resolveExtensionBundleIdsForApp', () => {
-  it('returns configured extensions when ios/ has not been generated yet', async () => {
+function describeResolveExtensionBundleIdsForApp() {
+  async function returnsConfiguredExtensionsWhenIosHasNotBeenGeneratedYet() {
     const systemTemporaryDirectory = tmpdir();
     const launchPreflightPath = join(systemTemporaryDirectory, 'launch-preflight-');
     const root = mkdtempSync(launchPreflightPath);
@@ -39,9 +38,13 @@ describe('resolveExtensionBundleIdsForApp', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  });
+  }
 
-  it('discovers widget extensions from a generated ios/ project', async () => {
+  it(
+    'returns configured extensions when ios/ has not been generated yet',
+    returnsConfiguredExtensionsWhenIosHasNotBeenGeneratedYet,
+  );
+  async function discoversWidgetExtensionsFromAGeneratedIosProject() {
     const systemTemporaryDirectory = tmpdir();
     const launchPreflightPath = join(systemTemporaryDirectory, 'launch-preflight-');
     const root = mkdtempSync(launchPreflightPath);
@@ -54,65 +57,65 @@ describe('resolveExtensionBundleIdsForApp', () => {
       writeFileSync(
         projectPath,
         `// !$*UTF8*$!
-{
-	objects = {
-		13B07F861A680F5B00A75B9A /* SampleApp */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "SampleApp" */;
-			name = SampleApp;
-			productType = "com.apple.product-type.application";
-		};
-		A1B2C3D4E5F6A1B2C3D4E5F6 /* widget */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = E5F6A1B2C3D4E5F6A1B2C3D4 /* Build configuration list for PBXNativeTarget "widget" */;
-			name = widget;
-			productType = "com.apple.product-type.app-extension";
-		};
-		13B07F941A680F5B00A75B9A /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.sampleapp;
-			};
-			name = Debug;
-		};
-		13B07F951A680F5B00A75B9A /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.sampleapp;
-			};
-			name = Release;
-		};
-		AAAA1111 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.sampleapp.widget;
-			};
-			name = Debug;
-		};
-		BBBB2222 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.sampleapp.widget;
-			};
-			name = Release;
-		};
-		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "SampleApp" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				13B07F941A680F5B00A75B9A /* Debug */,
-				13B07F951A680F5B00A75B9A /* Release */,
-			);
-		};
-		E5F6A1B2C3D4E5F6A1B2C3D4 /* Build configuration list for PBXNativeTarget "widget" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				AAAA1111 /* Debug */,
-				BBBB2222 /* Release */,
-			);
-		};
-	};
-}
-`,
+  {
+  	objects = {
+  		13B07F861A680F5B00A75B9A /* SampleApp */ = {
+  			isa = PBXNativeTarget;
+  			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "SampleApp" */;
+  			name = SampleApp;
+  			productType = "com.apple.product-type.application";
+  		};
+  		A1B2C3D4E5F6A1B2C3D4E5F6 /* widget */ = {
+  			isa = PBXNativeTarget;
+  			buildConfigurationList = E5F6A1B2C3D4E5F6A1B2C3D4 /* Build configuration list for PBXNativeTarget "widget" */;
+  			name = widget;
+  			productType = "com.apple.product-type.app-extension";
+  		};
+  		13B07F941A680F5B00A75B9A /* Debug */ = {
+  			isa = XCBuildConfiguration;
+  			buildSettings = {
+  				PRODUCT_BUNDLE_IDENTIFIER = com.example.sampleapp;
+  			};
+  			name = Debug;
+  		};
+  		13B07F951A680F5B00A75B9A /* Release */ = {
+  			isa = XCBuildConfiguration;
+  			buildSettings = {
+  				PRODUCT_BUNDLE_IDENTIFIER = com.example.sampleapp;
+  			};
+  			name = Release;
+  		};
+  		AAAA1111 /* Debug */ = {
+  			isa = XCBuildConfiguration;
+  			buildSettings = {
+  				PRODUCT_BUNDLE_IDENTIFIER = com.example.sampleapp.widget;
+  			};
+  			name = Debug;
+  		};
+  		BBBB2222 /* Release */ = {
+  			isa = XCBuildConfiguration;
+  			buildSettings = {
+  				PRODUCT_BUNDLE_IDENTIFIER = com.example.sampleapp.widget;
+  			};
+  			name = Release;
+  		};
+  		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "SampleApp" */ = {
+  			isa = XCConfigurationList;
+  			buildConfigurations = (
+  				13B07F941A680F5B00A75B9A /* Debug */,
+  				13B07F951A680F5B00A75B9A /* Release */,
+  			);
+  		};
+  		E5F6A1B2C3D4E5F6A1B2C3D4 /* Build configuration list for PBXNativeTarget "widget" */ = {
+  			isa = XCConfigurationList;
+  			buildConfigurations = (
+  				AAAA1111 /* Debug */,
+  				BBBB2222 /* Release */,
+  			);
+  		};
+  	};
+  }
+  `,
       );
 
       const extensionBundleIdsForApp = resolveExtensionBundleIdsForApp(app({ dir: appDir }));
@@ -120,11 +123,17 @@ describe('resolveExtensionBundleIdsForApp', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  });
-});
+  }
 
-describe('appGroupPreflightNotice', () => {
-  it('returns the portal notice when App Groups are declared', () => {
+  it(
+    'discovers widget extensions from a generated ios/ project',
+    discoversWidgetExtensionsFromAGeneratedIosProject,
+  );
+}
+
+describe('resolveExtensionBundleIdsForApp', describeResolveExtensionBundleIdsForApp);
+function describeAppGroupPreflightNotice() {
+  function returnsThePortalNoticeWhenAppGroupsAreDeclared() {
     const notice = appGroupPreflightNotice({
       'com.apple.security.application-groups': ['group.com.example.sampleapp'],
     });
@@ -132,15 +141,22 @@ describe('appGroupPreflightNotice', () => {
     expect(notice).toContain('group.com.example.sampleapp');
     expect(notice).toContain('portal-only');
     expect(notice).toContain('exit 65');
-  });
+  }
 
-  it('is null when no App Groups are declared', () => {
+  it(
+    'returns the portal notice when App Groups are declared',
+    returnsThePortalNoticeWhenAppGroupsAreDeclared,
+  );
+  function isNullWhenNoAppGroupsAreDeclared() {
     expect(appGroupPreflightNotice(undefined)).toBeNull();
-  });
-});
+  }
 
-describe('gatherTargetSigningReadiness', () => {
-  it('marks an unregistered extension and a main app missing APP_GROUPS', async () => {
+  it('is null when no App Groups are declared', isNullWhenNoAppGroupsAreDeclared);
+}
+
+describe('appGroupPreflightNotice', describeAppGroupPreflightNotice);
+function describeGatherTargetSigningReadiness() {
+  async function marksAnUnregisteredExtensionAndAMainAppMissingAPPGROUPS() {
     const asc = {
       findBundleId: vi.fn(function findBundleId(identifier: string) {
         if (identifier == 'com.example.sampleapp') {
@@ -171,21 +187,30 @@ describe('gatherTargetSigningReadiness', () => {
       },
       { bundleId: 'com.example.sampleapp.widget', registered: false, missingCapabilities: [] },
     ]);
-  });
-});
+  }
 
-describe('signingPreflightWarnings', () => {
-  it('delegates to multiTargetSigningWarnings', () => {
+  it(
+    'marks an unregistered extension and a main app missing APP_GROUPS',
+    marksAnUnregisteredExtensionAndAMainAppMissingAPPGROUPS,
+  );
+}
+
+describe('gatherTargetSigningReadiness', describeGatherTargetSigningReadiness);
+function describeSigningPreflightWarnings() {
+  function delegatesToMultiTargetSigningWarnings() {
     const [warning] = signingPreflightWarnings([
       { bundleId: 'com.x.widget', registered: false, missingCapabilities: [] },
     ]);
 
     expect(warning).toContain('not registered');
-  });
-});
+  }
 
-describe('signingPreflightDoctorChecks', () => {
-  it('emits an info check for App Groups and fail checks for not-ready targets', () => {
+  it('delegates to multiTargetSigningWarnings', delegatesToMultiTargetSigningWarnings);
+}
+
+describe('signingPreflightWarnings', describeSigningPreflightWarnings);
+function describeSigningPreflightDoctorChecks() {
+  function emitsAnPieceCheckForAppGroupsAndFailChecksForNotReadyTargets() {
     const checks = signingPreflightDoctorChecks(
       [
         {
@@ -203,16 +228,54 @@ describe('signingPreflightDoctorChecks', () => {
       status: 'info',
       title: 'App Groups require portal setup',
     });
-    expect(checks.filter((check) => check.status == 'fail')).toHaveLength(2);
-    expect(checks.some((check) => check.detail?.includes('APP_GROUPS'))).toBe(true);
-    expect(checks.some((check) => check.detail?.includes('not registered'))).toBe(true);
-  });
+    function filterCheck(check: {
+      readonly status: 'ok' | 'info' | 'fail';
+      readonly title: string;
+      readonly detail?: string;
+      readonly hint?: string;
+    }) {
+      return check.status == 'fail';
+    }
 
-  it('is silent when every target is ready and no App Groups are declared', () => {
+    expect(checks.filter(filterCheck)).toHaveLength(2);
+    function someCheck(check: {
+      readonly status: 'ok' | 'info' | 'fail';
+      readonly title: string;
+      readonly detail?: string;
+      readonly hint?: string;
+    }) {
+      return check.detail?.includes('APP_GROUPS');
+    }
+
+    expect(checks.some(someCheck)).toBe(true);
+    function someCheck2(check: {
+      readonly status: 'ok' | 'info' | 'fail';
+      readonly title: string;
+      readonly detail?: string;
+      readonly hint?: string;
+    }) {
+      return check.detail?.includes('not registered');
+    }
+
+    expect(checks.some(someCheck2)).toBe(true);
+  }
+
+  it(
+    'emits an info check for App Groups and fail checks for not-ready targets',
+    emitsAnPieceCheckForAppGroupsAndFailChecksForNotReadyTargets,
+  );
+  function isSilentWhenEveryTargetIsReadyAndNoAppGroupsAreDeclared() {
     expect(
       signingPreflightDoctorChecks([
         { bundleId: 'com.example.sampleapp', registered: true, missingCapabilities: [] },
       ]),
     ).toEqual([]);
-  });
-});
+  }
+
+  it(
+    'is silent when every target is ready and no App Groups are declared',
+    isSilentWhenEveryTargetIsReadyAndNoAppGroupsAreDeclared,
+  );
+}
+
+describe('signingPreflightDoctorChecks', describeSigningPreflightDoctorChecks);

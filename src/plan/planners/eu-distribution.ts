@@ -11,17 +11,21 @@ const SURFACE = 'eu-distribution';
 export const euDistributionPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  plan: (planContext) =>
-    planTeamSurface(planContext, {
+  plan(planContext) {
+    return planTeamSurface(planContext, {
       surface: SURFACE,
       direction: 'additive',
-      config: () =>
-        resolveSidecarConfig<EuDistributionConfig>({
+      config() {
+        return resolveSidecarConfig<EuDistributionConfig>({
           typed: planContext.config.euDistribution,
           configPath: 'eu-distribution.config.json',
           explicitPath: false,
           load: loadEuDistributionConfig,
-        }),
-      reconcile: (api, config) => reconcileEuDistributionDomains(api, config, true),
-    }),
+        });
+      },
+      reconcile(api, config) {
+        return reconcileEuDistributionDomains(api, config, true);
+      },
+    });
+  },
 };

@@ -10,10 +10,10 @@ type AppClipsOptions = Readonly<{
 }>;
 
 /** Map Commander values without explicit undefined optionals. */
-const toAppClipsInput = (
+function toAppClipsInput(
   commandOptions: AppClipsOptions,
   explicitConfig: boolean,
-): AppClipsCommandInput => {
+): AppClipsCommandInput {
   let appClipsInput: AppClipsCommandInput = {
     config: commandOptions.config,
     explicitConfig,
@@ -24,10 +24,17 @@ const toAppClipsInput = (
     appClipsInput = { ...appClipsInput, app: commandOptions.app };
   }
   return appClipsInput;
-};
+}
 
 /** Attach the app-clips command. */
-export const registerAppClipsCommand = (program: Command): void => {
+export function registerAppClipsCommand(program: Command): void {
+  function runAppClips(commandOptions: AppClipsOptions, registeredCommand: Command) {
+    const explicitConfig = registeredCommand.getOptionValueSource('config') == 'cli';
+    const appClips = toAppClipsInput(commandOptions, explicitConfig);
+    const appClipsProgram = appClipsCommandProgram(appClips);
+    return runCliProgram(appClipsProgram);
+  }
+
   program
     .command('app-clips')
     .description(
@@ -37,10 +44,5 @@ export const registerAppClipsCommand = (program: Command): void => {
     .option('--config <path>', 'path to the App Clips config file', 'appclips.config.json')
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: AppClipsOptions, registeredCommand: Command) => {
-      const explicitConfig = registeredCommand.getOptionValueSource('config') == 'cli';
-      const appClips = toAppClipsInput(commandOptions, explicitConfig);
-      const appClipsProgram = appClipsCommandProgram(appClips);
-      return runCliProgram(appClipsProgram);
-    });
-};
+    .action(runAppClips);
+}

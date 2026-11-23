@@ -30,60 +30,128 @@ const tools: Tool[] = [
     install: { kind: 'brew', formula: 'ccache' },
   },
 ];
-describe('toolchainReadinessRows', () => {
+function describeToolchainReadinessRows() {
   const readinessRows = toolchainReadinessRows(tools, new Set(['pod']));
-  it('marks a present tool ok with no fix hint', () => {
-    expect(readinessRows.find((readinessRow) => readinessRow.label == 'pod')).toEqual({
+  function marksAPresentToolOkWithNoFixHint() {
+    function findReadinessPiece(readinessRow: {
+      readonly label: string;
+      readonly status: 'todo' | 'ok' | 'info';
+      readonly detail?: string;
+    }) {
+      return readinessRow.label == 'pod';
+    }
+
+    expect(readinessRows.find(findReadinessPiece)).toEqual({
       label: 'pod',
       status: 'ok',
     });
-  });
-  it('marks a missing required tool a todo carrying its install hint', () => {
-    expect(readinessRows.find((readinessRow) => readinessRow.label.startsWith('Xcode'))).toEqual({
+  }
+
+  it('marks a present tool ok with no fix hint', marksAPresentToolOkWithNoFixHint);
+  function marksAMissingRequiredToolATodoCarryingItsInstallHint() {
+    function findReadinessPiece2(readinessRow: {
+      readonly label: string;
+      readonly status: 'todo' | 'ok' | 'info';
+      readonly detail?: string;
+    }) {
+      return readinessRow.label.startsWith('Xcode');
+    }
+
+    expect(readinessRows.find(findReadinessPiece2)).toEqual({
       label: 'Xcode (xcodebuild)',
       status: 'todo',
       detail: 'Install Xcode from the App Store.',
     });
-  });
-  it('marks a missing recommended tool advisory (info), never a gap', () => {
-    const ccacheRow = readinessRows.find((readinessRow) => readinessRow.label == 'ccache');
+  }
+
+  it(
+    'marks a missing required tool a todo carrying its install hint',
+    marksAMissingRequiredToolATodoCarryingItsInstallHint,
+  );
+  function marksAMissingRecommendedToolAdvisoryPieceNeverAGap() {
+    function findReadinessPiece3(readinessRow: {
+      readonly label: string;
+      readonly status: 'todo' | 'ok' | 'info';
+      readonly detail?: string;
+    }) {
+      return readinessRow.label == 'ccache';
+    }
+
+    const ccacheRow = readinessRows.find(findReadinessPiece3);
     expect(ccacheRow?.status).toBe('info');
     expect(ccacheRow?.detail).toContain('brew install ccache');
-  });
-});
-describe('readinessMark', () => {
-  it('maps each readiness status to a stable ASCII marker', () => {
+  }
+
+  it(
+    'marks a missing recommended tool advisory (info), never a gap',
+    marksAMissingRecommendedToolAdvisoryPieceNeverAGap,
+  );
+}
+
+describe('toolchainReadinessRows', describeToolchainReadinessRows);
+function describeReadinessMark() {
+  function mapsEachReadinessStatusToAStableASCIIMarker() {
     expect(readinessMark('ok')).toBe('OK');
     expect(readinessMark('todo')).toBe('x');
     expect(readinessMark('info')).toBe('-');
-  });
-});
-describe('formatPendingTodoLine', () => {
-  it('joins label and detail when a detail is present', () => {
+  }
+
+  it(
+    'maps each readiness status to a stable ASCII marker',
+    mapsEachReadinessStatusToAStableASCIIMarker,
+  );
+}
+
+describe('readinessMark', describeReadinessMark);
+function describeFormatPendingTodoLine() {
+  function joinsLabelAndDetailWhenADetailIsPresent() {
     const pendingTodoLine = formatPendingTodoLine({
       label: 'Xcode',
       status: 'todo',
       detail: 'Install Xcode.',
     });
     expect(pendingTodoLine).toBe('Xcode - Install Xcode.');
-  });
-  it('returns the bare label when no detail is set', () => {
+  }
+
+  it('joins label and detail when a detail is present', joinsLabelAndDetailWhenADetailIsPresent);
+  function returnsTheBareLabelWhenNoDetailIsSet() {
     const pendingTodoLine = formatPendingTodoLine({ label: 'Apps', status: 'todo' });
     expect(pendingTodoLine).toBe('Apps');
-  });
-});
-describe('mayInstallToolchain', () => {
-  it('allows installs on an interactive TTY without --yes', () => {
+  }
+
+  it('returns the bare label when no detail is set', returnsTheBareLabelWhenNoDetailIsSet);
+}
+
+describe('formatPendingTodoLine', describeFormatPendingTodoLine);
+function describeMayInstallToolchain() {
+  function allowsInstallsOnAnInteractiveTTYWithoutYes() {
     expect(mayInstallToolchain(true, false)).toBe(true);
-  });
-  it('allows installs when --yes is set even without a TTY', () => {
+  }
+
+  it(
+    'allows installs on an interactive TTY without --yes',
+    allowsInstallsOnAnInteractiveTTYWithoutYes,
+  );
+  function allowsInstallsWhenYesIsSetEvenWithoutATTY() {
     expect(mayInstallToolchain(false, true)).toBe(true);
-  });
-  it('blocks installs when non-interactive and --yes is absent', () => {
+  }
+
+  it(
+    'allows installs when --yes is set even without a TTY',
+    allowsInstallsWhenYesIsSetEvenWithoutATTY,
+  );
+  function blocksInstallsWhenNonInteractiveAndYesIsAbsent() {
     expect(mayInstallToolchain(false, false)).toBe(false);
-  });
-});
-describe('formatSetupBoard', () => {
+  }
+
+  it(
+    'blocks installs when non-interactive and --yes is absent',
+    blocksInstallsWhenNonInteractiveAndYesIsAbsent,
+  );
+}
+
+describe('mayInstallToolchain', describeMayInstallToolchain);
+function describeFormatSetupBoard() {
   const readiness: SetupReadiness = {
     groups: [
       { title: 'Config', rows: [{ label: 'launch.config.ts', status: 'ok', detail: 'present' }] },
@@ -97,21 +165,33 @@ describe('formatSetupBoard', () => {
     ],
   };
   const boardLines = formatSetupBoard(readiness);
-  it('renders each group title with its checks indented under it', () => {
+  function rendersEachGroupTitleWithItsChecksIndentedUnderIt() {
     expect(boardLines).toContain('Config');
     expect(boardLines).toContain('  OK launch.config.ts - present');
     expect(boardLines).toContain('Toolchain');
     expect(boardLines).toContain('  OK pod');
     expect(boardLines).toContain('  x Xcode - Install Xcode.');
-  });
-  it('separates groups with a blank line but never leads with one', () => {
+  }
+
+  it(
+    'renders each group title with its checks indented under it',
+    rendersEachGroupTitleWithItsChecksIndentedUnderIt,
+  );
+  function separatesGroupsWithABlankLineButNeverLeadsWithOne() {
     expect(boardLines[0]).toBe('Config');
     expect(boardLines).toContain('');
     expect(boardLines.indexOf('')).toBeGreaterThan(0);
-  });
-});
-describe('pendingTodos', () => {
-  it('flattens only the todo rows across every group, dropping ok and info', () => {
+  }
+
+  it(
+    'separates groups with a blank line but never leads with one',
+    separatesGroupsWithABlankLineButNeverLeadsWithOne,
+  );
+}
+
+describe('formatSetupBoard', describeFormatSetupBoard);
+function describePendingTodos() {
+  function flattensOnlyTheTodoRowsAcrossEveryGroupDroppingOkAndPiece() {
     const readiness: SetupReadiness = {
       groups: [
         { title: 'Config', rows: [{ label: 'launch.config.ts', status: 'ok' }] },
@@ -132,5 +212,12 @@ describe('pendingTodos', () => {
       { label: 'Xcode', status: 'todo', detail: 'Install Xcode.' },
       { label: 'Apple account', status: 'todo', detail: 'launch-store creds set-key' },
     ]);
-  });
-});
+  }
+
+  it(
+    'flattens only the todo rows across every group, dropping ok and info',
+    flattensOnlyTheTodoRowsAcrossEveryGroupDroppingOkAndPiece,
+  );
+}
+
+describe('pendingTodos', describePendingTodos);

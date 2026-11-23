@@ -4,9 +4,8 @@ import {
   PlayReviewsCommandInputSchema,
   renderPlayReview,
 } from './play-reviews-command.ts';
-
-describe('PlayReviewsCommandInputSchema', () => {
-  it('decodes list and reply inputs without unset option fields', () => {
+function describePlayReviewsCommandPieceSchema() {
+  function decodesListAndReplyInputsWithoutUnsetOptionFields() {
     const playReviewsCommandSchema = PlayReviewsCommandInputSchema({
       operation: 'list',
       unanswered: false,
@@ -20,28 +19,48 @@ describe('PlayReviewsCommandInputSchema', () => {
         yes: false,
       }),
     ).toEqual({ operation: 'reply', reviewId: 'review-1', yes: false });
-  });
+  }
 
-  it('rejects explicit undefined exact optional fields', () => {
-    expect(() =>
-      PlayReviewsCommandInputSchema({
+  it(
+    'decodes list and reply inputs without unset option fields',
+    decodesListAndReplyInputsWithoutUnsetOptionFields,
+  );
+  function rejectsExplicitUndefinedExactOptionalFields() {
+    function callPlayReviewsCommandPieceSchema() {
+      return PlayReviewsCommandInputSchema({
         operation: 'list',
         rating: undefined,
         unanswered: false,
         json: false,
-      }),
-    ).toThrow();
-  });
-});
+      });
+    }
 
-describe('Play review presentation', () => {
-  it('validates ratings through the tagged command channel', () => {
+    expect(callPlayReviewsCommandPieceSchema).toThrow();
+  }
+
+  it(
+    'rejects explicit undefined exact optional fields',
+    rejectsExplicitUndefinedExactOptionalFields,
+  );
+}
+
+describe('PlayReviewsCommandInputSchema', describePlayReviewsCommandPieceSchema);
+function describePlayReviewPresentation() {
+  function validatesRatingsThroughTheTaggedCommandChannel() {
     const playReviewRating = parsePlayReviewRating(' 4 ');
     expect(playReviewRating).toBe(4);
-    expect(() => parsePlayReviewRating('4.5')).toThrow(/1-5/);
-  });
+    function callParsePlayReviewRating() {
+      return parsePlayReviewRating('4.5');
+    }
 
-  it('renders an answered review with clean ASCII status text', () => {
+    expect(callParsePlayReviewRating).toThrow(/1-5/);
+  }
+
+  it(
+    'validates ratings through the tagged command channel',
+    validatesRatingsThroughTheTaggedCommandChannel,
+  );
+  function rendersAnAnsweredReviewWithCleanASCIIStatusPiece() {
     const playReview = renderPlayReview({
       reviewId: 'review-1',
       authorName: 'Ada',
@@ -56,5 +75,12 @@ describe('Play review presentation', () => {
     expect(playReview).toBe(
       'review-1  5/5\n  en  2026-08-04  v2.0  by Ada  OK answered\n  Useful.\n  -> reply: Thank you.',
     );
-  });
-});
+  }
+
+  it(
+    'renders an answered review with clean ASCII status text',
+    rendersAnAnsweredReviewWithCleanASCIIStatusPiece,
+  );
+}
+
+describe('Play review presentation', describePlayReviewPresentation);

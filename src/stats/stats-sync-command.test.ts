@@ -11,9 +11,11 @@ import type { PortfolioFile } from '../types/portfolio.ts';
 import { makeStatsCredentialsTest, useStatsCredentials } from './stats-credentials.ts';
 import { parseDaysFlag, statsSyncProgram } from './stats-sync-command.ts';
 
-const fakeFeed = vi.hoisted(() => ({ isFailing: false }));
+const fakeFeed = vi.hoisted(function hoistFakeFeed() {
+  return { isFailing: false };
+});
 
-vi.mock('./feed-registry.ts', () => {
+vi.mock('./feed-registry.ts', function mockFeedRegistry() {
   const iosFeed = {
     feed: 'app-store' as const,
     isApplicable(app: { platform: string }) {
@@ -69,33 +71,44 @@ function readDaysFailure(daysFlag: string): unknown {
     return cause;
   }
 }
-
-describe('parseDaysFlag', () => {
-  test('uses 30 days when the flag is absent', () => {
+function describeParseDaysFlag() {
+  function uses30DaysWhenTheFlagIsAbsent() {
     const daysFlag = parseDaysFlag(undefined);
     expect(daysFlag).toBe(30);
-  });
+  }
 
-  test('accepts whole numbers from 1 to 365', () => {
+  test('uses 30 days when the flag is absent', uses30DaysWhenTheFlagIsAbsent);
+  function acceptsWholeNumbersFrom1To365() {
     const daysFlag = parseDaysFlag('1');
     expect(daysFlag).toBe(1);
     expect(parseDaysFlag('365')).toBe(365);
-  });
+  }
 
-  test('rejects zero, too many, and text that is not a whole number', () => {
+  test('accepts whole numbers from 1 to 365', acceptsWholeNumbersFrom1To365);
+  function rejectsZeroTooManyAndPieceThatIsNotAWholeNumber() {
     const invalidDaysFlags = ['0', '366', '2.5', '-3', 'abc', ''];
     const failures = invalidDaysFlags.map(readDaysFailure);
+    function mapFailure(failure: unknown) {
+      return (failure as { message: string }).message;
+    }
 
-    expect(failures.map((failure) => (failure as { message: string }).message)).toEqual(
-      invalidDaysFlags.map(() => '--days must be a whole number from 1 to 365.'),
-    );
-  });
-});
+    function mapPiece() {
+      return '--days must be a whole number from 1 to 365.';
+    }
 
-describe('statsSyncProgram', () => {
+    expect(failures.map(mapFailure)).toEqual(invalidDaysFlags.map(mapPiece));
+  }
+
+  test(
+    'rejects zero, too many, and text that is not a whole number',
+    rejectsZeroTooManyAndPieceThatIsNotAWholeNumber,
+  );
+}
+
+describe('parseDaysFlag', describeParseDaysFlag);
+function describeStatsSyncProgram() {
   let homeDirectory: string;
-
-  beforeEach(() => {
+  function prepareStatsSyncProgram() {
     homeDirectory = createTemporaryHomeDirectory();
     const workPath = join(homeDirectory, 'work');
     useLaunchDirectories({
@@ -106,20 +119,23 @@ describe('statsSyncProgram', () => {
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', serialized);
     makeStatsCredentialsTest();
     fakeFeed.isFailing = false;
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareStatsSyncProgram);
+  function cleanupStatsSyncProgram() {
     useStatsCredentials(null);
     resetLogger();
     resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
-  });
+  }
 
-  const run = async (request: {
+  afterEach(cleanupStatsSyncProgram);
+
+  async function run(request: {
     app: string | undefined;
     days: string | undefined;
     isJson: boolean;
-  }) => {
+  }) {
     const lines: string[] = [];
     useLoggerSink(function writeLine(text: string) {
       lines.push(text);
@@ -135,9 +151,8 @@ describe('statsSyncProgram', () => {
     }
 
     return { outcome, lines };
-  };
-
-  test('prints one JSON object with the feed reports with --json', async () => {
+  }
+  async function printsOneJSONObjectWithTheFeedReportsWithPiece() {
     const { outcome, lines } = await run({ app: 'cal friend', days: '3', isJson: true });
 
     expect(outcome._tag).toBe('Right');
@@ -153,24 +168,33 @@ describe('statsSyncProgram', () => {
         message: 'not built yet',
       },
     ]);
-  });
+  }
 
-  test('prints one line per feed without --json, syncing every app when no name is given', async () => {
+  test(
+    'prints one JSON object with the feed reports with --json',
+    printsOneJSONObjectWithTheFeedReportsWithPiece,
+  );
+  async function printsOneLinePerFeedWithoutPieceSyncingEveryAppWhenNoNameIsGiven() {
     const { lines } = await run({ app: undefined, days: undefined, isJson: false });
 
     expect(lines).toEqual(['ios-1 app-store: skipped (not built yet)\n']);
-  });
+  }
 
-  test('exits 1 when a feed failed', async () => {
+  test(
+    'prints one line per feed without --json, syncing every app when no name is given',
+    printsOneLinePerFeedWithoutPieceSyncingEveryAppWhenNoNameIsGiven,
+  );
+  async function exits1WhenAFeedFailed() {
     fakeFeed.isFailing = true;
 
     const { outcome, lines } = await run({ app: undefined, days: '3', isJson: false });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { _tag: 'CommandExit', exitCode: 1 } });
     expect(lines).toEqual(['ios-1 app-store: failed (report not ready)\n']);
-  });
+  }
 
-  test('exits 2 with a JSON error for a bad --days', async () => {
+  test('exits 1 when a feed failed', exits1WhenAFeedFailed);
+  async function exits2WithAJSONErrorForABadDays() {
     const { outcome, lines } = await run({ app: undefined, days: '0', isJson: true });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { exitCode: 2 } });
@@ -179,11 +203,16 @@ describe('statsSyncProgram', () => {
       ok: false,
       error: '--days must be a whole number from 1 to 365.',
     });
-  });
+  }
 
-  test('exits 2 when the app name matches nothing', async () => {
+  test('exits 2 with a JSON error for a bad --days', exits2WithAJSONErrorForABadDays);
+  async function exits2WhenTheAppNameMatchesNothing() {
     const { outcome } = await run({ app: 'zzz', days: undefined, isJson: false });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { exitCode: 2 } });
-  });
-});
+  }
+
+  test('exits 2 when the app name matches nothing', exits2WhenTheAppNameMatchesNothing);
+}
+
+describe('statsSyncProgram', describeStatsSyncProgram);

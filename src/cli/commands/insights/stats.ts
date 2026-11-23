@@ -3,7 +3,25 @@ import { statsReportProgram } from '../../../stats/stats-command.ts';
 import { statsSyncProgram } from '../../../stats/stats-sync-command.ts';
 import { runCliProgram } from '../../run-cli-program.ts';
 
-export const registerStatsCommand = (program: Command): void => {
+export function registerStatsCommand(program: Command): void {
+  function runStats(options: {
+    platform?: string;
+    owner?: string;
+    app?: string;
+    days?: string;
+    json?: boolean;
+  }) {
+    return runCliProgram(
+      statsReportProgram({
+        platform: options.platform,
+        owner: options.owner,
+        app: options.app,
+        days: options.days,
+        json: options.json == true,
+      }),
+    );
+  }
+
   const stats = program
     .command('stats')
     .description('keep daily download, rating and usage numbers of your apps on this machine')
@@ -12,40 +30,24 @@ export const registerStatsCommand = (program: Command): void => {
     .option('--app <name>', 'only this app (part of its name, bundle id or package name)')
     .option('--days <n>', 'how many days to show (1 to 365, default 30)')
     .option('--json', 'output machine-readable JSON', false)
-    .action(
-      (options: {
-        platform?: string;
-        owner?: string;
-        app?: string;
-        days?: string;
-        json?: boolean;
-      }) => {
-        return runCliProgram(
-          statsReportProgram({
-            platform: options.platform,
-            owner: options.owner,
-            app: options.app,
-            days: options.days,
-            json: options.json == true,
-          }),
-        );
-      },
+    .action(runStats);
+  function runSync(_syncOwnFlags: unknown, syncCommand: Command) {
+    // Commander gives the same-named options to the parent `stats` command, so read them from there.
+    const flags = syncCommand.optsWithGlobals<{ app?: string; days?: string; json?: boolean }>();
+    return runCliProgram(
+      statsSyncProgram({
+        app: flags.app,
+        days: flags.days,
+        isJson: flags.json == true,
+      }),
     );
+  }
+
   stats
     .command('sync')
     .description('pull the missing days of every stats feed into ~/.launch/stats')
     .option('--app <name>', 'only this app (part of its name, bundle id or package name)')
     .option('--days <days>', 'how many days back to cover (1 to 365, default 30)')
     .option('--json', 'output machine-readable JSON', false)
-    .action((_syncOwnFlags: unknown, syncCommand: Command) => {
-      // Commander gives the same-named options to the parent `stats` command, so read them from there.
-      const flags = syncCommand.optsWithGlobals<{ app?: string; days?: string; json?: boolean }>();
-      return runCliProgram(
-        statsSyncProgram({
-          app: flags.app,
-          days: flags.days,
-          isJson: flags.json == true,
-        }),
-      );
-    });
-};
+    .action(runSync);
+}

@@ -60,12 +60,12 @@ export const DEFAULT_IN_REPO_ARTIFACT_DIR = './.launch/artifacts';
  * given, emits an explicit `artifactDir:` line (e.g. the in-repo {@link DEFAULT_IN_REPO_ARTIFACT_DIR});
  * omit it to leave the config on the global `~/.launch/artifacts` default.
  */
-export const configTemplate = (
+export function configTemplate(
   appRoot: string | null,
   extraSections?: string,
   profilesSection?: string,
   artifactDir?: string,
-): string => {
+): string {
   let appRootsLine = `  // appRoots: ["./apps"], // uncomment if your apps live in a subfolder`;
   if (appRoot != null) {
     appRootsLine = `  appRoots: ["${appRoot}"], // every app.json lives under here`;
@@ -143,7 +143,7 @@ ${profilesBlock}
   // euDistribution: { domains: [{ domain: "downloads.acme.com", referenceName: "Acme Downloads" }] },
 ${injected}});
 `;
-};
+}
 /** Committed template of the env keys an app expects. Copied to `.env` and filled with real values. */
 export const ENV_EXAMPLE_TEMPLATE = `# Committed template of the env keys your app expects. Copy to .env and fill real values.
 # NOTE: there is no EXPO_PUBLIC_ prefix guard here - anything in .env can reach the app bundle.

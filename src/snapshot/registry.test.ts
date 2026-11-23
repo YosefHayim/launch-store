@@ -15,10 +15,15 @@ describe('snapshot source registry', () => {
       'play-subscriptions',
     ]);
   });
-  it('is idempotent - re-registering keyed by id does not duplicate', () => {
+  function isIdempotentReRegisteringKeyedByIdDoesNotDuplicate() {
     registerBuiltinSources();
     registerBuiltinSources();
     const snapshotSources = listSnapshotSources();
     expect(snapshotSources).toHaveLength(6);
-  });
+  }
+
+  it(
+    'is idempotent - re-registering keyed by id does not duplicate',
+    isIdempotentReRegisteringKeyedByIdDoesNotDuplicate,
+  );
 });

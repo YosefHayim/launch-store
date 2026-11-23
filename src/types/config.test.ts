@@ -6,8 +6,8 @@ import {
   DEFAULT_STORAGE_PROVIDER,
   DEFAULT_SUBMITTER,
 } from './config.ts';
-describe('LaunchConfig parse boundary', () => {
-  it('fills the four provider defaults on parse, so a minimal config only declares profiles', () => {
+function describeLaunchPieceParseBoundary() {
+  function fillsTheFourProviderDefaultsOnParseSoAMinimalPieceOnlyDeclaresProfiles() {
     const parsed = parseLaunchConfig({ profiles: {} });
     expect(parsed).toMatchObject({
       credentials: DEFAULT_CREDENTIALS_PROVIDER,
@@ -15,25 +15,47 @@ describe('LaunchConfig parse boundary', () => {
       buildEngine: DEFAULT_BUILD_ENGINE,
       submit: DEFAULT_SUBMITTER,
     });
-  });
-  it('keeps a caller-set provider name over the default', () => {
+  }
+
+  it(
+    'fills the four provider defaults on parse, so a minimal config only declares profiles',
+    fillsTheFourProviderDefaultsOnParseSoAMinimalPieceOnlyDeclaresProfiles,
+  );
+  function keepsACallerSetProviderNameOverTheDefault() {
     const parsed = parseLaunchConfig({ profiles: {}, storage: 's3' });
     expect(parsed.storage).toBe('s3');
-  });
-  it('rejects an unknown top-level key (strict root - the #197 gate)', () => {
+  }
+
+  it(
+    'keeps a caller-set provider name over the default',
+    keepsACallerSetProviderNameOverTheDefault,
+  );
+  function rejectsAnUnknownTopLevelKeyStrictRootThe197Gate() {
     const validateLaunch = validateLaunchConfig({ profiles: {}, nope: 1 });
     expect(validateLaunch.length).toBeGreaterThan(0);
-  });
-  it('accepts the per-platform submit form for a subset of platforms', () => {
+  }
+
+  it(
+    'rejects an unknown top-level key (strict root - the #197 gate)',
+    rejectsAnUnknownTopLevelKeyStrictRootThe197Gate,
+  );
+  function acceptsThePerPlatformSubmitFormForASubsetOfPlatforms() {
     const parsed = parseLaunchConfig({
       profiles: {},
       submit: { android: ['google-play', 'amazon-appstore'] },
     });
     expect(parsed.submit).toEqual({ android: ['google-play', 'amazon-appstore'] });
-  });
-});
-describe('SubmitByPlatform validation via LaunchConfig schema', () => {
-  it('accepts a single platform key and rejects unknown platform keys', () => {
+  }
+
+  it(
+    'accepts the per-platform submit form for a subset of platforms',
+    acceptsThePerPlatformSubmitFormForASubsetOfPlatforms,
+  );
+}
+
+describe('LaunchConfig parse boundary', describeLaunchPieceParseBoundary);
+function describeSubmitByPlatformValidationViaLaunchPieceSchema() {
+  function acceptsASinglePlatformKeyAndRejectsUnknownPlatformKeys() {
     const validateLaunch = validateLaunchConfig({
       profiles: {},
       submit: { ios: ['app-store-connect'] },
@@ -46,5 +68,15 @@ describe('SubmitByPlatform validation via LaunchConfig schema', () => {
         submit: { windows: ['x'] },
       }).length,
     ).toBeGreaterThan(0);
-  });
-});
+  }
+
+  it(
+    'accepts a single platform key and rejects unknown platform keys',
+    acceptsASinglePlatformKeyAndRejectsUnknownPlatformKeys,
+  );
+}
+
+describe(
+  'SubmitByPlatform validation via LaunchConfig schema',
+  describeSubmitByPlatformValidationViaLaunchPieceSchema,
+);

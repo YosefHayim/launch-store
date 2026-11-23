@@ -4,18 +4,20 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { parseStoreConfig, readAndroidMetadataDir, readAppleMetadataDir } from './store-config.ts';
 const tmpDirs: string[] = [];
-const workDir = (): string => {
+function workDir(): string {
   const systemTemporaryDirectory = tmpdir();
   const storeconfigTestPath = join(systemTemporaryDirectory, 'storeconfig-test-');
   const dir = mkdtempSync(storeconfigTestPath);
   tmpDirs.push(dir);
   return dir;
-};
-afterEach(() => {
+}
+function cleanup() {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-});
-describe('parseStoreConfig', () => {
-  it('parses the Expo apple schema plus the android extension', () => {
+}
+
+afterEach(cleanup);
+function describeParseStorePiece() {
+  function parsesTheExpoAppleSchemaPlusTheAndroidExtension() {
     const config = parseStoreConfig({
       configVersion: 0,
       apple: {
@@ -31,31 +33,60 @@ describe('parseStoreConfig', () => {
     });
     expect(config.apple?.categories).toEqual(['PRODUCTIVITY']);
     expect(config.android?.info['en-US']).toEqual({ title: 'Hello', shortDescription: 'short' });
-  });
-  it('rejects a non-object document', () => {
-    expect(() => parseStoreConfig('nope')).toThrow(/must be a JSON object/);
-  });
-  it('rejects a document with neither platform section', () => {
-    expect(() => parseStoreConfig({ configVersion: 0 })).toThrow(/neither/);
-  });
-  it('rejects a non-string listing field at the schema boundary', () => {
-    expect(() =>
-      parseStoreConfig({
+  }
+
+  it(
+    'parses the Expo apple schema plus the android extension',
+    parsesTheExpoAppleSchemaPlusTheAndroidExtension,
+  );
+  function rejectsANonObjectDocument() {
+    function callParseStorePiece() {
+      return parseStoreConfig('nope');
+    }
+
+    expect(callParseStorePiece).toThrow(/must be a JSON object/);
+  }
+
+  it('rejects a non-object document', rejectsANonObjectDocument);
+  function rejectsADocumentWithNeitherPlatformSection() {
+    function callParseStorePiece2() {
+      return parseStoreConfig({ configVersion: 0 });
+    }
+
+    expect(callParseStorePiece2).toThrow(/neither/);
+  }
+
+  it(
+    'rejects a document with neither platform section',
+    rejectsADocumentWithNeitherPlatformSection,
+  );
+  function rejectsANonStringListingFieldAtTheSchemaBoundary() {
+    function callParseStorePiece3() {
+      return parseStoreConfig({
         apple: { info: { 'en-US': { title: 'Hello', subtitle: 42 } } },
-      }),
-    ).toThrow(/subtitle/);
-  });
-});
-const writeMetadataFiles = (dir: string, files: Record<string, string>): void => {
+      });
+    }
+
+    expect(callParseStorePiece3).toThrow(/subtitle/);
+  }
+
+  it(
+    'rejects a non-string listing field at the schema boundary',
+    rejectsANonStringListingFieldAtTheSchemaBoundary,
+  );
+}
+
+describe('parseStoreConfig', describeParseStorePiece);
+function writeMetadataFiles(dir: string, files: Record<string, string>): void {
   for (const [relativePath, text] of Object.entries(files)) {
     const joinedPath = join(dir, relativePath);
     const parentDirectory = dirname(joinedPath);
     mkdirSync(parentDirectory, { recursive: true });
     writeFileSync(join(dir, relativePath), text);
   }
-};
-describe('apple metadata folder read (deliver layout)', () => {
-  it('reads deliver .txt files into the apple section', async () => {
+}
+function describeAppleMetadataFolderReadDeliverLayout() {
+  async function readsDeliverTxtFilesIntoTheAppleSection() {
     const dir = workDir();
     const namePath = join('en-US', 'name.txt');
     const subtitlePath = join('en-US', 'subtitle.txt');
@@ -86,10 +117,17 @@ describe('apple metadata folder read (deliver layout)', () => {
         },
       },
     });
-  });
-});
-describe('android metadata folder read (supply layout)', () => {
-  it('reads supply .txt files into the android section', async () => {
+  }
+
+  it('reads deliver .txt files into the apple section', readsDeliverTxtFilesIntoTheAppleSection);
+}
+
+describe(
+  'apple metadata folder read (deliver layout)',
+  describeAppleMetadataFolderReadDeliverLayout,
+);
+function describeAndroidMetadataFolderReadSupplyLayout() {
+  async function readsSupplyTxtFilesIntoTheAndroidSection() {
     const dir = workDir();
     const titlePath = join('en-US', 'title.txt');
     const shortDescriptionPath = join('en-US', 'short_description.txt');
@@ -105,5 +143,12 @@ describe('android metadata folder read (supply layout)', () => {
         'en-US': { title: 'Hello', shortDescription: 'short', fullDescription: 'the full thing' },
       },
     });
-  });
-});
+  }
+
+  it('reads supply .txt files into the android section', readsSupplyTxtFilesIntoTheAndroidSection);
+}
+
+describe(
+  'android metadata folder read (supply layout)',
+  describeAndroidMetadataFolderReadSupplyLayout,
+);

@@ -12,7 +12,19 @@ type PlaySubscriptionsOptions = Readonly<{
 }>;
 
 /** Attach the `play-subscriptions` command to the program. */
-export const registerPlaySubscriptionsCommand = (program: Command): void => {
+export function registerPlaySubscriptionsCommand(program: Command): void {
+  function runPlaySubscriptions(commandOptions: PlaySubscriptionsOptions) {
+    let playSubscriptionsInput: PlaySubscriptionsCommandInput = {
+      dryRun: commandOptions.dryRun,
+      yes: commandOptions.yes,
+    };
+    if (commandOptions.app != null) {
+      playSubscriptionsInput = { ...playSubscriptionsInput, app: commandOptions.app };
+    }
+    const playSubscriptionsProgram = playSubscriptionsCommandProgram(playSubscriptionsInput);
+    return runCliProgram(playSubscriptionsProgram);
+  }
+
   program
     .command('play-subscriptions')
     .description(
@@ -21,15 +33,5 @@ export const registerPlaySubscriptionsCommand = (program: Command): void => {
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: PlaySubscriptionsOptions) => {
-      let playSubscriptionsInput: PlaySubscriptionsCommandInput = {
-        dryRun: commandOptions.dryRun,
-        yes: commandOptions.yes,
-      };
-      if (commandOptions.app != null) {
-        playSubscriptionsInput = { ...playSubscriptionsInput, app: commandOptions.app };
-      }
-      const playSubscriptionsProgram = playSubscriptionsCommandProgram(playSubscriptionsInput);
-      return runCliProgram(playSubscriptionsProgram);
-    });
-};
+    .action(runPlaySubscriptions);
+}

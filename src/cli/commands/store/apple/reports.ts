@@ -35,10 +35,14 @@ type AnalyticsCommandOptions = Readonly<{
 }>;
 
 /** Attach App Store Connect reporting commands to Commander. */
-export const registerReportsCommand = (program: Command): void => {
+export function registerReportsCommand(program: Command): void {
   const reportsCommand = program
     .command('reports')
     .description('download App Store Connect sales, finance, and analytics reports');
+  function runSales(commandOptions: SalesCommandOptions) {
+    const reportsProgram = reportsCommandProgram({ operation: 'sales', ...commandOptions });
+    return runCliProgram(reportsProgram);
+  }
 
   reportsCommand
     .command('sales')
@@ -53,10 +57,11 @@ export const registerReportsCommand = (program: Command): void => {
     .option('--version <version>', 'report schema version, e.g. 1_0')
     .option('--out <directory>', 'directory to write the reports into', '.')
     .option('--json', 'write parsed JSON instead of raw TSV', false)
-    .action((commandOptions: SalesCommandOptions) => {
-      const reportsProgram = reportsCommandProgram({ operation: 'sales', ...commandOptions });
-      return runCliProgram(reportsProgram);
-    });
+    .action(runSales);
+  function runFinance(commandOptions: FinanceCommandOptions) {
+    const reportsProgram = reportsCommandProgram({ operation: 'finance', ...commandOptions });
+    return runCliProgram(reportsProgram);
+  }
 
   reportsCommand
     .command('finance')
@@ -67,10 +72,11 @@ export const registerReportsCommand = (program: Command): void => {
     .option('--report-type <type>', 'FINANCE_DETAIL | FINANCIAL', 'FINANCE_DETAIL')
     .option('--out <directory>', 'directory to write the report into', '.')
     .option('--json', 'write parsed JSON instead of raw TSV', false)
-    .action((commandOptions: FinanceCommandOptions) => {
-      const reportsProgram = reportsCommandProgram({ operation: 'finance', ...commandOptions });
-      return runCliProgram(reportsProgram);
-    });
+    .action(runFinance);
+  function runAnalytics(commandOptions: AnalyticsCommandOptions) {
+    const reportsProgram = reportsCommandProgram({ operation: 'analytics', ...commandOptions });
+    return runCliProgram(reportsProgram);
+  }
 
   reportsCommand
     .command('analytics')
@@ -85,8 +91,5 @@ export const registerReportsCommand = (program: Command): void => {
     .option('--granularity <granularity>', 'DAILY | WEEKLY | MONTHLY', 'DAILY')
     .option('--date <YYYY-MM-DD>', 'limit to instances covering this processing date')
     .option('--out <directory>', 'directory to write the reports into', '.')
-    .action((commandOptions: AnalyticsCommandOptions) => {
-      const reportsProgram = reportsCommandProgram({ operation: 'analytics', ...commandOptions });
-      return runCliProgram(reportsProgram);
-    });
-};
+    .action(runAnalytics);
+}

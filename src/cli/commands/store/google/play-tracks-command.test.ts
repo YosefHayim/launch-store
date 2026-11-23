@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { describePlayRelease, PlayTracksCommandInputSchema } from './play-tracks-command.ts';
-
-describe('PlayTracksCommandInputSchema', () => {
-  it('decodes each Commander operation without unset option fields', () => {
+function describePlayTracksCommandPieceSchema() {
+  function decodesEachCommanderOperationWithoutUnsetOptionFields() {
     const playTracksCommandSchema = PlayTracksCommandInputSchema({
       operation: 'status',
       json: false,
@@ -37,22 +36,34 @@ describe('PlayTracksCommandInputSchema', () => {
         yes: false,
       }),
     ).toEqual({ operation: 'testers', track: 'internal', yes: false });
-  });
+  }
 
-  it('rejects explicit undefined exact optional fields', () => {
-    expect(() =>
-      PlayTracksCommandInputSchema({
+  it(
+    'decodes each Commander operation without unset option fields',
+    decodesEachCommanderOperationWithoutUnsetOptionFields,
+  );
+  function rejectsExplicitUndefinedExactOptionalFields() {
+    function callPlayTracksCommandPieceSchema() {
+      return PlayTracksCommandInputSchema({
         operation: 'promote',
         app: undefined,
         track: 'production',
         yes: false,
-      }),
-    ).toThrow();
-  });
-});
+      });
+    }
 
-describe('describePlayRelease', () => {
-  it('renders status, builds, rollout, and notes with ASCII text', () => {
+    expect(callPlayTracksCommandPieceSchema).toThrow();
+  }
+
+  it(
+    'rejects explicit undefined exact optional fields',
+    rejectsExplicitUndefinedExactOptionalFields,
+  );
+}
+
+describe('PlayTracksCommandInputSchema', describePlayTracksCommandPieceSchema);
+function describeDescribePlayRelease() {
+  function rendersStatusBuildsRolloutAndNotesWithASCIIPiece() {
     const playRelease = describePlayRelease({
       status: 'inProgress',
       versionCodes: ['42'],
@@ -60,5 +71,12 @@ describe('describePlayRelease', () => {
       releaseNotes: [{ language: 'en-US', text: 'Faster startup' }],
     });
     expect(playRelease).toBe('inProgress  v42  25% rollout  1 note(s)');
-  });
-});
+  }
+
+  it(
+    'renders status, builds, rollout, and notes with ASCII text',
+    rendersStatusBuildsRolloutAndNotesWithASCIIPiece,
+  );
+}
+
+describe('describePlayRelease', describeDescribePlayRelease);

@@ -14,16 +14,16 @@ function captureExplainWrites(): string[] {
 
   return terminalWrites;
 }
-
-describe('explainCommandProgram', () => {
-  it('lists topics when none is requested', () => {
+function describeExplainCommandProgram() {
+  function listsTopicsWhenNoneIsRequested() {
     const terminalWrites = captureExplainWrites();
     explainCommandProgram({});
 
     expect(terminalWrites.join('')).toContain('Topics:');
-  });
+  }
 
-  it('rejects an unknown topic with the known choices', () => {
+  it('lists topics when none is requested', listsTopicsWhenNoneIsRequested);
+  function rejectsAnUnknownTopicWithTheKnownChoices() {
     captureExplainWrites();
     let thrownCause: unknown = null;
 
@@ -37,5 +37,9 @@ describe('explainCommandProgram', () => {
       _tag: 'ExplainCommandFailure',
       message: expect.stringMatching(/Unknown topic "magic"/),
     });
-  });
-});
+  }
+
+  it('rejects an unknown topic with the known choices', rejectsAnUnknownTopicWithTheKnownChoices);
+}
+
+describe('explainCommandProgram', describeExplainCommandProgram);

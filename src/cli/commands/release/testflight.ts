@@ -43,49 +43,66 @@ type FeedbackOptions = Readonly<{
 }>;
 
 /** Attach TestFlight group, tester, release, and feedback commands to Commander. */
-export const registerTestflightCommand = (program: Command): void => {
+export function registerTestflightCommand(program: Command): void {
   const testflightCommand = program
     .command('testflight')
     .description('manage TestFlight beta groups and testers');
+  function runGroups(commandOptions: AppOption) {
+    const testflightProgram = testflightCommandProgram({
+      operation: 'groups',
+      app: commandOptions.app,
+    });
+    return runCliProgram(testflightProgram);
+  }
 
   testflightCommand
     .command('groups')
     .description("list the app's TestFlight beta groups")
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
-    .action((commandOptions: AppOption) => {
-      const testflightProgram = testflightCommandProgram({
-        operation: 'groups',
-        app: commandOptions.app,
-      });
-      return runCliProgram(testflightProgram);
+    .action(runGroups);
+  function runCreateGroup(groupName: string, commandOptions: AppOption) {
+    const testflightProgram = testflightCommandProgram({
+      operation: 'create-group',
+      groupName,
+      app: commandOptions.app,
     });
+    return runCliProgram(testflightProgram);
+  }
 
   testflightCommand
     .command('create-group')
     .description('create an external beta group testers can be invited into')
     .argument('<name>', 'the group name, e.g. "External Testers"')
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
-    .action((groupName: string, commandOptions: AppOption) => {
-      const testflightProgram = testflightCommandProgram({
-        operation: 'create-group',
-        groupName,
-        app: commandOptions.app,
-      });
-      return runCliProgram(testflightProgram);
+    .action(runCreateGroup);
+  function runTesters(commandOptions: GroupOption) {
+    const testflightProgram = testflightCommandProgram({
+      operation: 'testers',
+      ...commandOptions,
     });
+    return runCliProgram(testflightProgram);
+  }
 
   testflightCommand
     .command('testers')
     .description('list the testers in a beta group')
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('-g, --group <name>', "beta group (auto-selected if there's only one)")
-    .action((commandOptions: GroupOption) => {
-      const testflightProgram = testflightCommandProgram({
-        operation: 'testers',
-        ...commandOptions,
-      });
-      return runCliProgram(testflightProgram);
+    .action(runTesters);
+  function runAdd(emails: readonly string[], commandOptions: AddTesterOptions) {
+    const testflightProgram = testflightCommandProgram({
+      operation: 'add',
+      emails,
+      app: commandOptions.app,
+      group: commandOptions.group,
+      firstName: commandOptions.first,
+      lastName: commandOptions.last,
+      csv: commandOptions.csv,
+      dryRun: commandOptions.dryRun,
+      yes: commandOptions.yes,
     });
+    return runCliProgram(testflightProgram);
+  }
 
   testflightCommand
     .command('add')
@@ -101,20 +118,15 @@ export const registerTestflightCommand = (program: Command): void => {
     .option('--csv <path>', 'import testers from a CSV (email,firstName,lastName per line)')
     .option('--dry-run', 'report what would change without inviting anyone', false)
     .option('-y, --yes', 'skip the confirmation prompt', false)
-    .action((emails: readonly string[], commandOptions: AddTesterOptions) => {
-      const testflightProgram = testflightCommandProgram({
-        operation: 'add',
-        emails,
-        app: commandOptions.app,
-        group: commandOptions.group,
-        firstName: commandOptions.first,
-        lastName: commandOptions.last,
-        csv: commandOptions.csv,
-        dryRun: commandOptions.dryRun,
-        yes: commandOptions.yes,
-      });
-      return runCliProgram(testflightProgram);
+    .action(runAdd);
+  function runRm(emails: readonly string[], commandOptions: TesterMutationOptions) {
+    const testflightProgram = testflightCommandProgram({
+      operation: 'remove',
+      emails,
+      ...commandOptions,
     });
+    return runCliProgram(testflightProgram);
+  }
 
   testflightCommand
     .command('rm')
@@ -124,14 +136,14 @@ export const registerTestflightCommand = (program: Command): void => {
     .option('-g, --group <name>', "beta group to remove from (auto-selected if there's only one)")
     .option('--dry-run', 'report what would change without removing anyone', false)
     .option('-y, --yes', 'skip the confirmation prompt', false)
-    .action((emails: readonly string[], commandOptions: TesterMutationOptions) => {
-      const testflightProgram = testflightCommandProgram({
-        operation: 'remove',
-        emails,
-        ...commandOptions,
-      });
-      return runCliProgram(testflightProgram);
+    .action(runRm);
+  function runRelease(commandOptions: ReleaseOptions) {
+    const testflightProgram = testflightCommandProgram({
+      operation: 'release',
+      ...commandOptions,
     });
+    return runCliProgram(testflightProgram);
+  }
 
   testflightCommand
     .command('release')
@@ -151,13 +163,14 @@ export const registerTestflightCommand = (program: Command): void => {
     .option('--no-review', "set the notes only; don't submit for Beta App Review")
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: ReleaseOptions) => {
-      const testflightProgram = testflightCommandProgram({
-        operation: 'release',
-        ...commandOptions,
-      });
-      return runCliProgram(testflightProgram);
+    .action(runRelease);
+  function runFeedback(commandOptions: FeedbackOptions) {
+    const testflightProgram = testflightCommandProgram({
+      operation: 'feedback',
+      ...commandOptions,
     });
+    return runCliProgram(testflightProgram);
+  }
 
   testflightCommand
     .command('feedback')
@@ -169,11 +182,5 @@ export const registerTestflightCommand = (program: Command): void => {
     .option('--type <kind>', 'only show one kind: crash | screenshot')
     .option('--out <dir>', 'download screenshot attachments into this directory')
     .option('--json', 'output machine-readable JSON', false)
-    .action((commandOptions: FeedbackOptions) => {
-      const testflightProgram = testflightCommandProgram({
-        operation: 'feedback',
-        ...commandOptions,
-      });
-      return runCliProgram(testflightProgram);
-    });
-};
+    .action(runFeedback);
+}

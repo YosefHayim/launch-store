@@ -15,7 +15,11 @@ export class ConnectTeam {
       lastName?: string;
       roles?: string[];
     }>('/users?limit=200&fields[users]=username,firstName,lastName,roles');
-    return appleResources.map((user) => {
+    function mapUser(user: {
+      id: string;
+      attributes: { username?: string; firstName?: string; lastName?: string; roles?: string[] };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let username = user.attributes.username;
       if (username == null) username = '';
       let roles = user.attributes.roles;
@@ -26,7 +30,9 @@ export class ConnectTeam {
       if (user.attributes.lastName != null)
         Object.assign(teamUser, { lastName: user.attributes.lastName });
       return teamUser;
-    });
+    }
+
+    return appleResources.map(mapUser);
   }
 
   async listUserInvitations(): Promise<UserInvitationResource[]> {
@@ -39,7 +45,17 @@ export class ConnectTeam {
     }>(
       '/userInvitations?limit=200&fields[userInvitations]=email,firstName,lastName,roles,expirationDate',
     );
-    return appleResources.map((invitation) => {
+    function mapInvitation(invitation: {
+      id: string;
+      attributes: {
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+        roles?: string[];
+        expirationDate?: string;
+      };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let email = invitation.attributes.email;
       if (email == null) email = '';
       let roles = invitation.attributes.roles;
@@ -52,7 +68,9 @@ export class ConnectTeam {
       if (invitation.attributes.expirationDate != null)
         Object.assign(pendingInvitation, { expirationDate: invitation.attributes.expirationDate });
       return pendingInvitation;
-    });
+    }
+
+    return appleResources.map(mapInvitation);
   }
 
   async inviteUser(invite: NewUserInvitation): Promise<UserInvitationResource> {

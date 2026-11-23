@@ -62,9 +62,8 @@ function thrownDateMessage(from: string, to: string): string {
 
   throw new Error('expected a failure');
 }
-
-describe('decompressReport + parseTsv', () => {
-  it('decompresses a gzipped TSV and parses it into header-keyed rows', () => {
+function describeDecompressReportParseTsv() {
+  function decompressesAGzippedTSVAndParsesItIntoHeaderKeyedRows() {
     const tsv = 'Provider\tUnits\tProceeds\nAPPLE\t10\t6.99\nAPPLE\t3\t2.10\n';
     const bufferBytes = Buffer.from(tsv, 'utf8');
     const text = decompressReport(gzipSync(bufferBytes));
@@ -74,38 +73,65 @@ describe('decompressReport + parseTsv', () => {
       { Provider: 'APPLE', Units: '10', Proceeds: '6.99' },
       { Provider: 'APPLE', Units: '3', Proceeds: '2.10' },
     ]);
-  });
-  it('tolerates CRLF endings and pads short rows to every header', () => {
+  }
+
+  it(
+    'decompresses a gzipped TSV and parses it into header-keyed rows',
+    decompressesAGzippedTSVAndParsesItIntoHeaderKeyedRows,
+  );
+  function toleratesCRLFEndingsAndPadsShortRowsToEveryHeader() {
     const parsed = parseTsv('A\tB\tC\r\n1\t2\r\n');
     expect(parsed.rows).toEqual([{ A: '1', B: '2', C: '' }]);
-  });
-  it('returns empty for an empty report', () => {
+  }
+
+  it(
+    'tolerates CRLF endings and pads short rows to every header',
+    toleratesCRLFEndingsAndPadsShortRowsToEveryHeader,
+  );
+  function returnsEmptyForAnEmptyReport() {
     const tsv = parseTsv('');
     expect(tsv).toEqual({ headers: [], rows: [] });
-  });
-});
-describe('eachDate', () => {
-  it('yields every date in an inclusive range', () => {
+  }
+
+  it('returns empty for an empty report', returnsEmptyForAnEmptyReport);
+}
+
+describe('decompressReport + parseTsv', describeDecompressReportParseTsv);
+function describeEachDate() {
+  function yieldsEveryDateInAnInclusiveRange() {
     expect(eachDate('2026-06-01', '2026-06-03')).toEqual([
       '2026-06-01',
       '2026-06-02',
       '2026-06-03',
     ]);
-  });
-  it('yields a single date when from == to', () => {
+  }
+
+  it('yields every date in an inclusive range', yieldsEveryDateInAnInclusiveRange);
+  function yieldsASingleDateWhenFromTo() {
     expect(eachDate('2026-06-01', '2026-06-01')).toEqual(['2026-06-01']);
-  });
-  it('crosses a month boundary correctly', () => {
+  }
+
+  it('yields a single date when from == to', yieldsASingleDateWhenFromTo);
+  function crossesAMonthBoundaryCorrectly() {
     expect(eachDate('2026-01-31', '2026-02-01')).toEqual(['2026-01-31', '2026-02-01']);
-  });
-  it('fails on an inverted range, a malformed date, and an out-of-range date', () => {
+  }
+
+  it('crosses a month boundary correctly', crossesAMonthBoundaryCorrectly);
+  function failsOnAnInvertedRangeAMalformedDateAndAnOutOfRangeDate() {
     expect(thrownDateMessage('2026-06-03', '2026-06-01')).toMatch(/before start/);
     expect(thrownDateMessage('nope', '2026-06-01')).toMatch(/Invalid date/);
     expect(thrownDateMessage('2026-6-1', '2026-06-01')).toMatch(/Invalid date/);
     // June has 30 days - 2026-06-31 would silently normalize to July 1 without the round-trip guard.
     expect(thrownDateMessage('2026-06-31', '2026-06-31')).toMatch(/Invalid calendar date/);
-  });
-});
+  }
+
+  it(
+    'fails on an inverted range, a malformed date, and an out-of-range date',
+    failsOnAnInvertedRangeAMalformedDateAndAnOutOfRangeDate,
+  );
+}
+
+describe('eachDate', describeEachDate);
 type ReportsApiFixtures = Readonly<{
   appId?: Record<string, string>;
   requests?: AnalyticsReportRequestResource[];
@@ -115,62 +141,86 @@ type ReportsApiFixtures = Readonly<{
 }>;
 
 /** Read one optional fixture map and return an empty collection when the key is absent. */
-const fixtureEntries = <Entry>(
+function fixtureEntries<Entry>(
   entriesByParent: Record<string, Entry[]> | undefined,
   parentId: string,
-): Entry[] => {
+): Entry[] {
   if (entriesByParent == null) return [];
   const entries = entriesByParent[parentId];
   if (entries == null) return [];
   return entries;
-};
+}
 
 /** Create a configurable reports API fake backed by parent-id lookup maps. */
-const makeApi = (fixtures: ReportsApiFixtures): AscReportsApi => {
+function makeApi(fixtures: ReportsApiFixtures): AscReportsApi {
+  function mockCall(bundleId: string) {
+    if (fixtures.appId == null) return Promise.resolve(null);
+    const appId = fixtures.appId[bundleId];
+    if (appId == null) return Promise.resolve(null);
+    return Promise.resolve(appId);
+  }
+
+  function mockCall2() {
+    if (fixtures.requests == null) return Promise.resolve([]);
+    return Promise.resolve(fixtures.requests);
+  }
+
+  function mockCall3(_appId: string, accessType: string) {
+    return Promise.resolve({ id: 'new-req', accessType });
+  }
+
+  function mockCall4(requestId: string) {
+    return Promise.resolve(fixtureEntries(fixtures.reports, requestId));
+  }
+
+  function mockCall5(reportId: string) {
+    return Promise.resolve(fixtureEntries(fixtures.instances, reportId));
+  }
+
+  function mockCall6(instanceId: string) {
+    return Promise.resolve(fixtureEntries(fixtures.segments, instanceId));
+  }
+
   return {
-    getAppId: vi.fn((bundleId: string) => {
-      if (fixtures.appId == null) return Promise.resolve(null);
-      const appId = fixtures.appId[bundleId];
-      if (appId == null) return Promise.resolve(null);
-      return Promise.resolve(appId);
-    }),
-    listAnalyticsReportRequests: vi.fn(() => {
-      if (fixtures.requests == null) return Promise.resolve([]);
-      return Promise.resolve(fixtures.requests);
-    }),
-    createAnalyticsReportRequest: vi.fn((_appId: string, accessType: string) =>
-      Promise.resolve({ id: 'new-req', accessType }),
-    ),
-    listAnalyticsReports: vi.fn((requestId: string) => {
-      return Promise.resolve(fixtureEntries(fixtures.reports, requestId));
-    }),
-    listAnalyticsReportInstances: vi.fn((reportId: string) => {
-      return Promise.resolve(fixtureEntries(fixtures.instances, reportId));
-    }),
-    listAnalyticsReportSegments: vi.fn((instanceId: string) => {
-      return Promise.resolve(fixtureEntries(fixtures.segments, instanceId));
-    }),
+    getAppId: vi.fn(mockCall),
+    listAnalyticsReportRequests: vi.fn(mockCall2),
+    createAnalyticsReportRequest: vi.fn(mockCall3),
+    listAnalyticsReports: vi.fn(mockCall4),
+    listAnalyticsReportInstances: vi.fn(mockCall5),
+    listAnalyticsReportSegments: vi.fn(mockCall6),
   };
-};
-describe('ensureAnalyticsRequest', () => {
-  it('reuses an existing active request instead of creating one', async () => {
+}
+function describeEnsureAnalyticsRequest() {
+  async function reusesAnExistingActiveRequestInsteadOfCreatingOne() {
     const api = makeApi({ requests: [{ id: 'req1', accessType: 'ONGOING' }] });
     const { request, created } = await ensureAnalyticsRequest(api, 'app1', 'ONGOING');
     expect(created).toBe(false);
     expect(request.id).toBe('req1');
     expect(api.createAnalyticsReportRequest).not.toHaveBeenCalled();
-  });
-  it('skips a request stopped for inactivity and creates a fresh one', async () => {
+  }
+
+  it(
+    'reuses an existing active request instead of creating one',
+    reusesAnExistingActiveRequestInsteadOfCreatingOne,
+  );
+  async function skipsARequestStoppedForInactivityAndCreatesAFreshOne() {
     const api = makeApi({
       requests: [{ id: 'stale', accessType: 'ONGOING', stoppedDueToInactivity: true }],
     });
     const { request, created } = await ensureAnalyticsRequest(api, 'app1', 'ONGOING');
     expect(created).toBe(true);
     expect(request.id).toBe('new-req');
-  });
-});
-describe('collectAnalyticsSegments', () => {
-  it('throws an actionable error when the app record is missing', async () => {
+  }
+
+  it(
+    'skips a request stopped for inactivity and creates a fresh one',
+    skipsARequestStoppedForInactivityAndCreatesAFreshOne,
+  );
+}
+
+describe('ensureAnalyticsRequest', describeEnsureAnalyticsRequest);
+function describeCollectAnalyticsSegments() {
+  async function throwsAnActionableErrorWhenTheAppPieceIsMissing() {
     const api = makeApi({ appId: {} });
     const analyticsSegments = collectAnalyticsSegments(api, {
       bundleId: 'com.x.missing',
@@ -178,8 +228,13 @@ describe('collectAnalyticsSegments', () => {
       granularity: 'DAILY',
     });
     await expect(analyticsSegments).rejects.toThrow(/No App Store Connect app record/);
-  });
-  it('signals a freshly-created request with no data yet', async () => {
+  }
+
+  it(
+    'throws an actionable error when the app record is missing',
+    throwsAnActionableErrorWhenTheAppPieceIsMissing,
+  );
+  async function signalsAFreshlyCreatedRequestWithNoPieceYet() {
     const api = makeApi({ appId: { 'com.x': 'app1' }, requests: [] });
     const analyticsCollection = await collectAnalyticsSegments(api, {
       bundleId: 'com.x',
@@ -187,8 +242,13 @@ describe('collectAnalyticsSegments', () => {
       granularity: 'DAILY',
     });
     expect(analyticsCollection).toEqual({ requestCreated: true, reportCount: 0, downloads: [] });
-  });
-  it('walks request->reports->instances->segments and flattens with context', async () => {
+  }
+
+  it(
+    'signals a freshly-created request with no data yet',
+    signalsAFreshlyCreatedRequestWithNoPieceYet,
+  );
+  async function walksRequestReportsInstancesSegmentsAndFlattensWithPiece() {
     const api = makeApi({
       appId: { 'com.x': 'app1' },
       requests: [{ id: 'req1', accessType: 'ONGOING' }],
@@ -222,5 +282,12 @@ describe('collectAnalyticsSegments', () => {
       granularity: 'DAILY',
       processingDate: '2026-06-01',
     });
-  });
-});
+  }
+
+  it(
+    'walks request->reports->instances->segments and flattens with context',
+    walksRequestReportsInstancesSegmentsAndFlattensWithPiece,
+  );
+}
+
+describe('collectAnalyticsSegments', describeCollectAnalyticsSegments);

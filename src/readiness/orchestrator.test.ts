@@ -17,8 +17,12 @@ const readinessContext: ReadinessContext = {
     submit: 'app-store-connect',
   },
   apps: [],
-  resolveAscApi: () => Promise.resolve(null),
-  resolvePlayApi: () => Promise.resolve(null),
+  resolveAscApi() {
+    return Promise.resolve(null);
+  },
+  resolvePlayApi() {
+    return Promise.resolve(null);
+  },
 };
 
 function isThrowingProbe(probeCheck: ProbeResult | (() => never)): probeCheck is () => never {
@@ -26,7 +30,7 @@ function isThrowingProbe(probeCheck: ProbeResult | (() => never)): probeCheck is
 }
 
 /** Build a fake probe that returns a fixed result (or throws), so the orchestrator is tested with no network. */
-const probe = (id: string, fixedProbeResult: ProbeResult | (() => never)): ReadinessProbe => {
+function probe(id: string, fixedProbeResult: ProbeResult | (() => never)): ReadinessProbe {
   return {
     id,
     title: id,
@@ -40,27 +44,36 @@ const probe = (id: string, fixedProbeResult: ProbeResult | (() => never)): Readi
       return fixedProbeResult;
     },
   };
-};
+}
 
 /** Run probe aggregation with the platform services available to production probes. */
 function runProbeSet(readinessProbes: readonly ReadinessProbe[]) {
   return runProbes(readinessContext, readinessProbes);
 }
-
-describe('readinessExitCode', () => {
-  it('returns ok (0) with no errors or blockers', () => {
+function describeReadinessExitCode() {
+  function returnsOk0WithNoErrorsOrBlockers() {
     expect(readinessExitCode({ errorCount: 0, blockerCount: 0 })).toBe(READINESS_EXIT.ok);
-  });
-  it('returns blocker (2) when a blocker is present', () => {
-    expect(readinessExitCode({ errorCount: 0, blockerCount: 3 })).toBe(READINESS_EXIT.blocker);
-  });
-  it("lets an error (1) win over a blocker - a doctor that couldn't read can't certify", () => {
-    expect(readinessExitCode({ errorCount: 1, blockerCount: 3 })).toBe(READINESS_EXIT.error);
-  });
-});
+  }
 
-describe('tallyProbeReports', () => {
-  it('counts per-app findings and probe-level skip/error states', () => {
+  it('returns ok (0) with no errors or blockers', returnsOk0WithNoErrorsOrBlockers);
+  function returnsBlocker2WhenABlockerIsPresent() {
+    expect(readinessExitCode({ errorCount: 0, blockerCount: 3 })).toBe(READINESS_EXIT.blocker);
+  }
+
+  it('returns blocker (2) when a blocker is present', returnsBlocker2WhenABlockerIsPresent);
+  function letsAnError1WinOverABlockerADoctorThatCouldnTReadCanTCertify() {
+    expect(readinessExitCode({ errorCount: 1, blockerCount: 3 })).toBe(READINESS_EXIT.error);
+  }
+
+  it(
+    "lets an error (1) win over a blocker - a doctor that couldn't read can't certify",
+    letsAnError1WinOverABlockerADoctorThatCouldnTReadCanTCertify,
+  );
+}
+
+describe('readinessExitCode', describeReadinessExitCode);
+function describeTallyProbeReports() {
+  function countsPerAppFindingsAndProbeLevelSkipErrorStates() {
     const probeReports: ProbeReport[] = [
       {
         id: 'a',
@@ -103,11 +116,18 @@ describe('tallyProbeReports', () => {
       errorCount: 1,
       skippedCount: 1,
     });
-  });
-});
+  }
+
+  it(
+    'counts per-app findings and probe-level skip/error states',
+    countsPerAppFindingsAndProbeLevelSkipErrorStates,
+  );
+}
+
+describe('tallyProbeReports', describeTallyProbeReports);
 
 describe('runProbes', () => {
-  it('tallies per-app findings and exits 2 on a blocker', async () => {
+  async function talliesPerAppFindingsAndExits2OnABlocker() {
     const outcome = await runProbeSet([
       probe('a', {
         state: 'checked',
@@ -125,7 +145,9 @@ describe('runProbes', () => {
     expect(outcome.warnCount).toBe(1);
     expect(outcome.blockerCount).toBe(1);
     expect(outcome.exitCode).toBe(READINESS_EXIT.blocker);
-  });
+  }
+
+  it('tallies per-app findings and exits 2 on a blocker', talliesPerAppFindingsAndExits2OnABlocker);
   it('drops omitted probes from the report and counts skipped ones', async () => {
     const outcome = await runProbeSet([
       probe('omitted', { state: 'omitted' }),
@@ -136,14 +158,16 @@ describe('runProbes', () => {
     expect(outcome.exitCode).toBe(READINESS_EXIT.ok);
   });
   it('isolates a thrown probe as errored (exit 1) without sinking its siblings', async () => {
+    function probePiece(): never {
+      throw new Error('network down');
+    }
+
     const outcome = await runProbeSet([
       probe('ok', {
         state: 'checked',
         apps: [{ app: 'x', identifier: 'com.x', status: 'ok', detail: '' }],
       }),
-      probe('boom', () => {
-        throw new Error('network down');
-      }),
+      probe('boom', probePiece),
     ]);
     expect(outcome.okCount).toBe(1);
     expect(outcome.errorCount).toBe(1);
@@ -151,14 +175,16 @@ describe('runProbes', () => {
     const errored = outcome.reports.find((report) => report.id == 'boom');
     expect(errored?.outcome).toEqual({ state: 'errored', error: 'network down' });
   });
-  it('formats non-Error probe failures via errorMessage', async () => {
+  async function formatsNonErrorProbeFailuresViaErrorMessage() {
     const outcome = await runProbeSet([
       {
         id: 'tagged',
         title: 'tagged',
         store: 'appstore',
         categories: ['account'],
-        check: () => Promise.reject({ message: 'asc rate limited' }),
+        check() {
+          return Promise.reject({ message: 'asc rate limited' });
+        },
       },
     ]);
     expect(outcome.errorCount).toBe(1);
@@ -166,5 +192,10 @@ describe('runProbes', () => {
       state: 'errored',
       error: 'asc rate limited',
     });
-  });
+  }
+
+  it(
+    'formats non-Error probe failures via errorMessage',
+    formatsNonErrorProbeFailuresViaErrorMessage,
+  );
 });

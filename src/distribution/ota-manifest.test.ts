@@ -11,19 +11,24 @@ import {
   updatesAppConfigSnippet,
   updatesWorkerScript,
 } from './ota-manifest.ts';
-
-describe('contentTypeFor', () => {
-  it('maps known extensions and defaults unknown ones to octet-stream', () => {
+function describePieceTypeFor() {
+  function mapsKnownExtensionsAndDefaultsUnknownOnesToOctetStream() {
     const typeFor = contentTypeFor('_expo/static/js/ios/index-abc.hbc');
     expect(typeFor).toBe('application/javascript');
     expect(contentTypeFor('assets/logo.png')).toBe('image/png');
     expect(contentTypeFor('fonts/Inter.ttf')).toBe('font/ttf');
     expect(contentTypeFor('weird.xyz')).toBe('application/octet-stream');
-  });
-});
+  }
 
-describe('assembleManifest', () => {
-  it('produces a protocol-v0 manifest with empty metadata/extra', () => {
+  it(
+    'maps known extensions and defaults unknown ones to octet-stream',
+    mapsKnownExtensionsAndDefaultsUnknownOnesToOctetStream,
+  );
+}
+
+describe('contentTypeFor', describePieceTypeFor);
+function describeAssembleManifest() {
+  function producesAProtocolV0ManifestWithEmptyMetadataExtra() {
     const manifest = assembleManifest({
       id: 'uuid-1',
       createdAt: '2026-06-14T00:00:00.000Z',
@@ -45,22 +50,34 @@ describe('assembleManifest', () => {
       extra: {},
     });
     expect(manifest.assets[0]?.fileExtension).toBe('.png');
-  });
-});
+  }
 
-describe('manifestKey', () => {
-  it('keys a manifest by channel, platform, and runtime version', () => {
+  it(
+    'produces a protocol-v0 manifest with empty metadata/extra',
+    producesAProtocolV0ManifestWithEmptyMetadataExtra,
+  );
+}
+
+describe('assembleManifest', describeAssembleManifest);
+function describeManifestKey() {
+  function keysAManifestByChannelPlatformAndRuntimeVersion() {
     expect(manifestKey('production', 'ios', '1.0.0')).toBe(
       'updates/production/ios/1.0.0/manifest.json',
     );
     expect(manifestSignatureKey('production', 'ios', '1.0.0')).toBe(
       'updates/production/ios/1.0.0/manifest.sig',
     );
-  });
-});
+  }
 
-describe('history + rollback keys', () => {
-  it('keys the index per channel+platform and snapshots/directives under the runtime version', () => {
+  it(
+    'keys a manifest by channel, platform, and runtime version',
+    keysAManifestByChannelPlatformAndRuntimeVersion,
+  );
+}
+
+describe('manifestKey', describeManifestKey);
+function describeHistoryRollbackKeys() {
+  function keysTheIndexPerChannelPlatformAndSnapshotsDirectivesUnderTheRuntimeVersion() {
     expect(historyIndexKey('production', 'android')).toBe(
       'updates/production/android/history.json',
     );
@@ -70,40 +87,62 @@ describe('history + rollback keys', () => {
     expect(rollbackDirectiveKey('production', 'ios', '1.0.0')).toBe(
       'updates/production/ios/1.0.0/rollback.json',
     );
-  });
-});
+  }
 
-describe('assembleRollbackDirective', () => {
-  it('builds a rollBackToEmbedded directive committed at the given time', () => {
+  it(
+    'keys the index per channel+platform and snapshots/directives under the runtime version',
+    keysTheIndexPerChannelPlatformAndSnapshotsDirectivesUnderTheRuntimeVersion,
+  );
+}
+
+describe('history + rollback keys', describeHistoryRollbackKeys);
+function describeAssembleRollbackDirective() {
+  function buildsARollBackToEmbeddedDirectiveCommittedAtTheGivenTime() {
     expect(assembleRollbackDirective('2026-06-14T00:00:00.000Z')).toEqual({
       type: 'rollBackToEmbedded',
       parameters: { commitTime: '2026-06-14T00:00:00.000Z' },
     });
-  });
-});
+  }
 
-describe('updatesWorkerScript', () => {
-  it('reads the expo headers and routes to the static manifest under the public base', () => {
+  it(
+    'builds a rollBackToEmbedded directive committed at the given time',
+    buildsARollBackToEmbeddedDirectiveCommittedAtTheGivenTime,
+  );
+}
+
+describe('assembleRollbackDirective', describeAssembleRollbackDirective);
+function describeUpdatesWorkerScript() {
+  function readsTheExpoHeadersAndRoutesToTheStaticManifestUnderThePublicBase() {
     const script = updatesWorkerScript('https://cdn.example.com/');
     expect(script).toContain('expo-runtime-version');
     expect(script).toContain('expo-channel-name');
     expect(script).toContain('"https://cdn.example.com"');
     expect(script).toContain('expo-protocol-version');
     expect(script).toContain('manifest.sig');
-  });
+  }
 
-  it('emits a protocol-v1 multipart response with a rollback directive part', () => {
+  it(
+    'reads the expo headers and routes to the static manifest under the public base',
+    readsTheExpoHeadersAndRoutesToTheStaticManifestUnderThePublicBase,
+  );
+  function emitsAProtocolV1MultipartPieceWithARollbackDirectivePart() {
     const script = updatesWorkerScript('https://cdn.example.com');
     expect(script).toContain('multipart/mixed');
     expect(script).toContain("'expo-protocol-version': '1'");
     expect(script).toContain('rollback.json');
     expect(script).toContain("part('directive'");
     expect(script).toContain("part('manifest'");
-  });
-});
+  }
 
-describe('updatesAppConfigSnippet', () => {
-  it('includes the code-signing block only when signed', () => {
+  it(
+    'emits a protocol-v1 multipart response with a rollback directive part',
+    emitsAProtocolV1MultipartPieceWithARollbackDirectivePart,
+  );
+}
+
+describe('updatesWorkerScript', describeUpdatesWorkerScript);
+function describeUpdatesAppPieceSnippet() {
+  function includesTheCodeSigningBlockOnlyWhenSigned() {
     const signed = updatesAppConfigSnippet({
       updateUrl: 'https://w',
       runtimeVersion: '1.0.0',
@@ -117,5 +156,9 @@ describe('updatesAppConfigSnippet', () => {
       signed: false,
     });
     expect(unsigned).not.toContain('codeSigningCertificate');
-  });
-});
+  }
+
+  it('includes the code-signing block only when signed', includesTheCodeSigningBlockOnlyWhenSigned);
+}
+
+describe('updatesAppConfigSnippet', describeUpdatesAppPieceSnippet);

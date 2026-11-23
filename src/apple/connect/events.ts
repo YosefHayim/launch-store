@@ -19,14 +19,30 @@ export class ConnectEvents {
     const appleResources = await this.client.requestAll<AppEventAttributes>(
       `/apps/${appId}/appEvents?limit=200&fields[appEvents]=referenceName,badge,eventState,primaryLocale,deepLink,priority,purpose`,
     );
-    return appleResources.map((appleEvent) => toAppEvent(appleEvent, ''));
+    function mapAppleEvent(appleEvent: {
+      id: string;
+      attributes: AppEventAttributes;
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
+      return toAppEvent(appleEvent, '');
+    }
+
+    return appleResources.map(mapAppleEvent);
   }
 
   async listAppEventLocalizations(eventId: string): Promise<AppEventLocalizationResource[]> {
     const appleResources = await this.client.requestAll<AppEventLocalizationAttributes>(
       `/appEvents/${eventId}/localizations?limit=200&fields[appEventLocalizations]=locale,name,shortDescription,longDescription`,
     );
-    return appleResources.map((localization) => toAppEventLocalization(localization, ''));
+    function mapLocalization(localization: {
+      id: string;
+      attributes: AppEventLocalizationAttributes;
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
+      return toAppEventLocalization(localization, '');
+    }
+
+    return appleResources.map(mapLocalization);
   }
 
   async createAppEvent(appId: string, attributes: NewAppEvent): Promise<AppEventResource> {

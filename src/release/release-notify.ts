@@ -13,21 +13,21 @@ type TransitionTracker = {
   lastPhasedState: Map<string, string>;
 };
 /** A fresh tracker for one `--watch` session. */
-export const createTransitionTracker = (): TransitionTracker => {
+export function createTransitionTracker(): TransitionTracker {
   return { reviewed: new Set<string>(), lastPhasedState: new Map<string, string>() };
-};
+}
 /**
  * The review notification status for a verdict, or `null` when the transition isn't worth a ping.
  * A rejection notifies `rejected`; a `released`/`pending-release` verdict notifies `approved`. Other
  * settled verdicts (`preparing`, `unknown`) don't represent a review outcome, so they stay silent even
  * though their `verdict.done` is true. Pure.
  */
-export const reviewStatusForVerdict = (verdict: ReleaseVerdict): 'approved' | 'rejected' | null => {
+export function reviewStatusForVerdict(verdict: ReleaseVerdict): 'approved' | 'rejected' | null {
   if (verdict.state == 'rejected') return 'rejected';
   if (verdict.state == 'released') return 'approved';
   if (verdict.state == 'pending-release') return 'approved';
   return null;
-};
+}
 /**
  * Decide which notifications one app's latest reading should fire, mutating `tracker` so each transition
  * pings at most once across the whole watch:
@@ -37,11 +37,11 @@ export const reviewStatusForVerdict = (verdict: ReleaseVerdict): 'approved' | 'r
  * - **rollout `advanced`** whenever the phased-release state changes to a new non-null value between
  *   polls. The first observed state is a silent baseline (we can't tell a fresh ramp from a resumed one).
  */
-export const planTransitionNotifications = (
+export function planTransitionNotifications(
   appName: string,
   status: ReleaseStatus,
   tracker: TransitionTracker,
-): NotifyEvent[] => {
+): NotifyEvent[] {
   const events: NotifyEvent[] = [];
   let version = status.versionString;
   if (version == null) version = '';
@@ -79,4 +79,4 @@ export const planTransitionNotifications = (
     }
   }
   return events;
-};
+}

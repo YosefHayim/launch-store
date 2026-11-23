@@ -14,6 +14,7 @@ import {
   type PlayVitalsReader,
 } from '../stats/stats-credentials.ts';
 import { discoverApps } from './discover-apps.ts';
+import type { DiscoveredApp, DiscoveryWarning } from '../types/portfolio.ts';
 
 const ACCOUNTS_FILE = JSON.stringify({
   active: 'KEYA',
@@ -61,8 +62,7 @@ function makePlayClient(appsOrFailure: readonly FakePlayApp[] | Error): PlayVita
 
   return client as unknown as PlayVitalsReader;
 }
-
-describe('discoverApps', () => {
+function describeDiscoverApps() {
   let homeDirectory: string;
 
   beforeEach(function setDiscoverHome() {
@@ -82,8 +82,7 @@ describe('discoverApps', () => {
     resetLaunchDirectories();
     removeTemporaryHomeDirectory(homeDirectory);
   });
-
-  test('lists the apps of every account and the Play account', async () => {
+  async function listsTheAppsOfEveryAccountAndThePlayAccount() {
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
 
     async function ascClientForAccount(keyId: string): Promise<AppStoreStatsClient | null> {
@@ -100,8 +99,11 @@ describe('discoverApps', () => {
 
     makeStatsCredentialsTest({ ascClientForAccount, playReportingClient });
     const report = await discoverApps();
+    function mapApp(app: DiscoveredApp) {
+      return [app.key, app.accountLabel];
+    }
 
-    expect(report.apps.map((app) => [app.key, app.accountLabel])).toEqual([
+    expect(report.apps.map(mapApp)).toEqual([
       ['ios-1', 'alpha'],
       ['ios-2', 'beta'],
       ['android-com.play', 'google-play'],
@@ -121,9 +123,13 @@ describe('discoverApps', () => {
       packageName: 'com.play',
       platform: 'android',
     });
-  });
+  }
 
-  test('keeps the first account when two accounts see the same app', async () => {
+  test(
+    'lists the apps of every account and the Play account',
+    listsTheAppsOfEveryAccountAndThePlayAccount,
+  );
+  async function keepsTheFirstAccountWhenTwoAccountsSeeTheSameApp() {
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
     const sharedApp = [{ id: '1', name: 'Shared', bundleId: 'com.shared' }];
 
@@ -133,11 +139,18 @@ describe('discoverApps', () => {
 
     makeStatsCredentialsTest({ ascClientForAccount });
     const report = await discoverApps();
+    function readAccountLabel(app: DiscoveredApp) {
+      return app.accountLabel;
+    }
 
-    expect(report.apps.map((app) => app.accountLabel)).toEqual(['alpha']);
-  });
+    expect(report.apps.map(readAccountLabel)).toEqual(['alpha']);
+  }
 
-  test('turns a failing account into a warning and still lists the others', async () => {
+  test(
+    'keeps the first account when two accounts see the same app',
+    keepsTheFirstAccountWhenTwoAccountsSeeTheSameApp,
+  );
+  async function turnsAFailingAccountIntoAWarningAndStillListsTheOthers() {
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
 
     async function ascClientForAccount(keyId: string): Promise<AppStoreStatsClient | null> {
@@ -150,23 +163,34 @@ describe('discoverApps', () => {
 
     makeStatsCredentialsTest({ ascClientForAccount });
     const report = await discoverApps();
+    function readKey(app: DiscoveredApp) {
+      return app.key;
+    }
 
-    expect(report.apps.map((app) => app.key)).toEqual(['ios-2']);
+    expect(report.apps.map(readKey)).toEqual(['ios-2']);
     expect(report.warnings).toEqual([{ accountLabel: 'alpha', message: '401 revoked' }]);
     expect(report.failedAccountLabels).toEqual(['alpha']);
     expect(report.attemptedAccountCount).toBe(2);
-  });
+  }
 
-  test('warns when an account has no saved key', async () => {
+  test(
+    'turns a failing account into a warning and still lists the others',
+    turnsAFailingAccountIntoAWarningAndStillListsTheOthers,
+  );
+  async function warnsWhenAnAccountHasNoSavedKey() {
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
     makeStatsCredentialsTest();
     const report = await discoverApps();
+    function readAccountLabel2(warning: DiscoveryWarning) {
+      return warning.accountLabel;
+    }
 
-    expect(report.warnings.map((warning) => warning.accountLabel)).toEqual(['alpha', 'beta']);
+    expect(report.warnings.map(readAccountLabel2)).toEqual(['alpha', 'beta']);
     expect(report.warnings[0]?.message).toContain('no saved key');
-  });
+  }
 
-  test('turns a failing Play account into a warning', async () => {
+  test('warns when an account has no saved key', warnsWhenAnAccountHasNoSavedKey);
+  async function turnsAFailingPlayAccountIntoAWarning() {
     async function playReportingClient(): Promise<PlayVitalsReader | null> {
       return makePlayClient(new Error('403 denied'));
     }
@@ -176,9 +200,10 @@ describe('discoverApps', () => {
 
     expect(report.warnings).toEqual([{ accountLabel: 'google-play', message: '403 denied' }]);
     expect(report.attemptedAccountCount).toBe(1);
-  });
+  }
 
-  test('does not count the Play source when no service account is saved', async () => {
+  test('turns a failing Play account into a warning', turnsAFailingPlayAccountIntoAWarning);
+  async function doesNotCountThePlayPieceWhenNoServiceAccountIsSaved() {
     makeStatsCredentialsTest();
     const report = await discoverApps();
 
@@ -188,5 +213,12 @@ describe('discoverApps', () => {
       attemptedAccountCount: 0,
       failedAccountLabels: [],
     });
-  });
-});
+  }
+
+  test(
+    'does not count the Play source when no service account is saved',
+    doesNotCountThePlayPieceWhenNoServiceAccountIsSaved,
+  );
+}
+
+describe('discoverApps', describeDiscoverApps);

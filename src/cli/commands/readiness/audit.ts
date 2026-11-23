@@ -9,7 +9,19 @@ type AuditOptions = {
 };
 
 /** Attach the read-only pre-submit audit command. */
-export const registerAuditCommand = (program: Command): void => {
+export function registerAuditCommand(program: Command): void {
+  function runAudit(commandOptions: AuditOptions) {
+    const readinessProgram = readinessCommandProgram({
+      category: 'submit',
+      labels: {
+        summary: 'Pre-submit audit',
+        empty: 'No audit checks ran - no apps with a bundle id or package name were found.',
+      },
+      ...commandOptions,
+    });
+    return runCliProgram(readinessProgram);
+  }
+
   program
     .command('audit')
     .description(
@@ -17,15 +29,5 @@ export const registerAuditCommand = (program: Command): void => {
     )
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((commandOptions: AuditOptions) => {
-      const readinessProgram = readinessCommandProgram({
-        category: 'submit',
-        labels: {
-          summary: 'Pre-submit audit',
-          empty: 'No audit checks ran - no apps with a bundle id or package name were found.',
-        },
-        ...commandOptions,
-      });
-      return runCliProgram(readinessProgram);
-    });
-};
+    .action(runAudit);
+}

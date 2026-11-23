@@ -37,10 +37,14 @@ export class ConnectSandbox {
   }
 
   async clearSandboxTesterPurchaseHistory(testerIds: readonly string[]): Promise<void> {
+    function mapId(id: string) {
+      return { type: 'sandboxTesters', id };
+    }
+
     await this.client.createResource(this.client.v2('/sandboxTestersClearPurchaseHistoryRequest'), {
       type: 'sandboxTestersClearPurchaseHistoryRequest',
       relationships: {
-        sandboxTesters: { data: testerIds.map((id) => ({ type: 'sandboxTesters', id })) },
+        sandboxTesters: { data: testerIds.map(mapId) },
       },
     });
   }

@@ -19,8 +19,11 @@ import {
   parseVersionExperimentsConfig,
   reconcileVersionExperiments,
   summarizeExperiments,
+  type TreatmentConfig,
   type VersionExperimentsConfig,
 } from './version-experiments.ts';
+import type { ActionStatus } from '../types/reconcile.ts';
+import type { LocalAsset } from '../listing/screenshots/assets.ts';
 
 type ExperimentWrites = {
   createdExperiments: Array<{
@@ -51,10 +54,10 @@ type ExperimentStoreState = {
 };
 
 /** Build an experiments API fake and its write journal. */
-const makeExperimentsApi = (
+function makeExperimentsApi(
   stateOverrides: Partial<ExperimentStoreState>,
   methodOverrides: Partial<AscExperimentsApi> = {},
-): Readonly<{ appleExperimentsApi: AscExperimentsApi; experimentWrites: ExperimentWrites }> => {
+): Readonly<{ appleExperimentsApi: AscExperimentsApi; experimentWrites: ExperimentWrites }> {
   const experimentStore: ExperimentStoreState = {
     appId: 'app-1',
     experiments: [],
@@ -79,9 +82,13 @@ const makeExperimentsApi = (
     startedExperiments: [],
   };
   const appleExperimentsApi: AscExperimentsApi = {
-    getAppId: () => Promise.resolve(experimentStore.appId),
-    listVersionExperiments: () => Promise.resolve(experimentStore.experiments),
-    createVersionExperiment: (_appId, experimentInput) => {
+    getAppId() {
+      return Promise.resolve(experimentStore.appId);
+    },
+    listVersionExperiments() {
+      return Promise.resolve(experimentStore.experiments);
+    },
+    createVersionExperiment(_appId, experimentInput) {
       experimentWrites.createdExperiments.push(experimentInput);
       return Promise.resolve({
         id: 'exp-new',
@@ -89,38 +96,42 @@ const makeExperimentsApi = (
         state: 'PREPARE_FOR_SUBMISSION',
       });
     },
-    listExperimentTreatments: () => Promise.resolve(experimentStore.treatments),
-    createExperimentTreatment: (experimentId, treatmentInput) => {
+    listExperimentTreatments() {
+      return Promise.resolve(experimentStore.treatments);
+    },
+    createExperimentTreatment(experimentId, treatmentInput) {
       experimentWrites.createdTreatments.push({
         experimentId,
         name: treatmentInput.name,
       });
       return Promise.resolve({ id: 'treat-new', name: treatmentInput.name });
     },
-    startVersionExperiment: (experimentId) => {
+    startVersionExperiment(experimentId) {
       experimentWrites.startedExperiments.push(experimentId);
       return Promise.resolve();
     },
-    listExperimentTreatmentLocalizations: () => Promise.resolve(experimentStore.localizations),
-    createExperimentTreatmentLocalization: (treatmentId, locale) => {
+    listExperimentTreatmentLocalizations() {
+      return Promise.resolve(experimentStore.localizations);
+    },
+    createExperimentTreatmentLocalization(treatmentId, locale) {
       experimentWrites.createdLocalizations.push({ treatmentId, locale });
       return Promise.resolve({ id: `loc-${locale}`, locale });
     },
-    listTreatmentScreenshotSets: (localizationId) => {
+    listTreatmentScreenshotSets(localizationId) {
       let localizationSets = experimentStore.screenshotSetsByLocalization[localizationId];
       if (localizationSets == null) localizationSets = [];
       return Promise.resolve(localizationSets);
     },
-    createTreatmentScreenshotSet: (localizationId, displayType) => {
+    createTreatmentScreenshotSet(localizationId, displayType) {
       experimentWrites.createdSets.push({ localizationId, displayType });
       return Promise.resolve({ id: `set-${localizationId}`, screenshotDisplayType: displayType });
     },
-    listScreenshots: (setId) => {
+    listScreenshots(setId) {
       let setScreenshots = experimentStore.screenshotsBySet[setId];
       if (setScreenshots == null) setScreenshots = [];
       return Promise.resolve(setScreenshots);
     },
-    uploadScreenshot: (setId, fileName) => {
+    uploadScreenshot(setId, fileName) {
       experimentWrites.uploads.push({ setId, fileName });
       let setScreenshots = experimentStore.screenshotsBySet[setId];
       if (setScreenshots == null) setScreenshots = [];
@@ -129,36 +140,45 @@ const makeExperimentsApi = (
       experimentStore.screenshotsBySet[setId] = [...setScreenshots, { id: uploadedId, fileName }];
       return Promise.resolve(uploadedId);
     },
-    deleteScreenshot: (screenshotId) => {
+    deleteScreenshot(screenshotId) {
       experimentWrites.removedScreenshots.push(screenshotId);
       for (const [setId, setScreenshots] of Object.entries(experimentStore.screenshotsBySet)) {
-        experimentStore.screenshotsBySet[setId] = setScreenshots.filter(
-          (screenshot) => screenshot.id != screenshotId,
-        );
+        function filterScreenshot(screenshot: {
+          readonly id: string;
+          readonly fileName: string;
+          readonly sourceFileChecksum?: string;
+          readonly assetDeliveryState?: string;
+        }) {
+          return screenshot.id != screenshotId;
+        }
+
+        experimentStore.screenshotsBySet[setId] = setScreenshots.filter(filterScreenshot);
       }
       return Promise.resolve();
     },
-    reorderScreenshots: (setId, screenshotIds) => {
+    reorderScreenshots(setId, screenshotIds) {
       experimentWrites.reorders.push({ setId, screenshotIds });
       return Promise.resolve();
     },
-    listReviewSubmissions: () => Promise.resolve(experimentStore.reviewSubmissions),
-    createReviewSubmission: (_appId, platform) => {
+    listReviewSubmissions() {
+      return Promise.resolve(experimentStore.reviewSubmissions);
+    },
+    createReviewSubmission(_appId, platform) {
       experimentWrites.createdSubmissions.push(platform);
       return Promise.resolve({ id: 'sub-new', state: 'READY_FOR_REVIEW' });
     },
-    addExperimentReviewSubmissionItem: (submissionId, experimentId) => {
+    addExperimentReviewSubmissionItem(submissionId, experimentId) {
       experimentWrites.reviewItems.push({ submissionId, experimentId });
       return Promise.resolve();
     },
-    submitReviewSubmission: (submissionId) => {
+    submitReviewSubmission(submissionId) {
       experimentWrites.submittedSubmissions.push(submissionId);
       return Promise.resolve();
     },
     ...methodOverrides,
   };
   return { appleExperimentsApi, experimentWrites };
-};
+}
 
 const experimentConfig: VersionExperimentsConfig = {
   experiments: [
@@ -181,32 +201,39 @@ const mediaConfig: VersionExperimentsConfig = {
 };
 
 /** Where a fixture treatment screenshot lives; also its checksum. */
-const screenshotPath = (locale: string, fileName: string): string =>
-  `/treatment/${locale}/APP_IPHONE_67/${fileName}`;
+function screenshotPath(locale: string, fileName: string): string {
+  return `/treatment/${locale}/APP_IPHONE_67/${fileName}`;
+}
 
 /** One local treatment screenshot whose checksum is its path. */
-const localScreenshot = (locale: string, fileName: string): LocalScreenshot => ({
-  locale,
-  displayType: 'APP_IPHONE_67',
-  fileName,
-  path: screenshotPath(locale, fileName),
-  checksum: screenshotPath(locale, fileName),
-  size: 1,
-});
+function localScreenshot(locale: string, fileName: string): LocalScreenshot {
+  return {
+    locale,
+    displayType: 'APP_IPHONE_67',
+    fileName,
+    path: screenshotPath(locale, fileName),
+    checksum: screenshotPath(locale, fileName),
+    size: 1,
+  };
+}
 
 /** A screenshot Apple already holds whose checksum matches the local file. */
-const storedScreenshot = (id: string, locale: string, fileName: string): ScreenshotResource => ({
-  id,
-  fileName,
-  sourceFileChecksum: screenshotPath(locale, fileName),
-});
+function storedScreenshot(id: string, locale: string, fileName: string): ScreenshotResource {
+  return {
+    id,
+    fileName,
+    sourceFileChecksum: screenshotPath(locale, fileName),
+  };
+}
 
 /** A copy of an original-page screenshot that Apple put in a new treatment localization. */
-const originalScreenshot = (id: string, fileName: string): ScreenshotResource => ({
-  id,
-  fileName,
-  sourceFileChecksum: `original-${fileName}`,
-});
+function originalScreenshot(id: string, fileName: string): ScreenshotResource {
+  return {
+    id,
+    fileName,
+    sourceFileChecksum: `original-${fileName}`,
+  };
+}
 
 /** Two existing treatment localizations with one 6.7-inch set each. */
 const existingLocaleSets: Partial<ExperimentStoreState> = {
@@ -264,26 +291,47 @@ function reconcileMediaExperiments(
     ...inputOverrides,
   });
 }
+function readDescription(plannedAction: {
+  readonly description: string;
+  readonly destructive: boolean;
+  status: ActionStatus;
+  error?: string;
+}) {
+  return plannedAction.description;
+}
 
 /** The descriptions of a report's actions with one status. */
-const descriptionsWithStatus = (
+function descriptionsWithStatus(
   reconciliationReport: Awaited<ReturnType<typeof reconcileMediaExperiments>>,
   status: string,
-): string[] =>
-  reconciliationReport.actions
-    .filter((plannedAction) => plannedAction.status == status)
-    .map((plannedAction) => plannedAction.description);
+): string[] {
+  function filterPlannedAction(plannedAction: {
+    readonly description: string;
+    readonly destructive: boolean;
+    status: ActionStatus;
+    error?: string;
+  }) {
+    return plannedAction.status == status;
+  }
 
-describe('version experiments schema', () => {
-  it('decodes experiments with treatments', async () => {
+  return reconciliationReport.actions.filter(filterPlannedAction).map(readDescription);
+}
+function describeVersionExperimentsSchema() {
+  async function decodesExperimentsWithTreatments() {
     const decodedConfig = await parseVersionExperimentsConfig(experimentConfig);
     expect(decodedConfig.experiments[0]?.name).toBe('Icon Test');
-    expect(
-      decodedConfig.experiments[0]?.treatments?.map((declaredTreatment) => declaredTreatment.name),
-    ).toEqual(['Variant A', 'Variant B']);
-  });
+    function readName(declaredTreatment: TreatmentConfig) {
+      return declaredTreatment.name;
+    }
 
-  it('rejects malformed documents and duplicate names', async () => {
+    expect(decodedConfig.experiments[0]?.treatments?.map(readName)).toEqual([
+      'Variant A',
+      'Variant B',
+    ]);
+  }
+
+  it('decodes experiments with treatments', decodesExperimentsWithTreatments);
+  async function rejectsMalformedDocumentsAndDuplicateNames() {
     const parseVersionExperiments = parseVersionExperimentsConfig('nope');
     await expect(parseVersionExperiments).rejects.toMatchObject({
       message: expect.stringMatching(/must be a JSON object/),
@@ -308,9 +356,10 @@ describe('version experiments schema', () => {
     ).rejects.toMatchObject({
       message: expect.stringMatching(/duplicate experiment name/),
     });
-  });
+  }
 
-  it('reads treatment screenshot folders relative to the config file', async () => {
+  it('rejects malformed documents and duplicate names', rejectsMalformedDocumentsAndDuplicateNames);
+  async function readsTreatmentScreenshotFoldersRelativeToThePieceFile() {
     const systemTemporaryDirectory = tmpdir();
     const launchExperimentsPath = join(systemTemporaryDirectory, 'launch-experiments-');
     const temporaryDirectory = mkdtempSync(launchExperimentsPath);
@@ -327,11 +376,18 @@ describe('version experiments schema', () => {
       const joinedPath = join(displayTypeDirectory, '01.png');
       writeFileSync(joinedPath, 'png');
       const discoveredScreenshots = await discoverTreatmentScreenshots(configPath, mediaConfig);
-      expect(
-        discoveredScreenshots
-          .get('treatment')
-          ?.map((screenshot) => [screenshot.locale, screenshot.displayType, screenshot.fileName]),
-      ).toEqual([['he', 'APP_IPHONE_67', '01.png']]);
+      function mapScreenshot(
+        screenshot: LocalAsset & {
+          readonly locale: string;
+          readonly displayType: string;
+        },
+      ) {
+        return [screenshot.locale, screenshot.displayType, screenshot.fileName];
+      }
+
+      expect(discoveredScreenshots.get('treatment')?.map(mapScreenshot)).toEqual([
+        ['he', 'APP_IPHONE_67', '01.png'],
+      ]);
       const missingFolderConfig: VersionExperimentsConfig = {
         experiments: [
           { name: 'X', trafficProportion: 10, treatments: [{ name: 'Y', screenshots: 'missing' }] },
@@ -345,9 +401,13 @@ describe('version experiments schema', () => {
     } finally {
       rmSync(temporaryDirectory, { recursive: true, force: true });
     }
-  });
+  }
 
-  it('reads and decodes a sidecar', async () => {
+  it(
+    'reads treatment screenshot folders relative to the config file',
+    readsTreatmentScreenshotFoldersRelativeToThePieceFile,
+  );
+  async function readsAndDecodesASidecar() {
     const systemTemporaryDirectory = tmpdir();
     const launchExperimentsPath = join(systemTemporaryDirectory, 'launch-experiments-');
     const temporaryDirectory = mkdtempSync(launchExperimentsPath);
@@ -360,18 +420,22 @@ describe('version experiments schema', () => {
     } finally {
       rmSync(temporaryDirectory, { recursive: true, force: true });
     }
-  });
-});
+  }
 
-describe('version experiment reconciliation', () => {
-  it('fails when the App Store record is absent', async () => {
+  it('reads and decodes a sidecar', readsAndDecodesASidecar);
+}
+
+describe('version experiments schema', describeVersionExperimentsSchema);
+function describeVersionExperimentReconciliation() {
+  async function failsWhenTheAppStorePieceIsAbsent() {
     const { appleExperimentsApi } = makeExperimentsApi({ appId: null });
     await expect(reconcileExperiments(appleExperimentsApi, true)).rejects.toMatchObject({
       message: expect.stringMatching(/No App Store Connect app record/),
     });
-  });
+  }
 
-  it('creates a missing experiment and its treatments', async () => {
+  it('fails when the App Store record is absent', failsWhenTheAppStorePieceIsAbsent);
+  async function createsAMissingExperimentAndItsTreatments() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({});
     const reconciliationReport = await reconcileExperiments(appleExperimentsApi, false);
     expect(experimentWrites.createdExperiments).toEqual([
@@ -387,9 +451,10 @@ describe('version experiment reconciliation', () => {
       failed: 0,
       skipped: 0,
     });
-  });
+  }
 
-  it('creates only missing treatments on an existing experiment', async () => {
+  it('creates a missing experiment and its treatments', createsAMissingExperimentAndItsTreatments);
+  async function createsOnlyMissingTreatmentsOnAnExistingExperiment() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [{ id: 'exp-1', name: 'Icon Test', state: 'PREPARE_FOR_SUBMISSION' }],
       treatments: [{ id: 't-a', name: 'Variant A' }],
@@ -399,20 +464,32 @@ describe('version experiment reconciliation', () => {
     expect(experimentWrites.createdTreatments).toEqual([
       { experimentId: 'exp-1', name: 'Variant B' },
     ]);
-  });
+  }
 
-  it('plans without applying writes', async () => {
+  it(
+    'creates only missing treatments on an existing experiment',
+    createsOnlyMissingTreatmentsOnAnExistingExperiment,
+  );
+  async function plansWithoutApplyingWrites() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({});
     const reconciliationReport = await reconcileExperiments(appleExperimentsApi, true);
     expect(experimentWrites.createdExperiments).toHaveLength(0);
     expect(experimentWrites.createdTreatments).toHaveLength(0);
-    expect(
-      reconciliationReport.actions.every((plannedAction) => plannedAction.status == 'planned'),
-    ).toBe(true);
-    expect(reconciliationReport.actions).toHaveLength(3);
-  });
+    function everyPlannedAction(plannedAction: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return plannedAction.status == 'planned';
+    }
 
-  it('skips treatments when experiment creation fails', async () => {
+    expect(reconciliationReport.actions.every(everyPlannedAction)).toBe(true);
+    expect(reconciliationReport.actions).toHaveLength(3);
+  }
+
+  it('plans without applying writes', plansWithoutApplyingWrites);
+  async function skipsTreatmentsWhenExperimentCreationFails() {
     const { appleExperimentsApi } = makeExperimentsApi(
       {},
       {
@@ -428,14 +505,24 @@ describe('version experiment reconciliation', () => {
       failed: 1,
       skipped: 2,
     });
-    expect(
-      reconciliationReport.actions.find((plannedAction) => plannedAction.status == 'failed')?.error,
-    ).toBe('name already in use');
-  });
-});
+    function findPlannedAction(plannedAction: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return plannedAction.status == 'failed';
+    }
 
-describe('version experiment treatment screenshots', () => {
-  it('adds missing locales and sets, then uploads in name order', async () => {
+    expect(reconciliationReport.actions.find(findPlannedAction)?.error).toBe('name already in use');
+  }
+
+  it('skips treatments when experiment creation fails', skipsTreatmentsWhenExperimentCreationFails);
+}
+
+describe('version experiment reconciliation', describeVersionExperimentReconciliation);
+function describeVersionExperimentTreatmentScreenshots() {
+  async function addsMissingLocalesAndSetsThenUploadsInNameOrder() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [existingScreenshotsExperiment],
       treatments: [{ id: 't-1', name: 'Colorful' }],
@@ -460,9 +547,13 @@ describe('version experiment treatment screenshots', () => {
       failed: 0,
       skipped: 0,
     });
-  });
+  }
 
-  it('uploads only the screenshots Apple does not have yet', async () => {
+  it(
+    'adds missing locales and sets, then uploads in name order',
+    addsMissingLocalesAndSetsThenUploadsInNameOrder,
+  );
+  async function uploadsOnlyTheScreenshotsAppleDoesNotHaveYet() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [existingScreenshotsExperiment],
       treatments: [{ id: 't-1', name: 'Colorful' }],
@@ -478,9 +569,13 @@ describe('version experiment treatment screenshots', () => {
     expect(experimentWrites.removedScreenshots).toHaveLength(0);
     expect(experimentWrites.uploads).toEqual([{ setId: 'set-1', fileName: '02.png' }]);
     expect(experimentWrites.reorders).toHaveLength(0);
-  });
+  }
 
-  it("replaces the original page's screenshots Apple copied into the treatment", async () => {
+  it(
+    'uploads only the screenshots Apple does not have yet',
+    uploadsOnlyTheScreenshotsAppleDoesNotHaveYet,
+  );
+  async function replacesTheOriginalPageSScreenshotsAppleCopiedIntoTheTreatment() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [existingScreenshotsExperiment],
       treatments: [{ id: 't-1', name: 'Colorful' }],
@@ -504,9 +599,13 @@ describe('version experiment treatment screenshots', () => {
       'remove screenshot iPhone 6.7" [en-US] 01-camera.png: not a local file',
       'remove screenshot iPhone 6.7" [en-US] 02-meal.png: not a local file',
     ]);
-  });
+  }
 
-  it('keeps a matching screenshot and puts the set back in file order', async () => {
+  it(
+    "replaces the original page's screenshots Apple copied into the treatment",
+    replacesTheOriginalPageSScreenshotsAppleCopiedIntoTheTreatment,
+  );
+  async function keepsAMatchingScreenshotAndPutsTheSetBackInFileOrder() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [existingScreenshotsExperiment],
       treatments: [{ id: 't-1', name: 'Colorful' }],
@@ -525,9 +624,13 @@ describe('version experiment treatment screenshots', () => {
     expect(experimentWrites.reorders).toEqual([
       { setId: 'set-1', screenshotIds: ['up-01.png', 's-2'] },
     ]);
-  });
+  }
 
-  it('plans the whole new experiment without writes', async () => {
+  it(
+    'keeps a matching screenshot and puts the set back in file order',
+    keepsAMatchingScreenshotAndPutsTheSetBackInFileOrder,
+  );
+  async function plansTheWholeNewExperimentWithoutWrites() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({});
     const reconciliationReport = await reconcileMediaExperiments(appleExperimentsApi, {
       submit: true,
@@ -551,11 +654,14 @@ describe('version experiment treatment screenshots', () => {
       uploads: [],
       reviewItems: [],
     });
-  });
-});
+  }
 
-describe('version experiment review and start', () => {
-  it('submits a synced experiment in a new review submission', async () => {
+  it('plans the whole new experiment without writes', plansTheWholeNewExperimentWithoutWrites);
+}
+
+describe('version experiment treatment screenshots', describeVersionExperimentTreatmentScreenshots);
+function describeVersionExperimentReviewAndStart() {
+  async function submitsASyncedExperimentInANewReviewSubmission() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [existingScreenshotsExperiment],
       treatments: [{ id: 't-1', name: 'Colorful' }],
@@ -570,9 +676,13 @@ describe('version experiment review and start', () => {
       { submissionId: 'sub-new', experimentId: 'exp-1' },
     ]);
     expect(experimentWrites.submittedSubmissions).toEqual(['sub-new']);
-  });
+  }
 
-  it('reuses an open review submission', async () => {
+  it(
+    'submits a synced experiment in a new review submission',
+    submitsASyncedExperimentInANewReviewSubmission,
+  );
+  async function reusesAnOpenReviewSubmission() {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [existingScreenshotsExperiment],
       treatments: [{ id: 't-1', name: 'Colorful' }],
@@ -584,9 +694,10 @@ describe('version experiment review and start', () => {
     });
     expect(experimentWrites.createdSubmissions).toHaveLength(0);
     expect(experimentWrites.submittedSubmissions).toEqual(['sub-open']);
-  });
+  }
 
-  it('does not submit an experiment already in review or after a failed upload', async () => {
+  it('reuses an open review submission', reusesAnOpenReviewSubmission);
+  async function doesNotSubmitAnExperimentAlreadyInReviewOrAfterAFailedUpload() {
     const inReview = makeExperimentsApi({
       experiments: [{ ...existingScreenshotsExperiment, state: 'WAITING_FOR_REVIEW' }],
       treatments: [{ id: 't-1', name: 'Colorful' }],
@@ -616,9 +727,13 @@ describe('version experiment review and start', () => {
     expect(descriptionsWithStatus(failedUploadReport, 'skipped')).toEqual([
       'submit experiment "Screenshots Test" for App Review: an earlier change failed - fix it, then re-run',
     ]);
-  });
+  }
 
-  it('starts only an approved experiment that has not started', async () => {
+  it(
+    'does not submit an experiment already in review or after a failed upload',
+    doesNotSubmitAnExperimentAlreadyInReviewOrAfterAFailedUpload,
+  );
+  async function startsOnlyAnApprovedExperimentThatHasNotStarted() {
     const approved = makeExperimentsApi({
       experiments: [{ ...existingScreenshotsExperiment, state: 'ACCEPTED' }],
       treatments: [{ id: 't-1', name: 'Colorful' }],
@@ -653,5 +768,12 @@ describe('version experiment review and start', () => {
     expect(descriptionsWithStatus(inReviewReport, 'skipped')).toEqual([
       'start experiment "Screenshots Test": it is IN_REVIEW - Apple must approve it first',
     ]);
-  });
-});
+  }
+
+  it(
+    'starts only an approved experiment that has not started',
+    startsOnlyAnApprovedExperimentThatHasNotStarted,
+  );
+}
+
+describe('version experiment review and start', describeVersionExperimentReviewAndStart);

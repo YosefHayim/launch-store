@@ -5,23 +5,69 @@ import type { AppDescriptor } from '../../types/app.ts';
 import type { AppProducts, SubscriptionConfig } from '../../types/catalog.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { PlanContext, PlayCatalogApi } from '../../types/plan.ts';
+import type { ActionStatus } from '../../types/reconcile.ts';
+
 /** A fully-stubbed {@link PlayCatalogApi}: reads default to "nothing exists yet", writes resolve to void. */
-const makePlayApi = (overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi => {
+function makePlayApi(overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi {
+  function mockCall() {
+    return Promise.resolve();
+  }
+
+  function mockCall2() {
+    return Promise.resolve([]);
+  }
+
+  function mockCall3() {
+    return Promise.resolve();
+  }
+
+  function mockCall4() {
+    return Promise.resolve();
+  }
+
+  function mockCall5() {
+    return Promise.resolve([]);
+  }
+
+  function mockCall6() {
+    return Promise.resolve();
+  }
+
+  function mockCall7() {
+    return Promise.resolve();
+  }
+
+  function mockCall8() {
+    return Promise.resolve();
+  }
+
+  function mockCall9() {
+    return Promise.resolve([]);
+  }
+
+  function mockCall10() {
+    return Promise.resolve();
+  }
+
+  function mockCall11() {
+    return Promise.resolve();
+  }
+
   const base: PlayCatalogApi = {
-    assertAppExists: vi.fn(() => Promise.resolve()),
-    listInAppProducts: vi.fn(() => Promise.resolve([])),
-    insertInAppProduct: vi.fn(() => Promise.resolve()),
-    updateInAppProduct: vi.fn(() => Promise.resolve()),
-    listSubscriptions: vi.fn(() => Promise.resolve([])),
-    createSubscription: vi.fn(() => Promise.resolve()),
-    patchSubscription: vi.fn(() => Promise.resolve()),
-    activateBasePlan: vi.fn(() => Promise.resolve()),
-    listSubscriptionOffers: vi.fn(() => Promise.resolve([])),
-    createSubscriptionOffer: vi.fn(() => Promise.resolve()),
-    activateSubscriptionOffer: vi.fn(() => Promise.resolve()),
+    assertAppExists: vi.fn(mockCall),
+    listInAppProducts: vi.fn(mockCall2),
+    insertInAppProduct: vi.fn(mockCall3),
+    updateInAppProduct: vi.fn(mockCall4),
+    listSubscriptions: vi.fn(mockCall5),
+    createSubscription: vi.fn(mockCall6),
+    patchSubscription: vi.fn(mockCall7),
+    activateBasePlan: vi.fn(mockCall8),
+    listSubscriptionOffers: vi.fn(mockCall9),
+    createSubscriptionOffer: vi.fn(mockCall10),
+    activateSubscriptionOffer: vi.fn(mockCall11),
   };
   return { ...base, ...overrides };
-};
+}
 /** A Play-published subscription (carries a `play` override with a base-plan price). */
 const PLAY_SUB: SubscriptionConfig = {
   productId: 'com.acme.pro.monthly',
@@ -31,9 +77,7 @@ const PLAY_SUB: SubscriptionConfig = {
   play: { prices: { US: { priceMicros: '4990000', currency: 'USD' } } },
 };
 /** Wrap subscriptions in the one group `products[bundleId].subscriptionGroups` requires. */
-const productsWith = (
-  subscriptions: readonly SubscriptionConfig[],
-): Record<string, AppProducts> => {
+function productsWith(subscriptions: readonly SubscriptionConfig[]): Record<string, AppProducts> {
   return {
     'com.acme.alpha': {
       subscriptionGroups: [
@@ -41,8 +85,8 @@ const productsWith = (
       ],
     },
   };
-};
-const makeCtx = (
+}
+function makeCtx(
   api: PlayCatalogApi | null,
   products: Record<string, AppProducts> = {},
   apps: AppDescriptor[] = [
@@ -54,7 +98,7 @@ const makeCtx = (
       packageName: 'com.acme.alpha',
     },
   ],
-): PlanContext => {
+): PlanContext {
   const baseConfig: LaunchConfig = {
     profiles: {},
     credentials: 'local',
@@ -67,12 +111,16 @@ const makeCtx = (
   return {
     config,
     apps,
-    resolveAscApi: () => Promise.resolve(null),
-    resolvePlayApi: () => Promise.resolve(api),
+    resolveAscApi() {
+      return Promise.resolve(null);
+    },
+    resolvePlayApi() {
+      return Promise.resolve(api);
+    },
   };
-};
-describe('playSubscriptionsPlanner', () => {
-  it('omits itself when no app declares a Play-overridden subscription', async () => {
+}
+function describePlaySubscriptionsPlanner() {
+  async function omitsItselfWhenNoAppDeclaresAPlayOverriddenSubscription() {
     const playApi = makePlayApi();
     const plan = await runPlanner(
       playSubscriptionsPlanner,
@@ -89,8 +137,13 @@ describe('playSubscriptionsPlanner', () => {
       ),
     );
     expect(plan.state).toBe('omitted');
-  });
-  it('omits an app that has subscriptions but no Android package name', async () => {
+  }
+
+  it(
+    'omits itself when no app declares a Play-overridden subscription',
+    omitsItselfWhenNoAppDeclaresAPlayOverriddenSubscription,
+  );
+  async function omitsAnAppThatHasSubscriptionsButNoAndroidPackageName() {
     const noPackage: AppDescriptor = {
       name: 'alpha',
       dir: '/no/such/dir/alpha',
@@ -103,8 +156,13 @@ describe('playSubscriptionsPlanner', () => {
       makeCtx(playApi, productsWith([PLAY_SUB]), [noPackage]),
     );
     expect(plan.state).toBe('omitted');
-  });
-  it('skips with an actionable hint when no Play service account is configured', async () => {
+  }
+
+  it(
+    'omits an app that has subscriptions but no Android package name',
+    omitsAnAppThatHasSubscriptionsButNoAndroidPackageName,
+  );
+  async function skipsWithAnActionableHintWhenNoPlayServiceAccountIsConfigured() {
     const plan = await runPlanner(
       playSubscriptionsPlanner,
       makeCtx(null, productsWith([PLAY_SUB])),
@@ -113,8 +171,13 @@ describe('playSubscriptionsPlanner', () => {
     if (plan.state != 'skipped') return;
     expect(plan.reason).toMatch(/Play service account/);
     expect(plan.hint).toMatch(/android/);
-  });
-  it('reports the per-app diff a fresh Play subscription would create', async () => {
+  }
+
+  it(
+    'skips with an actionable hint when no Play service account is configured',
+    skipsWithAnActionableHintWhenNoPlayServiceAccountIsConfigured,
+  );
+  async function reportsThePerAppDiffAFreshPlaySubscriptionWouldCreate() {
     const playApi = makePlayApi();
     const plan = await runPlanner(
       playSubscriptionsPlanner,
@@ -125,15 +188,29 @@ describe('playSubscriptionsPlanner', () => {
     if (plan.scope != 'app') return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
-    expect(
-      plan.apps[0]?.actions.some(
-        (a) => a.description == 'create Play subscription com.acme.pro.monthly',
-      ),
-    ).toBe(true);
-  });
-  it('captures an unreachable app as a per-app error, not a thrown plan', async () => {
+    function someA(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.description == 'create Play subscription com.acme.pro.monthly';
+    }
+
+    expect(plan.apps[0]?.actions.some(someA)).toBe(true);
+  }
+
+  it(
+    'reports the per-app diff a fresh Play subscription would create',
+    reportsThePerAppDiffAFreshPlaySubscriptionWouldCreate,
+  );
+  async function capturesAnUnreachableAppAsAPerAppErrorNotAThrownPlan() {
+    function mockCall12() {
+      return Promise.reject(new Error('app not found on Play'));
+    }
+
     const api = makePlayApi({
-      assertAppExists: vi.fn(() => Promise.reject(new Error('app not found on Play'))),
+      assertAppExists: vi.fn(mockCall12),
     });
     const plan = await runPlanner(playSubscriptionsPlanner, makeCtx(api, productsWith([PLAY_SUB])));
     expect(plan.state).toBe('planned');
@@ -141,8 +218,13 @@ describe('playSubscriptionsPlanner', () => {
     if (plan.scope != 'app') return;
     expect(plan.apps[0]?.error).toMatch(/app not found on Play/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
-  });
-  it('is strictly read-only: never invokes a Play write endpoint', async () => {
+  }
+
+  it(
+    'captures an unreachable app as a per-app error, not a thrown plan',
+    capturesAnUnreachableAppAsAPerAppErrorNotAThrownPlan,
+  );
+  async function isStrictlyReadOnlyNeverInvokesAPlayWriteEndpoint() {
     const api = makePlayApi();
     await runPlanner(playSubscriptionsPlanner, makeCtx(api, productsWith([PLAY_SUB])));
     expect(api.listSubscriptions).toHaveBeenCalled();
@@ -150,5 +232,12 @@ describe('playSubscriptionsPlanner', () => {
     expect(api.patchSubscription).toHaveBeenCalledTimes(0);
     expect(api.activateBasePlan).toHaveBeenCalledTimes(0);
     expect(api.createSubscriptionOffer).toHaveBeenCalledTimes(0);
-  });
-});
+  }
+
+  it(
+    'is strictly read-only: never invokes a Play write endpoint',
+    isStrictlyReadOnlyNeverInvokesAPlayWriteEndpoint,
+  );
+}
+
+describe('playSubscriptionsPlanner', describePlaySubscriptionsPlanner);

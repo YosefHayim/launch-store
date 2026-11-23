@@ -11,7 +11,7 @@ type DoctorOptions = Readonly<{
 }>;
 
 /** Map doctor options without explicit undefined fields. */
-const toDoctorCommandInput = (commandOptions: DoctorOptions): DoctorCommandInput => {
+function toDoctorCommandInput(commandOptions: DoctorOptions): DoctorCommandInput {
   let commandInput: DoctorCommandInput = {
     fix: commandOptions.fix,
     yes: commandOptions.yes,
@@ -24,10 +24,16 @@ const toDoctorCommandInput = (commandOptions: DoctorOptions): DoctorCommandInput
     commandInput = { ...commandInput, app: commandOptions.app };
   }
   return commandInput;
-};
+}
 
 /** Attach the doctor command. */
-export const registerDoctorCommand = (program: Command): void => {
+export function registerDoctorCommand(program: Command): void {
+  function runDoctor(commandOptions: DoctorOptions) {
+    const doctorCommand = toDoctorCommandInput(commandOptions);
+    const doctorProgram = doctorCommandProgram(doctorCommand);
+    return runCliProgram(doctorProgram);
+  }
+
   program
     .command('doctor')
     .description('check that the local toolchain and store account are ready')
@@ -40,9 +46,5 @@ export const registerDoctorCommand = (program: Command): void => {
     )
     .option('--yes', 'skip prompts and proceed with installs (CI/agents)', false)
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((commandOptions: DoctorOptions) => {
-      const doctorCommand = toDoctorCommandInput(commandOptions);
-      const doctorProgram = doctorCommandProgram(doctorCommand);
-      return runCliProgram(doctorProgram);
-    });
-};
+    .action(runDoctor);
+}

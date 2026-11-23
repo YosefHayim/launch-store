@@ -1,14 +1,25 @@
-import { Command } from '../../command.ts';
+import { Command, type CommandOption } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
 import { registerReleaseCommand } from './release.ts';
-
-describe('registerReleaseCommand - the --json flag', () => {
-  it('exposes --json, off by default', () => {
+function describeRegisterReleaseCommandThePieceFlag() {
+  function exposesPieceOffByDefault() {
     const program = new Command();
     registerReleaseCommand(program);
-    const releaseCommand = program.commands.find((command) => command.name() == 'release');
-    const jsonOption = releaseCommand?.options.find((option) => option.long == '--json');
+    function findCommand(command: Command) {
+      return command.name() == 'release';
+    }
+
+    const releaseCommand = program.commands.find(findCommand);
+    function findOption(option: CommandOption) {
+      return option.long == '--json';
+    }
+
+    const jsonOption = releaseCommand?.options.find(findOption);
     expect(jsonOption).toBeDefined();
     expect(jsonOption?.defaultValue).toBe(false);
-  });
-});
+  }
+
+  it('exposes --json, off by default', exposesPieceOffByDefault);
+}
+
+describe('registerReleaseCommand - the --json flag', describeRegisterReleaseCommandThePieceFlag);

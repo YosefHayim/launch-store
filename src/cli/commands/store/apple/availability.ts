@@ -12,7 +12,7 @@ type AvailabilityOptions = Readonly<{
   readonly yes: boolean;
 }>;
 
-const toAvailabilityInput = (commandOptions: AvailabilityOptions): AvailabilityCommandInput => {
+function toAvailabilityInput(commandOptions: AvailabilityOptions): AvailabilityCommandInput {
   let availabilityInput: AvailabilityCommandInput = {
     config: commandOptions.config,
     dryRun: commandOptions.dryRun,
@@ -22,9 +22,15 @@ const toAvailabilityInput = (commandOptions: AvailabilityOptions): AvailabilityC
     availabilityInput = { ...availabilityInput, app: commandOptions.app };
   }
   return availabilityInput;
-};
+}
 
-export const registerAvailabilityCommand = (program: Command): void => {
+export function registerAvailabilityCommand(program: Command): void {
+  function runAvailability(commandOptions: AvailabilityOptions) {
+    const availability = toAvailabilityInput(commandOptions);
+    const availabilityProgram = availabilityCommandProgram(availability);
+    return runCliProgram(availabilityProgram);
+  }
+
   program
     .command('availability')
     .description('set the App Store territories the app sells in, from availability.config.json')
@@ -32,9 +38,5 @@ export const registerAvailabilityCommand = (program: Command): void => {
     .option('--config <path>', 'path to the availability config file', 'availability.config.json')
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((commandOptions: AvailabilityOptions) => {
-      const availability = toAvailabilityInput(commandOptions);
-      const availabilityProgram = availabilityCommandProgram(availability);
-      return runCliProgram(availabilityProgram);
-    });
-};
+    .action(runAvailability);
+}

@@ -8,18 +8,21 @@ const SURFACE = 'game-center';
 export const gameCenterPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  plan: (planContext) =>
-    planAppStoreSurface(planContext, {
+  plan(planContext) {
+    return planAppStoreSurface(planContext, {
       surface: SURFACE,
       direction: 'additive',
-      configFor: (bundleId) =>
-        resolveSidecarConfig<GameCenterConfig>({
+      configFor(bundleId) {
+        return resolveSidecarConfig<GameCenterConfig>({
           typed: planContext.config.gameCenter?.[bundleId],
           configPath: 'gamecenter.config.json',
           explicitPath: false,
           load: loadGameCenterConfig,
-        }),
-      reconcile: (api, bundleId, config) =>
-        reconcileGameCenter(api, { bundleId, config, dryRun: true }),
-    }),
+        });
+      },
+      reconcile(api, bundleId, config) {
+        return reconcileGameCenter(api, { bundleId, config, dryRun: true });
+      },
+    });
+  },
 };

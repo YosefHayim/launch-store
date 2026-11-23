@@ -1,4 +1,4 @@
-interface CommandOption {
+export interface CommandOption {
   readonly flags: string;
   readonly short?: string;
   readonly long?: string;
@@ -7,7 +7,7 @@ interface CommandOption {
   readonly required: boolean;
 }
 
-interface CommandArgument {
+export interface CommandArgument {
   name(): string;
   readonly required: boolean;
   readonly defaultValue?: unknown;

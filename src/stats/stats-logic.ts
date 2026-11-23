@@ -1,13 +1,14 @@
 import type { DailyStat } from '../types/stats.ts';
 import { readMonthOfDate } from './date-range.ts';
 
-const createStatIdentity = (stat: DailyStat): string =>
-  [stat.date, stat.feed, stat.metric, stat.currency].join('|');
+function createStatIdentity(stat: DailyStat): string {
+  return [stat.date, stat.feed, stat.metric, stat.currency].join('|');
+}
 
-export const mergeStats = (
+export function mergeStats(
   savedStats: readonly DailyStat[],
   newStats: readonly DailyStat[],
-): DailyStat[] => {
+): DailyStat[] {
   const statsByIdentity = new Map<string, DailyStat>();
   for (const stat of savedStats) {
     const statIdentity = createStatIdentity(stat);
@@ -17,12 +18,18 @@ export const mergeStats = (
     const statIdentity = createStatIdentity(stat);
     statsByIdentity.set(statIdentity, stat);
   }
-  return [...statsByIdentity.entries()]
-    .sort(([firstIdentity], [secondIdentity]) => firstIdentity.localeCompare(secondIdentity))
-    .map(([, stat]) => stat);
-};
+  function sortPiece([firstIdentity]: [string, DailyStat], [secondIdentity]: [string, DailyStat]) {
+    return firstIdentity.localeCompare(secondIdentity);
+  }
 
-export const groupStatsByMonth = (stats: readonly DailyStat[]): Map<string, DailyStat[]> => {
+  function mapPiece([, stat]: [string, DailyStat]) {
+    return stat;
+  }
+
+  return [...statsByIdentity.entries()].sort(sortPiece).map(mapPiece);
+}
+
+export function groupStatsByMonth(stats: readonly DailyStat[]): Map<string, DailyStat[]> {
   const statsByMonth = new Map<string, DailyStat[]>();
   for (const stat of stats) {
     const month = readMonthOfDate(stat.date);
@@ -32,4 +39,4 @@ export const groupStatsByMonth = (stats: readonly DailyStat[]): Map<string, Dail
     if (!isMonthNew) monthStats.push(stat);
   }
   return statsByMonth;
-};
+}

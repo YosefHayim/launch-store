@@ -45,9 +45,25 @@ export class ConnectBuilds {
         version: string;
       }>(`/apps/${appId}/preReleaseVersions?fields[preReleaseVersions]=version&limit=200`),
     ]);
+    function readVersionString(entry: {
+      id: string;
+      attributes: { versionString: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
+      return entry.attributes.versionString;
+    }
+
+    function readVersion(entry: {
+      id: string;
+      attributes: { version: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
+      return entry.attributes.version;
+    }
+
     return highestAppleMarketingVersion([
-      ...appStore.map((entry) => entry.attributes.versionString),
-      ...preRelease.map((entry) => entry.attributes.version),
+      ...appStore.map(readVersionString),
+      ...preRelease.map(readVersion),
     ]);
   }
 
@@ -182,10 +198,18 @@ export class ConnectBuilds {
     }>(
       `/apps/${appId}/appEncryptionDeclarations?fields[appEncryptionDeclarations]=appEncryptionDeclarationState&limit=200`,
     );
-    return appleResources.map((entry) => ({
-      id: entry.id,
-      state: entry.attributes.appEncryptionDeclarationState,
-    }));
+    function mapPiece(entry: {
+      id: string;
+      attributes: { appEncryptionDeclarationState: string };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
+      return {
+        id: entry.id,
+        state: entry.attributes.appEncryptionDeclarationState,
+      };
+    }
+
+    return appleResources.map(mapPiece);
   }
 
   async linkBuildToDeclaration(declarationId: string, buildId: string): Promise<void> {

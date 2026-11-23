@@ -15,18 +15,21 @@ const SERVICE_ACCOUNT: ServiceAccount = {
 afterEach(function resetAccessToken() {
   resetGoogleAccessToken();
 });
-
-describe('GoogleAccessToken', () => {
-  test('reads every key as the given service account and returns the given token', async () => {
+function describeGoogleAccessToken() {
+  async function readsEveryKeyAsTheGivenServiceAccountAndReturnsTheGivenToken() {
     useGoogleAccessTokenFixture(SERVICE_ACCOUNT, 'token-1');
 
     const account = GoogleAccessToken.readServiceAccount('{}');
     const token = await GoogleAccessToken.createAccessToken(account, ['scope']);
 
     expect({ account, token }).toEqual({ account: SERVICE_ACCOUNT, token: 'token-1' });
-  });
+  }
 
-  test('turns text that is not a service account into a failure', () => {
+  test(
+    'reads every key as the given service account and returns the given token',
+    readsEveryKeyAsTheGivenServiceAccountAndReturnsTheGivenToken,
+  );
+  function turnsPieceThatIsNotAServiceAccountIntoAFailure() {
     let failure: unknown = null;
 
     try {
@@ -36,14 +39,25 @@ describe('GoogleAccessToken', () => {
     }
 
     expect(failure).toMatchObject({ _tag: 'GoogleAccessTokenFailure' });
-  });
+  }
 
-  test('turns a token request with an unusable key into a failure', async () => {
+  test(
+    'turns text that is not a service account into a failure',
+    turnsPieceThatIsNotAServiceAccountIntoAFailure,
+  );
+  async function turnsATokenRequestWithAnUnusableKeyIntoAFailure() {
     await expect(
       GoogleAccessToken.createAccessToken(SERVICE_ACCOUNT, ['scope']),
     ).rejects.toMatchObject({
       _tag: 'GoogleAccessTokenFailure',
       message: expect.stringContaining('Could not get a Google access token'),
     });
-  });
-});
+  }
+
+  test(
+    'turns a token request with an unusable key into a failure',
+    turnsATokenRequestWithAnUnusableKeyIntoAFailure,
+  );
+}
+
+describe('GoogleAccessToken', describeGoogleAccessToken);

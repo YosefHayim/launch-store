@@ -1,25 +1,28 @@
-import { Command } from '../../command.ts';
+import { Command, type CommandOption } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
 import { registerTestflightCommand } from './testflight.ts';
 
-const registeredTestflight = (): Command => {
+function registeredTestflight(): Command {
   const program = new Command();
   registerTestflightCommand(program);
-  const testflightCommand = program.commands.find(
-    (registeredCommand) => registeredCommand.name() == 'testflight',
-  );
+  function findRegisteredCommand(registeredCommand: Command) {
+    return registeredCommand.name() == 'testflight';
+  }
+
+  const testflightCommand = program.commands.find(findRegisteredCommand);
   if (testflightCommand == null) {
     throw new Error('expected testflight command to be registered');
   }
   return testflightCommand;
-};
-
-describe('registerTestflightCommand', () => {
-  it('attaches the TestFlight subcommand tree', () => {
+}
+function describeRegisterTestflightCommand() {
+  function attachesTheTestFlightSubcommandTree() {
     const testflightCommand = registeredTestflight();
-    const subcommandNames = testflightCommand.commands.map((registeredCommand) =>
-      registeredCommand.name(),
-    );
+    function mapRegisteredCommand(registeredCommand: Command) {
+      return registeredCommand.name();
+    }
+
+    const subcommandNames = testflightCommand.commands.map(mapRegisteredCommand);
     expect(subcommandNames).toEqual([
       'groups',
       'create-group',
@@ -29,20 +32,31 @@ describe('registerTestflightCommand', () => {
       'release',
       'feedback',
     ]);
-  });
+  }
 
-  it('wires mutation flags for add, remove, and release', () => {
+  it('attaches the TestFlight subcommand tree', attachesTheTestFlightSubcommandTree);
+  function wiresMutationFlagsForAddRemoveAndRelease() {
     const testflightCommand = registeredTestflight();
-    const addCommand = testflightCommand.commands.find(
-      (registeredCommand) => registeredCommand.name() == 'add',
-    );
-    const removeCommand = testflightCommand.commands.find(
-      (registeredCommand) => registeredCommand.name() == 'rm',
-    );
-    const releaseCommand = testflightCommand.commands.find(
-      (registeredCommand) => registeredCommand.name() == 'release',
-    );
-    expect(addCommand?.options.map((option) => option.long)).toEqual(
+    function findRegisteredCommand2(registeredCommand: Command) {
+      return registeredCommand.name() == 'add';
+    }
+
+    const addCommand = testflightCommand.commands.find(findRegisteredCommand2);
+    function findRegisteredCommand3(registeredCommand: Command) {
+      return registeredCommand.name() == 'rm';
+    }
+
+    const removeCommand = testflightCommand.commands.find(findRegisteredCommand3);
+    function findRegisteredCommand4(registeredCommand: Command) {
+      return registeredCommand.name() == 'release';
+    }
+
+    const releaseCommand = testflightCommand.commands.find(findRegisteredCommand4);
+    function readLong(option: CommandOption) {
+      return option.long;
+    }
+
+    expect(addCommand?.options.map(readLong)).toEqual(
       expect.arrayContaining([
         '--app',
         '--group',
@@ -53,10 +67,18 @@ describe('registerTestflightCommand', () => {
         '--yes',
       ]),
     );
-    expect(removeCommand?.options.map((option) => option.long)).toEqual(
+    function readLong2(option: CommandOption) {
+      return option.long;
+    }
+
+    expect(removeCommand?.options.map(readLong2)).toEqual(
       expect.arrayContaining(['--app', '--group', '--dry-run', '--yes']),
     );
-    expect(releaseCommand?.options.map((option) => option.long)).toEqual(
+    function readLong3(option: CommandOption) {
+      return option.long;
+    }
+
+    expect(releaseCommand?.options.map(readLong3)).toEqual(
       expect.arrayContaining([
         '--app',
         '--build',
@@ -67,16 +89,31 @@ describe('registerTestflightCommand', () => {
         '--yes',
       ]),
     );
-  });
+  }
 
-  it('wires feedback filters without write flags', () => {
+  it('wires mutation flags for add, remove, and release', wiresMutationFlagsForAddRemoveAndRelease);
+  function wiresFeedbackFiltersWithoutWriteFlags() {
     const testflightCommand = registeredTestflight();
-    const feedbackCommand = testflightCommand.commands.find(
-      (registeredCommand) => registeredCommand.name() == 'feedback',
-    );
-    expect(feedbackCommand?.options.map((option) => option.long)).toEqual(
+    function findRegisteredCommand5(registeredCommand: Command) {
+      return registeredCommand.name() == 'feedback';
+    }
+
+    const feedbackCommand = testflightCommand.commands.find(findRegisteredCommand5);
+    function readLong4(option: CommandOption) {
+      return option.long;
+    }
+
+    expect(feedbackCommand?.options.map(readLong4)).toEqual(
       expect.arrayContaining(['--app', '--build', '--type', '--out', '--json']),
     );
-    expect(feedbackCommand?.options.map((option) => option.long)).not.toContain('--yes');
-  });
-});
+    function readLong5(option: CommandOption) {
+      return option.long;
+    }
+
+    expect(feedbackCommand?.options.map(readLong5)).not.toContain('--yes');
+  }
+
+  it('wires feedback filters without write flags', wiresFeedbackFiltersWithoutWriteFlags);
+}
+
+describe('registerTestflightCommand', describeRegisterTestflightCommand);

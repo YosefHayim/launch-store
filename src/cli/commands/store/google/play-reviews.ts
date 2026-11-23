@@ -22,7 +22,7 @@ type ReplyOptions = Readonly<{
 }>;
 
 /** Map the list flags without explicit undefined optionals. */
-const toPlayReviewsListInput = (commandOptions: PlayReviewsListOptions): PlayReviewsListInput => {
+function toPlayReviewsListInput(commandOptions: PlayReviewsListOptions): PlayReviewsListInput {
   let commandInput: PlayReviewsListInput = {
     operation: 'list',
     unanswered: commandOptions.unanswered,
@@ -38,13 +38,13 @@ const toPlayReviewsListInput = (commandOptions: PlayReviewsListOptions): PlayRev
     commandInput = { ...commandInput, lang: commandOptions.lang };
   }
   return commandInput;
-};
+}
 
 /** Map the reply flags without explicit undefined optionals. */
-const toPlayReviewsReplyInput = (
+function toPlayReviewsReplyInput(
   reviewId: string,
   commandOptions: ReplyOptions,
-): PlayReviewsReplyInput => {
+): PlayReviewsReplyInput {
   let commandInput: PlayReviewsReplyInput = {
     operation: 'reply',
     reviewId,
@@ -60,13 +60,19 @@ const toPlayReviewsReplyInput = (
     commandInput = { ...commandInput, file: commandOptions.file };
   }
   return commandInput;
-};
+}
 
 /** Attach the play-reviews command group. */
-export const registerPlayReviewsCommand = (program: Command): void => {
+export function registerPlayReviewsCommand(program: Command): void {
   const reviewsCommand = program
     .command('play-reviews')
     .description('read Google Play customer reviews and reply from the CLI');
+  function runList(commandOptions: PlayReviewsListOptions) {
+    const playReviewsList = toPlayReviewsListInput(commandOptions);
+    const playReviewsProgram = playReviewsCommandProgram(playReviewsList);
+    return runCliProgram(playReviewsProgram);
+  }
+
   reviewsCommand
     .command('list')
     .description("list an app's Play reviews (only reviews with text from the last ~week)")
@@ -75,11 +81,13 @@ export const registerPlayReviewsCommand = (program: Command): void => {
     .option('--unanswered', 'only show reviews without a developer reply', false)
     .option('--lang <bcp47>', 'machine-translate review text into this language (e.g. en-US)')
     .option('--json', 'output machine-readable JSON', false)
-    .action((commandOptions: PlayReviewsListOptions) => {
-      const playReviewsList = toPlayReviewsListInput(commandOptions);
-      const playReviewsProgram = playReviewsCommandProgram(playReviewsList);
-      return runCliProgram(playReviewsProgram);
-    });
+    .action(runList);
+  function runReply(reviewId: string, commandOptions: ReplyOptions) {
+    const playReviewsReply = toPlayReviewsReplyInput(reviewId, commandOptions);
+    const playReviewsProgram = playReviewsCommandProgram(playReviewsReply);
+    return runCliProgram(playReviewsProgram);
+  }
+
   reviewsCommand
     .command('reply')
     .description('post (or replace) the developer reply to a review')
@@ -88,9 +96,5 @@ export const registerPlayReviewsCommand = (program: Command): void => {
     .option('-m, --message <text>', 'the reply text')
     .option('--file <path>', 'read the reply text from a file')
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((reviewId: string, commandOptions: ReplyOptions) => {
-      const playReviewsReply = toPlayReviewsReplyInput(reviewId, commandOptions);
-      const playReviewsProgram = playReviewsCommandProgram(playReviewsReply);
-      return runCliProgram(playReviewsProgram);
-    });
-};
+    .action(runReply);
+}

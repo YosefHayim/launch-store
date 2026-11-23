@@ -3,7 +3,7 @@ import { Program } from './program.ts';
 import { DRIFT_MESSAGE } from './store/plan-store.ts';
 
 export class Cli {
-  start = async (launchVersion: string): Promise<void> => {
+  async start(launchVersion: string): Promise<void> {
     try {
       await new Program().parse(launchVersion);
     } catch (error) {
@@ -34,5 +34,5 @@ export class Cli {
 
       throw error;
     }
-  };
+  }
 }

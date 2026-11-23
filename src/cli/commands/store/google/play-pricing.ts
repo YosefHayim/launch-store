@@ -12,10 +12,10 @@ type PlayPricingOptions = Readonly<{
 }>;
 
 /** Map pricing flags without explicit undefined optionals. */
-const toPlayPricingInput = (
+function toPlayPricingInput(
   amount: string,
   commandOptions: PlayPricingOptions,
-): PlayPricingCommandInput => {
+): PlayPricingCommandInput {
   let commandInput: PlayPricingCommandInput = {
     amount,
     currency: commandOptions.currency,
@@ -25,22 +25,24 @@ const toPlayPricingInput = (
     commandInput = { ...commandInput, app: commandOptions.app };
   }
   return commandInput;
-};
+}
 
 /** Attach the play-pricing command group. */
-export const registerPlayPricingCommand = (program: Command): void => {
+export function registerPlayPricingCommand(program: Command): void {
   const pricingCommand = program
     .command('play-pricing')
     .description('compute recommended Google Play prices for every region from one base price');
+  function runLocalizeAmount(amount: string, commandOptions: PlayPricingOptions) {
+    const playPricing = toPlayPricingInput(amount, commandOptions);
+    const playPricingProgram = playPricingCommandProgram(playPricing);
+    return runCliProgram(playPricingProgram);
+  }
+
   pricingCommand
     .command('localize <amount>')
     .description("show Google's recommended local price for every Play market, from one base price")
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('-c, --currency <code>', 'ISO-4217 currency of <amount>', 'USD')
     .option('--json', 'output machine-readable JSON', false)
-    .action((amount: string, commandOptions: PlayPricingOptions) => {
-      const playPricing = toPlayPricingInput(amount, commandOptions);
-      const playPricingProgram = playPricingCommandProgram(playPricing);
-      return runCliProgram(playPricingProgram);
-    });
-};
+    .action(runLocalizeAmount);
+}

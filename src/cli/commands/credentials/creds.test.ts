@@ -1,23 +1,49 @@
-import { Command } from '../../command.ts';
+import { Command, type CommandOption } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
 import { registerCredsCommand } from './creds.ts';
 
-const credsCommand = () => {
+function credsCommand() {
   const program = new Command();
   registerCredsCommand(program);
-  const creds = program.commands.find((command) => command.name() == 'creds');
+  function findCommand(command: Command) {
+    return command.name() == 'creds';
+  }
+
+  const creds = program.commands.find(findCommand);
   expect(creds).toBeDefined();
   return creds;
-};
+}
+function describeRegisterCredsCommandNonInteractiveAppSelector261() {
+  function definesAppSoCredsSetupAppNameNoLongerErrorsWithUnknownOption() {
+    function readLong(option: CommandOption) {
+      return option.long;
+    }
 
-describe('registerCredsCommand - non-interactive app selector (#261)', () => {
-  it('defines --app so `creds setup --app <name>` no longer errors with "unknown option"', () => {
-    const longs = credsCommand()?.options.map((option) => option.long);
+    const longs = credsCommand()?.options.map(readLong);
     expect(longs).toContain('--app');
-  });
-  it('keeps --account and --yes alongside --app for a fully non-interactive setup', () => {
-    const longs = credsCommand()?.options.map((option) => option.long);
+  }
+
+  it(
+    'defines --app so `creds setup --app <name>` no longer errors with "unknown option"',
+    definesAppSoCredsSetupAppNameNoLongerErrorsWithUnknownOption,
+  );
+  function keepsAccountAndYesAlongsideAppForAFullyNonInteractiveSetup() {
+    function readLong2(option: CommandOption) {
+      return option.long;
+    }
+
+    const longs = credsCommand()?.options.map(readLong2);
     expect(longs).toContain('--account');
     expect(longs).toContain('--yes');
-  });
-});
+  }
+
+  it(
+    'keeps --account and --yes alongside --app for a fully non-interactive setup',
+    keepsAccountAndYesAlongsideAppForAFullyNonInteractiveSetup,
+  );
+}
+
+describe(
+  'registerCredsCommand - non-interactive app selector (#261)',
+  describeRegisterCredsCommandNonInteractiveAppSelector261,
+);

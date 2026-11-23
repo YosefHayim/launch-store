@@ -605,14 +605,14 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   ].join('\n'),
 };
 /** Return the teaching text for a topic. */
-export const explainTopic = (topic: GlossaryTopic): string => {
+export function explainTopic(topic: GlossaryTopic): string {
   return GLOSSARY[topic];
-};
+}
 /** Return whether a string is a known topic (narrows the type for the `explain` command). */
-export const isGlossaryTopic = (topicText: string): topicText is GlossaryTopic => {
+export function isGlossaryTopic(topicText: string): topicText is GlossaryTopic {
   return topicText in GLOSSARY;
-};
+}
 /** All known topic keys, for `launch-store explain` with no argument. */
-export const listTopics = (): GlossaryTopic[] => {
+export function listTopics(): GlossaryTopic[] {
   return Object.keys(GLOSSARY).filter(isGlossaryTopic);
-};
+}

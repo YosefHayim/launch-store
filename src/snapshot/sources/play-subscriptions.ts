@@ -31,15 +31,32 @@ import {
   stringField,
   toPriceConfig,
 } from './play-restore.ts';
+import type { PlayMoneyUnits } from '../../types/play-pricing.ts';
+
 /**
  * A base plan's per-region prices -> the snapshot's `{ priceMicros, currency }` money shape (the same form
  * the products source records), sorted by region for a deterministic capture. Play expresses subscription
  * money as `units`+`nanos`, converted to micro-units here so a restore reads it straight back as a
  * {@link PlayPriceConfig}. Regions Play left price-less are dropped.
  */
-const regionalPrices = (configs: readonly RegionalBasePlanConfig[]): Record<string, JsonValue> => {
+function regionalPrices(configs: readonly RegionalBasePlanConfig[]): Record<string, JsonValue> {
   const prices: Record<string, JsonValue> = {};
-  for (const config of [...configs].sort((a, b) => a.regionCode.localeCompare(b.regionCode))) {
+  function sortA(
+    a: {
+      readonly regionCode: string;
+      readonly newSubscriberAvailability?: boolean;
+      readonly price?: PlayMoneyUnits;
+    },
+    b: {
+      readonly regionCode: string;
+      readonly newSubscriberAvailability?: boolean;
+      readonly price?: PlayMoneyUnits;
+    },
+  ) {
+    return a.regionCode.localeCompare(b.regionCode);
+  }
+
+  for (const config of [...configs].sort(sortA)) {
     if (config.price) {
       prices[config.regionCode] = {
         priceMicros: unitsToMicros(config.price),
@@ -48,7 +65,7 @@ const regionalPrices = (configs: readonly RegionalBasePlanConfig[]): Record<stri
     }
   }
   return prices;
-};
+}
 /** A subscription's base plans, normalized to serializable records (id, state, billing period, prices). */
 const basePlans = (plans: readonly BasePlan[]): JsonValue => {
   return plans.map((plan): JsonValue => {
@@ -63,13 +80,20 @@ const basePlans = (plans: readonly BasePlan[]): JsonValue => {
   });
 };
 /** A subscription's listings, normalized to language + title pairs. */
-const listings = (items: readonly SubscriptionListing[]): JsonValue => {
-  return items.map(
-    (listing): JsonValue => ({ languageCode: listing.languageCode, title: listing.title }),
-  );
-};
+function listings(items: readonly SubscriptionListing[]): JsonValue {
+  function mapListing(listing: {
+    readonly languageCode: string;
+    readonly title: string;
+    readonly description: string;
+    readonly benefits?: readonly string[];
+  }): JsonValue {
+    return { languageCode: listing.languageCode, title: listing.title };
+  }
+
+  return items.map(mapListing);
+}
 /** One captured subscription -> a snapshot entity keyed by its product id. */
-const toEntity = (subscription: SubscriptionResource): SnapshotEntity => {
+function toEntity(subscription: SubscriptionResource): SnapshotEntity {
   const subscriptionFields: Record<string, JsonValue> = { productId: subscription.productId };
   if (subscription.basePlans) subscriptionFields['basePlans'] = basePlans(subscription.basePlans);
   if (subscription.listings) subscriptionFields['listings'] = listings(subscription.listings);
@@ -80,7 +104,7 @@ const toEntity = (subscription: SubscriptionResource): SnapshotEntity => {
     summary: `Play subscription (${planCount} base plan(s))`,
     data: subscriptionFields,
   };
-};
+}
 /** One captured base plan, parsed back to the fields restore needs (the rest of a base plan isn't restorable). */
 type RestorableBasePlan = {
   basePlanId: string;
@@ -88,7 +112,7 @@ type RestorableBasePlan = {
   prices: Record<string, PlayPriceConfig>;
 };
 /** Invert a captured `prices` map (`{ region: { priceMicros, currency } }`) back to per-region price configs. */
-const toPriceMap = (capturedPrices: JsonValue | undefined): Record<string, PlayPriceConfig> => {
+function toPriceMap(capturedPrices: JsonValue | undefined): Record<string, PlayPriceConfig> {
   const map = jsonRecord(capturedPrices);
   if (!map) return {};
   const prices: Record<string, PlayPriceConfig> = {};
@@ -97,22 +121,22 @@ const toPriceMap = (capturedPrices: JsonValue | undefined): Record<string, PlayP
     if (price) prices[region] = price;
   }
   return prices;
-};
+}
 /**
  * Read the first captured base plan back into a {@link RestorableBasePlan}. Launch models one config as one
  * Play subscription with a single base plan (see `reconcilePlaySubscriptions`), so restore rebuilds from
  * the first; any extra captured base plans aren't reconstructed. Returns `null` when none is well-formed.
  */
-const firstBasePlan = (capturedBasePlans: JsonValue | undefined): RestorableBasePlan | null => {
+function firstBasePlan(capturedBasePlans: JsonValue | undefined): RestorableBasePlan | null {
   if (!Array.isArray(capturedBasePlans)) return null;
   const first = jsonRecord(capturedBasePlans[0]);
   if (!first) return null;
   const basePlanId = stringField(first, 'basePlanId');
   if (basePlanId == null) return null;
   return { basePlanId, period: stringField(first, 'period'), prices: toPriceMap(first['prices']) };
-};
+}
 /** Invert a captured `listings` array (`{ languageCode, title }`) back into the shared localization list. */
-const toLocalizations = (capturedListings: JsonValue | undefined): ProductLocalization[] => {
+function toLocalizations(capturedListings: JsonValue | undefined): ProductLocalization[] {
   if (!Array.isArray(capturedListings)) return [];
   const localizations: ProductLocalization[] = [];
   for (const capturedListing of capturedListings) {
@@ -131,7 +155,7 @@ const toLocalizations = (capturedListings: JsonValue | undefined): ProductLocali
     localizations.push({ locale, name });
   }
   return localizations;
-};
+}
 /**
  * Rebuild a {@link SubscriptionConfig} from one captured subscription entity, targeting the Play
  * reconciler. The billing period is read back from the first base plan's ISO duration and its per-region
@@ -139,7 +163,7 @@ const toLocalizations = (capturedListings: JsonValue | undefined): ProductLocali
  * no base plan, an unknown billing period, or no captured prices (`PlaySubscriptionOverride` requires at
  * least one region). `referenceName` is an Apple-only field the Play path ignores, so the product id fills it.
  */
-const toSubscriptionConfig = (entity: SnapshotEntity): SubscriptionConfig | null => {
+function toSubscriptionConfig(entity: SnapshotEntity): SubscriptionConfig | null {
   const subscriptionFields = jsonRecord(entity.data);
   if (!subscriptionFields) return null;
   let productId = stringField(subscriptionFields, 'productId');
@@ -161,7 +185,7 @@ const toSubscriptionConfig = (entity: SnapshotEntity): SubscriptionConfig | null
     localizations: toLocalizations(subscriptionFields['listings']),
     play,
   };
-};
+}
 /** The Google Play subscription snapshot source. */
 export const playSubscriptionsSource: SnapshotSource = {
   id: 'play-subscriptions',

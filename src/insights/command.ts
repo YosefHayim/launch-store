@@ -52,7 +52,7 @@ function insightsFailure(operation: string, cause: unknown): InsightsCommandFail
 }
 
 /** Narrow an external rating to Launch's one-to-five-star domain. */
-const toStarRating = (rating: number): StarRating | null => {
+function toStarRating(rating: number): StarRating | null {
   switch (rating) {
     case 1:
     case 2:
@@ -63,10 +63,10 @@ const toStarRating = (rating: number): StarRating | null => {
     default:
       return null;
   }
-};
+}
 
 /** Normalize App Store reviews to the aggregate's store-neutral fields. */
-const normalizeAscReviews = (customerReviews: readonly CustomerReviewResource[]): ReviewDatum[] => {
+function normalizeAscReviews(customerReviews: readonly CustomerReviewResource[]): ReviewDatum[] {
   const normalizedReviews: ReviewDatum[] = [];
   for (const customerReview of customerReviews) {
     const starRating = toStarRating(customerReview.rating);
@@ -82,10 +82,10 @@ const normalizeAscReviews = (customerReviews: readonly CustomerReviewResource[])
     normalizedReviews.push(normalizedReview);
   }
   return normalizedReviews;
-};
+}
 
 /** Normalize Google Play reviews to the aggregate's store-neutral fields. */
-const normalizePlayReviews = (playReviews: readonly PlayReview[]): ReviewDatum[] => {
+function normalizePlayReviews(playReviews: readonly PlayReview[]): ReviewDatum[] {
   const normalizedReviews: ReviewDatum[] = [];
   for (const playReview of playReviews) {
     const starRating = toStarRating(playReview.rating);
@@ -99,31 +99,31 @@ const normalizePlayReviews = (playReviews: readonly PlayReview[]): ReviewDatum[]
     normalizedReviews.push(normalizedReview);
   }
   return normalizedReviews;
-};
+}
 
 /** Human label for a normalized store key. */
-const storeLabel = (store: InsightsStore): string => {
+function storeLabel(store: InsightsStore): string {
   if (store == 'appstore') return 'App Store';
   return 'Play';
-};
+}
 
 /** Build one fixed-width ASCII bar scaled against the largest rating bucket. */
-const distributionBar = (count: number, maximum: number, width = 12): string => {
+function distributionBar(count: number, maximum: number, width: number = 12): string {
   let filled = 0;
   if (maximum > 0) filled = Math.round((count / maximum) * width);
   return '#'.repeat(filled) + '.'.repeat(width - filled);
-};
+}
 
 /** Build one rating headline with average, volume, and answered rate. */
-const ratingSummaryLine = (ratingSummary: RatingSummary): string => {
+function ratingSummaryLine(ratingSummary: RatingSummary): string {
   const answeredPercentage = Math.round(ratingSummary.answeredRate * 100);
   let reviewNoun = 'reviews';
   if (ratingSummary.total == 1) reviewNoun = 'review';
   return `Rating ${ratingSummary.average.toFixed(1)}/5 - ${ratingSummary.total} ${reviewNoun} - ${answeredPercentage}% answered`;
-};
+}
 
 /** Render the normalized insights report as one terminal block. */
-export const renderInsights = (insightsReport: InsightsReport): string => {
+export function renderInsights(insightsReport: InsightsReport): string {
   if (insightsReport.apps.length == 0) {
     return 'No review data - no selected app returned reviews from the App Store or Play.';
   }
@@ -136,9 +136,11 @@ export const renderInsights = (insightsReport: InsightsReport): string => {
   ];
   const descendingStars: readonly StarRating[] = [5, 4, 3, 2, 1];
   for (const appInsights of insightsReport.apps) {
-    const maximumCount = Math.max(
-      ...STARS.map((starRating) => appInsights.ratings.distribution[starRating]),
-    );
+    function mapStarRating(starRating: 2 | 1 | 3 | 5 | 4) {
+      return appInsights.ratings.distribution[starRating];
+    }
+
+    const maximumCount = Math.max(...STARS.map(mapStarRating));
     reportLines.push('', appInsights.app, `  ${ratingSummaryLine(appInsights.ratings)}`);
     for (const starRating of descendingStars) {
       const ratingCount = appInsights.ratings.distribution[starRating];
@@ -151,7 +153,11 @@ export const renderInsights = (insightsReport: InsightsReport): string => {
         `${appInsights.ratings.sentiment.neutral} neutral - ${appInsights.ratings.sentiment.negative} negative`,
     );
     const stores: readonly InsightsStore[] = ['appstore', 'play'];
-    const presentStores = stores.filter((store) => appInsights.byStore[store] != null);
+    function filterStore(store: 'appstore' | 'play') {
+      return appInsights.byStore[store] != null;
+    }
+
+    const presentStores = stores.filter(filterStore);
     if (presentStores.length > 1) {
       for (const store of presentStores) {
         const storeSummary = appInsights.byStore[store];
@@ -161,15 +167,20 @@ export const renderInsights = (insightsReport: InsightsReport): string => {
       }
     }
     if (appInsights.trend.length > 0) {
-      const trendPoints = appInsights.trend.map(
-        (trendPoint) =>
-          `${trendPoint.month} ${trendPoint.average.toFixed(1)} (${trendPoint.count})`,
-      );
+      function mapTrendPoint(trendPoint: {
+        readonly month: string;
+        readonly count: number;
+        readonly average: number;
+      }) {
+        return `${trendPoint.month} ${trendPoint.average.toFixed(1)} (${trendPoint.count})`;
+      }
+
+      const trendPoints = appInsights.trend.map(mapTrendPoint);
       reportLines.push(`  trend: ${trendPoints.join(' - ')}`);
     }
   }
   return reportLines.join('\n');
-};
+}
 
 function reviewFailureMessage(readFailure: unknown): string {
   const hasFailureMessage = hasMessage(readFailure);

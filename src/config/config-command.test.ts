@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ConfigCommandInputSchema } from './config-command.ts';
-
-describe('ConfigCommandInputSchema', () => {
-  it('decodes schema and validation operations', () => {
+function describePieceCommandPieceSchema() {
+  function decodesSchemaAndValidationOperations() {
     const commandSchema = ConfigCommandInputSchema({
       operation: 'schema',
       out: 'launch.schema.json',
@@ -11,9 +10,18 @@ describe('ConfigCommandInputSchema', () => {
     expect(ConfigCommandInputSchema({ operation: 'validate' })).toEqual({
       operation: 'validate',
     });
-  });
+  }
 
-  it('rejects an unknown operation', () => {
-    expect(() => ConfigCommandInputSchema({ operation: 'repair' })).toThrow();
-  });
-});
+  it('decodes schema and validation operations', decodesSchemaAndValidationOperations);
+  function rejectsAnUnknownOperation() {
+    function callPieceCommandPieceSchema() {
+      return ConfigCommandInputSchema({ operation: 'repair' });
+    }
+
+    expect(callPieceCommandPieceSchema).toThrow();
+  }
+
+  it('rejects an unknown operation', rejectsAnUnknownOperation);
+}
+
+describe('ConfigCommandInputSchema', describePieceCommandPieceSchema);

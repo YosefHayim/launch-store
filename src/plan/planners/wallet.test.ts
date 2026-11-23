@@ -5,10 +5,12 @@ import { makeAscApiFake } from '../../testkit/asc-api-fake-testkit.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
 import type { WalletConfig } from '../../types/store-surface.ts';
+import type { ActionStatus } from '../../types/reconcile.ts';
+
 const DECLARED: WalletConfig = {
   merchantIds: [{ identifier: 'merchant.com.acme.app', name: 'Acme Pay' }],
 };
-const makeCtx = (api: AscSurfacesApi | null, wallet?: WalletConfig): PlanContext => {
+function makeCtx(api: AscSurfacesApi | null, wallet?: WalletConfig): PlanContext {
   const baseConfig: LaunchConfig = {
     profiles: {},
     credentials: 'local',
@@ -21,32 +23,57 @@ const makeCtx = (api: AscSurfacesApi | null, wallet?: WalletConfig): PlanContext
   return {
     config,
     apps: [],
-    resolveAscApi: () => Promise.resolve(api),
-    resolvePlayApi: () => Promise.resolve(null),
+    resolveAscApi() {
+      return Promise.resolve(api);
+    },
+    resolvePlayApi() {
+      return Promise.resolve(null);
+    },
   };
-};
-describe('walletPlanner', () => {
-  it('omits itself when no wallet ids are declared', async () => {
+}
+function describeWalletPlanner() {
+  async function omitsItselfWhenNoWalletIdsAreDeclared() {
     const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(walletPlanner, makeCtx(ascApiFake));
     expect(plan.state).toBe('omitted');
-  });
-  it('skips with a creds hint when no Apple account is active', async () => {
+  }
+
+  it('omits itself when no wallet ids are declared', omitsItselfWhenNoWalletIdsAreDeclared);
+  async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
     const plan = await runPlanner(walletPlanner, makeCtx(null, DECLARED));
     expect(plan.state).toBe('skipped');
     if (plan.state != 'skipped') return;
     expect(plan.hint).toMatch(/creds/);
-  });
-  it('reports a team-scoped additive plan for a fresh merchant id', async () => {
+  }
+
+  it(
+    'skips with a creds hint when no Apple account is active',
+    skipsWithACredsHintWhenNoAppleAccountIsActive,
+  );
+  async function reportsATeamScopedAdditivePlanForAFreshMerchantId() {
     const ascApiFake = makeAscApiFake();
     const plan = await runPlanner(walletPlanner, makeCtx(ascApiFake, DECLARED));
     expect(plan.state).toBe('planned');
     if (plan.state != 'planned') return;
     if (plan.scope != 'team') return;
     expect(plan.direction).toBe('additive');
-    expect(plan.actions.some((a) => a.description.includes('merchant id'))).toBe(true);
-  });
-  it('renders in sync when the merchant id already exists', async () => {
+    function someA(a: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return a.description.includes('merchant id');
+    }
+
+    expect(plan.actions.some(someA)).toBe(true);
+  }
+
+  it(
+    'reports a team-scoped additive plan for a fresh merchant id',
+    reportsATeamScopedAdditivePlanForAFreshMerchantId,
+  );
+  async function rendersInSyncWhenTheMerchantIdAlreadyExists() {
     const api = makeAscApiFake({
       listMerchantIds: vi
         .fn()
@@ -57,11 +84,23 @@ describe('walletPlanner', () => {
     if (plan.state != 'planned') return;
     if (plan.scope != 'team') return;
     expect(plan.actions).toHaveLength(0);
-  });
-  it('is strictly read-only: never invokes a write endpoint', async () => {
+  }
+
+  it(
+    'renders in sync when the merchant id already exists',
+    rendersInSyncWhenTheMerchantIdAlreadyExists,
+  );
+  async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
     await runPlanner(walletPlanner, makeCtx(api, DECLARED));
     expect(api.createMerchantId).toHaveBeenCalledTimes(0);
     expect(api.createPassTypeId).toHaveBeenCalledTimes(0);
-  });
-});
+  }
+
+  it(
+    'is strictly read-only: never invokes a write endpoint',
+    isStrictlyReadOnlyNeverInvokesAWriteEndpoint,
+  );
+}
+
+describe('walletPlanner', describeWalletPlanner);

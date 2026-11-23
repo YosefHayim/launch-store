@@ -23,7 +23,11 @@ export class ConnectTestflight {
       isInternalGroup?: boolean;
       publicLink?: string | null;
     }>(`/apps/${appId}/betaGroups?limit=200&fields[betaGroups]=name,isInternalGroup,publicLink`);
-    return appleResources.flatMap((group) => {
+    function flatMapGroup(group: {
+      id: string;
+      attributes: { name?: string; isInternalGroup?: boolean; publicLink?: string | null };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const groupName = group.attributes.name;
       if (groupName == null) return [];
       const betaGroup: BetaGroupResource = { id: group.id, name: groupName };
@@ -32,14 +36,23 @@ export class ConnectTestflight {
       if (group.attributes.publicLink != null && group.attributes.publicLink != null)
         Object.assign(betaGroup, { publicLink: group.attributes.publicLink });
       return [betaGroup];
-    });
+    }
+
+    return appleResources.flatMap(flatMapGroup);
   }
 
   async findBetaGroupByName(appId: string, name: string): Promise<BetaGroupResource | null> {
     const wanted = name.toLowerCase();
-    const matchingGroup = (await this.listBetaGroups(appId)).find(
-      (group) => group.name.toLowerCase() == wanted,
-    );
+    function findGroup(group: {
+      readonly id: string;
+      readonly name: string;
+      readonly isInternal?: boolean;
+      readonly publicLink?: string;
+    }) {
+      return group.name.toLowerCase() == wanted;
+    }
+
+    const matchingGroup = (await this.listBetaGroups(appId)).find(findGroup);
     if (matchingGroup == null) return null;
     return matchingGroup;
   }
@@ -69,7 +82,17 @@ export class ConnectTestflight {
     const appleResources = await this.betaTestersFrom(
       `/betaTesters?filter[email]=${uRIComponent}&limit=1&fields[betaTesters]=email,firstName,lastName,state`,
     );
-    const matchingTester = appleResources.find((tester) => tester.email.toLowerCase() == wanted);
+    function findTester(tester: {
+      readonly id: string;
+      readonly email: string;
+      readonly firstName?: string;
+      readonly lastName?: string;
+      readonly state?: string;
+    }) {
+      return tester.email.toLowerCase() == wanted;
+    }
+
+    const matchingTester = appleResources.find(findTester);
     if (matchingTester != null) return matchingTester;
     const firstTester = appleResources[0];
     if (firstTester == null) return null;
@@ -110,17 +133,25 @@ export class ConnectTestflight {
   }
 
   async addTestersToGroup(groupId: string, testerIds: readonly string[]): Promise<void> {
+    function mapId(id: string) {
+      return { type: 'betaTesters', id };
+    }
+
     await this.client.request<unknown>('POST', `/betaGroups/${groupId}/relationships/betaTesters`, {
-      data: testerIds.map((id) => ({ type: 'betaTesters', id })),
+      data: testerIds.map(mapId),
     });
   }
 
   async removeTestersFromGroup(groupId: string, testerIds: readonly string[]): Promise<void> {
+    function mapId2(id: string) {
+      return { type: 'betaTesters', id };
+    }
+
     await this.client.request<unknown>(
       'DELETE',
       `/betaGroups/${groupId}/relationships/betaTesters`,
       {
-        data: testerIds.map((id) => ({ type: 'betaTesters', id })),
+        data: testerIds.map(mapId2),
       },
     );
   }
@@ -132,7 +163,16 @@ export class ConnectTestflight {
       lastName?: string | null;
       state?: string;
     }>(path);
-    return appleResources.flatMap((tester) => {
+    function flatMapTester(tester: {
+      id: string;
+      attributes: {
+        email?: string | null;
+        firstName?: string | null;
+        lastName?: string | null;
+        state?: string;
+      };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       let testerEmail = tester.attributes.email;
       const emailIsOmitted = typeof testerEmail == 'undefined';
 
@@ -147,7 +187,9 @@ export class ConnectTestflight {
       if (tester.attributes.state != null)
         Object.assign(betaTester, { state: tester.attributes.state });
       return [betaTester];
-    });
+    }
+
+    return appleResources.flatMap(flatMapTester);
   }
 
   async listBetaFeedbackCrashSubmissions(
@@ -158,7 +200,14 @@ export class ConnectTestflight {
       `/apps/${appId}/betaFeedbackCrashSubmissions`,
       query,
     );
-    return submissions.map((submission) => submission.base);
+    function readBase(submission: {
+      base: BetaFeedbackSubmissionResource;
+      screenshots: { url: string; width?: number; height?: number }[];
+    }) {
+      return submission.base;
+    }
+
+    return submissions.map(readBase);
   }
 
   async listBetaFeedbackScreenshotSubmissions(
@@ -170,10 +219,17 @@ export class ConnectTestflight {
       query,
       true,
     );
-    return submissions.map((submission) => ({
-      ...submission.base,
-      screenshots: submission.screenshots,
-    }));
+    function mapSubmission(submission: {
+      base: BetaFeedbackSubmissionResource;
+      screenshots: { url: string; width?: number; height?: number }[];
+    }) {
+      return {
+        ...submission.base,
+        screenshots: submission.screenshots,
+      };
+    }
+
+    return submissions.map(mapSubmission);
   }
 
   private async listBetaFeedback(
@@ -221,19 +277,20 @@ export class ConnectTestflight {
   }
 
   async downloadBetaFeedbackScreenshot(url: string): Promise<Buffer> {
-    return retryAppleTransportRequest(
-      async () => {
-        const appleResponse = await fetch(url);
-        if (!appleResponse.ok) {
-          throw new AscRequestError(
-            `Beta feedback screenshot download failed (${appleResponse.status}).`,
-            appleResponse.status,
-          );
-        }
-        return Buffer.from(await appleResponse.arrayBuffer());
-      },
-      { isRetryableFailure: isRetryableIdempotentFailure },
-    );
+    async function retryAppleTransportRequestPiece() {
+      const appleResponse = await fetch(url);
+      if (!appleResponse.ok) {
+        throw new AscRequestError(
+          `Beta feedback screenshot download failed (${appleResponse.status}).`,
+          appleResponse.status,
+        );
+      }
+      return Buffer.from(await appleResponse.arrayBuffer());
+    }
+
+    return retryAppleTransportRequest(retryAppleTransportRequestPiece, {
+      isRetryableFailure: isRetryableIdempotentFailure,
+    });
   }
 
   async listBetaBuildLocalizations(buildId: string): Promise<BetaBuildLocalizationResource[]> {
@@ -243,14 +300,20 @@ export class ConnectTestflight {
     }>(
       `/builds/${buildId}/betaBuildLocalizations?limit=200&fields[betaBuildLocalizations]=locale,whatsNew`,
     );
-    return appleResources.flatMap((localization) => {
+    function flatMapLocalization(localization: {
+      id: string;
+      attributes: { locale?: string; whatsNew?: string | null };
+      relationships?: { build?: { data?: { id: string } | null } };
+    }) {
       const locale = localization.attributes.locale;
       if (locale == null) return [];
       const betaLocalization: BetaBuildLocalizationResource = { id: localization.id, locale };
       if (typeof localization.attributes.whatsNew == 'string')
         Object.assign(betaLocalization, { whatsNew: localization.attributes.whatsNew });
       return [betaLocalization];
-    });
+    }
+
+    return appleResources.flatMap(flatMapLocalization);
   }
 
   async createBetaBuildLocalization(

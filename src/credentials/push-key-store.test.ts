@@ -21,23 +21,24 @@ const PEM = [
   'MIGTAgEAMBMGByqGSM49AgEGCCqGSM49',
   '-----END PRIVATE KEY-----',
 ].join('\n');
-
-beforeEach(() => {
+function prepare() {
   secrets.clear();
   useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
   useSecretStore(secrets);
   const pushKeysFilePath = resolvePushKeysFilePath();
   rmSync(pushKeysFilePath, { force: true });
-});
+}
 
-afterAll(() => {
+beforeEach(prepare);
+function cleanupAll() {
   resetLaunchDirectories();
   resetSecretStore();
   rmSync(homeDirectory, { recursive: true, force: true });
-});
+}
 
-describe('push-key vault', () => {
-  it('imports a key, vaults the secret namespaced, and round-trips the PEM', async () => {
+afterAll(cleanupAll);
+function describePushKeyVault() {
+  async function importsAKeyVaultsTheSecretNamespacedAndRoundTripsThePEM() {
     await importPushKey({ keyId: 'ABC123DEFG', p8: PEM, teamId: 'TEAM1', label: 'Prod push' });
 
     expect(secrets.get('apns-p8:ABC123DEFG')).toBeDefined();
@@ -51,9 +52,13 @@ describe('push-key vault', () => {
       label: 'Prod push',
     });
     expect((await listPushKeys())[0]?.importedAt).toEqual(expect.any(String));
-  });
+  }
 
-  it('re-importing the same Key ID updates in place and keeps the original importedAt', async () => {
+  it(
+    'imports a key, vaults the secret namespaced, and round-trips the PEM',
+    importsAKeyVaultsTheSecretNamespacedAndRoundTripsThePEM,
+  );
+  async function reImportingTheSameKeyIDUpdatesInPlaceAndKeepsTheOriginalImportedAt() {
     const first = await importPushKey({ keyId: 'ABC123DEFG', p8: PEM, label: 'Old' });
     const second = await importPushKey({ keyId: 'ABC123DEFG', p8: PEM, label: 'New' });
 
@@ -61,14 +66,25 @@ describe('push-key vault', () => {
     expect(pushKeys).toHaveLength(1);
     expect((await listPushKeys())[0]?.label).toBe('New');
     expect(second.importedAt).toBe(first.importedAt);
-  });
+  }
 
-  it('finds a vaulted key case-insensitively and returns null for a missing secret', async () => {
+  it(
+    're-importing the same Key ID updates in place and keeps the original importedAt',
+    reImportingTheSameKeyIDUpdatesInPlaceAndKeepsTheOriginalImportedAt,
+  );
+  async function findsAVaultedKeyCaseInsensitivelyAndReturnsNullForAMissingSecret() {
     await importPushKey({ keyId: 'ABC123DEFG', p8: PEM });
 
     const pushKey = await findPushKey('abc123defg');
     expect(pushKey?.keyId).toBe('ABC123DEFG');
     expect(await findPushKey('NOPE')).toBeUndefined();
     expect(await loadPushKey('NOPE')).toBeNull();
-  });
-});
+  }
+
+  it(
+    'finds a vaulted key case-insensitively and returns null for a missing secret',
+    findsAVaultedKeyCaseInsensitivelyAndReturnsNullForAMissingSecret,
+  );
+}
+
+describe('push-key vault', describePushKeyVault);

@@ -34,24 +34,26 @@ const sampleAppJsonText = JSON.stringify({
 });
 const APP_JSON_WITHOUT_IOS_TEXT = JSON.stringify({ expo: { name: 'Oly', version: '1.2.0' } });
 
-const liveVersion = (
-  overrides: Partial<AppStoreVersionResource> = {},
-): AppStoreVersionResource => ({
-  id: 'v-1',
-  versionString: '1.2.0',
-  appStoreState: 'READY_FOR_SALE',
-  attachedBuildNumber: '42',
-  attachedBuildProcessingState: 'VALID',
-  ...overrides,
-});
+function liveVersion(overrides: Partial<AppStoreVersionResource> = {}): AppStoreVersionResource {
+  return {
+    id: 'v-1',
+    versionString: '1.2.0',
+    appStoreState: 'READY_FOR_SALE',
+    attachedBuildNumber: '42',
+    attachedBuildProcessingState: 'VALID',
+    ...overrides,
+  };
+}
 
-const makeBuild = (overrides: Partial<BuildResource> = {}): BuildResource => ({
-  id: 'b-1',
-  version: '42',
-  processingState: 'VALID',
-  expired: false,
-  ...overrides,
-});
+function makeBuild(overrides: Partial<BuildResource> = {}): BuildResource {
+  return {
+    id: 'b-1',
+    version: '42',
+    processingState: 'VALID',
+    expired: false,
+    ...overrides,
+  };
+}
 
 type StatusRun = Readonly<{
   exitCode: number;
@@ -195,68 +197,88 @@ afterEach(function resetStatusDoubles() {
   resetLogger();
   useAppleStoreClientFactory(null);
 });
+function describeStatusCommandProgramPlainStatus() {
+  async function printsTheStatusLineAndExits0WhenTheVersionIsLive() {
+    function mockCall() {
+      return Promise.resolve([liveVersion()]);
+    }
 
-describe('statusCommandProgram - plain status', () => {
-  it('prints the status line and exits 0 when the version is live', async () => {
     const api = makeReleaseApiFake({
-      listAppStoreVersions: vi.fn(() => {
-        return Promise.resolve([liveVersion()]);
-      }),
+      listAppStoreVersions: vi.fn(mockCall),
     });
 
     const run = await runStatusCommand({}, api);
 
     expect(run.exitCode).toBe(0);
     expect(run.logLines.join('\n')).toContain('Live on the App Store');
-  });
+  }
 
-  it('annotates an attached build that is still processing', async () => {
+  it(
+    'prints the status line and exits 0 when the version is live',
+    printsTheStatusLineAndExits0WhenTheVersionIsLive,
+  );
+  async function annotatesAnAttachedBuildThatIsStillProcessing() {
+    function mockCall2() {
+      return Promise.resolve([
+        liveVersion({ appStoreState: 'IN_REVIEW', attachedBuildProcessingState: 'PROCESSING' }),
+      ]);
+    }
+
     const api = makeReleaseApiFake({
-      listAppStoreVersions: vi.fn(() => {
-        return Promise.resolve([
-          liveVersion({ appStoreState: 'IN_REVIEW', attachedBuildProcessingState: 'PROCESSING' }),
-        ]);
-      }),
+      listAppStoreVersions: vi.fn(mockCall2),
     });
 
     const run = await runStatusCommand({}, api);
 
     expect(run.logLines.join('\n')).toContain('build 42 (PROCESSING)');
-  });
+  }
 
-  it('never lists builds without --builds', async () => {
-    const listBuilds = vi.fn(() => {
+  it(
+    'annotates an attached build that is still processing',
+    annotatesAnAttachedBuildThatIsStillProcessing,
+  );
+  async function neverListsBuildsWithoutBuilds() {
+    function mockCall3() {
       const buildProgram = makeBuild();
       return Promise.resolve([buildProgram]);
-    });
+    }
+
+    const listBuilds = vi.fn(mockCall3);
+    function mockCall4() {
+      return Promise.resolve([liveVersion()]);
+    }
+
     const api = makeReleaseApiFake({
-      listAppStoreVersions: vi.fn(() => {
-        return Promise.resolve([liveVersion()]);
-      }),
+      listAppStoreVersions: vi.fn(mockCall4),
       listBuilds,
     });
 
     await runStatusCommand({}, api);
 
     expect(listBuilds).not.toHaveBeenCalled();
-  });
+  }
 
-  it('lists each recent build in its own row with --builds, looking up the app id once', async () => {
+  it('never lists builds without --builds', neverListsBuildsWithoutBuilds);
+  async function listsEachRecentBuildInItsOwnPieceWithBuildsLookingUpTheAppIdOnce() {
+    function mockCall5() {
+      return Promise.resolve([liveVersion()]);
+    }
+
+    function mockCall6() {
+      const buildProgram = makeBuild({
+        id: 'b-43',
+        version: '43',
+        uploadedDate: '2026-11-03T10:00:00Z',
+      });
+      return Promise.resolve([
+        buildProgram,
+        makeBuild({ id: 'b-42', version: '42', uploadedDate: '2026-10-20T10:00:00Z' }),
+      ]);
+    }
+
     const api = makeReleaseApiFake({
-      listAppStoreVersions: vi.fn(() => {
-        return Promise.resolve([liveVersion()]);
-      }),
-      listBuilds: vi.fn(() => {
-        const buildProgram = makeBuild({
-          id: 'b-43',
-          version: '43',
-          uploadedDate: '2026-11-03T10:00:00Z',
-        });
-        return Promise.resolve([
-          buildProgram,
-          makeBuild({ id: 'b-42', version: '42', uploadedDate: '2026-10-20T10:00:00Z' }),
-        ]);
-      }),
+      listAppStoreVersions: vi.fn(mockCall5),
+      listBuilds: vi.fn(mockCall6),
     });
 
     const run = await runStatusCommand({ builds: true }, api);
@@ -265,129 +287,182 @@ describe('statusCommandProgram - plain status', () => {
     expect(printedText).toContain('2026-11-03 10:00');
     expect(printedText).toContain('2026-10-20 10:00');
     expect(api.getAppId).toHaveBeenCalledTimes(1);
-  });
+  }
 
-  it('exits 0 with a note when the project has no iOS app', async () => {
+  it(
+    'lists each recent build in its own row with --builds, looking up the app id once',
+    listsEachRecentBuildInItsOwnPieceWithBuildsLookingUpTheAppIdOnce,
+  );
+  async function exits0WithANoteWhenTheProjectHasNoIOSApp() {
     const api = makeReleaseApiFake();
 
     const run = await runStatusCommand({}, api, APP_JSON_WITHOUT_IOS_TEXT);
 
     expect(run.exitCode).toBe(0);
     expect(run.logLines.join('\n')).toContain('No iOS apps discovered');
-  });
+  }
 
-  it('fails with exit 1 on an --app name that is not an iOS app', async () => {
+  it(
+    'exits 0 with a note when the project has no iOS app',
+    exits0WithANoteWhenTheProjectHasNoIOSApp,
+  );
+  async function failsWithExit1OnAnAppNameThatIsNotAnIOSApp() {
     const api = makeReleaseApiFake();
 
     const run = await runStatusCommand({ app: 'delta' }, api);
 
     expect(run.exitCode).toBe(1);
     expect(run.failureMessage).toMatch(/Unknown iOS app "delta"/);
-  });
-});
+  }
 
-describe('statusCommandProgram - usage errors', () => {
-  it('exits 2 when --build comes without --watch', async () => {
+  it(
+    'fails with exit 1 on an --app name that is not an iOS app',
+    failsWithExit1OnAnAppNameThatIsNotAnIOSApp,
+  );
+}
+
+describe('statusCommandProgram - plain status', describeStatusCommandProgramPlainStatus);
+function describeStatusCommandProgramUsageErrors() {
+  async function exits2WhenBuildComesWithoutWatch() {
     const releaseApiFake = makeReleaseApiFake();
     const run = await runStatusCommand({ build: '42' }, releaseApiFake);
 
     expect(run.exitCode).toBe(2);
     expect(run.failureMessage).toMatch(/--build needs --watch/);
-  });
+  }
 
-  it('exits 2 when --builds comes with --watch', async () => {
+  it('exits 2 when --build comes without --watch', exits2WhenBuildComesWithoutWatch);
+  async function exits2WhenBuildsComesWithWatch() {
     const releaseApiFake = makeReleaseApiFake();
     const run = await runStatusCommand({ builds: true, watch: true }, releaseApiFake);
 
     expect(run.exitCode).toBe(2);
     expect(run.failureMessage).toMatch(/--builds lists builds/);
-  });
+  }
 
-  it('exits 2 with the usage message for a --build that is not a whole number', async () => {
+  it('exits 2 when --builds comes with --watch', exits2WhenBuildsComesWithWatch);
+  async function exits2WithTheUsageMessageForABuildThatIsNotAWholeNumber() {
     const releaseApiFake = makeReleaseApiFake();
     const run = await runStatusCommand({ build: '4.5', watch: true }, releaseApiFake);
 
     expect(run.exitCode).toBe(2);
     expect(run.failureMessage).toMatch(/--build takes a whole number above 0/);
-  });
+  }
 
-  it('exits 2 for a --build of 0', async () => {
+  it(
+    'exits 2 with the usage message for a --build that is not a whole number',
+    exits2WithTheUsageMessageForABuildThatIsNotAWholeNumber,
+  );
+  async function exits2ForABuildOf0() {
     const releaseApiFake = makeReleaseApiFake();
     const run = await runStatusCommand({ build: '0', watch: true }, releaseApiFake);
 
     expect(run.exitCode).toBe(2);
-  });
-});
+  }
 
-describe('statusCommandProgram - --watch and --build', () => {
-  it('exits with the verdict code when the first read is already terminal', async () => {
+  it('exits 2 for a --build of 0', exits2ForABuildOf0);
+}
+
+describe('statusCommandProgram - usage errors', describeStatusCommandProgramUsageErrors);
+function describeStatusCommandProgramWatchAndBuild() {
+  async function exitsWithTheVerdictCodeWhenTheFirstReadIsAlreadyTerminal() {
+    function mockCall7() {
+      return Promise.resolve([liveVersion()]);
+    }
+
     const api = makeReleaseApiFake({
-      listAppStoreVersions: vi.fn(() => {
-        return Promise.resolve([liveVersion()]);
-      }),
+      listAppStoreVersions: vi.fn(mockCall7),
     });
 
     const run = await runStatusCommand({ watch: true }, api);
 
     expect(run.exitCode).toBe(0);
-  });
+  }
 
-  it('reports the build as ready once App Store Connect reports it VALID', async () => {
+  it(
+    'exits with the verdict code when the first read is already terminal',
+    exitsWithTheVerdictCodeWhenTheFirstReadIsAlreadyTerminal,
+  );
+  async function reportsTheBuildAsReadyOnceAppStoreConnectReportsItVALID() {
+    function mockCall8() {
+      const buildProgram = makeBuild({ processingState: 'VALID' });
+      return Promise.resolve(buildProgram);
+    }
+
     const api = makeReleaseApiFake({
-      findBuildByVersion: vi.fn(() => {
-        const buildProgram = makeBuild({ processingState: 'VALID' });
-        return Promise.resolve(buildProgram);
-      }),
+      findBuildByVersion: vi.fn(mockCall8),
     });
 
     const run = await runStatusCommand({ build: '42', watch: true }, api);
 
     expect(run.exitCode).toBe(0);
     expect(run.logLines.join('\n')).toContain('build 42 is VALID - ready to release');
-  });
+  }
 
-  it('fails with exit 1 when App Store Connect rejects the build', async () => {
+  it(
+    'reports the build as ready once App Store Connect reports it VALID',
+    reportsTheBuildAsReadyOnceAppStoreConnectReportsItVALID,
+  );
+  async function failsWithExit1WhenAppStoreConnectRejectsTheBuild() {
+    function mockCall9() {
+      const buildProgram = makeBuild({ processingState: 'FAILED' });
+      return Promise.resolve(buildProgram);
+    }
+
     const api = makeReleaseApiFake({
-      findBuildByVersion: vi.fn(() => {
-        const buildProgram = makeBuild({ processingState: 'FAILED' });
-        return Promise.resolve(buildProgram);
-      }),
+      findBuildByVersion: vi.fn(mockCall9),
     });
 
     const run = await runStatusCommand({ build: '42', watch: true }, api);
 
     expect(run.exitCode).toBe(1);
     expect(run.failureMessage).toMatch(/failed App Store Connect processing \(FAILED\)/);
-  });
+  }
 
-  it('prints ok true with the build under --json when the build is VALID', async () => {
+  it(
+    'fails with exit 1 when App Store Connect rejects the build',
+    failsWithExit1WhenAppStoreConnectRejectsTheBuild,
+  );
+  async function printsOkTrueWithTheBuildUnderPieceWhenTheBuildIsVALID() {
+    function mockCall10() {
+      const buildProgram = makeBuild({ processingState: 'VALID' });
+      return Promise.resolve(buildProgram);
+    }
+
     const api = makeReleaseApiFake({
-      findBuildByVersion: vi.fn(() => {
-        const buildProgram = makeBuild({ processingState: 'VALID' });
-        return Promise.resolve(buildProgram);
-      }),
+      findBuildByVersion: vi.fn(mockCall10),
     });
 
     const run = await runStatusCommand({ build: '42', watch: true, json: true }, api);
 
     expect(run.logLines.join('\n')).toContain('"ok": true');
-  });
+  }
 
-  it('prints ok false with the error under --json when the build is rejected', async () => {
+  it(
+    'prints ok true with the build under --json when the build is VALID',
+    printsOkTrueWithTheBuildUnderPieceWhenTheBuildIsVALID,
+  );
+  async function printsOkFalseWithTheErrorUnderPieceWhenTheBuildIsRejected() {
+    function mockCall11() {
+      const buildProgram = makeBuild({ processingState: 'INVALID' });
+      return Promise.resolve(buildProgram);
+    }
+
     const api = makeReleaseApiFake({
-      findBuildByVersion: vi.fn(() => {
-        const buildProgram = makeBuild({ processingState: 'INVALID' });
-        return Promise.resolve(buildProgram);
-      }),
+      findBuildByVersion: vi.fn(mockCall11),
     });
 
     const run = await runStatusCommand({ build: '42', watch: true, json: true }, api);
 
     expect(run.exitCode).toBe(1);
     expect(run.logLines.join('\n')).toContain('"ok": false');
-  });
+  }
 
-  it('fails with exit 1 and a clear message when --build has no iOS app to watch', async () => {
+  it(
+    'prints ok false with the error under --json when the build is rejected',
+    printsOkFalseWithTheErrorUnderPieceWhenTheBuildIsRejected,
+  );
+  async function failsWithExit1AndAClearMessageWhenBuildHasNoIOSAppToWatch() {
     const releaseApiFake = makeReleaseApiFake();
     const run = await runStatusCommand(
       { build: '42', watch: true },
@@ -397,5 +472,12 @@ describe('statusCommandProgram - --watch and --build', () => {
 
     expect(run.exitCode).toBe(1);
     expect(run.failureMessage).toMatch(/No iOS apps discovered/);
-  });
-});
+  }
+
+  it(
+    'fails with exit 1 and a clear message when --build has no iOS app to watch',
+    failsWithExit1AndAClearMessageWhenBuildHasNoIOSAppToWatch,
+  );
+}
+
+describe('statusCommandProgram - --watch and --build', describeStatusCommandProgramWatchAndBuild);

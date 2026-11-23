@@ -4,13 +4,13 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { decodeDiagnoseCommandInput, findMostRecentBuildLog } from './diagnose-command.ts';
-
-afterEach(() => {
+function cleanup() {
   resetLaunchDirectories();
-});
+}
 
-describe('findMostRecentBuildLog', () => {
-  it('returns the newest log and ignores non-log files', async () => {
+afterEach(cleanup);
+function describeFindMostRecentBuildLog() {
+  async function returnsTheNewestLogAndIgnoresNonLogFiles() {
     const systemTemporaryDirectory = tmpdir();
     const launchDiagnosePath = join(systemTemporaryDirectory, 'launch-diagnose-');
     const homeDirectory = mkdtempSync(launchDiagnosePath);
@@ -28,24 +28,35 @@ describe('findMostRecentBuildLog', () => {
     useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
     const mostRecentBuildLog = findMostRecentBuildLog();
     await expect(mostRecentBuildLog).resolves.toBe(newerLog);
-  });
+  }
 
-  it('returns null when the log directory does not exist', async () => {
+  it('returns the newest log and ignores non-log files', returnsTheNewestLogAndIgnoresNonLogFiles);
+  async function returnsNullWhenTheLogDirectoryDoesNotExist() {
     const systemTemporaryDirectory = tmpdir();
     const launchDiagnoseEmptyPath = join(systemTemporaryDirectory, 'launch-diagnose-empty-');
     const homeDirectory = mkdtempSync(launchDiagnoseEmptyPath);
     useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
     const mostRecentBuildLog = findMostRecentBuildLog();
     await expect(mostRecentBuildLog).resolves.toBeNull();
-  });
-});
+  }
 
-describe('DiagnoseCommandInputSchema', () => {
-  it('accepts an omitted or explicit log path', () => {
+  it(
+    'returns null when the log directory does not exist',
+    returnsNullWhenTheLogDirectoryDoesNotExist,
+  );
+}
+
+describe('findMostRecentBuildLog', describeFindMostRecentBuildLog);
+function describeDiagnoseCommandPieceSchema() {
+  function acceptsAnOmittedOrExplicitLogPath() {
     const decodeDiagnoseCommand = decodeDiagnoseCommandInput({});
     expect(decodeDiagnoseCommand).toEqual({});
     expect(decodeDiagnoseCommandInput({ logfile: '/tmp/build.log' })).toEqual({
       logfile: '/tmp/build.log',
     });
-  });
-});
+  }
+
+  it('accepts an omitted or explicit log path', acceptsAnOmittedOrExplicitLogPath);
+}
+
+describe('DiagnoseCommandInputSchema', describeDiagnoseCommandPieceSchema);

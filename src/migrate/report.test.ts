@@ -16,23 +16,24 @@ const RESULT: MigrationResult = {
     { level: 'info', message: 'Detected bundle id.' },
   ],
 };
-
-describe('renderReport', () => {
-  it('titles the report and names the source', () => {
+function describeRenderReport() {
+  function titlesTheReportAndNamesThePiece() {
     const reportMarkdown = renderReport(RESULT);
 
     expect(reportMarkdown).toContain('# Launch migration report');
     expect(reportMarkdown).toContain('EAS (eas.json)');
-  });
+  }
 
-  it('lists the emitted artifacts', () => {
+  it('titles the report and names the source', titlesTheReportAndNamesThePiece);
+  function listsTheEmittedArtifacts() {
     const reportMarkdown = renderReport(RESULT);
 
     expect(reportMarkdown).toContain('- `launch.config.ts`');
     expect(reportMarkdown).toContain('- `.env.example`');
-  });
+  }
 
-  it('renders a section per present note level, actionable first', () => {
+  it('lists the emitted artifacts', listsTheEmittedArtifacts);
+  function rendersASectionPerPresentNoteLevelActionableFirst() {
     const reportMarkdown = renderReport(RESULT);
 
     expect(reportMarkdown).toContain('## Needs your attention');
@@ -42,9 +43,13 @@ describe('renderReport', () => {
     expect(reportMarkdown.indexOf('## Needs your attention')).toBeLessThan(
       reportMarkdown.indexOf('## For your information'),
     );
-  });
+  }
 
-  it('omits sections with no notes', () => {
+  it(
+    'renders a section per present note level, actionable first',
+    rendersASectionPerPresentNoteLevelActionableFirst,
+  );
+  function omitsSectionsWithNoNotes() {
     const reportMarkdown = renderReport({
       ...RESULT,
       notes: [{ level: 'manual', message: 'x' }],
@@ -52,5 +57,9 @@ describe('renderReport', () => {
 
     expect(reportMarkdown).toContain('## Needs your attention');
     expect(reportMarkdown).not.toContain('## For your information');
-  });
-});
+  }
+
+  it('omits sections with no notes', omitsSectionsWithNoNotes);
+}
+
+describe('renderReport', describeRenderReport);

@@ -6,8 +6,12 @@ import { loadServiceAccount } from '../../credentials/android-keystore-assets.ts
 import { AppleStoreClientService } from '../../services/stores/apple-store-client.ts';
 import { GoogleStoreClientService } from '../../services/stores/google-store-client.ts';
 import { createAscClientResolver, createPlayClientResolver } from './store-clients.ts';
-vi.mock('../../credentials/accounts.ts', () => ({ loadActiveAscKey: vi.fn() }));
-vi.mock('../../credentials/android-keystore-assets.ts', () => ({ loadServiceAccount: vi.fn() }));
+vi.mock('../../credentials/accounts.ts', function mockAccounts() {
+  return { loadActiveAscKey: vi.fn() };
+});
+vi.mock('../../credentials/android-keystore-assets.ts', function mockAndroidKeystoreAssets() {
+  return { loadServiceAccount: vi.fn() };
+});
 
 function playTransport(): GooglePlayTransport {
   return {
@@ -63,13 +67,13 @@ const playStoreClient = new GooglePlayClient(
   },
   playTransport(),
 );
-
-beforeEach(() => {
+function prepare() {
   vi.clearAllMocks();
-});
+}
 
-describe('createAscClientResolver', () => {
-  it('loads credentials and constructs the client once', async () => {
+beforeEach(prepare);
+function describeCreateAscClientResolver() {
+  async function loadsCredentialsAndConstructsTheClientOnce() {
     vi.mocked(loadActiveAscKey).mockResolvedValue({ keyId: 'K', issuerId: 'I', p8: 'pem' });
     const createClient = vi
       .spyOn(AppleStoreClientService, 'createEffectClient')
@@ -82,9 +86,13 @@ describe('createAscClientResolver', () => {
     expect(firstClient).toBe(secondClient);
     expect(loadActiveAscKey).toHaveBeenCalledTimes(1);
     expect(createClient).toHaveBeenCalledTimes(1);
-  });
+  }
 
-  it('caches an unconfigured account without creating a client', async () => {
+  it(
+    'loads credentials and constructs the client once',
+    loadsCredentialsAndConstructsTheClientOnce,
+  );
+  async function cachesAnUnconfiguredAccountWithoutCreatingAClient() {
     vi.mocked(loadActiveAscKey).mockResolvedValue(null);
     const createClient = vi
       .spyOn(AppleStoreClientService, 'createEffectClient')
@@ -95,11 +103,17 @@ describe('createAscClientResolver', () => {
     expect(await resolveAppStoreClient()).toBeNull();
     expect(loadActiveAscKey).toHaveBeenCalledTimes(1);
     expect(createClient).not.toHaveBeenCalled();
-  });
-});
+  }
 
-describe('createPlayClientResolver', () => {
-  it('loads the service account and constructs the client once', async () => {
+  it(
+    'caches an unconfigured account without creating a client',
+    cachesAnUnconfiguredAccountWithoutCreatingAClient,
+  );
+}
+
+describe('createAscClientResolver', describeCreateAscClientResolver);
+function describeCreatePlayClientResolver() {
+  async function loadsTheServiceAccountAndConstructsTheClientOnce() {
     vi.mocked(loadServiceAccount).mockResolvedValue('{}');
     const createClient = vi
       .spyOn(GoogleStoreClientService, 'createEffectClient')
@@ -112,9 +126,13 @@ describe('createPlayClientResolver', () => {
     expect(firstClient).toBe(secondClient);
     expect(loadServiceAccount).toHaveBeenCalledTimes(1);
     expect(createClient).toHaveBeenCalledTimes(1);
-  });
+  }
 
-  it('caches an unconfigured account without creating a client', async () => {
+  it(
+    'loads the service account and constructs the client once',
+    loadsTheServiceAccountAndConstructsTheClientOnce,
+  );
+  async function cachesAnUnconfiguredAccountWithoutCreatingAClient2() {
     vi.mocked(loadServiceAccount).mockResolvedValue(null);
     const createClient = vi
       .spyOn(GoogleStoreClientService, 'createEffectClient')
@@ -125,11 +143,17 @@ describe('createPlayClientResolver', () => {
     expect(await resolvePlayStoreClient('com.example.demo')).toBeNull();
     expect(loadServiceAccount).toHaveBeenCalledTimes(1);
     expect(createClient).not.toHaveBeenCalled();
-  });
-});
+  }
 
-describe('per-package Play client resolution', () => {
-  it('loads each package account independently instead of reusing the first app account', async () => {
+  it(
+    'caches an unconfigured account without creating a client',
+    cachesAnUnconfiguredAccountWithoutCreatingAClient2,
+  );
+}
+
+describe('createPlayClientResolver', describeCreatePlayClientResolver);
+function describePerPackagePlayClientResolution() {
+  async function loadsEachPackageAccountIndependentlyInsteadOfReusingTheFirstAppAccount() {
     vi.mocked(loadServiceAccount).mockImplementation(function accountJson(packageName: string) {
       const serialized = JSON.stringify({ packageName });
       return Promise.resolve(serialized);
@@ -151,5 +175,12 @@ describe('per-package Play client resolution', () => {
     expect(createClient).toHaveBeenCalledWith(JSON.stringify({ packageName: 'com.example.beta' }));
     const packageClient = await resolvePackageClient();
     expect(packageClient).toBeNull();
-  });
-});
+  }
+
+  it(
+    'loads each package account independently instead of reusing the first app account',
+    loadsEachPackageAccountIndependentlyInsteadOfReusingTheFirstAppAccount,
+  );
+}
+
+describe('per-package Play client resolution', describePerPackagePlayClientResolution);

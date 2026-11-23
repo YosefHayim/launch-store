@@ -7,21 +7,18 @@ import {
   shiftDate,
 } from './date-range.ts';
 
-export const findFeedCoverage = (
-  appCoverage: AppCoverage,
-  feed: StatsFeed,
-): FeedCoverage | null => {
+export function findFeedCoverage(appCoverage: AppCoverage, feed: StatsFeed): FeedCoverage | null {
   const savedFeedCoverage = appCoverage.feeds[feed];
   const isFeedCoverageMissing = savedFeedCoverage == null;
   if (isFeedCoverageMissing) return null;
   return savedFeedCoverage;
-};
+}
 
 // Stores revise their newest days, so the last REFRESH_TAIL_DAYS covered days are pulled again.
-export const subtractCoverage = (
+export function subtractCoverage(
   requested: DateRange,
   covered: Pick<FeedCoverage, 'coveredFrom' | 'coveredThrough'> | null,
-): DateRange | null => {
+): DateRange | null {
   const isNothingCovered = covered == null;
   if (isNothingCovered) return requested;
   const { coveredFrom, coveredThrough } = covered;
@@ -39,14 +36,14 @@ export const subtractCoverage = (
   if (isRangeInsideCoverage) return null;
   const tailStart = pickLaterDate(requested.from, refreshFrom);
   return { from: pickEarlierDate(tailStart, shiftDate(coveredThrough, 1)), to: requested.to };
-};
+}
 
-export const mergeFeedCoverage = (
+export function mergeFeedCoverage(
   previous: FeedCoverage | null,
   range: DateRange,
   coveredThrough: string,
   syncedAt: string,
-): FeedCoverage => {
+): FeedCoverage {
   const isNothingPulled = coveredThrough < range.from;
   const isPreviousCoverageMissing =
     previous == null || previous.coveredFrom == null || previous.coveredThrough == null;
@@ -77,14 +74,14 @@ export const mergeFeedCoverage = (
     lastError: null,
     lastNote: null,
   };
-};
+}
 
 // A skipped feed counts as checked, or every read would try it again.
-export const markFeedCoverageSkipped = (
+export function markFeedCoverageSkipped(
   previous: FeedCoverage | null,
   syncedAt: string,
   reason: string,
-): FeedCoverage => {
+): FeedCoverage {
   const isNeverSynced = previous == null;
   if (isNeverSynced) {
     return {
@@ -96,12 +93,12 @@ export const markFeedCoverageSkipped = (
     };
   }
   return { ...previous, lastSyncedAt: syncedAt, lastError: null, lastNote: reason };
-};
+}
 
-export const markFeedCoverageFailed = (
+export function markFeedCoverageFailed(
   previous: FeedCoverage | null,
   message: string,
-): FeedCoverage => {
+): FeedCoverage {
   const isNeverSynced = previous == null;
   if (isNeverSynced) {
     return {
@@ -113,21 +110,21 @@ export const markFeedCoverageFailed = (
     };
   }
   return { ...previous, lastError: message, lastNote: null };
-};
+}
 
-export const createNotesMessage = (notes: readonly string[]): string | null => {
+export function createNotesMessage(notes: readonly string[]): string | null {
   const hasNoNotes = notes.length == 0;
   if (hasNoNotes) return null;
   return notes.join('; ');
-};
+}
 
-export const isFeedCoverageStale = (
+export function isFeedCoverageStale(
   coverage: FeedCoverage | null,
   nowMilliseconds: number,
-): boolean => {
+): boolean {
   const isNeverSynced = coverage == null;
   if (isNeverSynced) return true;
   const hasLastSyncFailed = coverage.lastError != null;
   if (hasLastSyncFailed) return true;
   return isSyncedAtStale(coverage.lastSyncedAt, nowMilliseconds);
-};
+}

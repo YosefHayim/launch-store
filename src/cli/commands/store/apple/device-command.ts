@@ -111,11 +111,11 @@ function deviceCommandFailure(
 }
 
 /** Render one registered device for the list view. */
-export const renderRegisteredDevice = (registeredDevice: DeviceResource): string => {
+export function renderRegisteredDevice(registeredDevice: DeviceResource): string {
   let statusSuffix = '';
   if (registeredDevice.status == 'DISABLED') statusSuffix = ' (disabled)';
   return `- ${registeredDevice.name} - ${registeredDevice.udid}${statusSuffix}`;
-};
+}
 
 /** Register one device for ad-hoc distribution. */
 async function addDevice(commandInput: DeviceAddInput): Promise<void> {

@@ -15,20 +15,22 @@ const tmpDirs: string[] = [];
 async function runPackageManagerEffect<Success>(packageWork: Promise<Success>): Promise<Success> {
   return packageWork;
 }
-const scratch = (): string => {
+function scratch(): string {
   const systemTemporaryDirectory = tmpdir();
   const launchPmPath = join(systemTemporaryDirectory, 'launch-pm-');
   const dir = mkdtempSync(launchPmPath);
   tmpDirs.push(dir);
   return dir;
-};
-afterEach(() => {
+}
+function cleanup() {
   while (tmpDirs.length) {
     rmSync(expectDefined(tmpDirs.pop(), 'temp dir'), { recursive: true, force: true });
   }
-});
-describe('parsePackageManagerField', () => {
-  it('splits a Corepack pin into manager + version', () => {
+}
+
+afterEach(cleanup);
+function describeParsePackageManagerField() {
+  function splitsACorepackPinIntoManagerVersion() {
     const packageManagerField = parsePackageManagerField('yarn@4.1.0');
     expect(packageManagerField).toEqual({ name: 'yarn', version: '4.1.0' });
     expect(parsePackageManagerField('pnpm@9.1.0+sha512.abc')).toEqual({
@@ -36,41 +38,61 @@ describe('parsePackageManagerField', () => {
       version: '9.1.0',
     });
     expect(parsePackageManagerField('npm')).toEqual({ name: 'npm' });
-  });
-  it('returns null for absent or unknown values', () => {
+  }
+
+  it('splits a Corepack pin into manager + version', splitsACorepackPinIntoManagerVersion);
+  function returnsNullForAbsentOrUnknownValues() {
     const packageManagerField = parsePackageManagerField(undefined);
     expect(packageManagerField).toBeNull();
     expect(parsePackageManagerField('rush@1.0.0')).toBeNull();
-  });
-});
-describe('detectFromLockfiles', () => {
-  it('prefers pnpm/yarn over an incidental package-lock.json', () => {
+  }
+
+  it('returns null for absent or unknown values', returnsNullForAbsentOrUnknownValues);
+}
+
+describe('parsePackageManagerField', describeParsePackageManagerField);
+function describeDetectFromLockfiles() {
+  function prefersPnpmYarnOverAnIncidentalPackageLockPiece() {
     const fromLockfiles = detectFromLockfiles(new Set(['pnpm-lock.yaml', 'package-lock.json']));
     expect(fromLockfiles).toBe('pnpm');
     expect(detectFromLockfiles(new Set(['yarn.lock']))).toBe('yarn');
     expect(detectFromLockfiles(new Set(['bun.lock']))).toBe('bun');
     expect(detectFromLockfiles(new Set(['package-lock.json']))).toBe('npm');
     expect(detectFromLockfiles(new Set())).toBeNull();
-  });
-});
-describe('packageManagerWarnings', () => {
-  it('flags a Corepack pin with Corepack disabled', () => {
+  }
+
+  it(
+    'prefers pnpm/yarn over an incidental package-lock.json',
+    prefersPnpmYarnOverAnIncidentalPackageLockPiece,
+  );
+}
+
+describe('detectFromLockfiles', describeDetectFromLockfiles);
+function describePackageManagerWarnings() {
+  function flagsACorepackPinWithCorepackDisabled() {
     const warnings = packageManagerWarnings({
       info: { name: 'pnpm', version: '9.1.0', source: 'packageManager', corepackPinned: true },
       lockfile: 'pnpm-lock.yaml',
       corepackAvailable: false,
     });
     expect(warnings.join(' ')).toContain('corepack enable');
-  });
-  it('flags a declared PM that disagrees with the lockfile', () => {
+  }
+
+  it('flags a Corepack pin with Corepack disabled', flagsACorepackPinWithCorepackDisabled);
+  function flagsADeclaredPMThatDisagreesWithTheLockfile() {
     const warnings = packageManagerWarnings({
       info: { name: 'pnpm', version: '9.1.0', source: 'packageManager', corepackPinned: true },
       lockfile: 'yarn.lock',
       corepackAvailable: true,
     });
     expect(warnings.join(' ')).toContain('disagree');
-  });
-  it('is silent for a consistent setup', () => {
+  }
+
+  it(
+    'flags a declared PM that disagrees with the lockfile',
+    flagsADeclaredPMThatDisagreesWithTheLockfile,
+  );
+  function isSilentForAConsistentSetup() {
     expect(
       packageManagerWarnings({
         info: { name: 'yarn', version: '4.1.0', source: 'packageManager', corepackPinned: true },
@@ -78,10 +100,14 @@ describe('packageManagerWarnings', () => {
         corepackAvailable: true,
       }),
     ).toEqual([]);
-  });
-});
-describe('detectPackageManager (filesystem)', () => {
-  it('lets the packageManager field win over a lockfile', async () => {
+  }
+
+  it('is silent for a consistent setup', isSilentForAConsistentSetup);
+}
+
+describe('packageManagerWarnings', describePackageManagerWarnings);
+function describeDetectPackageManagerFilesystem() {
+  async function letsThePackageManagerFieldWinOverALockfile() {
     const dir = scratch();
     const packagePath = join(dir, 'package.json');
     const serialized = JSON.stringify({ packageManager: 'yarn@4.1.0' });
@@ -95,8 +121,13 @@ describe('detectPackageManager (filesystem)', () => {
       source: 'packageManager',
       corepackPinned: true,
     });
-  });
-  it('falls back to the lockfile, then .yarnrc.yml, then npm', async () => {
+  }
+
+  it(
+    'lets the packageManager field win over a lockfile',
+    letsThePackageManagerFieldWinOverALockfile,
+  );
+  async function fallsBackToTheLockfileThenYarnrcYmlThenNpm() {
     const lock = scratch();
     const pnpmLockPath = join(lock, 'pnpm-lock.yaml');
     writeFileSync(pnpmLockPath, '');
@@ -117,10 +148,17 @@ describe('detectPackageManager (filesystem)', () => {
       name: 'npm',
       source: 'default',
     });
-  });
-});
-describe('findWorkspaceRoot + inspectPackageSetup', () => {
-  it('resolves the PM at the monorepo root, not the nested app dir', async () => {
+  }
+
+  it(
+    'falls back to the lockfile, then .yarnrc.yml, then npm',
+    fallsBackToTheLockfileThenYarnrcYmlThenNpm,
+  );
+}
+
+describe('detectPackageManager (filesystem)', describeDetectPackageManagerFilesystem);
+function describeFindWorkspaceRootInspectPackageSetup() {
+  async function resolvesThePMAtTheMonorepoRootNotTheNestedAppDir() {
     const root = scratch();
     const packagePath = join(root, 'package.json');
     const serialized = JSON.stringify({ workspaces: ['apps/*'] });
@@ -141,8 +179,13 @@ describe('findWorkspaceRoot + inspectPackageSetup', () => {
     expect(setup.pm.name).toBe('pnpm');
     expect(setup.workspace?.root).toBe(root);
     expect(setup.lockfile).toBe('pnpm-lock.yaml');
-  });
-  it('returns no workspace for a standalone app', async () => {
+  }
+
+  it(
+    'resolves the PM at the monorepo root, not the nested app dir',
+    resolvesThePMAtTheMonorepoRootNotTheNestedAppDir,
+  );
+  async function returnsNoWorkspaceForAStandaloneApp() {
     const dir = scratch();
     const packagePath = join(dir, 'package.json');
     const serialized = JSON.stringify({ name: 'solo' });
@@ -150,5 +193,9 @@ describe('findWorkspaceRoot + inspectPackageSetup', () => {
     const workspaceRoot = findWorkspaceRoot(dir);
     const packageManagerEffect = await runPackageManagerEffect(workspaceRoot);
     expect(packageManagerEffect).toBeNull();
-  });
-});
+  }
+
+  it('returns no workspace for a standalone app', returnsNoWorkspaceForAStandaloneApp);
+}
+
+describe('findWorkspaceRoot + inspectPackageSetup', describeFindWorkspaceRootInspectPackageSetup);

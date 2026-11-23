@@ -1,17 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { Command } from '../../command.ts';
+import { Command, type CommandOption } from '../../command.ts';
 import { registerDoctorCommand } from './doctor.ts';
-describe('registerDoctorCommand', () => {
-  it('attaches a `doctor` command with platform, app, fix, yes, and json options', () => {
+function describeRegisterDoctorCommand() {
+  function attachesADoctorCommandWithPlatformAppFixYesAndPiecePiece() {
     const program = new Command();
     registerDoctorCommand(program);
-    const doctor = program.commands.find((command) => command.name() == 'doctor');
+    function findCommand(command: Command) {
+      return command.name() == 'doctor';
+    }
+
+    const doctor = program.commands.find(findCommand);
     expect(doctor).toBeDefined();
-    const options = doctor?.options.map((option) => option.long);
+    function readLong(option: CommandOption) {
+      return option.long;
+    }
+
+    const options = doctor?.options.map(readLong);
     expect(options).toContain('--platform');
     expect(options).toContain('--app');
     expect(options).toContain('--fix');
     expect(options).toContain('--yes');
     expect(options).toContain('--json');
-  });
-});
+  }
+
+  it(
+    'attaches a `doctor` command with platform, app, fix, yes, and json options',
+    attachesADoctorCommandWithPlatformAppFixYesAndPiecePiece,
+  );
+}
+
+describe('registerDoctorCommand', describeRegisterDoctorCommand);

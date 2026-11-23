@@ -28,10 +28,14 @@ function provideUpdatesCommand(
 }
 
 /** Attach the update-history command family. */
-export const registerUpdatesCommand = (program: Command): void => {
+export function registerUpdatesCommand(program: Command): void {
   const updatesCommand = program
     .command('updates')
     .description('inspect and roll back published OTA updates');
+  function runList(commandOptions: ListOptions) {
+    return runCliProgram(provideUpdatesCommand({ operation: 'list', ...commandOptions }));
+  }
+
   updatesCommand
     .command('list')
     .description('list published updates, newest first')
@@ -39,20 +43,24 @@ export const registerUpdatesCommand = (program: Command): void => {
     .option('--platform <platform>', 'only show ios or android updates')
     .option('--runtime-version <v>', 'only show updates for this runtime version')
     .option('--json', 'output machine-readable JSON', false)
-    .action((commandOptions: ListOptions) => {
-      return runCliProgram(provideUpdatesCommand({ operation: 'list', ...commandOptions }));
-    });
+    .action(runList);
+  function runView(reference: string, commandOptions: ViewOptions) {
+    return runCliProgram(
+      provideUpdatesCommand({ operation: 'view', reference, ...commandOptions }),
+    );
+  }
+
   updatesCommand
     .command('view')
     .description('show full detail for one published update')
     .argument('<id|latest>', 'an update id from `updates list`, a short id prefix, or `latest`')
     .option('--channel <name>', 'release channel to read', 'production')
     .option('--json', 'output machine-readable JSON', false)
-    .action((reference: string, commandOptions: ViewOptions) => {
-      return runCliProgram(
-        provideUpdatesCommand({ operation: 'view', reference, ...commandOptions }),
-      );
-    });
+    .action(runView);
+  function runRollback(commandOptions: RollbackOptions) {
+    return runCliProgram(provideUpdatesCommand({ operation: 'rollback', ...commandOptions }));
+  }
+
   updatesCommand
     .command('rollback')
     .description('republish a prior update, or roll clients back to the embedded bundle')
@@ -66,7 +74,5 @@ export const registerUpdatesCommand = (program: Command): void => {
       'app handle (used to resolve the runtime version for --to-embedded)',
     )
     .option('-y, --yes', 'skip the confirmation prompt (for CI/agents)', false)
-    .action((commandOptions: RollbackOptions) => {
-      return runCliProgram(provideUpdatesCommand({ operation: 'rollback', ...commandOptions }));
-    });
-};
+    .action(runRollback);
+}

@@ -32,11 +32,11 @@ import { readPlainObject } from '../services/platform/plain-object.ts';
 import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 /** Deep-clone a Launch boundary value into a mutable plain object for Google's generated client. */
-const mutableGoogleRequest = <GoogleRequest>(requestShape: unknown): GoogleRequest => {
+function mutableGoogleRequest<GoogleRequest>(requestShape: unknown): GoogleRequest {
   const serialized = JSON.stringify(requestShape);
   const clonedRequest: GoogleRequest = JSON.parse(serialized);
   return clonedRequest;
-};
+}
 
 type PlayTrackInfo = Readonly<{ track: string; releases: readonly PlayRelease[] }>;
 /**
@@ -114,36 +114,40 @@ function makeServiceAccountParseError(fields: {
   };
 }
 /** Read the numeric status exposed by a generated-client failure, when present. */
-const googleFailureStatus = (cause: unknown): number | undefined => {
+function googleFailureStatus(cause: unknown): number | undefined {
   if (typeof cause != 'object') return;
   if (cause == null) return;
   if (!('status' in cause)) return;
   if (typeof cause.status != 'number') return;
   return cause.status;
-};
+}
 /** Turn a generated-client failure into the actionable text Launch already exposes. */
-const googleFailureMessage = (cause: unknown): string => {
+function googleFailureMessage(cause: unknown): string {
   if (cause instanceof Error) return describePlayErrors(cause.message);
   const asString = String(cause);
   return describePlayErrors(asString);
-};
+}
 /** Lift Google's epoch-seconds timestamp to ISO-8601, or undefined when absent. */
-const timestampToIso = (
+function timestampToIso(
   timestamp: androidpublisher_v3.Schema$Timestamp | undefined,
-): string | undefined => {
+): string | undefined {
   if (typeof timestamp?.seconds != 'string') return;
   const number = Number(timestamp.seconds);
   return new Date(number * 1000).toISOString();
-};
+}
 /** Flatten the generated review DTO into the {@link PlayReview} slice Launch consumes. */
-const normalizeReview = (
-  googleReview: androidpublisher_v3.Schema$Review,
-): PlayReview | undefined => {
+function normalizeReview(googleReview: androidpublisher_v3.Schema$Review): PlayReview | undefined {
   if (typeof googleReview.reviewId != 'string') return;
-  const userComment = googleReview.comments?.find((comment) => comment.userComment)?.userComment;
-  const developerComment = googleReview.comments?.find(
-    (comment) => comment.developerComment,
-  )?.developerComment;
+  function isUserComment(comment: androidpublisher_v3.Schema$Comment) {
+    return comment.userComment;
+  }
+
+  const userComment = googleReview.comments?.find(isUserComment)?.userComment;
+  function isDeveloperComment(comment: androidpublisher_v3.Schema$Comment) {
+    return comment.developerComment;
+  }
+
+  const developerComment = googleReview.comments?.find(isDeveloperComment)?.developerComment;
   let rating = 0;
   if (typeof userComment?.starRating == 'number') rating = userComment.starRating;
   const review: MutableDeep<PlayReview> = {
@@ -164,9 +168,9 @@ const normalizeReview = (
   if (lastModified != null) review.lastModified = lastModified;
   if (typeof developerComment?.text == 'string') review.developerReply = developerComment.text;
   return review;
-};
+}
 /** Normalize Google's nullable Money DTO to Launch's consumed money fields. */
-const normalizeMoney = (money: androidpublisher_v3.Schema$Money | undefined): PlayMoneyUnits => {
+function normalizeMoney(money: androidpublisher_v3.Schema$Money | undefined): PlayMoneyUnits {
   let currencyCode = '';
   let units = '0';
   let nanos = 0;
@@ -178,11 +182,11 @@ const normalizeMoney = (money: androidpublisher_v3.Schema$Money | undefined): Pl
     units,
     nanos,
   };
-};
+}
 /** Normalize one generated track release to the fields Launch reads and writes. */
-const normalizeTrackRelease = (
+function normalizeTrackRelease(
   googleRelease: androidpublisher_v3.Schema$TrackRelease,
-): PlayRelease => {
+): PlayRelease {
   const release: MutableDeep<PlayRelease> = {};
   if (typeof googleRelease.name == 'string') release.name = googleRelease.name;
   if (Array.isArray(googleRelease.versionCodes)) release.versionCodes = googleRelease.versionCodes;
@@ -203,13 +207,13 @@ const normalizeTrackRelease = (
     release.releaseNotes = releaseNotes;
   }
   return release;
-};
+}
 /** Retain a non-empty generated page token and collapse null/empty values to undefined. */
-export const nonEmptyPageToken = (token: string | null | undefined): string | undefined => {
+export function nonEmptyPageToken(token: string | null | undefined): string | undefined {
   if (typeof token != 'string') return;
   if (token.length == 0) return;
   return token;
-};
+}
 /**
  * Walk every page of a token-bearing generated list into one Launch-owned collection.
  * Callers supply the page load, item projection, and next-token extraction so product,
@@ -236,9 +240,9 @@ async function collectGeneratedPages<Page, Collected>(
   return collected;
 }
 /** Project generated track releases into the {@link PlayRelease} slice Launch reads and writes. */
-const releasesFromGoogleTrack = (
+function releasesFromGoogleTrack(
   googleReleases: androidpublisher_v3.Schema$TrackRelease[] | null | undefined,
-): PlayRelease[] => {
+): PlayRelease[] {
   const releases: PlayRelease[] = [];
   if (!Array.isArray(googleReleases)) return releases;
   for (const googleRelease of googleReleases) {
@@ -246,11 +250,11 @@ const releasesFromGoogleTrack = (
     releases.push(trackRelease);
   }
   return releases;
-};
+}
 /** Project one generated store listing into the {@link PlayListing} slice Launch reads and writes. */
-const listingFromGoogle = (
+function listingFromGoogle(
   googleListing: androidpublisher_v3.Schema$Listing,
-): PlayListing | undefined => {
+): PlayListing | undefined {
   if (typeof googleListing.language != 'string') return undefined;
   const listing: MutableDeep<PlayListing> = { language: googleListing.language };
   if (typeof googleListing.title == 'string') listing.title = googleListing.title;
@@ -262,15 +266,13 @@ const listingFromGoogle = (
   }
   if (typeof googleListing.video == 'string') listing.video = googleListing.video;
   return listing;
-};
+}
 /** Keep only offer tags that carry a real tag string. */
-const offerTagsFromGoogle = (
-  googleTags: androidpublisher_v3.Schema$OfferTag[] | null | undefined,
-):
+function offerTagsFromGoogle(googleTags: androidpublisher_v3.Schema$OfferTag[] | null | undefined):
   | {
       tag: string;
     }[]
-  | undefined => {
+  | undefined {
   if (!Array.isArray(googleTags)) return;
   const offerTags: {
     tag: string;
@@ -279,9 +281,9 @@ const offerTagsFromGoogle = (
     if (typeof googleTag.tag == 'string') offerTags.push({ tag: googleTag.tag });
   }
   return offerTags;
-};
+}
 /** JWT options the official Google clients accept for one service-account key + OAuth scopes. */
-export const serviceAccountJwtOptions = (
+export function serviceAccountJwtOptions(
   account: ServiceAccount,
   scopes: readonly string[],
 ): {
@@ -289,7 +291,7 @@ export const serviceAccountJwtOptions = (
   key: string;
   keyId?: string;
   scopes: string[];
-} => {
+} {
   const authenticationOptions: {
     email: string;
     key: string;
@@ -302,21 +304,21 @@ export const serviceAccountJwtOptions = (
   };
   if (account.privateKeyId != null) authenticationOptions.keyId = account.privateKeyId;
   return authenticationOptions;
-};
+}
 /** Normalize the legacy in-app-product money representation. */
-const normalizeProductMoney = (
+function normalizeProductMoney(
   googlePrice: androidpublisher_v3.Schema$Price | undefined,
-): PlayMoney | undefined => {
+): PlayMoney | undefined {
   if (googlePrice == null) return;
   const price: MutableDeep<PlayMoney> = {};
   if (typeof googlePrice.priceMicros == 'string') price.priceMicros = googlePrice.priceMicros;
   if (typeof googlePrice.currency == 'string') price.currency = googlePrice.currency;
   return price;
-};
+}
 /** Normalize one generated in-app product to Launch's reconciler slice. */
-const normalizeInAppProduct = (
+function normalizeInAppProduct(
   googleProduct: androidpublisher_v3.Schema$InAppProduct,
-): InAppProductResource | undefined => {
+): InAppProductResource | undefined {
   if (typeof googleProduct.sku != 'string') return;
   const product: MutableDeep<InAppProductResource> = { sku: googleProduct.sku };
   if (typeof googleProduct.status == 'string') product.status = googleProduct.status;
@@ -358,11 +360,11 @@ const normalizeInAppProduct = (
     product.listings = listings;
   }
   return product;
-};
+}
 /** Normalize one generated subscription base plan to the fields Launch reconciles. */
-const normalizeBasePlan = (
+function normalizeBasePlan(
   googlePlan: androidpublisher_v3.Schema$BasePlan,
-): MutableDeep<BasePlan> | undefined => {
+): MutableDeep<BasePlan> | undefined {
   if (typeof googlePlan.basePlanId != 'string') return;
   const basePlan: MutableDeep<BasePlan> = { basePlanId: googlePlan.basePlanId };
   if (typeof googlePlan.state == 'string') basePlan.state = googlePlan.state;
@@ -388,11 +390,11 @@ const normalizeBasePlan = (
   const offerTags = offerTagsFromGoogle(googlePlan.offerTags);
   if (offerTags != null) basePlan.offerTags = offerTags;
   return basePlan;
-};
+}
 /** Normalize one generated subscription to Launch's consumed catalog shape. */
-const normalizeSubscription = (
+function normalizeSubscription(
   googleSubscription: androidpublisher_v3.Schema$Subscription,
-): SubscriptionResource | undefined => {
+): SubscriptionResource | undefined {
   if (typeof googleSubscription.productId != 'string') return;
   const subscription: MutableDeep<SubscriptionResource> = {
     productId: googleSubscription.productId,
@@ -425,11 +427,11 @@ const normalizeSubscription = (
     subscription.listings = listings;
   }
   return subscription;
-};
+}
 /** Normalize one generated subscription offer to Launch's consumed catalog shape. */
-const normalizeSubscriptionOffer = (
+function normalizeSubscriptionOffer(
   googleOffer: androidpublisher_v3.Schema$SubscriptionOffer,
-): SubscriptionOfferResource | undefined => {
+): SubscriptionOfferResource | undefined {
   if (typeof googleOffer.offerId != 'string') return;
   const offer: MutableDeep<SubscriptionOfferResource> = {
     offerId: googleOffer.offerId,
@@ -477,7 +479,7 @@ const normalizeSubscriptionOffer = (
   const offerTags = offerTagsFromGoogle(googleOffer.offerTags);
   if (offerTags != null) offer.offerTags = offerTags;
   return offer;
-};
+}
 const SERVICE_ACCOUNT_JSON_MESSAGE =
   'Service-account key is not valid JSON. Pass the JSON file Google Cloud issued.';
 const SERVICE_ACCOUNT_FIELDS_MESSAGE =
@@ -1036,9 +1038,9 @@ export class GooglePlayClient {
         this.publisher.inappproducts.list(listParameters),
       );
     };
-    const productsFromPage = (
+    function productsFromPage(
       productPage: Awaited<ReturnType<typeof loadProductPage>>,
-    ): InAppProductResource[] => {
+    ): InAppProductResource[] {
       const products: InAppProductResource[] = [];
       const googleProducts = productPage.inappproduct;
 
@@ -1053,9 +1055,10 @@ export class GooglePlayClient {
       }
 
       return products;
-    };
-    const nextTokenFromPage = (productPage: Awaited<ReturnType<typeof loadProductPage>>) =>
-      productPage.tokenPagination?.nextPageToken;
+    }
+    function nextTokenFromPage(productPage: Awaited<ReturnType<typeof loadProductPage>>) {
+      return productPage.tokenPagination?.nextPageToken;
+    }
 
     return collectGeneratedPages(loadProductPage, productsFromPage, nextTokenFromPage);
   }
@@ -1119,10 +1122,14 @@ export class GooglePlayClient {
         }
       }
     }
+    function sortLeftPrice(
+      leftPrice: { readonly regionCode: string; readonly price: PlayMoneyUnits },
+      rightPrice: { readonly regionCode: string; readonly price: PlayMoneyUnits },
+    ) {
+      return leftPrice.regionCode.localeCompare(rightPrice.regionCode);
+    }
 
-    regions.sort((leftPrice, rightPrice) =>
-      leftPrice.regionCode.localeCompare(rightPrice.regionCode),
-    );
+    regions.sort(sortLeftPrice);
     const convertedPrices: MutableDeep<ConvertedPrices> = { regions };
     const fallbackPrice = priceConversion.convertedOtherRegionsPrice;
 
@@ -1137,6 +1144,31 @@ export class GooglePlayClient {
   }
   /** List the app's subscription products (`monetization.subscriptions`), paging in full. */
   async listSubscriptions(packageName: string): Promise<SubscriptionResource[]> {
+    function collectGeneratedPagesSubscriptionPage(
+      subscriptionPage: androidpublisher_v3.Schema$ListSubscriptionsResponse,
+    ) {
+      const subscriptions: SubscriptionResource[] = [];
+      const googleSubscriptions = subscriptionPage.subscriptions;
+
+      if (Array.isArray(googleSubscriptions)) {
+        for (const googleSubscription of googleSubscriptions) {
+          const subscription = normalizeSubscription(googleSubscription);
+
+          if (subscription != null) {
+            subscriptions.push(subscription);
+          }
+        }
+      }
+
+      return subscriptions;
+    }
+
+    function collectGeneratedPagesSubscriptionPage2(
+      subscriptionPage: androidpublisher_v3.Schema$ListSubscriptionsResponse,
+    ) {
+      return subscriptionPage.nextPageToken;
+    }
+
     return collectGeneratedPages(
       (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Monetization$Subscriptions$List =
@@ -1151,23 +1183,8 @@ export class GooglePlayClient {
           this.publisher.monetization.subscriptions.list(listParameters),
         );
       },
-      (subscriptionPage) => {
-        const subscriptions: SubscriptionResource[] = [];
-        const googleSubscriptions = subscriptionPage.subscriptions;
-
-        if (Array.isArray(googleSubscriptions)) {
-          for (const googleSubscription of googleSubscriptions) {
-            const subscription = normalizeSubscription(googleSubscription);
-
-            if (subscription != null) {
-              subscriptions.push(subscription);
-            }
-          }
-        }
-
-        return subscriptions;
-      },
-      (subscriptionPage) => subscriptionPage.nextPageToken,
+      collectGeneratedPagesSubscriptionPage,
+      collectGeneratedPagesSubscriptionPage2,
     );
   }
   /**
@@ -1231,6 +1248,31 @@ export class GooglePlayClient {
     productId: string,
     basePlanId: string,
   ): Promise<SubscriptionOfferResource[]> {
+    function collectGeneratedPagesOfferPage(
+      offerPage: androidpublisher_v3.Schema$ListSubscriptionOffersResponse,
+    ) {
+      const offers: SubscriptionOfferResource[] = [];
+      const googleOffers = offerPage.subscriptionOffers;
+
+      if (Array.isArray(googleOffers)) {
+        for (const googleOffer of googleOffers) {
+          const offer = normalizeSubscriptionOffer(googleOffer);
+
+          if (offer != null) {
+            offers.push(offer);
+          }
+        }
+      }
+
+      return offers;
+    }
+
+    function collectGeneratedPagesOfferPage2(
+      offerPage: androidpublisher_v3.Schema$ListSubscriptionOffersResponse,
+    ) {
+      return offerPage.nextPageToken;
+    }
+
     return collectGeneratedPages(
       (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Monetization$Subscriptions$Baseplans$Offers$List =
@@ -1243,23 +1285,8 @@ export class GooglePlayClient {
           this.publisher.monetization.subscriptions.basePlans.offers.list(listParameters),
         );
       },
-      (offerPage) => {
-        const offers: SubscriptionOfferResource[] = [];
-        const googleOffers = offerPage.subscriptionOffers;
-
-        if (Array.isArray(googleOffers)) {
-          for (const googleOffer of googleOffers) {
-            const offer = normalizeSubscriptionOffer(googleOffer);
-
-            if (offer != null) {
-              offers.push(offer);
-            }
-          }
-        }
-
-        return offers;
-      },
-      (offerPage) => offerPage.nextPageToken,
+      collectGeneratedPagesOfferPage,
+      collectGeneratedPagesOfferPage2,
     );
   }
   /** Create a subscription offer (in DRAFT - activate it separately). `regionsVersion.version` is required. */
@@ -1319,6 +1346,31 @@ export class GooglePlayClient {
       translationLanguage?: string;
     }> = {},
   ): Promise<PlayReview[]> {
+    function collectGeneratedPagesReviewPage(
+      reviewPage: androidpublisher_v3.Schema$ReviewsListResponse,
+    ) {
+      const reviews: PlayReview[] = [];
+      const googleReviews = reviewPage.reviews;
+
+      if (Array.isArray(googleReviews)) {
+        for (const googleReview of googleReviews) {
+          const review = normalizeReview(googleReview);
+
+          if (review != null) {
+            reviews.push(review);
+          }
+        }
+      }
+
+      return reviews;
+    }
+
+    function collectGeneratedPagesReviewPage2(
+      reviewPage: androidpublisher_v3.Schema$ReviewsListResponse,
+    ) {
+      return reviewPage.tokenPagination?.nextPageToken;
+    }
+
     return collectGeneratedPages(
       (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Reviews$List = { packageName };
@@ -1334,23 +1386,8 @@ export class GooglePlayClient {
           this.publisher.reviews.list(listParameters),
         );
       },
-      (reviewPage) => {
-        const reviews: PlayReview[] = [];
-        const googleReviews = reviewPage.reviews;
-
-        if (Array.isArray(googleReviews)) {
-          for (const googleReview of googleReviews) {
-            const review = normalizeReview(googleReview);
-
-            if (review != null) {
-              reviews.push(review);
-            }
-          }
-        }
-
-        return reviews;
-      },
-      (reviewPage) => reviewPage.tokenPagination?.nextPageToken,
+      collectGeneratedPagesReviewPage,
+      collectGeneratedPagesReviewPage2,
     );
   }
   /** Fetch one review by id (flattened to {@link PlayReview}), or null when it doesn't exist / is too old. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderStoreSurfaceAction } from './app-store-surface-command.ts';
-describe('renderAction', () => {
-  it('marks a change with + and a skipped clip with -', () => {
+function describeRenderAction() {
+  function marksAChangeWithAndASkippedClipWith() {
     const storeSurfaceAction = renderStoreSurfaceAction({
       description: 'set com.acme.app.Clip card action = OPEN',
       destructive: false,
@@ -22,8 +22,10 @@ describe('renderAction', () => {
         status: 'skipped',
       }),
     ).toBe('- App Clip com.acme.app.Clip: no clip record yet');
-  });
-  it("renders a failed action with x and Apple's error detail", () => {
+  }
+
+  it('marks a change with + and a skipped clip with -', marksAChangeWithAndASkippedClipWith);
+  function rendersAFailedActionWithXAndAppleSErrorDetail() {
     const storeSurfaceAction = renderStoreSurfaceAction({
       description: 'create com.acme.app.Clip App Clip default experience (action=OPEN)',
       destructive: false,
@@ -33,5 +35,12 @@ describe('renderAction', () => {
     expect(storeSurfaceAction).toBe(
       'x create com.acme.app.Clip App Clip default experience (action=OPEN) - appClip is in an invalid state',
     );
-  });
-});
+  }
+
+  it(
+    "renders a failed action with x and Apple's error detail",
+    rendersAFailedActionWithXAndAppleSErrorDetail,
+  );
+}
+
+describe('renderAction', describeRenderAction);

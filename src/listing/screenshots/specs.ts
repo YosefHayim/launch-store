@@ -43,25 +43,25 @@ type FileDimensionCheck =
       readonly verdict: DimensionVerdict;
     };
 
-const formatDimensions = (dimensions: readonly [number, number]): string => {
+function formatDimensions(dimensions: readonly [number, number]): string {
   return `${dimensions[0]}x${dimensions[1]}`;
-};
+}
 
-export const validateAppleDimensions = (
+export function validateAppleDimensions(
   displayType: string,
   width: number,
   height: number,
-): DimensionVerdict => {
+): DimensionVerdict {
   const assetTarget = findAppleScreenshotTarget(displayType);
   if (assetTarget == null) return { ok: true };
+  const foundTarget = assetTarget;
+  function somePiece([expectedWidth, expectedHeight]: readonly [number, number]) {
+    if (width == expectedWidth && height == expectedHeight) return true;
+    if (foundTarget.dimensions.orientation != 'both') return false;
+    return width == expectedHeight && height == expectedWidth;
+  }
 
-  const dimensionsMatch = assetTarget.dimensions.accepted.some(
-    ([expectedWidth, expectedHeight]) => {
-      if (width == expectedWidth && height == expectedHeight) return true;
-      if (assetTarget.dimensions.orientation != 'both') return false;
-      return width == expectedHeight && height == expectedWidth;
-    },
-  );
+  const dimensionsMatch = foundTarget.dimensions.accepted.some(somePiece);
   if (dimensionsMatch) return { ok: true };
 
   const acceptedDimensions = assetTarget.dimensions.accepted.map(formatDimensions).join(', ');
@@ -69,9 +69,9 @@ export const validateAppleDimensions = (
     ok: false,
     reason: `${formatDimensions([width, height])} is not a valid ${displayType} size (expected ${acceptedDimensions})`,
   };
-};
+}
 
-export const validatePlayDimensions = (width: number, height: number): DimensionVerdict => {
+export function validatePlayDimensions(width: number, height: number): DimensionVerdict {
   const { minSide, maxSide, maxAspectMultiple } = playScreenshotConstraints;
   const shorterSide = Math.min(width, height);
   const longerSide = Math.max(width, height);
@@ -94,9 +94,9 @@ export const validatePlayDimensions = (width: number, height: number): Dimension
     };
   }
   return { ok: true };
-};
+}
 
-const findPlayDimensions = (formFactor: string): readonly [number, number] | undefined => {
+function findPlayDimensions(formFactor: string): readonly [number, number] | undefined {
   switch (formFactor) {
     case 'phone':
       return PLAY_FORM_FACTOR_DIMENSIONS.phone;
@@ -107,16 +107,16 @@ const findPlayDimensions = (formFactor: string): readonly [number, number] | und
     default:
       return undefined;
   }
-};
+}
 
-export const canonicalDimensions = (
+export function canonicalDimensions(
   platform: Platform,
   screenshotTarget: string,
-): readonly [number, number] | undefined => {
+): readonly [number, number] | undefined {
   if (isApplePlatform(platform))
     return findAppleScreenshotTarget(screenshotTarget)?.dimensions.canonical;
   return findPlayDimensions(screenshotTarget);
-};
+}
 
 export async function checkScreenshotFile(
   platform: Platform,

@@ -8,20 +8,24 @@ import {
 } from './aggregate.ts';
 import type { ReviewDatum } from '../types/insights.ts';
 /** Build a review datum with sensible defaults so tests state only what they exercise. */
-const review = (over: Partial<ReviewDatum> = {}): ReviewDatum => {
+function review(over: Partial<ReviewDatum> = {}): ReviewDatum {
   return { store: 'appstore', rating: 5, answered: false, ...over };
-};
-describe('sentimentOf', () => {
-  it('buckets 4-5 positive, 3 neutral, 1-2 negative', () => {
+}
+function describeSentimentOf() {
+  function buckets45Positive3Neutral12Negative() {
     expect(sentimentOf(5)).toBe('positive');
     expect(sentimentOf(4)).toBe('positive');
     expect(sentimentOf(3)).toBe('neutral');
     expect(sentimentOf(2)).toBe('negative');
     expect(sentimentOf(1)).toBe('negative');
-  });
-});
-describe('summarizeRatings', () => {
-  it('returns an all-zero summary for an empty set without dividing by zero', () => {
+  }
+
+  it('buckets 4-5 positive, 3 neutral, 1-2 negative', buckets45Positive3Neutral12Negative);
+}
+
+describe('sentimentOf', describeSentimentOf);
+function describeSummarizeRatings() {
+  function returnsAnAllZeroSummaryForAnEmptySetWithoutDividingByZero() {
     const ratings = summarizeRatings([]);
     expect(ratings).toEqual({
       total: 0,
@@ -31,8 +35,13 @@ describe('summarizeRatings', () => {
       answeredRate: 0,
       sentiment: { positive: 0, neutral: 0, negative: 0 },
     });
-  });
-  it('tallies distribution, mean, answered rate, and sentiment in one pass', () => {
+  }
+
+  it(
+    'returns an all-zero summary for an empty set without dividing by zero',
+    returnsAnAllZeroSummaryForAnEmptySetWithoutDividingByZero,
+  );
+  function talliesDistributionMeanAnsweredRateAndSentimentInOnePass() {
     const summary = summarizeRatings([
       review({ rating: 5, answered: true }),
       review({ rating: 5, answered: false }),
@@ -46,18 +55,27 @@ describe('summarizeRatings', () => {
     expect(summary.answered).toBe(2);
     expect(summary.answeredRate).toBe(0.4);
     expect(summary.sentiment).toEqual({ positive: 3, neutral: 1, negative: 1 });
-  });
-  it('rounds the average to one decimal', () => {
+  }
+
+  it(
+    'tallies distribution, mean, answered rate, and sentiment in one pass',
+    talliesDistributionMeanAnsweredRateAndSentimentInOnePass,
+  );
+  function roundsTheAverageToOneDecimal() {
     const ratings = summarizeRatings([
       review({ rating: 5 }),
       review({ rating: 4 }),
       review({ rating: 4 }),
     ]);
     expect(ratings.average).toBe(4.3);
-  });
-});
-describe('monthlyTrend', () => {
-  it('groups dated reviews by YYYY-MM, oldest first, skipping undated ones', () => {
+  }
+
+  it('rounds the average to one decimal', roundsTheAverageToOneDecimal);
+}
+
+describe('summarizeRatings', describeSummarizeRatings);
+function describeMonthlyTrend() {
+  function groupsDatedReviewsByYYYYMMOldestFirstSkippingUndatedOnes() {
     const trend = monthlyTrend([
       review({ rating: 4, date: '2026-05-10T00:00:00Z' }),
       review({ rating: 2, date: '2026-05-20T00:00:00Z' }),
@@ -68,10 +86,17 @@ describe('monthlyTrend', () => {
       { month: '2026-04', count: 1, average: 5 },
       { month: '2026-05', count: 2, average: 3 },
     ]);
-  });
-});
-describe('buildAppInsights', () => {
-  it('splits per-store summaries and only includes stores with reviews', () => {
+  }
+
+  it(
+    'groups dated reviews by YYYY-MM, oldest first, skipping undated ones',
+    groupsDatedReviewsByYYYYMMOldestFirstSkippingUndatedOnes,
+  );
+}
+
+describe('monthlyTrend', describeMonthlyTrend);
+function describeBuildAppInsights() {
+  function splitsPerStoreSummariesAndOnlyIncludesStoresWithReviews() {
     const insights = buildAppInsights('myapp', [
       review({ store: 'appstore', rating: 5 }),
       review({ store: 'appstore', rating: 3 }),
@@ -81,13 +106,22 @@ describe('buildAppInsights', () => {
     expect(insights.ratings.total).toBe(3);
     expect(insights.byStore.appstore?.total).toBe(2);
     expect(insights.byStore.play?.total).toBe(1);
-  });
-  it('omits a store the app left no reviews in', () => {
+  }
+
+  it(
+    'splits per-store summaries and only includes stores with reviews',
+    splitsPerStoreSummariesAndOnlyIncludesStoresWithReviews,
+  );
+  function omitsAStoreTheAppLeftNoReviewsIn() {
     const insights = buildAppInsights('ios-only', [review({ store: 'appstore', rating: 5 })]);
     expect(insights.byStore.appstore).toBeDefined();
     expect(insights.byStore.play).toBeUndefined();
-  });
-});
+  }
+
+  it('omits a store the app left no reviews in', omitsAStoreTheAppLeftNoReviewsIn);
+}
+
+describe('buildAppInsights', describeBuildAppInsights);
 describe('buildInsightsReport', () => {
   it('computes the overall summary across every app', () => {
     const report = buildInsightsReport([

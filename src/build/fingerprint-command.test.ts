@@ -16,9 +16,8 @@ const INCREMENTAL_REPORT: FingerprintReport = {
   },
   decision: { clean: false, nativeChanged: false, reason: 'cache warm - incremental' },
 };
-
-describe('FingerprintCommandInputSchema', () => {
-  it('decodes the Commander input shape', () => {
+function describeFingerprintCommandPieceSchema() {
+  function decodesTheCommanderPieceShape() {
     const decodeFingerprintCommand = decodeFingerprintCommandInput({ json: false });
     expect(decodeFingerprintCommand).toEqual({
       json: false,
@@ -27,19 +26,23 @@ describe('FingerprintCommandInputSchema', () => {
       app: 'demo',
       json: true,
     });
-  });
-});
+  }
 
-describe('formatFingerprintReport', () => {
-  it('shows an incremental decision and prior build', () => {
+  it('decodes the Commander input shape', decodesTheCommanderPieceShape);
+}
+
+describe('FingerprintCommandInputSchema', describeFingerprintCommandPieceSchema);
+function describeFormatFingerprintReport() {
+  function showsAnIncrementalDecisionAndPriorBuild() {
     const reportText = formatFingerprintReport(INCREMENTAL_REPORT);
     expect(reportText).toContain('demo (ios)');
     expect(reportText).toContain('Current fingerprint: abcdef012345');
     expect(reportText).toContain('2026-06-13T10:00:00.000Z, clean');
     expect(reportText).toContain('incremental (reuses warm caches) - cache warm - incremental');
-  });
+  }
 
-  it('shows a cold host clean decision', () => {
+  it('shows an incremental decision and prior build', showsAnIncrementalDecisionAndPriorBuild);
+  function showsAColdHostCleanDecision() {
     const reportText = formatFingerprintReport({
       ...INCREMENTAL_REPORT,
       stored: null,
@@ -47,5 +50,9 @@ describe('formatFingerprintReport', () => {
     });
     expect(reportText).toContain('Last build:          none on this host yet');
     expect(reportText).toContain('clean (from scratch) - first build on this host');
-  });
-});
+  }
+
+  it('shows a cold host clean decision', showsAColdHostCleanDecision);
+}
+
+describe('formatFingerprintReport', describeFormatFingerprintReport);

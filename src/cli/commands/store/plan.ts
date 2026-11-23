@@ -8,20 +8,26 @@ type PlanOptions = Readonly<{
   readonly json: boolean;
 }>;
 
-const planCommandInput = (
+function planCommandInput(
   operation: 'plan' | 'drift',
   surfaceName: string | undefined,
   commandOptions: PlanOptions,
-): PlanCommandInput => {
+): PlanCommandInput {
   let check = commandOptions.check == true;
   if (operation == 'drift') check = true;
   let commandInput: PlanCommandInput = { operation, check, json: commandOptions.json };
   if (surfaceName != null) commandInput = { ...commandInput, surface: surfaceName };
   if (commandOptions.app != null) commandInput = { ...commandInput, app: commandOptions.app };
   return commandInput;
-};
+}
 
-export const registerPlanCommand = (program: Command): void => {
+export function registerPlanCommand(program: Command): void {
+  function runPlanSurface(surfaceName: string | undefined, commandOptions: PlanOptions) {
+    const planCommand = planCommandInput('plan', surfaceName, commandOptions);
+    const planProgram = planCommandProgram(planCommand);
+    return runCliProgram(planProgram);
+  }
+
   program
     .command('plan [surface]')
     .description(
@@ -34,11 +40,13 @@ export const registerPlanCommand = (program: Command): void => {
       false,
     )
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((surfaceName: string | undefined, commandOptions: PlanOptions) => {
-      const planCommand = planCommandInput('plan', surfaceName, commandOptions);
-      const planProgram = planCommandProgram(planCommand);
-      return runCliProgram(planProgram);
-    });
+    .action(runPlanSurface);
+  function runDriftSurface(surfaceName: string | undefined, commandOptions: PlanOptions) {
+    const planCommand = planCommandInput('drift', surfaceName, commandOptions);
+    const planProgram = planCommandProgram(planCommand);
+    return runCliProgram(planProgram);
+  }
+
   program
     .command('drift [surface]')
     .description(
@@ -46,9 +54,5 @@ export const registerPlanCommand = (program: Command): void => {
     )
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
-    .action((surfaceName: string | undefined, commandOptions: PlanOptions) => {
-      const planCommand = planCommandInput('drift', surfaceName, commandOptions);
-      const planProgram = planCommandProgram(planCommand);
-      return runCliProgram(planProgram);
-    });
-};
+    .action(runDriftSurface);
+}

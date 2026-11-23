@@ -4,17 +4,22 @@ import {
   roleErrorMessage,
   type ProvisioningReport,
 } from './setup-command.ts';
-
-describe('roleErrorMessage', () => {
-  it('names the inaccessible feature and points at the fix', () => {
+function describeRoleErrorMessage() {
+  function namesTheInaccessibleFeatureAndPointsAtTheFix() {
     const message = roleErrorMessage('App ID capabilities');
     expect(message).toContain('App ID capabilities');
     expect(message).toContain('403');
     expect(message).toMatch(/Users & Access/);
-  });
-});
+  }
 
-describe('formatProvisioningReport', () => {
+  it(
+    'names the inaccessible feature and points at the fix',
+    namesTheInaccessibleFeatureAndPointsAtTheFix,
+  );
+}
+
+describe('roleErrorMessage', describeRoleErrorMessage);
+function describeFormatProvisioningReport() {
   const readyReport: ProvisioningReport = {
     account: { label: 'Personal', keyId: 'ABC123', teamId: 'TEAM01' },
     app: { name: 'sampleapp', bundleId: 'com.example.sampleapp' },
@@ -28,8 +33,7 @@ describe('formatProvisioningReport', () => {
       { name: 'Old iPad', udid: '222-333', disabled: true },
     ],
   };
-
-  it('renders every section with the app heading and device lines', () => {
+  function rendersEverySectionWithTheAppHeadingAndDeviceLines() {
     const reportText = formatProvisioningReport(readyReport);
     expect(reportText).toContain('sampleapp (com.example.sampleapp)');
     expect(reportText).toContain('Personal (key ABC123, team TEAM01)');
@@ -37,9 +41,13 @@ describe('formatProvisioningReport', () => {
     expect(reportText).toContain('PUSH_NOTIFICATIONS, ASSOCIATED_DOMAINS');
     expect(reportText).toContain('iPhone 15 - 000-111');
     expect(reportText).toContain('Old iPad - 222-333 (disabled)');
-  });
+  }
 
-  it('flags each gap when nothing is provisioned yet', () => {
+  it(
+    'renders every section with the app heading and device lines',
+    rendersEverySectionWithTheAppHeadingAndDeviceLines,
+  );
+  function flagsEachGapWhenNothingIsProvisionedYet() {
     const reportText = formatProvisioningReport({
       ...readyReport,
       account: { label: 'Work', keyId: 'ZZZ999', teamId: null },
@@ -55,9 +63,10 @@ describe('formatProvisioningReport', () => {
     expect(reportText).toContain('none enabled');
     expect(reportText).toContain('none cached');
     expect(reportText).toContain('none (add with');
-  });
+  }
 
-  it('lists declared extensions with each provisioning status', () => {
+  it('flags each gap when nothing is provisioned yet', flagsEachGapWhenNothingIsProvisionedYet);
+  function listsDeclaredExtensionsWithEachProvisioningStatus() {
     const reportText = formatProvisioningReport({
       ...readyReport,
       extensions: [
@@ -68,10 +77,21 @@ describe('formatProvisioningReport', () => {
     expect(reportText).toContain('extensions:   2 declared');
     expect(reportText).toContain('com.example.sampleapp.widget - profile cached');
     expect(reportText).toContain('com.example.sampleapp.share - not provisioned');
-  });
+  }
 
-  it('omits the extensions section when none are declared', () => {
+  it(
+    'lists declared extensions with each provisioning status',
+    listsDeclaredExtensionsWithEachProvisioningStatus,
+  );
+  function omitsTheExtensionsSectionWhenNoneAreDeclared() {
     const provisioningReport = formatProvisioningReport(readyReport);
     expect(provisioningReport).not.toContain('extensions:');
-  });
-});
+  }
+
+  it(
+    'omits the extensions section when none are declared',
+    omitsTheExtensionsSectionWhenNoneAreDeclared,
+  );
+}
+
+describe('formatProvisioningReport', describeFormatProvisioningReport);

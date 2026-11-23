@@ -2,11 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { captureCommandOutput, makeCommandFailed } from '../services/platform/exec.ts';
 import { extractProfileEntitlements } from './profile-entitlements.ts';
 
-vi.mock('../services/platform/os.ts', () => ({ checkIsMacOperatingSystem: () => true }));
-vi.mock('../services/platform/exec.ts', async (importOriginal) => {
-  const commandServices = await importOriginal<typeof import('../services/platform/exec.ts')>();
-  return { ...commandServices, captureCommandOutput: vi.fn() };
+vi.mock('../services/platform/os.ts', function mockOs() {
+  return { checkIsMacOperatingSystem: () => true };
 });
+vi.mock(
+  '../services/platform/exec.ts',
+  async function mockExec(importOriginal: <T = unknown>() => Promise<T>) {
+    const commandServices = await importOriginal<typeof import('../services/platform/exec.ts')>();
+    return { ...commandServices, captureCommandOutput: vi.fn() };
+  },
+);
 
 const captureMock = vi.mocked(captureCommandOutput);
 
@@ -20,13 +25,13 @@ function readCaptureCall(index: number) {
 
   return call;
 }
-
-beforeEach(() => {
+function prepare() {
   captureMock.mockReset();
-});
+}
 
-describe('extractProfileEntitlements', () => {
-  it("returns null for content that isn't a decodable provisioning profile (or off-Mac)", async () => {
+beforeEach(prepare);
+function describeExtractProfileEntitlements() {
+  async function returnsNullForPieceThatIsnTADecodableProvisioningProfileOrOffMac() {
     const commandFailed = makeCommandFailed({
       command: 'security',
       exitCode: 1,
@@ -35,9 +40,13 @@ describe('extractProfileEntitlements', () => {
     captureMock.mockRejectedValueOnce(commandFailed);
     const profileEntitlements = await extractProfileEntitlements('bm90LWEtcHJvZmlsZQ==');
     expect(profileEntitlements).toBeNull();
-  });
+  }
 
-  it('extracts Entitlements as xml1 before converting the sub-plist to JSON', async () => {
+  it(
+    "returns null for content that isn't a decodable provisioning profile (or off-Mac)",
+    returnsNullForPieceThatIsnTADecodableProvisioningProfileOrOffMac,
+  );
+  async function extractsEntitlementsAsXml1BeforeConvertingTheSubPlistToJSON() {
     const serialized = JSON.stringify({
       'com.apple.security.application-groups': ['group.com.acme.app'],
     });
@@ -71,5 +80,12 @@ describe('extractProfileEntitlements', () => {
       'plutil',
       expect.arrayContaining(['-convert', 'json', '-o', '-']),
     ]);
-  });
-});
+  }
+
+  it(
+    'extracts Entitlements as xml1 before converting the sub-plist to JSON',
+    extractsEntitlementsAsXml1BeforeConvertingTheSubPlistToJSON,
+  );
+}
+
+describe('extractProfileEntitlements', describeExtractProfileEntitlements);

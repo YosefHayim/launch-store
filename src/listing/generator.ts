@@ -47,7 +47,7 @@ function generationFailure(
 }
 
 /** Build the instruction sent for one locale. */
-export const buildListingPrompt = (listingBrief: ListingBrief): string => {
+export function buildListingPrompt(listingBrief: ListingBrief): string {
   const promptLines = [
     `You are an App Store optimization expert writing the ${listingBrief.locale} App Store listing for an app called "${listingBrief.appName}".`,
     '',
@@ -68,39 +68,47 @@ export const buildListingPrompt = (listingBrief: ListingBrief): string => {
     promptLines.push('', 'Improve on the current listing (do not copy it verbatim):', serialized);
   }
   return promptLines.join('\n');
-};
+}
 
 /** Remove an optional JSON Markdown fence from model text. */
-const stripJsonFence = (completionText: string): string => {
+function stripJsonFence(completionText: string): string {
   const trimmedText = completionText.trim();
   const fencedMatch = /^```(?:json)?\s*([\s\S]*?)\s*```$/.exec(trimmedText);
   const fencedJson = fencedMatch?.[1];
   if (fencedJson == null) return trimmedText;
   return fencedJson;
-};
+}
 
 /** Keep one non-blank generated text field. */
-const normalizeGeneratedText = (generatedText: string | undefined): string | undefined => {
+function normalizeGeneratedText(generatedText: string | undefined): string | undefined {
   if (generatedText == null) return undefined;
   const trimmedText = generatedText.trim();
   if (trimmedText.length == 0) return undefined;
   return trimmedText;
-};
+}
 
 /** Normalize generated keywords from the two accepted vendor shapes. */
-const normalizeGeneratedKeywords = (
+function normalizeGeneratedKeywords(
   generatedKeywords: readonly string[] | string | undefined,
-): string[] | undefined => {
+): string[] | undefined {
   if (generatedKeywords == null) return undefined;
   let keywordCandidates: readonly string[];
   if (typeof generatedKeywords == 'string') keywordCandidates = generatedKeywords.split(',');
   else keywordCandidates = generatedKeywords;
+  function mapKeywordCandidate(keywordCandidate: string) {
+    return keywordCandidate.trim();
+  }
+
+  function filterKeywordCandidate(keywordCandidate: string) {
+    return keywordCandidate.length > 0;
+  }
+
   const normalizedKeywords = keywordCandidates
-    .map((keywordCandidate) => keywordCandidate.trim())
-    .filter((keywordCandidate) => keywordCandidate.length > 0);
+    .map(mapKeywordCandidate)
+    .filter(filterKeywordCandidate);
   if (normalizedKeywords.length == 0) return undefined;
   return normalizedKeywords;
-};
+}
 
 function readOptionalGeneratedText(
   record: Record<string, unknown>,

@@ -90,9 +90,11 @@ function exportComplianceFailure(operation: string, cause: unknown): ExportCompl
   return makeExportComplianceFailure({ operation, message, cause });
 }
 
-const exportComplianceOutcome = (
+function exportComplianceOutcome(
   complianceOutcome: ExportComplianceResult,
-): ExportComplianceResult => complianceOutcome;
+): ExportComplianceResult {
+  return complianceOutcome;
+}
 
 function isApprovedDeclaration(encryptionDeclaration: EncryptionDeclarationResource): boolean {
   return encryptionDeclaration.state == 'APPROVED';
@@ -164,9 +166,9 @@ type ExportComplianceConfigStatus = {
  * check `launch-store doctor` shows per iOS app. Only the explicit `false` answer is "clean" (the binary
  * self-answers); `true` is declared-but-owes-a-declaration, and `undefined` means every upload re-prompts.
  */
-export const describeExportComplianceConfig = (
+export function describeExportComplianceConfig(
   usesNonExemptEncryption: boolean | undefined,
-): ExportComplianceConfigStatus => {
+): ExportComplianceConfigStatus {
   switch (usesNonExemptEncryption) {
     case false:
       return {
@@ -187,11 +189,9 @@ export const describeExportComplianceConfig = (
           'export compliance not declared - set `ios.config.usesNonExemptEncryption` in app.json so the encryption question is answered once, not on every upload',
       };
   }
-};
+}
 /** Render a {@link reconcileExportCompliance} outcome as one human line for `launch-store doctor --fix`. */
-export const summarizeExportComplianceResult = (
-  complianceOutcome: ExportComplianceResult,
-): string => {
+export function summarizeExportComplianceResult(complianceOutcome: ExportComplianceResult): string {
   switch (complianceOutcome.status) {
     case 'undeclared':
       return 'no `ios.config.usesNonExemptEncryption` in app.json - left as-is';
@@ -206,4 +206,4 @@ export const summarizeExportComplianceResult = (
     case 'needs-declaration':
       return 'no approved declaration to reuse - submit a one-time documented App Encryption Declaration in App Store Connect';
   }
-};
+}

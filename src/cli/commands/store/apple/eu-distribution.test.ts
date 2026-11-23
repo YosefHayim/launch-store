@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderStoreSurfaceAction } from './app-store-surface-command.ts';
-describe('renderAction', () => {
-  it('marks a planned/applied authorization with +', () => {
+function describeRenderAction() {
+  function marksAPlannedAppliedAuthorizationWith() {
     const storeSurfaceAction = renderStoreSurfaceAction({
       description: 'authorize distribution domain cdn.acme.com (Acme CDN)',
       destructive: false,
@@ -15,8 +15,10 @@ describe('renderAction', () => {
         status: 'applied',
       }),
     ).toBe('+ authorize distribution domain cdn.acme.com (Acme CDN)');
-  });
-  it("renders a failed authorization with x and Apple's error detail", () => {
+  }
+
+  it('marks a planned/applied authorization with +', marksAPlannedAppliedAuthorizationWith);
+  function rendersAFailedAuthorizationWithXAndAppleSErrorDetail() {
     const storeSurfaceAction = renderStoreSurfaceAction({
       description: 'authorize distribution domain bad..com (Bad)',
       destructive: false,
@@ -26,5 +28,12 @@ describe('renderAction', () => {
     expect(storeSurfaceAction).toBe(
       'x authorize distribution domain bad..com (Bad) - is not a valid domain',
     );
-  });
-});
+  }
+
+  it(
+    "renders a failed authorization with x and Apple's error detail",
+    rendersAFailedAuthorizationWithXAndAppleSErrorDetail,
+  );
+}
+
+describe('renderAction', describeRenderAction);

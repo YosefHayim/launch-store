@@ -12,25 +12,35 @@ function unusedStorageCall(): Promise<never> {
 }
 
 /** A throwaway storage provider for exercising the registry without touching disk. */
-const fakeStorage = (name: string): StorageProvider => {
+function fakeStorage(name: string): StorageProvider {
   return {
     name,
     put: unusedStorageCall,
-    list: async () => [],
-    url: async () => '',
+    async list() {
+      return [];
+    },
+    async url() {
+      return '';
+    },
     putObject: unusedStorageCall,
-    getObject: async () => null,
-    publicUrl: () => '',
+    async getObject() {
+      return null;
+    },
+    publicUrl() {
+      return '';
+    },
   };
-};
-describe('provider registry - the DI seam', () => {
-  it('registers a provider and looks it up by name', () => {
+}
+function describeProviderRegistryTheDISeam() {
+  function registersAProviderAndLooksItUpByName() {
     const provider = fakeStorage('memory');
     registerStorageProvider(provider);
     const storageProvider = getStorageProvider('memory');
     expect(storageProvider).toBe(provider);
-  });
-  it('throws a clear error naming the available providers when one is missing', () => {
+  }
+
+  it('registers a provider and looks it up by name', registersAProviderAndLooksItUpByName);
+  function throwsAClearErrorNamingTheAvailableProvidersWhenOneIsMissing() {
     registerStorageProvider(fakeStorage('local'));
     let failure: unknown = null;
 
@@ -41,8 +51,13 @@ describe('provider registry - the DI seam', () => {
     }
 
     expect(failure).toMatchObject({ _tag: 'ProviderNotRegistered' });
-  });
-  it('rejects the retired fastlane build engine name and names the valid engines', () => {
+  }
+
+  it(
+    'throws a clear error naming the available providers when one is missing',
+    throwsAClearErrorNamingTheAvailableProvidersWhenOneIsMissing,
+  );
+  function rejectsTheRetiredFastlaneBuildEngineNameAndNamesTheValidEngines() {
     registerBuildEngine({ name: 'xcode', buildArtifact: unusedStorageCall });
     registerBuildEngine({ name: 'gradle', buildArtifact: unusedStorageCall });
     let failure: unknown = null;
@@ -57,5 +72,12 @@ describe('provider registry - the DI seam', () => {
       _tag: 'ProviderNotRegistered',
       message: 'Unknown build engine "fastlane". Valid build engines: xcode, gradle.',
     });
-  });
-});
+  }
+
+  it(
+    'rejects the retired fastlane build engine name and names the valid engines',
+    rejectsTheRetiredFastlaneBuildEngineNameAndNamesTheValidEngines,
+  );
+}
+
+describe('provider registry - the DI seam', describeProviderRegistryTheDISeam);

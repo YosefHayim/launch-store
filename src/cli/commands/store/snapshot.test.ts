@@ -1,30 +1,37 @@
-import { Command } from '../../command.ts';
+import { Command, type CommandOption } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
 import { registerSnapshotCommand } from './snapshot.ts';
 
 /** Find one registered snapshot subcommand. */
-const snapshotSubcommand = (commandName: string) => {
+function snapshotSubcommand(commandName: string) {
   const program = new Command();
   registerSnapshotCommand(program);
-  const snapshotCommand = program.commands.find(
-    (registeredCommand) => registeredCommand.name() == 'snapshot',
-  );
-  expect(snapshotCommand).toBeDefined();
-  return snapshotCommand?.commands.find(
-    (registeredCommand) => registeredCommand.name() == commandName,
-  );
-};
+  function findRegisteredCommand(registeredCommand: Command) {
+    return registeredCommand.name() == 'snapshot';
+  }
 
-describe('registerSnapshotCommand', () => {
-  it('registers every snapshot operation', () => {
+  const snapshotCommand = program.commands.find(findRegisteredCommand);
+  expect(snapshotCommand).toBeDefined();
+  function findRegisteredCommand2(registeredCommand: Command) {
+    return registeredCommand.name() == commandName;
+  }
+
+  return snapshotCommand?.commands.find(findRegisteredCommand2);
+}
+function describeRegisterSnapshotCommand() {
+  function registersEverySnapshotOperation() {
     const program = new Command();
     registerSnapshotCommand(program);
-    const snapshotCommand = program.commands.find(
-      (registeredCommand) => registeredCommand.name() == 'snapshot',
-    );
-    const operationNames = snapshotCommand?.commands
-      .map((registeredCommand) => registeredCommand.name())
-      .sort();
+    function findRegisteredCommand3(registeredCommand: Command) {
+      return registeredCommand.name() == 'snapshot';
+    }
+
+    const snapshotCommand = program.commands.find(findRegisteredCommand3);
+    function mapRegisteredCommand(registeredCommand: Command) {
+      return registeredCommand.name();
+    }
+
+    const operationNames = snapshotCommand?.commands.map(mapRegisteredCommand).sort();
     expect(operationNames).toEqual([
       'create',
       'delete',
@@ -34,29 +41,61 @@ describe('registerSnapshotCommand', () => {
       'prune',
       'restore',
     ]);
-  });
+  }
 
-  it('keeps capture and restore selectors on their owning operations', () => {
-    expect(
-      snapshotSubcommand('create')?.options.map((commandOption) => commandOption.long),
-    ).toEqual(expect.arrayContaining(['--app', '--json']));
-    expect(snapshotSubcommand('diff')?.options.map((commandOption) => commandOption.long)).toEqual(
+  it('registers every snapshot operation', registersEverySnapshotOperation);
+  function keepsCaptureAndRestoreSelectorsOnTheirOwningOperations() {
+    function readLong(commandOption: CommandOption) {
+      return commandOption.long;
+    }
+
+    expect(snapshotSubcommand('create')?.options.map(readLong)).toEqual(
       expect.arrayContaining(['--app', '--json']),
     );
-    expect(
-      snapshotSubcommand('restore')?.options.map((commandOption) => commandOption.long),
-    ).toEqual(expect.arrayContaining(['--app', '--source', '--yes', '--json']));
-  });
+    function readLong2(commandOption: CommandOption) {
+      return commandOption.long;
+    }
 
-  it('keeps persistence flags on their owning operations', () => {
-    expect(
-      snapshotSubcommand('export')?.options.map((commandOption) => commandOption.long),
-    ).toContain('--out');
-    expect(
-      snapshotSubcommand('delete')?.options.map((commandOption) => commandOption.long),
-    ).toContain('--json');
-    expect(snapshotSubcommand('prune')?.options.map((commandOption) => commandOption.long)).toEqual(
+    expect(snapshotSubcommand('diff')?.options.map(readLong2)).toEqual(
+      expect.arrayContaining(['--app', '--json']),
+    );
+    function readLong3(commandOption: CommandOption) {
+      return commandOption.long;
+    }
+
+    expect(snapshotSubcommand('restore')?.options.map(readLong3)).toEqual(
+      expect.arrayContaining(['--app', '--source', '--yes', '--json']),
+    );
+  }
+
+  it(
+    'keeps capture and restore selectors on their owning operations',
+    keepsCaptureAndRestoreSelectorsOnTheirOwningOperations,
+  );
+  function keepsPersistenceFlagsOnTheirOwningOperations() {
+    function readLong4(commandOption: CommandOption) {
+      return commandOption.long;
+    }
+
+    expect(snapshotSubcommand('export')?.options.map(readLong4)).toContain('--out');
+    function readLong5(commandOption: CommandOption) {
+      return commandOption.long;
+    }
+
+    expect(snapshotSubcommand('delete')?.options.map(readLong5)).toContain('--json');
+    function readLong6(commandOption: CommandOption) {
+      return commandOption.long;
+    }
+
+    expect(snapshotSubcommand('prune')?.options.map(readLong6)).toEqual(
       expect.arrayContaining(['--keep', '--older-than', '--yes', '--json']),
     );
-  });
-});
+  }
+
+  it(
+    'keeps persistence flags on their owning operations',
+    keepsPersistenceFlagsOnTheirOwningOperations,
+  );
+}
+
+describe('registerSnapshotCommand', describeRegisterSnapshotCommand);

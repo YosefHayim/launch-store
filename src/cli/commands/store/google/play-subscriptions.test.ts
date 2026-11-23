@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { renderPlayCatalogAction } from './play-catalog-command.ts';
-describe('renderAction', () => {
-  it('marks a planned change with +', () => {
+function describeRenderAction() {
+  function marksAPlannedChangeWith() {
     const playCatalogAction = renderPlayCatalogAction({
       description: 'create Play subscription com.acme.pro.monthly',
       destructive: false,
       status: 'planned',
     });
     expect(playCatalogAction).toBe('+ create Play subscription com.acme.pro.monthly');
-  });
-  it("renders a failed action with x and Play's error detail", () => {
+  }
+
+  it('marks a planned change with +', marksAPlannedChangeWith);
+  function rendersAFailedActionWithXAndPlaySErrorDetail() {
     const playCatalogAction = renderPlayCatalogAction({
       description: 'create offer trial on base plan p1m',
       destructive: false,
@@ -19,5 +21,12 @@ describe('renderAction', () => {
     expect(playCatalogAction).toBe(
       'x create offer trial on base plan p1m - no region common to its trial and intro-price phases',
     );
-  });
-});
+  }
+
+  it(
+    "renders a failed action with x and Play's error detail",
+    rendersAFailedActionWithXAndPlaySErrorDetail,
+  );
+}
+
+describe('renderAction', describeRenderAction);

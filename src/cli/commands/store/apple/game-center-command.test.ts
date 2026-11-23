@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameCenterCommandInputSchema } from './game-center-command.ts';
-
-describe('GameCenterCommandInputSchema', () => {
-  it('decodes the Commander boundary with an omitted app selector', () => {
+function describeGameCenterCommandPieceSchema() {
+  function decodesTheCommanderBoundaryWithAnOmittedAppSelector() {
     const gameCenterCommandSchema = GameCenterCommandInputSchema({
       config: 'gamecenter.config.json',
       explicitConfig: false,
@@ -15,17 +14,30 @@ describe('GameCenterCommandInputSchema', () => {
       dryRun: true,
       yes: false,
     });
-  });
+  }
 
-  it('rejects an explicit undefined exact optional app', () => {
-    expect(() =>
-      GameCenterCommandInputSchema({
+  it(
+    'decodes the Commander boundary with an omitted app selector',
+    decodesTheCommanderBoundaryWithAnOmittedAppSelector,
+  );
+  function rejectsAnExplicitUndefinedExactOptionalApp() {
+    function callGameCenterCommandPieceSchema() {
+      return GameCenterCommandInputSchema({
         app: undefined,
         config: 'gamecenter.config.json',
         explicitConfig: false,
         dryRun: false,
         yes: false,
-      }),
-    ).toThrow();
-  });
-});
+      });
+    }
+
+    expect(callGameCenterCommandPieceSchema).toThrow();
+  }
+
+  it(
+    'rejects an explicit undefined exact optional app',
+    rejectsAnExplicitUndefinedExactOptionalApp,
+  );
+}
+
+describe('GameCenterCommandInputSchema', describeGameCenterCommandPieceSchema);

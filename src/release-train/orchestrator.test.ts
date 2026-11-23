@@ -140,9 +140,8 @@ function ota(record: TrainRecord, platform: string): Car | undefined {
 
   return record.cars.find(isPlatformCar);
 }
-
-describe('startTrain', () => {
-  it('submits every native car, adds pending OTA followers, and starts running', async () => {
+function describeStartTrain() {
+  async function submitsEveryNativeCarAddsPendingOTAFollowersAndStartsRunning() {
     const engine = fakeEngine();
     const record = await startTrain(
       {
@@ -160,9 +159,13 @@ describe('startTrain', () => {
     expect(native(record, 'ios')).toMatchObject({ state: 'submitted', buildId: 'ios-100' });
     expect(native(record, 'android')).toMatchObject({ state: 'submitted' });
     expect(ota(record, 'ios')).toMatchObject({ state: 'pending' });
-  });
+  }
 
-  it('records a submit precondition failure on that car without aborting the others', async () => {
+  it(
+    'submits every native car, adds pending OTA followers, and starts running',
+    submitsEveryNativeCarAddsPendingOTAFollowersAndStartsRunning,
+  );
+  async function recordsASubmitPreconditionFailureOnThatCarWithoutAbortingTheOthers() {
     async function submitNative(trainCar: NativeCar): Promise<{ buildId: string }> {
       if (trainCar.kind == 'ios') {
         throw new Error('no processed build');
@@ -185,9 +188,13 @@ describe('startTrain', () => {
     );
     expect(native(record, 'ios')).toMatchObject({ state: 'failed', error: 'no processed build' });
     expect(native(record, 'android')).toMatchObject({ state: 'submitted' });
-  });
+  }
 
-  it('submits native cars at the same time instead of one after another', async () => {
+  it(
+    'records a submit precondition failure on that car without aborting the others',
+    recordsASubmitPreconditionFailureOnThatCarWithoutAbortingTheOthers,
+  );
+  async function submitsNativeCarsAtTheSameTimeInsteadOfOneAfterAnother() {
     let markAndroidSubmitted: (() => void) | null = null;
     const androidSubmitted = new Promise<void>(function captureAndroidStart(
       startAndroid: () => void,
@@ -227,34 +234,49 @@ describe('startTrain', () => {
     );
     expect(native(record, 'ios')).toMatchObject({ state: 'submitted', buildId: 'ios-100' });
     expect(native(record, 'android')).toMatchObject({ state: 'submitted', buildId: 'android-100' });
-  });
-});
+  }
 
-describe('advanceTrain - release-when-ready (no hold)', () => {
-  it('adopts the live state of an in-flight car', async () => {
+  it(
+    'submits native cars at the same time instead of one after another',
+    submitsNativeCarsAtTheSameTimeInsteadOfOneAfterAnother,
+  );
+}
+
+describe('startTrain', describeStartTrain);
+function describeAdvanceTrainReleaseWhenReadyNoHold() {
+  async function adoptsTheLivePieceOfAnInFlightCar() {
     const engine = fakeEngine({ ios: ['in-review'] });
     const record = await advanceTrain(iosTrain('submitted'), engine, { now: LATER });
     expect(native(record, 'ios')).toMatchObject({ state: 'in-review', updatedAt: LATER });
     expect(record.state).toBe('running');
-  });
+  }
 
-  it('publishes the OTA follower once its platform reads released, and never calls releaseNative', async () => {
+  it('adopts the live state of an in-flight car', adoptsTheLivePieceOfAnInFlightCar);
+  async function publishesTheOTAFollowerOnceItsPlatformReadsReleasedAndNeverCallsReleaseNative() {
     const engine = fakeEngine({ ios: ['released'] });
     const record = await advanceTrain(iosTrain('in-review'), engine, { now: LATER });
     expect(native(record, 'ios')).toMatchObject({ state: 'released' });
     expect(ota(record, 'ios')).toMatchObject({ state: 'published', manifestId: 'ios-manifest' });
     expect(record.state).toBe('done');
     expect(engine.calls).not.toContain('release:ios');
-  });
+  }
 
-  it('does not publish the OTA follower while its platform is still in review', async () => {
+  it(
+    'publishes the OTA follower once its platform reads released, and never calls releaseNative',
+    publishesTheOTAFollowerOnceItsPlatformReadsReleasedAndNeverCallsReleaseNative,
+  );
+  async function doesNotPublishTheOTAFollowerWhileItsPlatformIsStillInReview() {
     const engine = fakeEngine({ ios: ['in-review'] });
     const record = await advanceTrain(iosTrain('submitted'), engine, { now: LATER });
     expect(ota(record, 'ios')).toMatchObject({ state: 'pending' });
     expect(engine.calls).not.toContain('publishOta:ios');
-  });
+  }
 
-  it('leaves the OTA car pending and warns when publish throws (retried next reconcile)', async () => {
+  it(
+    'does not publish the OTA follower while its platform is still in review',
+    doesNotPublishTheOTAFollowerWhileItsPlatformIsStillInReview,
+  );
+  async function leavesTheOTACarPendingAndWarnsWhenPublishThrowsRetriedNextReconcile() {
     const onWarn = vi.fn();
 
     async function publishOta(): Promise<{ manifestId?: string }> {
@@ -266,10 +288,16 @@ describe('advanceTrain - release-when-ready (no hold)', () => {
     expect(ota(record, 'ios')).toMatchObject({ state: 'pending' });
     expect(onWarn).toHaveBeenCalledOnce();
     expect(record.state).toBe('running');
-  });
-});
+  }
 
-describe('advanceTrain - hold gate', () => {
+  it(
+    'leaves the OTA car pending and warns when publish throws (retried next reconcile)',
+    leavesTheOTACarPendingAndWarnsWhenPublishThrowsRetriedNextReconcile,
+  );
+}
+
+describe('advanceTrain - release-when-ready (no hold)', describeAdvanceTrainReleaseWhenReadyNoHold);
+function describeAdvanceTrainHoldGate() {
   function heldTwoPlatform(iosPhase: NativeCarState, androidPhase: NativeCarState): TrainRecord {
     return {
       id: 'app-ab12',
@@ -284,8 +312,7 @@ describe('advanceTrain - hold gate', () => {
       ],
     };
   }
-
-  it('holds an approved car while the other platform is still in review', async () => {
+  async function holdsAnApprovedCarWhileTheOtherPlatformIsStillInReview() {
     const engine = fakeEngine();
     const record = await advanceTrain(heldTwoPlatform('approved', 'in-review'), engine, {
       now: LATER,
@@ -293,9 +320,13 @@ describe('advanceTrain - hold gate', () => {
     expect(native(record, 'ios')).toMatchObject({ state: 'approved' });
     expect(engine.calls).not.toContain('release:ios');
     expect(record.state).toBe('running');
-  });
+  }
 
-  it('releases every car together once all native cars are approved', async () => {
+  it(
+    'holds an approved car while the other platform is still in review',
+    holdsAnApprovedCarWhileTheOtherPlatformIsStillInReview,
+  );
+  async function releasesEveryCarTogetherOnceAllNativeCarsAreApproved() {
     const engine = fakeEngine({ android: ['approved'] });
     const record = await advanceTrain(heldTwoPlatform('approved', 'in-review'), engine, {
       now: LATER,
@@ -305,9 +336,13 @@ describe('advanceTrain - hold gate', () => {
     expect(native(record, 'ios')).toMatchObject({ state: 'released' });
     expect(native(record, 'android')).toMatchObject({ state: 'released' });
     expect(record.state).toBe('done');
-  });
+  }
 
-  it('enters blocked when a held car is rejected, firing no releases', async () => {
+  it(
+    'releases every car together once all native cars are approved',
+    releasesEveryCarTogetherOnceAllNativeCarsAreApproved,
+  );
+  async function entersBlockedWhenAHeldCarIsRejectedFiringNoReleases() {
     const engine = fakeEngine({ ios: ['rejected'] });
     const record = await advanceTrain(heldTwoPlatform('submitted', 'approved'), engine, {
       now: LATER,
@@ -316,9 +351,13 @@ describe('advanceTrain - hold gate', () => {
     expect(native(record, 'ios')).toMatchObject({ state: 'rejected' });
     expect(engine.calls).not.toContain('release:android');
     expect(trainExitCode(record)).toBe(2);
-  });
+  }
 
-  it('force-releases the ready cars on a blocked train, leaving the failed car tracked', async () => {
+  it(
+    'enters blocked when a held car is rejected, firing no releases',
+    entersBlockedWhenAHeldCarIsRejectedFiringNoReleases,
+  );
+  async function forceReleasesTheReadyCarsOnABlockedTrainLeavingTheFailedCarTracked() {
     const blocked = {
       id: 'app-ab12',
       app: 'app',
@@ -337,26 +376,37 @@ describe('advanceTrain - hold gate', () => {
     expect(native(record, 'android')).toMatchObject({ state: 'released' });
     expect(native(record, 'ios')).toMatchObject({ state: 'failed', error: 'rejected' });
     expect(record.state).toBe('done');
-  });
-});
+  }
 
-describe('advanceTrain - invariants', () => {
-  it('never reads, releases, or publishes for a terminal (done) train', async () => {
+  it(
+    'force-releases the ready cars on a blocked train, leaving the failed car tracked',
+    forceReleasesTheReadyCarsOnABlockedTrainLeavingTheFailedCarTracked,
+  );
+}
+
+describe('advanceTrain - hold gate', describeAdvanceTrainHoldGate);
+function describeAdvanceTrainInvariants() {
+  async function neverReadsReleasesOrPublishesForATerminalDoneTrain() {
     const engine = fakeEngine({ ios: ['released'] });
     const done = iosTrain('released', { state: 'done' });
     const record = await advanceTrain(done, engine, { now: LATER });
     expect(engine.calls).toEqual([]);
     expect(record).toBe(done);
-  });
+  }
 
-  it('does not mutate the input record', async () => {
+  it(
+    'never reads, releases, or publishes for a terminal (done) train',
+    neverReadsReleasesOrPublishesForATerminalDoneTrain,
+  );
+  async function doesNotMutateThePiecePiece() {
     const engine = fakeEngine({ ios: ['released'] });
     const inputRecord = iosTrain('in-review');
     await advanceTrain(inputRecord, engine, { now: LATER });
     expect(native(inputRecord, 'ios')).toMatchObject({ state: 'in-review', updatedAt: NOW });
-  });
+  }
 
-  it('never invokes any undo/rollback path across a full release (no such method exists)', async () => {
+  it('does not mutate the input record', doesNotMutateThePiecePiece);
+  async function neverInvokesAnyUndoRollbackPathAcrossAFullReleaseNoSuchMethodExists() {
     const engine = fakeEngine({ ios: ['released'] });
     const record = await advanceTrain(iosTrain('approved', { hold: true }), engine, {
       now: LATER,
@@ -369,11 +419,17 @@ describe('advanceTrain - invariants', () => {
 
     expect(engine.calls.every(isForwardCall)).toBe(true);
     expect(native(record, 'ios')).toMatchObject({ state: 'released' });
-  });
-});
+  }
 
-describe('release gate helpers', () => {
-  it('classifies native failures and approved-or-released cars', () => {
+  it(
+    'never invokes any undo/rollback path across a full release (no such method exists)',
+    neverInvokesAnyUndoRollbackPathAcrossAFullReleaseNoSuchMethodExists,
+  );
+}
+
+describe('advanceTrain - invariants', describeAdvanceTrainInvariants);
+function describeReleaseGateHelpers() {
+  function classifiesNativeFailuresAndApprovedOrReleasedCars() {
     expect(isNativeFailure({ kind: 'ios', state: 'rejected', updatedAt: NOW })).toBe(true);
     expect(isNativeFailure({ kind: 'ios', state: 'failed', updatedAt: NOW })).toBe(true);
     expect(isNativeFailure({ kind: 'ios', state: 'approved', updatedAt: NOW })).toBe(false);
@@ -386,19 +442,29 @@ describe('release gate helpers', () => {
     expect(isNativeApprovedOrReleased({ kind: 'ios', state: 'in-review', updatedAt: NOW })).toBe(
       false,
     );
-  });
+  }
 
-  it('opens the gate for release-when-ready, hold-all-approved, and force', () => {
+  it(
+    'classifies native failures and approved-or-released cars',
+    classifiesNativeFailuresAndApprovedOrReleasedCars,
+  );
+  function opensTheGateForReleaseWhenReadyHoldAllApprovedAndForce() {
     expect(isReleaseGateOpen(false, false, false, false)).toBe(true);
     expect(isReleaseGateOpen(true, false, false, false)).toBe(false);
     expect(isReleaseGateOpen(true, false, false, true)).toBe(true);
     expect(isReleaseGateOpen(true, true, true, false)).toBe(true);
     expect(isReleaseGateOpen(true, false, true, true)).toBe(false);
-  });
-});
+  }
 
-describe('deriveTrainState / trainExitCode / isTrainSettled', () => {
-  it('is done only when every car is terminal', () => {
+  it(
+    'opens the gate for release-when-ready, hold-all-approved, and force',
+    opensTheGateForReleaseWhenReadyHoldAllApprovedAndForce,
+  );
+}
+
+describe('release gate helpers', describeReleaseGateHelpers);
+function describeDeriveTrainPieceTrainExitCodeIsTrainSettled() {
+  function isDoneOnlyWhenEveryCarIsTerminal() {
     const deriveTrain = deriveTrainState(
       [
         { kind: 'ios', state: 'released', updatedAt: NOW },
@@ -415,9 +481,10 @@ describe('deriveTrainState / trainExitCode / isTrainSettled', () => {
       false,
     );
     expect(deriveTrain).toBe('done');
-  });
+  }
 
-  it('blocks a held train with a failure unless forced', () => {
+  it('is done only when every car is terminal', isDoneOnlyWhenEveryCarIsTerminal);
+  function blocksAHeldTrainWithAFailureUnlessForced() {
     const cars: Car[] = [
       { kind: 'ios', state: 'failed', updatedAt: NOW },
       { kind: 'android', state: 'in-review', updatedAt: NOW },
@@ -426,9 +493,10 @@ describe('deriveTrainState / trainExitCode / isTrainSettled', () => {
     expect(deriveTrain).toBe('blocked');
     expect(deriveTrainState(cars, true, true)).toBe('running');
     expect(deriveTrainState(cars, false, false)).toBe('running');
-  });
+  }
 
-  it('ranks exit codes ok < in-progress < blocked', () => {
+  it('blocks a held train with a failure unless forced', blocksAHeldTrainWithAFailureUnlessForced);
+  function ranksExitCodesOkInProgressBlocked() {
     const allTerminal: TrainRecord = {
       id: 'app-ab12',
       app: 'app',
@@ -451,12 +519,23 @@ describe('deriveTrainState / trainExitCode / isTrainSettled', () => {
     expect(trainExitCode(allTerminal)).toBe(0);
     expect(trainExitCode(iosTrain('in-review'))).toBe(3);
     expect(trainExitCode(iosTrain('rejected'))).toBe(2);
-  });
+  }
 
-  it('settles a watch loop on done/aborted/blocked only', () => {
+  it('ranks exit codes ok < in-progress < blocked', ranksExitCodesOkInProgressBlocked);
+  function settlesAWatchLoopOnDoneAbortedBlockedOnly() {
     expect(isTrainSettled(iosTrain('released', { state: 'done' }))).toBe(true);
     expect(isTrainSettled(iosTrain('failed', { state: 'aborted' }))).toBe(true);
     expect(isTrainSettled(iosTrain('rejected', { state: 'blocked' }))).toBe(true);
     expect(isTrainSettled(iosTrain('in-review', { state: 'running' }))).toBe(false);
-  });
-});
+  }
+
+  it(
+    'settles a watch loop on done/aborted/blocked only',
+    settlesAWatchLoopOnDoneAbortedBlockedOnly,
+  );
+}
+
+describe(
+  'deriveTrainState / trainExitCode / isTrainSettled',
+  describeDeriveTrainPieceTrainExitCodeIsTrainSettled,
+);

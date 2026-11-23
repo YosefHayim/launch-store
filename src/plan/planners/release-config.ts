@@ -7,18 +7,21 @@ const SURFACE = 'release-config';
 export const releaseConfigPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  plan: (planContext) =>
-    planAppStoreSurface(planContext, {
+  plan(planContext) {
+    return planAppStoreSurface(planContext, {
       surface: SURFACE,
       direction: 'two-way',
-      configFor: (bundleId) =>
-        resolveStoreSurfaceSection(
+      configFor(bundleId) {
+        return resolveStoreSurfaceSection(
           planContext.config.releaseAttributes?.[bundleId],
           'release.config.json',
           false,
           parseReleaseConfig,
-        ),
-      reconcile: (api, bundleId, config) =>
-        reconcileReleasePlan(api, { bundleId, config, dryRun: true }),
-    }),
+        );
+      },
+      reconcile(api, bundleId, config) {
+        return reconcileReleasePlan(api, { bundleId, config, dryRun: true });
+      },
+    });
+  },
 };

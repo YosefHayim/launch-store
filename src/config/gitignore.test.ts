@@ -12,14 +12,9 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { captureCommandOutput } from '../services/platform/exec.ts';
 import { ensureArtifactDirIgnored } from './gitignore.ts';
-/**
- * Exercise the auto-gitignore against a real git repo in a temp dir (git's own `check-ignore` decides
- * "already covered", so a mocked repo wouldn't prove anything). `realpathSync` resolves the macOS
- * `/var -> /private/var` symlink up front, since `git rev-parse --show-toplevel` returns the real path.
- */
-describe('ensureArtifactDirIgnored', () => {
+function describeEnsureArtifactDirIgnored() {
   let repo: string;
-  beforeEach(async () => {
+  async function prepareEnsureArtifactDirIgnored() {
     const systemTemporaryDirectory = tmpdir();
     const launchGitignorePath = join(systemTemporaryDirectory, 'launch-gitignore-');
     const createdDirectory = mkdtempSync(launchGitignorePath);
@@ -34,11 +29,15 @@ describe('ensureArtifactDirIgnored', () => {
       repo,
       'init',
     ]);
-  });
-  afterEach(() => {
+  }
+
+  beforeEach(prepareEnsureArtifactDirIgnored);
+  function cleanupEnsureArtifactDirIgnored() {
     rmSync(repo, { recursive: true, force: true });
-  });
-  it('appends an anchored entry under the marker for an in-repo dir, and is idempotent', async () => {
+  }
+
+  afterEach(cleanupEnsureArtifactDirIgnored);
+  async function appendsAnAnchoredPieceUnderTheMarkerForAnInRepoDirAndIsIdempotent() {
     const artifacts = join(repo, '.launch', 'artifacts');
     const first = await ensureArtifactDirIgnored(artifacts, repo);
     expect(first).toEqual({ added: true, entry: '/.launch/artifacts' });
@@ -52,15 +51,25 @@ describe('ensureArtifactDirIgnored', () => {
     // Re-run appended nothing - the marker still appears exactly once.
     const loadedFile = readFileSync(join(repo, '.gitignore'), 'utf8');
     expect(loadedFile).toBe(gitignore);
-  });
-  it('respects a pre-existing broader ignore pattern (no duplicate entry)', async () => {
+  }
+
+  it(
+    'appends an anchored entry under the marker for an in-repo dir, and is idempotent',
+    appendsAnAnchoredPieceUnderTheMarkerForAnInRepoDirAndIsIdempotent,
+  );
+  async function respectsAPreExistingBroaderIgnorePatternNoDuplicatePiece() {
     const joinedPath = join(repo, '.gitignore');
     writeFileSync(joinedPath, '.launch/\n');
     const artifactsPath = join(repo, '.launch', 'artifacts');
     const ignoreOutcome = await ensureArtifactDirIgnored(artifactsPath, repo);
     expect(ignoreOutcome).toEqual({ added: false });
-  });
-  it("no-ops for a dir outside the project's work tree", async () => {
+  }
+
+  it(
+    'respects a pre-existing broader ignore pattern (no duplicate entry)',
+    respectsAPreExistingBroaderIgnorePatternNoDuplicatePiece,
+  );
+  async function noOpsForADirOutsideTheProjectSWorkTree() {
     const systemTemporaryDirectory = tmpdir();
     const launchOutsidePath = join(systemTemporaryDirectory, 'launch-outside-');
     const createdDirectory = mkdtempSync(launchOutsidePath);
@@ -76,8 +85,10 @@ describe('ensureArtifactDirIgnored', () => {
     } finally {
       rmSync(outside, { recursive: true, force: true });
     }
-  });
-  it("no-ops when the project dir isn't a git repo", async () => {
+  }
+
+  it("no-ops for a dir outside the project's work tree", noOpsForADirOutsideTheProjectSWorkTree);
+  async function noOpsWhenTheProjectDirIsnTAGitRepo() {
     const systemTemporaryDirectory = tmpdir();
     const launchPlainPath = join(systemTemporaryDirectory, 'launch-plain-');
     const createdDirectory = mkdtempSync(launchPlainPath);
@@ -91,5 +102,14 @@ describe('ensureArtifactDirIgnored', () => {
     } finally {
       rmSync(plain, { recursive: true, force: true });
     }
-  });
-});
+  }
+
+  it("no-ops when the project dir isn't a git repo", noOpsWhenTheProjectDirIsnTAGitRepo);
+}
+
+/**
+ * Exercise the auto-gitignore against a real git repo in a temp dir (git's own `check-ignore` decides
+ * "already covered", so a mocked repo wouldn't prove anything). `realpathSync` resolves the macOS
+ * `/var -> /private/var` symlink up front, since `git rev-parse --show-toplevel` returns the real path.
+ */
+describe('ensureArtifactDirIgnored', describeEnsureArtifactDirIgnored);

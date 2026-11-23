@@ -9,16 +9,18 @@ import {
 } from './updates-command.ts';
 
 /** Build one history row with concise overrides for each scenario. */
-const makeUpdateRow = (overrides: Partial<UpdateRow> = {}): UpdateRow => ({
-  id: '1234abcd-5678-90ef-ghij-klmnopqrstuv',
-  platform: 'ios',
-  runtimeVersion: '1.0.0',
-  createdAt: '2026-06-14T09:12:00.000Z',
-  active: true,
-  signed: true,
-  kind: 'publish',
-  ...overrides,
-});
+function makeUpdateRow(overrides: Partial<UpdateRow> = {}): UpdateRow {
+  return {
+    id: '1234abcd-5678-90ef-ghij-klmnopqrstuv',
+    platform: 'ios',
+    runtimeVersion: '1.0.0',
+    createdAt: '2026-06-14T09:12:00.000Z',
+    active: true,
+    signed: true,
+    kind: 'publish',
+    ...overrides,
+  };
+}
 
 const sampleManifest: UpdateManifest = {
   id: '1234abcd',
@@ -35,24 +37,31 @@ const sampleManifest: UpdateManifest = {
   metadata: {},
   extra: {},
 };
-
-describe('shortId', () => {
-  it('abbreviates a UUID to its first eight characters', () => {
+function describeShortId() {
+  function abbreviatesAUUIDToItsFirstEightCharacters() {
     expect(shortId('1234abcd-5678-90ef')).toBe('1234abcd');
-  });
-});
+  }
 
-describe('platformsForUpdatesFilter', () => {
-  it('defaults to both platforms when the filter is omitted', () => {
+  it('abbreviates a UUID to its first eight characters', abbreviatesAUUIDToItsFirstEightCharacters);
+}
+
+describe('shortId', describeShortId);
+function describePlatformsForUpdatesFilter() {
+  function defaultsToBothPlatformsWhenTheFilterIsOmitted() {
     expect(platformsForUpdatesFilter(undefined)).toEqual(['ios', 'android']);
-  });
+  }
 
-  it('accepts ios or android alone', () => {
+  it(
+    'defaults to both platforms when the filter is omitted',
+    defaultsToBothPlatformsWhenTheFilterIsOmitted,
+  );
+  function acceptsIosOrAndroidAlone() {
     expect(platformsForUpdatesFilter('ios')).toEqual(['ios']);
     expect(platformsForUpdatesFilter('android')).toEqual(['android']);
-  });
+  }
 
-  it('rejects an unknown platform with a tagged failure', () => {
+  it('accepts ios or android alone', acceptsIosOrAndroidAlone);
+  function rejectsAnUnknownPlatformWithATaggedFailure() {
     var thrown: unknown = null;
 
     try {
@@ -66,11 +75,17 @@ describe('platformsForUpdatesFilter', () => {
       operation: 'parse update platform',
       message: 'Unknown --platform "web". Use "ios" or "android".',
     });
-  });
-});
+  }
 
-describe('formatUpdatesTable', () => {
-  it('renders a header and one row per update with the active marker', () => {
+  it(
+    'rejects an unknown platform with a tagged failure',
+    rejectsAnUnknownPlatformWithATaggedFailure,
+  );
+}
+
+describe('platformsForUpdatesFilter', describePlatformsForUpdatesFilter);
+function describeFormatUpdatesTable() {
+  function rendersAHeaderAndOnePiecePerUpdateWithTheActiveMarker() {
     const makeUpdate = makeUpdateRow({ id: 'aaaaaaaa-1', active: true, kind: 'publish' });
     const table = formatUpdatesTable([
       makeUpdate,
@@ -91,32 +106,53 @@ describe('formatUpdatesTable', () => {
     expect(second).toContain('rollback');
     expect(second).toContain('2.0.0');
     expect(second).not.toContain('yes');
-  });
-});
+  }
 
-describe('formatUpdateDetail', () => {
-  it('includes the bundle URL, asset count, and active/signed labels when present', () => {
+  it(
+    'renders a header and one row per update with the active marker',
+    rendersAHeaderAndOnePiecePerUpdateWithTheActiveMarker,
+  );
+}
+
+describe('formatUpdatesTable', describeFormatUpdatesTable);
+function describeFormatUpdateDetail() {
+  function includesTheBundleURLAssetCountAndActiveSignedLabelsWhenPresent() {
     const makeUpdate = makeUpdateRow();
     const detail = formatUpdateDetail(makeUpdate, sampleManifest);
     expect(detail).toContain('https://cdn/bundle.hbc');
     expect(detail).toContain('assets:  1');
     expect(detail).toContain('active');
     expect(detail).toContain('signed:  yes');
-  });
+  }
 
-  it('omits manifest lines and active label when the snapshot and active flag are absent', () => {
+  it(
+    'includes the bundle URL, asset count, and active/signed labels when present',
+    includesTheBundleURLAssetCountAndActiveSignedLabelsWhenPresent,
+  );
+  function omitsManifestLinesAndActiveLabelWhenTheSnapshotAndActiveFlagAreAbsent() {
     const makeUpdate = makeUpdateRow({ active: false, signed: false });
     const detail = formatUpdateDetail(makeUpdate, null);
     expect(detail).not.toContain('bundle:');
     expect(detail).toContain('runtime 1.0.0');
     expect(detail).toContain('signed:  no');
     expect(detail).not.toContain(', active');
-  });
+  }
 
-  it('labels prior rollback history rows without rewriting their kind', () => {
+  it(
+    'omits manifest lines and active label when the snapshot and active flag are absent',
+    omitsManifestLinesAndActiveLabelWhenTheSnapshotAndActiveFlagAreAbsent,
+  );
+  function labelsPriorRollbackHistoryRowsWithoutRewritingTheirKind() {
     const makeUpdate = makeUpdateRow({ active: false, kind: 'rollback' });
     const detail = formatUpdateDetail(makeUpdate, sampleManifest);
     expect(detail).toContain('(rollback)');
     expect(detail).not.toContain(', active');
-  });
-});
+  }
+
+  it(
+    'labels prior rollback history rows without rewriting their kind',
+    labelsPriorRollbackHistoryRowsWithoutRewritingTheirKind,
+  );
+}
+
+describe('formatUpdateDetail', describeFormatUpdateDetail);

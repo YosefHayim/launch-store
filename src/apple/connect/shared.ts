@@ -109,41 +109,52 @@ export interface LocaleCopy {
   description?: string | undefined;
 }
 export const IN_APP_PURCHASE_VERSION_RESOURCES: VersionedLocalizationResources = {
-  versionsUrl: (parentId) => `${API_ORIGIN}/v2/inAppPurchases/${parentId}/versions`,
+  versionsUrl(parentId) {
+    return `${API_ORIGIN}/v2/inAppPurchases/${parentId}/versions`;
+  },
   versionType: 'inAppPurchaseVersions',
   parentRelationship: 'inAppPurchase',
   parentType: 'inAppPurchases',
   localizationType: 'inAppPurchaseLocalizations',
 };
 export const SUBSCRIPTION_VERSION_RESOURCES: VersionedLocalizationResources = {
-  versionsUrl: (parentId) => `${BASE_URL}/subscriptions/${parentId}/versions`,
+  versionsUrl(parentId) {
+    return `${BASE_URL}/subscriptions/${parentId}/versions`;
+  },
   versionType: 'subscriptionVersions',
   parentRelationship: 'subscription',
   parentType: 'subscriptions',
   localizationType: 'subscriptionLocalizations',
 };
 export const SUBSCRIPTION_GROUP_VERSION_RESOURCES: VersionedLocalizationResources = {
-  versionsUrl: (parentId) => `${BASE_URL}/subscriptionGroups/${parentId}/versions`,
+  versionsUrl(parentId) {
+    return `${BASE_URL}/subscriptionGroups/${parentId}/versions`;
+  },
   versionType: 'subscriptionGroupVersions',
   parentRelationship: 'subscriptionGroup',
   parentType: 'subscriptionGroups',
   localizationType: 'subscriptionGroupLocalizations',
 };
+function findVersion(version: ProductVersion) {
+  return version.attributes.state == 'PREPARE_FOR_SUBMISSION';
+}
 
-export const pickDraftVersion = (versions: ProductVersion[]): ProductVersion | null =>
-  versions.find((version) => version.attributes.state == 'PREPARE_FOR_SUBMISSION') ?? null;
+export function pickDraftVersion(versions: ProductVersion[]): ProductVersion | null {
+  return versions.find(findVersion) ?? null;
+}
 
-export const pickNewestVersion = (versions: ProductVersion[]): ProductVersion | null => {
-  const versionsNewestFirst = [...versions].sort(
-    (firstVersion, secondVersion) =>
-      (secondVersion.attributes.version ?? 0) - (firstVersion.attributes.version ?? 0),
-  );
+export function pickNewestVersion(versions: ProductVersion[]): ProductVersion | null {
+  function sortFirstVersion(firstVersion: ProductVersion, secondVersion: ProductVersion) {
+    return (secondVersion.attributes.version ?? 0) - (firstVersion.attributes.version ?? 0);
+  }
+
+  const versionsNewestFirst = [...versions].sort(sortFirstVersion);
   const [newestVersion] = versionsNewestFirst;
 
   const hasNoVersion = newestVersion == null;
   if (hasNoVersion) return null;
   return newestVersion;
-};
+}
 
 export class AscRequestError extends Error {
   constructor(
@@ -170,19 +181,20 @@ export class AscAvailabilityUpdateError {
   }
 }
 
-export const isRetryableAscError = (error: unknown): boolean => {
+export function isRetryableAscError(error: unknown): boolean {
   if (!(error instanceof AscRequestError)) return false;
   if (error.status == 429) return true;
   return error.status >= 500;
-};
+}
 
-export const isRejectedToken = (requestFailure: unknown): boolean =>
-  requestFailure instanceof AscRequestError && requestFailure.status == 401;
+export function isRejectedToken(requestFailure: unknown): boolean {
+  return requestFailure instanceof AscRequestError && requestFailure.status == 401;
+}
 
-export const isRetryableIdempotentFailure = (requestFailure: unknown): boolean => {
+export function isRetryableIdempotentFailure(requestFailure: unknown): boolean {
   if (requestFailure instanceof TypeError) return true;
   return isRetryableAscError(requestFailure);
-};
+}
 
 export type AccessibilityDeclarationAttributes = AccessibilitySupport & {
   deviceFamily?: DeviceFamily;
@@ -219,27 +231,33 @@ export type VersionStates = {
   appStoreState: string;
 };
 
-export const findAppInfoId = (
+export function findAppInfoId(
   appInfos: ResourceList<AppInfoStates>['data'],
   states: ReadonlySet<string>,
-): string | null => {
-  const appInformation = appInfos.find((candidate) => {
+): string | null {
+  function findCandidate(candidate: { id: string; attributes: AppInfoStates }) {
     let state = candidate.attributes.state;
     if (state == null) state = candidate.attributes.appStoreState;
     return state != null && states.has(state);
-  });
+  }
+
+  const appInformation = appInfos.find(findCandidate);
   if (appInformation == null) return null;
   return appInformation.id;
-};
+}
 
-export const findVersionId = (
+export function findVersionId(
   versions: ResourceList<VersionStates>['data'],
   states: ReadonlySet<string>,
-): string | null => {
-  const version = versions.find((candidate) => states.has(candidate.attributes.appStoreState));
+): string | null {
+  function findCandidate2(candidate: { id: string; attributes: VersionStates }) {
+    return states.has(candidate.attributes.appStoreState);
+  }
+
+  const version = versions.find(findCandidate2);
   if (version == null) return null;
   return version.id;
-};
+}
 export type ResourceSingle<A> = {
   data: {
     id: string;
@@ -282,10 +300,12 @@ export type AssetReservation = {
 
 // Apple 409s an inline-created included resource (ENTITY_ERROR.INCLUDED.INVALID_ID) unless its id is
 // a local id written as ${local-id}; the relationship references the same string.
-export const inlinePriceId = (index: number): string => `\${price-${index}}`;
-export const md5Hex = (bytes: Buffer): string => {
+export function inlinePriceId(index: number): string {
+  return `\${price-${index}}`;
+}
+export function md5Hex(bytes: Buffer): string {
   return createHash('md5').update(bytes).digest('hex');
-};
+}
 
 export async function readTransportFile(filePath: string): Promise<Buffer> {
   try {
@@ -354,28 +374,28 @@ function isStoreUploadFailure(error: unknown): error is StoreUploadFailure {
   return isFailureTag(error, 'StoreUploadFailure');
 }
 
-export const pickListingFields = (
+export function pickListingFields(
   attributes: Record<string, unknown>,
   keys: readonly string[],
-): Record<string, string> => {
+): Record<string, string> {
   const fields: Record<string, string> = {};
   for (const key of keys) {
     const fieldValue = attributes[key];
     if (typeof fieldValue == 'string' && fieldValue.length > 0) fields[key] = fieldValue;
   }
   return fields;
-};
+}
 
-export const pickAccessibilitySupport = (
+export function pickAccessibilitySupport(
   attributes: Partial<AccessibilitySupport>,
-): AccessibilitySupport => {
+): AccessibilitySupport {
   const support: MutableDeep<AccessibilitySupport> = {};
   for (const key of ACCESSIBILITY_SUPPORT_KEYS) {
     const fieldValue = attributes[key];
     if (typeof fieldValue == 'boolean') support[key] = fieldValue;
   }
   return support;
-};
+}
 
 export type CustomerReviewPage = {
   data: {
@@ -437,11 +457,11 @@ export type BetaFeedbackPage = {
 };
 export const BUILD_PAGE_QUERY =
   'fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&include=preReleaseVersion&fields[preReleaseVersions]=version';
-export const createMarketingVersionFilter = (marketingVersion: string | undefined): string => {
+export function createMarketingVersionFilter(marketingVersion: string | undefined): string {
   const isMarketingVersionGiven = marketingVersion != null;
   if (!isMarketingVersionGiven) return '';
   return `&filter[preReleaseVersion.version]=${marketingVersion}`;
-};
+}
 type BuildPageIncluded = {
   type: string;
   id: string;
@@ -561,18 +581,20 @@ export const EDITABLE_METADATA_STATES = new Set<string>([
   'INVALID_BINARY',
 ]);
 
-const mintToken = async (key: AscKey, issuedAt: number): Promise<string> => {
+async function mintToken(key: AscKey, issuedAt: number): Promise<string> {
   return signAppStoreConnectToken(key, issuedAt);
-};
+}
 
-const tokenCacheKey = (key: AscKey): string => `${key.issuerId}:${key.keyId}`;
+function tokenCacheKey(key: AscKey): string {
+  return `${key.issuerId}:${key.keyId}`;
+}
 
-export const forgetToken = (key: AscKey): void => {
+export function forgetToken(key: AscKey): void {
   const tokenKey = tokenCacheKey(key);
   mintedTokens.delete(tokenKey);
-};
+}
 
-export const reusableToken = async (key: AscKey): Promise<string> => {
+export async function reusableToken(key: AscKey): Promise<string> {
   const tokenKey = tokenCacheKey(key);
   const currentSeconds = Math.floor(Date.now() / 1000);
   const mintedToken = mintedTokens.get(tokenKey);
@@ -586,13 +608,13 @@ export const reusableToken = async (key: AscKey): Promise<string> => {
   const token = await mintToken(key, currentSeconds);
   mintedTokens.set(tokenKey, { token, issuedAt: currentSeconds });
   return token;
-};
+}
 
-const putAssetChunk = async (
+async function putAssetChunk(
   operation: UploadOperation,
   filePath: string,
   fileByteLength: number,
-): Promise<void> => {
+): Promise<void> {
   let offset = operation.offset;
   if (offset == null) offset = 0;
   let operationLength = operation.length;
@@ -606,55 +628,71 @@ const putAssetChunk = async (
   }
   let requestMethod = operation.method;
   if (requestMethod == null) requestMethod = 'PUT';
-  await retryAppleTransportRequest(
-    async () => {
-      const appleResponse = await fetch(operation.url, {
-        method: requestMethod,
-        headers,
-        body: chunk as Uint8Array<ArrayBuffer>,
-      });
-      if (!appleResponse.ok) {
-        throw new AscRequestError(
-          `asset upload chunk failed (${appleResponse.status})`,
-          appleResponse.status,
-        );
-      }
-    },
-    { isRetryableFailure: isRetryableIdempotentFailure },
-  );
-};
+  const uploadMethod = requestMethod;
+  async function retryAppleTransportRequestPiece() {
+    const appleResponse = await fetch(operation.url, {
+      method: uploadMethod,
+      headers,
+      body: chunk as Uint8Array<ArrayBuffer>,
+    });
+    if (!appleResponse.ok) {
+      throw new AscRequestError(
+        `asset upload chunk failed (${appleResponse.status})`,
+        appleResponse.status,
+      );
+    }
+  }
 
-export const buildUploadProblems = (
+  await retryAppleTransportRequest(retryAppleTransportRequestPiece, {
+    isRetryableFailure: isRetryableIdempotentFailure,
+  });
+}
+
+export function buildUploadProblems(
   stateDetails: readonly components['schemas']['StateDetail'][] | undefined,
-): BuildUploadProblem[] => {
+): BuildUploadProblem[] {
   if (stateDetails == null) return [];
-  return stateDetails.map((stateDetail) => {
+  function mapPieceDetail(stateDetail: { code?: string; description?: string }) {
     let code = stateDetail.code;
     if (code == null) code = '';
     let description = stateDetail.description;
     if (description == null) description = '';
     return { code, description };
-  });
-};
+  }
 
-export const putAssetFile = async (
+  return stateDetails.map(mapPieceDetail);
+}
+
+export async function putAssetFile(
   operations: readonly UploadOperation[],
   filePath: string,
   fileByteLength: number,
-): Promise<void> => {
+): Promise<void> {
   for (let batchStart = 0; batchStart < operations.length; batchStart += ASSET_UPLOAD_CONCURRENCY) {
     const operationBatch = operations.slice(batchStart, batchStart + ASSET_UPLOAD_CONCURRENCY);
-    const chunkUploads = operationBatch.map((operation) =>
-      putAssetChunk(operation, filePath, fileByteLength),
-    );
+    function mapOperation(operation: {
+      method?: string;
+      url: string;
+      length?: number;
+      offset?: number;
+      requestHeaders?: { name?: string; value?: string }[];
+    }) {
+      return putAssetChunk(operation, filePath, fileByteLength);
+    }
+
+    const chunkUploads = operationBatch.map(mapOperation);
     // biome-ignore lint/performance/noAwaitInLoops: bounded batches - each part is its own byte range, so a batch uploads in parallel without flooding Apple's CDN
     const settledChunkUploads = await Promise.allSettled(chunkUploads);
-    const failedChunkUpload = settledChunkUploads.find(
-      (chunkUpload): chunkUpload is PromiseRejectedResult => chunkUpload.status == 'rejected',
-    );
+    function findChunkUpload(
+      chunkUpload: PromiseRejectedResult | PromiseFulfilledResult<void>,
+    ): chunkUpload is PromiseRejectedResult {
+      return chunkUpload.status == 'rejected';
+    }
+
+    const failedChunkUpload = settledChunkUploads.find(findChunkUpload);
     if (failedChunkUpload != null) return Promise.reject(failedChunkUpload.reason);
   }
-};
+}
 
 interface AppleAppSummary {
   id: string;
@@ -662,27 +700,27 @@ interface AppleAppSummary {
   bundleId: string | null;
 }
 
-const readNonEmptyAttribute = (attribute: string | undefined): string | null => {
+function readNonEmptyAttribute(attribute: string | undefined): string | null {
   const isAttributePresent = typeof attribute == 'string' && attribute.length > 0;
   if (isAttributePresent) return attribute;
   return null;
-};
+}
 
-export const summarizeAppleApp = (appleResource: {
+export function summarizeAppleApp(appleResource: {
   id: string;
   attributes: { name?: string; bundleId?: string };
-}): AppleAppSummary => {
+}): AppleAppSummary {
   const name = readNonEmptyAttribute(appleResource.attributes.name);
   const bundleId = readNonEmptyAttribute(appleResource.attributes.bundleId);
   const isNameMissing = name == null;
   if (isNameMissing) return { id: appleResource.id, name: appleResource.id, bundleId };
   return { id: appleResource.id, name, bundleId };
-};
+}
 
-const toBuildResource = (
+function toBuildResource(
   entry: BuildPage['data'][number],
   preReleaseVersions: readonly BuildPageIncluded[],
-): BuildResource => {
+): BuildResource {
   let version = entry.attributes.version;
   if (version == null) version = '';
   let processingState = entry.attributes.processingState;
@@ -698,26 +736,47 @@ const toBuildResource = (
   if (entry.attributes.uploadedDate != null)
     Object.assign(buildResource, { uploadedDate: entry.attributes.uploadedDate });
   const preReleaseVersionId = entry.relationships?.preReleaseVersion?.data?.id;
-  const preReleaseVersion = preReleaseVersions.find(
-    (includedResource) =>
-      includedResource.type == 'preReleaseVersions' && includedResource.id == preReleaseVersionId,
-  );
+  function findIncludedResource(includedResource: {
+    type: string;
+    id: string;
+    attributes?: { version?: string; processingState?: string };
+  }) {
+    return (
+      includedResource.type == 'preReleaseVersions' && includedResource.id == preReleaseVersionId
+    );
+  }
+
+  const preReleaseVersion = preReleaseVersions.find(findIncludedResource);
   const marketingVersion = preReleaseVersion?.attributes?.version;
   if (marketingVersion != null) Object.assign(buildResource, { marketingVersion });
   return buildResource;
-};
-export const toBuildResources = ({ data: builds, included = [] }: BuildPage): BuildResource[] =>
-  builds.map((entry) => toBuildResource(entry, included));
+}
+export function toBuildResources({ data: builds, included = [] }: BuildPage): BuildResource[] {
+  function mapPiece(entry: {
+    id: string;
+    attributes: {
+      version?: string;
+      processingState?: string;
+      uploadedDate?: string;
+      expired?: boolean;
+    };
+    relationships?: { preReleaseVersion?: { data?: { id: string } | null } };
+  }) {
+    return toBuildResource(entry, included);
+  }
 
-export const toVersionResource = (
+  return builds.map(mapPiece);
+}
+
+export function toVersionResource(
   entry: AppleResource<{
     versionString?: string;
     appStoreState?: string;
     releaseType?: string;
   }>,
-  fallbackVersion = '',
+  fallbackVersion: string = '',
   includedBuilds: readonly BuildPageIncluded[] = [],
-): AppStoreVersionResource => {
+): AppStoreVersionResource {
   let versionString = entry.attributes.versionString;
   if (versionString == null) versionString = fallbackVersion;
   let appStoreState = entry.attributes.appStoreState;
@@ -725,9 +784,15 @@ export const toVersionResource = (
   const releaseType = entry.attributes.releaseType;
   const attachedBuildId = entry.relationships?.build?.data?.id;
   const isBuildAttached = attachedBuildId != null;
-  const attachedBuild = includedBuilds.find(
-    (includedBuild) => includedBuild.type == 'builds' && includedBuild.id == attachedBuildId,
-  );
+  function findIncludedBuild(includedBuild: {
+    type: string;
+    id: string;
+    attributes?: { version?: string; processingState?: string };
+  }) {
+    return includedBuild.type == 'builds' && includedBuild.id == attachedBuildId;
+  }
+
+  const attachedBuild = includedBuilds.find(findIncludedBuild);
   const attachedBuildNumber = attachedBuild?.attributes?.version;
   const attachedBuildProcessingState = attachedBuild?.attributes?.processingState;
   const version: AppStoreVersionResource = {
@@ -740,15 +805,15 @@ export const toVersionResource = (
     ...(attachedBuildProcessingState != null && { attachedBuildProcessingState }),
   };
   return version;
-};
+}
 
-export const toPhasedRelease = (entry: {
+export function toPhasedRelease(entry: {
   id: string;
   attributes: {
     phasedReleaseState?: string;
     currentDayNumber?: number;
   };
-}): PhasedReleaseResource => {
+}): PhasedReleaseResource {
   let phasedReleaseState = entry.attributes.phasedReleaseState;
   if (phasedReleaseState == null) phasedReleaseState = '';
   const phasedRelease: PhasedReleaseResource = {
@@ -758,9 +823,9 @@ export const toPhasedRelease = (entry: {
   if (entry.attributes.currentDayNumber != null)
     Object.assign(phasedRelease, { currentDayNumber: entry.attributes.currentDayNumber });
   return phasedRelease;
-};
+}
 
-export const matchPricePoint = (
+export function matchPricePoint(
   points: {
     id: string;
     attributes: {
@@ -770,7 +835,7 @@ export const matchPricePoint = (
   }[],
   territory: string,
   customerPrice: number,
-): PricePointResource | null => {
+): PricePointResource | null {
   for (const point of points) {
     const price = point.attributes.customerPrice;
     if (price != null && Number.parseFloat(price) == customerPrice) {
@@ -784,9 +849,9 @@ export const matchPricePoint = (
     }
   }
   return null;
-};
+}
 
-export const toFeedbackScreenshots = (
+export function toFeedbackScreenshots(
   raw:
     | {
         url?: string;
@@ -798,9 +863,9 @@ export const toFeedbackScreenshots = (
   url: string;
   width?: number;
   height?: number;
-}[] => {
+}[] {
   if (!raw) return [];
-  return raw.flatMap((screenshot) => {
+  function flatMapScreenshot(screenshot: { url?: string; width?: number; height?: number }) {
     const screenshotUrl = screenshot.url;
     if (screenshotUrl == null) return [];
     const feedbackScreenshot: { url: string; width?: number; height?: number } = {
@@ -809,17 +874,19 @@ export const toFeedbackScreenshots = (
     if (screenshot.width != null) Object.assign(feedbackScreenshot, { width: screenshot.width });
     if (screenshot.height != null) Object.assign(feedbackScreenshot, { height: screenshot.height });
     return [feedbackScreenshot];
-  });
-};
+  }
 
-export const toReviewResponse = (appleResources: {
+  return raw.flatMap(flatMapScreenshot);
+}
+
+export function toReviewResponse(appleResources: {
   id: string;
   attributes: {
     responseBody?: string;
     state?: string;
     lastModifiedDate?: string;
   };
-}): CustomerReviewResponseResource => {
+}): CustomerReviewResponseResource {
   let responseBody = appleResources.attributes.responseBody;
   if (responseBody == null) responseBody = '';
   const reviewResponse: CustomerReviewResponseResource = {
@@ -831,15 +898,15 @@ export const toReviewResponse = (appleResources: {
   if (appleResources.attributes.lastModifiedDate != null)
     Object.assign(reviewResponse, { lastModifiedDate: appleResources.attributes.lastModifiedDate });
   return reviewResponse;
-};
+}
 
-export const toAppEvent = (
+export function toAppEvent(
   appleEvent: {
     id: string;
     attributes: AppEventAttributes;
   },
   fallbackReferenceName: string,
-): AppEventResource => {
+): AppEventResource {
   let referenceName = appleEvent.attributes.referenceName;
   if (referenceName == null) referenceName = fallbackReferenceName;
   const appEvent: AppEventResource = { id: appleEvent.id, referenceName };
@@ -856,15 +923,15 @@ export const toAppEvent = (
   if (typeof appleEvent.attributes.purpose == 'string')
     Object.assign(appEvent, { purpose: appleEvent.attributes.purpose });
   return appEvent;
-};
+}
 
-export const toAppEventLocalization = (
+export function toAppEventLocalization(
   appleResources: {
     id: string;
     attributes: AppEventLocalizationAttributes;
   },
   fallbackLocale: string,
-): AppEventLocalizationResource => {
+): AppEventLocalizationResource {
   let locale = appleResources.attributes.locale;
   if (locale == null) locale = fallbackLocale;
   const eventLocalization: AppEventLocalizationResource = {
@@ -882,9 +949,9 @@ export const toAppEventLocalization = (
       longDescription: appleResources.attributes.longDescription,
     });
   return eventLocalization;
-};
+}
 
-export const toReportRequest = (
+export function toReportRequest(
   entry: {
     id: string;
     attributes: {
@@ -893,7 +960,7 @@ export const toReportRequest = (
     };
   },
   fallbackAccessType: string,
-): AnalyticsReportRequestResource => {
+): AnalyticsReportRequestResource {
   let accessType = entry.attributes.accessType;
   if (accessType == null) accessType = fallbackAccessType;
   const reportRequest: AnalyticsReportRequestResource = {
@@ -905,13 +972,13 @@ export const toReportRequest = (
       stoppedDueToInactivity: entry.attributes.stoppedDueToInactivity,
     });
   return reportRequest;
-};
+}
 
-export const clockSkewHint = (args: {
+export function clockSkewHint(args: {
   appleDate: string | null;
   nowMs: number;
   platform: NodeJS.Platform;
-}): string => {
+}): string {
   if (args.platform != 'darwin') return '';
   if (args.appleDate == null) return '';
   const appleMs = Date.parse(args.appleDate);
@@ -922,7 +989,7 @@ export const clockSkewHint = (args: {
   let drift = `~${Math.round(skewSeconds)} seconds`;
   if (skewSeconds >= 120) drift = `~${Math.round(skewSeconds / 60)} minutes`;
   return ` Your Mac's clock is off by ${drift} from Apple's, which makes the signed token read as expired - run \`sudo sntp -sS time.apple.com\` to resync, then retry.`;
-};
+}
 
 type TextField = {
   readonly kind: 'missing' | 'present' | 'invalid';
@@ -1227,7 +1294,7 @@ function describeUnparsedAppleBody(appleBody: string): string {
   return appleBody;
 }
 
-const describeAscError = (error: AscError): string => {
+function describeAscError(error: AscError): string {
   let message = error.detail;
   if (message == null) message = error.title;
   if (message == null) message = error.code;
@@ -1235,15 +1302,28 @@ const describeAscError = (error: AscError): string => {
   const associated = describeAssociatedErrors(error.meta?.associatedErrors);
   if (associated.length > 0) return `${message}; ${associated.join('; ')}`;
   return message;
-};
-const describeAssociatedErrors = (
+}
+function describeAssociatedErrors(
   associatedErrors: Record<string, readonly AscError[]> | undefined,
-): string[] => {
+): string[] {
   if (!associatedErrors) return [];
-  return Object.entries(associatedErrors).flatMap(([resource, errors]) =>
-    errors.map((error) => `associated ${resource}: ${describeAscError(error)}`),
-  );
-};
+  function flatMapPiece([resource, errors]: [string, readonly AscError[]]) {
+    function mapError(error: {
+      status?: string;
+      code?: string;
+      title?: string;
+      detail?: string;
+      source?: { pointer?: string; parameter?: string };
+      meta?: { associatedErrors?: Record<string, readonly AscError[]> };
+    }) {
+      return `associated ${resource}: ${describeAscError(error)}`;
+    }
+
+    return errors.map(mapError);
+  }
+
+  return Object.entries(associatedErrors).flatMap(flatMapPiece);
+}
 
 export function describeErrors(responseText: string): string {
   const decodedDocument = readAppleErrorDocument(responseText);

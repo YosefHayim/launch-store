@@ -5,10 +5,10 @@ type AppleTransportRetryPolicy = {
   readonly isRetryableFailure: (transportFailure: unknown) => boolean;
 };
 
-export const retryAppleTransportRequest = async <TransportResponse>(
+export async function retryAppleTransportRequest<TransportResponse>(
   requestAttempt: () => Promise<TransportResponse>,
   retryPolicy: AppleTransportRetryPolicy,
-): Promise<TransportResponse> => {
+): Promise<TransportResponse> {
   let attempts = 4;
   if (retryPolicy.attempts != null) attempts = retryPolicy.attempts;
   let baseDelayMs = 500;
@@ -26,11 +26,15 @@ export const retryAppleTransportRequest = async <TransportResponse>(
       if (attemptNumber == attempts) throw transportFailure;
       if (!retryPolicy.isRetryableFailure(transportFailure)) throw transportFailure;
       const retryDelayMs = Math.min(maximumDelayMs, baseDelayMs * 2 ** (attemptNumber - 1));
-      await new Promise<void>((resumeRetry) => setTimeout(resumeRetry, retryDelayMs));
+      function createPromiseWork(resumeRetry: (value: void | PromiseLike<void>) => void) {
+        return setTimeout(resumeRetry, retryDelayMs);
+      }
+
+      await new Promise<void>(createPromiseWork);
     }
   }
   throw lastTransportFailure;
-};
+}
 
 type NumericVersion = {
   readonly major: number;
@@ -39,13 +43,15 @@ type NumericVersion = {
 };
 
 /** Parse the numeric core of an App Store marketing version. */
-const parseNumericVersion = (marketingVersion: string): NumericVersion | null => {
+function parseNumericVersion(marketingVersion: string): NumericVersion | null {
   const versionCore = marketingVersion.trim().replace(/^v/i, '').split(/[-+]/)[0];
   if (versionCore == null) return null;
   if (!/^\d+(\.\d+){0,2}$/.test(versionCore)) return null;
-  const versionParts = versionCore
-    .split('.')
-    .map((versionPart) => Number.parseInt(versionPart, 10));
+  function mapVersionPart(versionPart: string) {
+    return Number.parseInt(versionPart, 10);
+  }
+
+  const versionParts = versionCore.split('.').map(mapVersionPart);
   let major = 0;
   if (versionParts[0] != null) major = versionParts[0];
   let minor = 0;
@@ -57,10 +63,10 @@ const parseNumericVersion = (marketingVersion: string): NumericVersion | null =>
     minor,
     patch,
   };
-};
+}
 
 /** Compare two App Store marketing versions by numeric core. */
-const compareNumericVersions = (leftVersion: string, rightVersion: string): number => {
+function compareNumericVersions(leftVersion: string, rightVersion: string): number {
   const leftParts = parseNumericVersion(leftVersion);
   const rightParts = parseNumericVersion(rightVersion);
   if (leftParts == null) return -1;
@@ -70,17 +76,19 @@ const compareNumericVersions = (leftVersion: string, rightVersion: string): numb
     if (leftParts[versionPart] > rightParts[versionPart]) return 1;
   }
   return 0;
-};
+}
 
-export const highestAppleMarketingVersion = (
-  marketingVersions: readonly string[],
-): string | null => {
-  const parseableVersions = marketingVersions.filter(
-    (marketingVersion) => parseNumericVersion(marketingVersion) != null,
-  );
+export function highestAppleMarketingVersion(marketingVersions: readonly string[]): string | null {
+  function filterMarketingVersion(marketingVersion: string) {
+    return parseNumericVersion(marketingVersion) != null;
+  }
+
+  const parseableVersions = marketingVersions.filter(filterMarketingVersion);
   if (parseableVersions.length == 0) return null;
-  return parseableVersions.reduce((highestVersion, marketingVersion) => {
+  function reduceHighestVersion(highestVersion: string, marketingVersion: string) {
     if (compareNumericVersions(marketingVersion, highestVersion) > 0) return marketingVersion;
     return highestVersion;
-  });
-};
+  }
+
+  return parseableVersions.reduce(reduceHighestVersion);
+}

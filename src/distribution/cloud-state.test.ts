@@ -22,11 +22,9 @@ const hostHandle: HostHandle = {
   region: 'us-east-1',
   instanceType: 'mac2.metal',
 };
-
-describe('cloud state', () => {
+function describeCloudPiece() {
   let testHomeDirectory = '';
-
-  beforeEach(() => {
+  function prepareCloudPiece() {
     const systemTemporaryDirectory = tmpdir();
     const joinedPath = join(systemTemporaryDirectory, 'launch-cloud-state-');
     testHomeDirectory = mkdtempSync(joinedPath);
@@ -34,23 +32,26 @@ describe('cloud state', () => {
       homeDirectory: testHomeDirectory,
       workingDirectory: testHomeDirectory,
     });
-  });
+  }
 
-  afterEach(() => {
+  beforeEach(prepareCloudPiece);
+  function cleanupCloudPiece() {
     resetLaunchDirectories();
     rmSync(testHomeDirectory, { recursive: true, force: true });
-  });
+  }
 
-  it('is empty when the file does not exist', async () => {
+  afterEach(cleanupCloudPiece);
+  async function isEmptyWhenTheFileDoesNotExist() {
     const readCloud = await readCloudState();
     expect(readCloud).toEqual({});
     const liveHost = await getLiveHost();
     expect(liveHost).toBeNull();
     const amiId = await getAmiId();
     expect(amiId).toBeNull();
-  });
+  }
 
-  it('round-trips the live host and clears it without losing the AMI id', async () => {
+  it('is empty when the file does not exist', isEmptyWhenTheFileDoesNotExist);
+  async function roundTripsTheLiveHostAndClearsItWithoutLosingTheAMIId() {
     await setAmiId('ami-abc');
     await setLiveHost(hostHandle);
     const liveHost = await getLiveHost();
@@ -60,14 +61,25 @@ describe('cloud state', () => {
     await clearLiveHost();
     expect(await getLiveHost()).toBeNull();
     expect(await getAmiId()).toBe('ami-abc');
-  });
+  }
 
-  it('tolerates a malformed file by returning empty state', async () => {
+  it(
+    'round-trips the live host and clears it without losing the AMI id',
+    roundTripsTheLiveHostAndClearsItWithoutLosingTheAMIId,
+  );
+  async function toleratesAMalformedFileByReturningEmptyPiece() {
     const launchDirectory = join(testHomeDirectory, '.launch');
     await setAmiId('ami-before-corruption');
     const cloudPath = join(launchDirectory, 'cloud.json');
     writeFileSync(cloudPath, '{ not json');
     const readCloud = await readCloudState();
     expect(readCloud).toEqual({});
-  });
-});
+  }
+
+  it(
+    'tolerates a malformed file by returning empty state',
+    toleratesAMalformedFileByReturningEmptyPiece,
+  );
+}
+
+describe('cloud state', describeCloudPiece);

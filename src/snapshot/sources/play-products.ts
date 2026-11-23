@@ -23,14 +23,14 @@ import {
   toPriceConfig,
 } from './play-restore.ts';
 /** A Play money value as a normalized, serializable record (fields Play left unset are dropped). */
-const money = (playMoney: PlayMoney): JsonValue => {
+function money(playMoney: PlayMoney): JsonValue {
   const moneyFields: Record<string, JsonValue> = {};
   if (playMoney.priceMicros) moneyFields['priceMicros'] = playMoney.priceMicros;
   if (playMoney.currency) moneyFields['currency'] = playMoney.currency;
   return moneyFields;
-};
+}
 /** A product's locale -> listing copy, normalized to serializable records (empty fields dropped). */
-const listings = (
+function listings(
   map: Record<
     string,
     {
@@ -38,18 +38,21 @@ const listings = (
       description?: string;
     }
   >,
-): JsonValue => {
-  return Object.fromEntries(
-    Object.entries(map).map(([locale, listing]): [string, JsonValue] => {
-      const listingFields: Record<string, JsonValue> = {};
-      if (listing.title) listingFields['title'] = listing.title;
-      if (listing.description) listingFields['description'] = listing.description;
-      return [locale, listingFields];
-    }),
-  );
-};
+): JsonValue {
+  function mapPiece([locale, listing]: [string, { title?: string; description?: string }]): [
+    string,
+    JsonValue,
+  ] {
+    const listingFields: Record<string, JsonValue> = {};
+    if (listing.title) listingFields['title'] = listing.title;
+    if (listing.description) listingFields['description'] = listing.description;
+    return [locale, listingFields];
+  }
+
+  return Object.fromEntries(Object.entries(map).map(mapPiece));
+}
 /** One captured managed product -> a snapshot entity keyed by its SKU. */
-const toEntity = (product: InAppProductResource): SnapshotEntity => {
+function toEntity(product: InAppProductResource): SnapshotEntity {
   const productFields: Record<string, JsonValue> = { sku: product.sku };
   if (product.status) productFields['status'] = product.status;
   if (product.defaultLanguage) productFields['defaultLanguage'] = product.defaultLanguage;
@@ -58,7 +61,7 @@ const toEntity = (product: InAppProductResource): SnapshotEntity => {
   let statusSuffix = '';
   if (product.status) statusSuffix = ` (${product.status})`;
   return { key: product.sku, summary: `Play product${statusSuffix}`, data: productFields };
-};
+}
 /**
  * Invert a captured product's `listings` map back into the shared {@link ProductLocalization} list the
  * reconciler reads (title -> name, description -> description). The captured `defaultLanguage` is placed
@@ -66,10 +69,10 @@ const toEntity = (product: InAppProductResource): SnapshotEntity => {
  * from the first localization; the rest follow sorted for a deterministic restore. Listings with no title
  * are dropped - Play requires a title, so a title-less locale can't become a localization.
  */
-const toLocalizations = (
+function toLocalizations(
   listings: JsonValue | undefined,
   defaultLanguage: string | undefined,
-): ProductLocalization[] => {
+): ProductLocalization[] {
   const map = jsonRecord(listings);
   if (!map) return [];
   const localizations: ProductLocalization[] = [];
@@ -84,16 +87,21 @@ const toLocalizations = (
     if (description != null) localization.description = description;
     localizations.push(localization);
   }
-  localizations.sort((a, b) => {
+  function sortA(
+    a: { readonly locale: string; readonly name: string; readonly description?: string },
+    b: { readonly locale: string; readonly name: string; readonly description?: string },
+  ) {
     if (a.locale == defaultLanguage) {
       if (b.locale == defaultLanguage) return 0;
       return -1;
     }
     if (b.locale == defaultLanguage) return 1;
     return a.locale.localeCompare(b.locale);
-  });
+  }
+
+  localizations.sort(sortA);
   return localizations;
-};
+}
 /**
  * Rebuild an {@link InAppPurchaseConfig} from one captured product entity, targeting the Play reconciler.
  * The SKU drives `productId` and the `play` override; pricing restores the captured `defaultPrice` (Play
@@ -101,7 +109,7 @@ const toLocalizations = (
  * survive). Apple-only fields the Play path ignores (`type`, `referenceName`) get neutral placeholders.
  * Returns `null` when the product has no restorable listing (the reconciler requires at least one).
  */
-const toProductConfig = (entity: SnapshotEntity): InAppPurchaseConfig | null => {
+function toProductConfig(entity: SnapshotEntity): InAppPurchaseConfig | null {
   const productFields = jsonRecord(entity.data);
   if (!productFields) return null;
   let sku = stringField(productFields, 'sku');
@@ -115,7 +123,7 @@ const toProductConfig = (entity: SnapshotEntity): InAppPurchaseConfig | null => 
   const defaultPrice = toPriceConfig(productFields['defaultPrice']);
   if (defaultPrice) play.defaultPrice = defaultPrice;
   return { productId: sku, referenceName: sku, type: 'NON_CONSUMABLE', localizations, play };
-};
+}
 /** The Google Play managed-product snapshot source. */
 export const playProductsSource: SnapshotSource = {
   id: 'play-products',

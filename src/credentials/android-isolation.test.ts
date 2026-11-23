@@ -13,15 +13,16 @@ import {
   listStoredAndroidPackages,
   storeServiceAccount,
 } from './android-keystore-assets.ts';
-vi.mock('../services/platform/exec.ts', () => ({
-  captureCommandOutput: vi.fn(function verifyKeystore() {
-    return Promise.resolve('verified dummy keystore');
-  }),
-}));
+vi.mock('../services/platform/exec.ts', function mockExec() {
+  return {
+    captureCommandOutput: vi.fn(function verifyKeystore() {
+      return Promise.resolve('verified dummy keystore');
+    }),
+  };
+});
 
 const temporaryRoots: string[] = [];
-
-afterEach(() => {
+function cleanup() {
   vi.clearAllMocks();
   resetLaunchDirectories();
   resetSecretStore();
@@ -29,7 +30,9 @@ afterEach(() => {
   for (const directory of temporaryRoots.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
   }
-});
+}
+
+afterEach(cleanup);
 
 function makeCredentialSandbox() {
   const systemTemporaryDirectory = tmpdir();
@@ -62,9 +65,8 @@ function refuseCreate(): Promise<boolean> {
 function allowReplace(): Promise<boolean> {
   return Promise.resolve(true);
 }
-
-describe('Android package credential isolation', () => {
-  it('isolates Play accounts and never falls back to an unscoped account', async () => {
+function describeAndroidPackageCredentialIsolation() {
+  async function isolatesPlayAccountsAndNeverFallsBackToAnUnscopedAccount() {
     const sandbox = makeCredentialSandbox();
 
     sandbox.secrets.set(
@@ -78,9 +80,13 @@ describe('Android package credential isolation', () => {
     expect(sandbox.secrets.has('play-service-account')).toBe(true);
     const storedAndroidPackages = await listStoredAndroidPackages();
     expect(storedAndroidPackages).toEqual(['com.example.alpha']);
-  });
+  }
 
-  it('imports different app keys concurrently and honors an explicit replacement before the cache', async () => {
+  it(
+    'isolates Play accounts and never falls back to an unscoped account',
+    isolatesPlayAccountsAndNeverFallsBackToAnUnscopedAccount,
+  );
+  async function importsDifferentAppKeysConcurrentlyAndHonorsAnExplicitReplacementBeforeTheCache() {
     const sandbox = makeCredentialSandbox();
     const alphaInput = join(sandbox.directory, 'alpha.jks');
     const betaInput = join(sandbox.directory, 'beta.jks');
@@ -141,9 +147,13 @@ describe('Android package credential isolation', () => {
     expect(replacement.storePassword).toBe('replacement-password');
     expect(readFileSync(replacement.path, 'utf8')).toBe('dummy beta key');
     expect((await loadCachedKeystore('com.example.beta'))?.storePassword).toBe('beta-password');
-  });
+  }
 
-  it('does not generate a replacement when an existing key has missing passwords', async () => {
+  it(
+    'imports different app keys concurrently and honors an explicit replacement before the cache',
+    importsDifferentAppKeysConcurrentlyAndHonorsAnExplicitReplacementBeforeTheCache,
+  );
+  async function doesNotGenerateAReplacementWhenAnExistingKeyHasMissingPasswords() {
     const sandbox = makeCredentialSandbox();
     const input = join(sandbox.directory, 'upload.jks');
 
@@ -181,9 +191,13 @@ describe('Android package credential isolation', () => {
     await expect(request(false)).rejects.toMatchObject({
       message: expect.stringMatching(/already exists/),
     });
-  });
+  }
 
-  it('requires explicit approval before replacing a saved keystore', async () => {
+  it(
+    'does not generate a replacement when an existing key has missing passwords',
+    doesNotGenerateAReplacementWhenAnExistingKeyHasMissingPasswords,
+  );
+  async function requiresExplicitApprovalBeforeReplacingASavedKeystore() {
     const sandbox = makeCredentialSandbox();
     const first = join(sandbox.directory, 'first.jks');
     const replacement = join(sandbox.directory, 'replacement.jks');
@@ -219,9 +233,13 @@ describe('Android package credential isolation', () => {
     });
     const loadedFile = readFileSync(original.path, 'utf8');
     expect(loadedFile).toBe('first key');
-  });
+  }
 
-  it('never reuses or regenerates when only a legacy keystore exists', async () => {
+  it(
+    'requires explicit approval before replacing a saved keystore',
+    requiresExplicitApprovalBeforeReplacingASavedKeystore,
+  );
+  async function neverReusesOrRegeneratesWhenOnlyALegacyKeystoreExists() {
     const sandbox = makeCredentialSandbox();
     const legacyDirectory = join(sandbox.directory, '.launch', 'credentials');
 
@@ -259,5 +277,12 @@ describe('Android package credential isolation', () => {
     expect(offered).toBe(false);
     const loadedFile = readFileSync(legacyPath, 'utf8');
     expect(loadedFile).toBe('legacy key');
-  });
-});
+  }
+
+  it(
+    'never reuses or regenerates when only a legacy keystore exists',
+    neverReusesOrRegeneratesWhenOnlyALegacyKeystoreExists,
+  );
+}
+
+describe('Android package credential isolation', describeAndroidPackageCredentialIsolation);

@@ -3,8 +3,10 @@ import type { MerchantIdResource, PassTypeIdResource } from '../../types/apple-c
 import { summarize } from '../shared/reconcile.ts';
 import { type AscWalletApi, parseWalletConfig, reconcileWalletIds } from './wallet-ids.ts';
 import type { WalletConfig } from '../../types/store-surface.ts';
+import type { ActionStatus } from '../../types/reconcile.ts';
+
 /** A hand-rolled {@link AscWalletApi} - no network - serving `existing` and recording creates. */
-const makeApi = (existing: {
+function makeApi(existing: {
   merchantIds?: MerchantIdResource[];
   passTypeIds?: PassTypeIdResource[];
 }): {
@@ -13,31 +15,32 @@ const makeApi = (existing: {
     merchant: string[];
     passType: string[];
   };
-} => {
+} {
   const created: { merchant: string[]; passType: string[] } = { merchant: [], passType: [] };
   const api: AscWalletApi = {
-    listMerchantIds: () => {
+    listMerchantIds() {
       if (existing.merchantIds == null) return Promise.resolve([]);
       return Promise.resolve(existing.merchantIds);
     },
-    createMerchantId: (identifier) => {
+    createMerchantId(identifier) {
       created.merchant.push(identifier);
       return Promise.resolve();
     },
-    listPassTypeIds: () => {
+    listPassTypeIds() {
       if (existing.passTypeIds == null) return Promise.resolve([]);
       return Promise.resolve(existing.passTypeIds);
     },
-    createPassTypeId: (identifier) => {
+    createPassTypeId(identifier) {
       created.passType.push(identifier);
       return Promise.resolve();
     },
   };
   return { api, created };
-};
+}
 /** Execute the Wallet reconciler at the test boundary. */
-const runReconcile = (api: AscWalletApi, config: WalletConfig, dryRun: boolean) =>
-  reconcileWalletIds(api, config, dryRun);
+function runReconcile(api: AscWalletApi, config: WalletConfig, dryRun: boolean) {
+  return reconcileWalletIds(api, config, dryRun);
+}
 const CONFIG: WalletConfig = {
   merchantIds: [{ identifier: 'merchant.com.acme.app', name: 'Acme Pay' }],
   passTypeIds: [
@@ -45,36 +48,77 @@ const CONFIG: WalletConfig = {
     { identifier: 'pass.com.acme.ticket', name: 'Acme Ticket' },
   ],
 };
-const decodeWalletConfig = (rawDocument: unknown) => parseWalletConfig(rawDocument);
-describe('parseWalletConfig', () => {
-  it('parses both identifier families', () => {
+function decodeWalletConfig(rawDocument: unknown) {
+  return parseWalletConfig(rawDocument);
+}
+function describeParseWalletPiece() {
+  function parsesBothIdentifierFamilies() {
     const decodeWallet = decodeWalletConfig(CONFIG);
     expect(decodeWallet).toEqual(CONFIG);
-  });
-  it('accepts a config with only one family', () => {
+  }
+
+  it('parses both identifier families', parsesBothIdentifierFamilies);
+  function acceptsAPieceWithOnlyOneFamily() {
     const decodeWallet = decodeWalletConfig({
       merchantIds: [{ identifier: 'merchant.x', name: 'X' }],
     });
     expect(decodeWallet).toEqual({
       merchantIds: [{ identifier: 'merchant.x', name: 'X' }],
     });
-  });
-  it("rejects a non-object, a family that isn't an array, and a file declaring neither family", () => {
-    expect(() => decodeWalletConfig('nope')).toThrow(/must be a JSON object/);
-    expect(() => decodeWalletConfig([])).toThrow(/must be a JSON object/);
-    expect(() => decodeWalletConfig({})).toThrow(/at least one entry/);
-    expect(() => decodeWalletConfig({ merchantIds: [], passTypeIds: [] })).toThrow(
-      /at least one entry/,
-    );
-    expect(() => decodeWalletConfig({ merchantIds: {} })).toThrow(/merchantIds/);
-  });
-  it('rejects an entry missing identifier or name', () => {
-    expect(() => decodeWalletConfig({ passTypeIds: [{ name: 'X' }] })).toThrow(/identifier/);
-    expect(() => decodeWalletConfig({ passTypeIds: [{ identifier: 'pass.x' }] })).toThrow(/name/);
-  });
-});
-describe('reconcileWalletIds', () => {
-  it("registers only the identifiers Apple doesn't already have, across both families", async () => {
+  }
+
+  it('accepts a config with only one family', acceptsAPieceWithOnlyOneFamily);
+  function rejectsANonObjectAFamilyThatIsnTAnArrayAndAFileDeclaringNeitherFamily() {
+    function callDecodeWalletPiece() {
+      return decodeWalletConfig('nope');
+    }
+
+    expect(callDecodeWalletPiece).toThrow(/must be a JSON object/);
+    function callDecodeWalletPiece2() {
+      return decodeWalletConfig([]);
+    }
+
+    expect(callDecodeWalletPiece2).toThrow(/must be a JSON object/);
+    function callDecodeWalletPiece3() {
+      return decodeWalletConfig({});
+    }
+
+    expect(callDecodeWalletPiece3).toThrow(/at least one entry/);
+    function callDecodeWalletPiece4() {
+      return decodeWalletConfig({ merchantIds: [], passTypeIds: [] });
+    }
+
+    expect(callDecodeWalletPiece4).toThrow(/at least one entry/);
+    function callDecodeWalletPiece5() {
+      return decodeWalletConfig({ merchantIds: {} });
+    }
+
+    expect(callDecodeWalletPiece5).toThrow(/merchantIds/);
+  }
+
+  it(
+    "rejects a non-object, a family that isn't an array, and a file declaring neither family",
+    rejectsANonObjectAFamilyThatIsnTAnArrayAndAFileDeclaringNeitherFamily,
+  );
+  function rejectsAnPieceMissingIdentifierOrName() {
+    function callDecodeWalletPiece6() {
+      return decodeWalletConfig({ passTypeIds: [{ name: 'X' }] });
+    }
+
+    expect(callDecodeWalletPiece6).toThrow(/identifier/);
+    function callDecodeWalletPiece7() {
+      return decodeWalletConfig({ passTypeIds: [{ identifier: 'pass.x' }] });
+    }
+
+    expect(callDecodeWalletPiece7).toThrow(/name/);
+  }
+
+  it('rejects an entry missing identifier or name', rejectsAnPieceMissingIdentifierOrName);
+}
+
+describe('parseWalletConfig', describeParseWalletPiece);
+function describeReconcileWalletIds() {
+  async function registersOnlyTheIdentifiersAppleDoesnTAlreadyHaveAcrossBothFamilies() {
     const { api, created } = makeApi({
       merchantIds: [{ id: 'm1', identifier: 'merchant.com.acme.app' }],
       passTypeIds: [{ id: 'p1', identifier: 'pass.com.acme.coupon' }],
@@ -86,43 +130,83 @@ describe('reconcileWalletIds', () => {
     expect(actions[0]?.description).toBe(
       'register Wallet pass type id pass.com.acme.ticket (Acme Ticket)',
     );
-  });
-  it('registers everything when nothing exists yet', async () => {
+  }
+
+  it(
+    "registers only the identifiers Apple doesn't already have, across both families",
+    registersOnlyTheIdentifiersAppleDoesnTAlreadyHaveAcrossBothFamilies,
+  );
+  async function registersEverythingWhenNothingExistsYet() {
     const { api, created } = makeApi({});
     const actions = await runReconcile(api, CONFIG, false);
     expect(created.merchant).toEqual(['merchant.com.acme.app']);
     expect(created.passType).toEqual(['pass.com.acme.coupon', 'pass.com.acme.ticket']);
     expect(summarize(actions)).toEqual({ applied: 3, failed: 0, skipped: 0 });
-  });
-  it('skips the read for a family the config omits', async () => {
+  }
+
+  it('registers everything when nothing exists yet', registersEverythingWhenNothingExistsYet);
+  async function skipsTheReadForAFamilyThePieceOmits() {
     let merchantListed = false;
     const { api } = makeApi({});
-    api.listMerchantIds = () => {
+    function runPiece() {
       merchantListed = true;
       return Promise.resolve([]);
-    };
+    }
+
+    api.listMerchantIds = runPiece;
     await runReconcile(api, { passTypeIds: [{ identifier: 'pass.x', name: 'X' }] }, false);
     expect(merchantListed).toBe(false);
-  });
-  it('plans but does not register on a dry-run', async () => {
+  }
+
+  it('skips the read for a family the config omits', skipsTheReadForAFamilyThePieceOmits);
+  async function plansButDoesNotRegisterOnADryRun() {
     const { api, created } = makeApi({});
     const actions = await runReconcile(api, CONFIG, true);
     expect(created.merchant).toHaveLength(0);
     expect(created.passType).toHaveLength(0);
-    expect(actions.every((action) => action.status == 'planned')).toBe(true);
+    function everyAction(action: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return action.status == 'planned';
+    }
+
+    expect(actions.every(everyAction)).toBe(true);
     expect(actions).toHaveLength(3);
-  });
-  it('captures a failed registration without aborting the rest', async () => {
+  }
+
+  it('plans but does not register on a dry-run', plansButDoesNotRegisterOnADryRun);
+  async function capturesAFailedRegistrationWithoutAbortingTheRest() {
     const { api } = makeApi({});
-    api.createPassTypeId = (identifier) => {
+    function runIdentifier(identifier: string) {
       if (identifier == 'pass.com.acme.coupon') {
         return Promise.reject(new Error('already taken'));
       }
       return Promise.resolve();
-    };
+    }
+
+    api.createPassTypeId = runIdentifier;
     const actions = await runReconcile(api, CONFIG, false);
     const summary = summarize(actions);
     expect(summary).toEqual({ applied: 2, failed: 1, skipped: 0 });
-    expect(actions.find((action) => action.status == 'failed')?.error).toBe('already taken');
-  });
-});
+    function findAction(action: {
+      readonly description: string;
+      readonly destructive: boolean;
+      status: ActionStatus;
+      error?: string;
+    }) {
+      return action.status == 'failed';
+    }
+
+    expect(actions.find(findAction)?.error).toBe('already taken');
+  }
+
+  it(
+    'captures a failed registration without aborting the rest',
+    capturesAFailedRegistrationWithoutAbortingTheRest,
+  );
+}
+
+describe('reconcileWalletIds', describeReconcileWalletIds);

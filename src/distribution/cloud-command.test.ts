@@ -1,18 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import { CloudCommandInputSchema } from './cloud-command.ts';
+function describeCloudCommandPieceSchema() {
+  function runOperation(operation: 'status' | 'doctor' | 'setup' | 'teardown') {
+    const cloudCommandSchema = CloudCommandInputSchema({ operation, yes: false });
+    expect(cloudCommandSchema).toEqual({ operation, yes: false });
+  }
 
-describe('CloudCommandInputSchema', () => {
   it.each(['setup', 'status', 'teardown', 'doctor'] as const)(
     'decodes the %s operation',
-    (operation) => {
-      const cloudCommandSchema = CloudCommandInputSchema({ operation, yes: false });
-      expect(cloudCommandSchema).toEqual({ operation, yes: false });
-    },
+    runOperation,
   );
+  function rejectsUnknownOperationsBeforeAnyProviderIsCalled() {
+    function callCloudCommandPieceSchema() {
+      return CloudCommandInputSchema({ operation: 'restart', yes: false });
+    }
 
-  it('rejects unknown operations before any provider is called', () => {
-    expect(() => CloudCommandInputSchema({ operation: 'restart', yes: false })).toThrow(
-      'Cloud command operation is unknown.',
-    );
-  });
-});
+    expect(callCloudCommandPieceSchema).toThrow('Cloud command operation is unknown.');
+  }
+
+  it(
+    'rejects unknown operations before any provider is called',
+    rejectsUnknownOperationsBeforeAnyProviderIsCalled,
+  );
+}
+
+describe('CloudCommandInputSchema', describeCloudCommandPieceSchema);
