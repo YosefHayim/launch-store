@@ -12,7 +12,7 @@ import { PlayReportingClient } from '../google/play-reporting.ts';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
 import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
-import { useAppleStoreClientFactory } from '../services/stores/apple-store-client.ts';
+import { setAppleStoreClient } from '../services/stores/apple-store-client.ts';
 import {
   resetGoogleAccessToken,
   useGoogleAccessTokenFixture,
@@ -110,7 +110,7 @@ function describeStatsCredentialsLive() {
 
   function cleanupStatsCredentialsLive() {
     useStatsCredentials(null);
-    useAppleStoreClientFactory(null);
+    setAppleStoreClient(null);
     resetGoogleAccessToken();
     resetSecretStore();
     resetLaunchEnvironment();
@@ -127,7 +127,7 @@ function describeStatsCredentialsLive() {
     useSecretStore(storedSecrets);
     useLaunchEnvironment(environmentVariables);
     useGoogleAccessTokenFixture(SERVICE_ACCOUNT, 'token-1');
-    useAppleStoreClientFactory(function createAscClient() {
+    setAppleStoreClient(function createAscClient() {
       return ascClient;
     });
   }

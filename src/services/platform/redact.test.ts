@@ -107,6 +107,21 @@ function describeStructuredAndStreamedSecrets() {
     'masks JSON properties including quoted secret values',
     masksJSONPropertiesIncludingQuotedSecretValues,
   );
+
+  function masksConnectionStringsAndProviderTokens() {
+    expect(redactLine('DATABASE_URL=postgres://app:dummy-pass@db.example/app')).toBe(
+      'DATABASE_URL=***',
+    );
+    expect(redactLine('see postgres://app:dummy-pass@db.example/app later')).not.toContain(
+      'dummy-pass',
+    );
+    expect(redactLine('key sk-ant-dummykeyvalue1234')).toContain('[redacted-api-key]');
+    expect(redactLine('ghp_dummytokenvalue1234567890')).toContain('[redacted-github-token]');
+    expect(redactLine('AIzaSyDummyGoogleKeyValue1234567')).toContain('[redacted-google-key]');
+    expect(redactLine('ya29.dummy-google-access-token')).toContain('[redacted-google-token]');
+  }
+
+  it('masks connection strings and provider tokens', masksConnectionStringsAndProviderTokens);
 }
 
 describe('structured and streamed secrets', describeStructuredAndStreamedSecrets);

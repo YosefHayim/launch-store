@@ -158,15 +158,27 @@ export function staleProfileCapabilities(
   return [...missing].sort();
 }
 /** The `group.*` App Group container ids declared by one bundle's entitlements. */
-export const appGroupContainers = (entitlements: Record<string, unknown> | undefined): string[] => {
+function isGroupId(groupId: unknown): groupId is string {
+  if (typeof groupId != 'string') {
+    return false;
+  }
+
+  return groupId.length > 0;
+}
+
+export function appGroupContainers(entitlements: Record<string, unknown> | undefined): string[] {
   const entitlementValue = entitlements?.['com.apple.security.application-groups'];
 
-  if (typeof entitlementValue == 'string') return [entitlementValue];
+  if (typeof entitlementValue == 'string') {
+    return [entitlementValue];
+  }
 
-  if (!Array.isArray(entitlementValue)) return [];
+  if (Array.isArray(entitlementValue) == false) {
+    return [];
+  }
 
-  return entitlementValue.filter((id): id is string => typeof id == 'string' && id.length > 0);
-};
+  return entitlementValue.filter(isGroupId);
+}
 /** The Apple Developer portal page where App Group container ids are created and assigned to bundle ids. */
 export const APP_GROUP_PORTAL_URL =
   'https://developer.apple.com/account/resources/identifiers/list/applicationGroup';

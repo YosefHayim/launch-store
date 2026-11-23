@@ -48,10 +48,6 @@ export type AppleCredentialsClient = Readonly<{
   listBundleIdCapabilities: (bundleIdResourceId: string) => Promise<BundleIdCapabilityResource[]>;
 }>;
 
-export type AppleCredentialsClientFactory = Readonly<{
-  createClient: (ascKey: AscKey) => Promise<AppleCredentialsClient>;
-}>;
-
 /** Translate the Apple transport shape without leaking explicit `undefined` fields into the domain. */
 function readDomainBundleId(bundleIdentifier: AscBundleIdResource): BundleIdResource {
   if (bundleIdentifier.seedId == null)
@@ -121,7 +117,9 @@ function readDomainCapability(
   };
 }
 
-async function createAppleCredentialsClient(ascKey: AscKey): Promise<AppleCredentialsClient> {
+export async function createAppleCredentialsClient(
+  ascKey: AscKey,
+): Promise<AppleCredentialsClient> {
   const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
 
   return {
@@ -174,7 +172,3 @@ async function createAppleCredentialsClient(ascKey: AscKey): Promise<AppleCreden
     },
   };
 }
-
-export const AppleCredentialsClientFactory = {
-  createClient: createAppleCredentialsClient,
-};

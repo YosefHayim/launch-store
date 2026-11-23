@@ -9,7 +9,7 @@ import {
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
 import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
-import { useAppleStoreClientFactory } from '../services/stores/apple-store-client.ts';
+import { setAppleStoreClient } from '../services/stores/apple-store-client.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type { BuildResource } from '../types/apple-catalog.ts';
 import type { AscReleaseApi, ReleaseAction, ReleaseReport } from './app-store-release.ts';
@@ -467,7 +467,7 @@ async function runReleaseCommand(commandRun: CommandRun): Promise<CommandOutcome
   useLoggerSink(function writeLine(text: string) {
     logLines.push(text);
   });
-  useAppleStoreClientFactory(function createClient() {
+  setAppleStoreClient(function createClient() {
     return commandRun.releaseApi as ReturnType<
       typeof import('../services/stores/apple-store-client.ts').AppleStoreClientService.createClient
     >;
@@ -487,7 +487,7 @@ async function runReleaseCommand(commandRun: CommandRun): Promise<CommandOutcome
     resetLaunchDirectories();
     resetSecretStore();
     resetLogger();
-    useAppleStoreClientFactory(null);
+    setAppleStoreClient(null);
   }
 }
 
@@ -495,7 +495,7 @@ afterEach(function resetReleaseDoubles() {
   resetLaunchDirectories();
   resetSecretStore();
   resetLogger();
-  useAppleStoreClientFactory(null);
+  setAppleStoreClient(null);
 });
 function describeReleaseCommandProgramAttachOnly() {
   async function failsOnAndroidBeforeAnyAppStoreCall() {

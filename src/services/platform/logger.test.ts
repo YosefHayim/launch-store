@@ -183,3 +183,20 @@ function describePieceLoggerNDJSONEvents() {
 }
 
 describe('json logger NDJSON events', describePieceLoggerNDJSONEvents);
+function describeSecretRedaction() {
+  function masksASecretAssignmentBeforeItReachesTheSink() {
+    const captured = captureHumanLogger(false);
+
+    captured.logger.warn('API_TOKEN=dummy-token-value');
+
+    expect(captured.lines.join('')).toBe('[WARN] API_TOKEN=***\n');
+    expect(captured.lines.join('')).not.toContain('dummy-token-value');
+  }
+
+  it(
+    'masks a secret assignment before it reaches the sink',
+    masksASecretAssignmentBeforeItReachesTheSink,
+  );
+}
+
+describe('logger redaction', describeSecretRedaction);

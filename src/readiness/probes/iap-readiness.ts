@@ -1,45 +1,71 @@
 import type { AppProducts } from '@/types/catalog.js';
 import type { ReadinessContext } from '@/types/readiness.js';
-const declaredIapIds = (readinessContext: ReadinessContext, bundleId: string): string[] => {
+function declaredIapIds(readinessContext: ReadinessContext, bundleId: string): string[] {
   let inAppPurchases = readinessContext.config.products?.[bundleId]?.inAppPurchases;
 
   if (inAppPurchases == null) inAppPurchases = [];
 
-  return inAppPurchases.map((inAppPurchase) => inAppPurchase.productId);
-};
-export const declaredSubscriptionIds = (
+  return inAppPurchases.map(readProductId);
+}
+
+function readProductId(product: { productId: string }): string {
+  return product.productId;
+}
+
+export function declaredSubscriptionIds(
   readinessContext: ReadinessContext,
   bundleId: string,
-): string[] => {
+): string[] {
   let groups = readinessContext.config.products?.[bundleId]?.subscriptionGroups;
 
   if (groups == null) groups = [];
 
-  return groups.flatMap((group) => group.subscriptions.map((sub) => sub.productId));
-};
+  function readSubscriptionId(subscription: { productId: string }): string {
+    return subscription.productId;
+  }
+
+  function readGroupIds(group: { subscriptions: readonly { productId: string }[] }): string[] {
+    return group.subscriptions.map(readSubscriptionId);
+  }
+
+  return groups.flatMap(readGroupIds);
+}
+
 export function sellsProducts(readinessContext: ReadinessContext, bundleId: string): boolean {
   if (declaredIapIds(readinessContext, bundleId).length > 0) return true;
 
   return declaredSubscriptionIds(readinessContext, bundleId).length > 0;
 }
-export const declaredAppleProductIds = (products: AppProducts | undefined): string[] => {
-  if (!products) return [];
+export function declaredAppleProductIds(products: AppProducts | undefined): string[] {
+  if (products == null) {
+    return [];
+  }
 
   let inAppPurchases = products.inAppPurchases;
 
-  if (inAppPurchases == null) inAppPurchases = [];
+  if (inAppPurchases == null) {
+    inAppPurchases = [];
+  }
 
-  const purchases = inAppPurchases.map((purchase) => purchase.productId);
+  const purchases = inAppPurchases.map(readProductId);
   let subscriptionGroups = products.subscriptionGroups;
 
-  if (subscriptionGroups == null) subscriptionGroups = [];
+  if (subscriptionGroups == null) {
+    subscriptionGroups = [];
+  }
 
-  const subscriptions = subscriptionGroups.flatMap((group) =>
-    group.subscriptions.map((subscription) => subscription.productId),
-  );
+  function readSubscriptionId(subscription: { productId: string }): string {
+    return subscription.productId;
+  }
+
+  function readGroupIds(group: { subscriptions: readonly { productId: string }[] }): string[] {
+    return group.subscriptions.map(readSubscriptionId);
+  }
+
+  const subscriptions = subscriptionGroups.flatMap(readGroupIds);
 
   return [...purchases, ...subscriptions];
-};
+}
 /** A `checked` finding's status + copy, without the per-app fields the probe stamps on. */
 type ProductGrade = {
   status: 'ok' | 'blocker';

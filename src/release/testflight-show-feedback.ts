@@ -101,7 +101,11 @@ export function renderFeedback(feedbackEntry: BetaFeedback): string {
   }
 
   const isCrash = feedbackEntry.kind == 'crash';
-  const feedbackMarker = isCrash ? '[ERROR] crash' : '[SCREENSHOT]';
+  let feedbackMarker = '[SCREENSHOT]';
+
+  if (isCrash) {
+    feedbackMarker = '[ERROR] crash';
+  }
   const feedbackLines = [`${feedbackEntry.id}  ${feedbackMarker}`, `  ${metadataParts.join('  ')}`];
 
   if (feedbackEntry.comment != null) {

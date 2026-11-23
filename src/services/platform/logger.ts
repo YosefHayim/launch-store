@@ -1,6 +1,7 @@
 import { stdout } from 'node:process';
 import { explainTopic, type GlossaryTopic } from '@/terminal/glossary.js';
 import { formatElapsed } from './elapsed.ts';
+import { redactText } from './redact.ts';
 
 type LogWrite = (text: string) => void;
 
@@ -29,6 +30,14 @@ type JsonEvent = Readonly<Record<string, unknown>>;
 
 function statusText(status: 'RUN' | 'OK' | 'WARN' | 'ERROR' | 'SKIP', message: string): string {
   return `[${status}] ${message}\n`;
+}
+
+function redactingWrite(write: LogWrite): LogWrite {
+  function writeRedacted(text: string): void {
+    write(redactText(text));
+  }
+
+  return writeRedacted;
 }
 
 function makeLogger(display: LogWrite, explain: boolean): Logger {
@@ -149,7 +158,7 @@ export function jsonLine(event: JsonEvent): string {
 }
 
 function makeJsonLogger(emit: (event: JsonEvent) => void, display: LogWrite): Logger {
-  const humanLogger = makeLogger(display, false);
+  const humanLogger = makeLogger(redactingWrite(display), false);
   const jsonLogger: Logger = {
     ...humanLogger,
     withExplanation() {
@@ -213,7 +222,8 @@ export function resetLogger(): void {
 function createJsonLogger(writeHuman: LogWrite): Logger {
   function makePieceLoggerEvent(event: { readonly [x: string]: unknown }) {
     const machineLine = jsonLine(event);
-    writeText(machineLine);
+
+    writeText(redactText(machineLine));
   }
 
   return makeJsonLogger(makePieceLoggerEvent, writeHuman);
@@ -224,5 +234,5 @@ export function createLogger(explain: boolean): Logger {
     return createJsonLogger(writeJsonHuman);
   }
 
-  return makeLogger(writeText, explain);
+  return makeLogger(redactingWrite(writeText), explain);
 }

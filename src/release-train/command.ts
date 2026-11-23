@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { resolveCommandEnv, selectApp } from '../build/pipeline-env.ts';
+import { applyBuildEnvironment, resolveCommandEnv, selectApp } from '../build/pipeline-env.ts';
 import { loadConfig, type LoadedConfig } from '../config/config.ts';
 import { parseCliEnv, type ResolvedEnv } from '../config/env.ts';
 import { resolveRuntimeVersion } from '../config/update-command.ts';
@@ -465,11 +465,12 @@ async function prepareTrain(commandFlags: ReleaseTrainCommandOptions): Promise<P
     throw trainFailure('resolve release train environment', cause);
   }
 
+  const buildEnvironment = applyBuildEnvironment(resolvedEnvironment, logger);
   const runtime = createTrainRuntime(
     loadedConfiguration.config,
     selectedApp,
     buildProfile,
-    resolvedEnvironment.values,
+    buildEnvironment.values,
     commandFlags.hold == true,
     logger,
   );

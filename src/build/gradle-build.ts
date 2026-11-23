@@ -1,5 +1,5 @@
-import { spawn } from 'node:child_process';
 import { join } from 'node:path';
+import { executeCommand } from '../services/platform/exec.ts';
 
 export class GradleBuild {
   async bundle(directory: string): Promise<string> {
@@ -19,32 +19,11 @@ export class GradleBuild {
     );
   }
 
-  private runGradle(gradleWrapper: string, workingDirectory: string): Promise<void> {
-    function waitForGradle(resolveRun: () => void, rejectRun: (reason: Error) => void): void {
-      const child = spawn(gradleWrapper, ['bundleRelease'], {
-        cwd: workingDirectory,
-        stdio: 'inherit',
-      });
-
-      function onStartError(error: Error): void {
-        rejectRun(new Error('gradlew did not start', { cause: error }));
-      }
-
-      function onClose(exitCode: number | null): void {
-        const isSuccess = exitCode == 0;
-
-        if (isSuccess) {
-          resolveRun();
-          return;
-        }
-
-        rejectRun(new Error(`gradlew exited with ${exitCode}`));
-      }
-
-      child.on('error', onStartError);
-      child.on('close', onClose);
+  private async runGradle(gradleWrapper: string, workingDirectory: string): Promise<void> {
+    try {
+      await executeCommand(gradleWrapper, ['bundleRelease'], { workingDirectory });
+    } catch (error) {
+      throw new Error('gradlew failed', { cause: error });
     }
-
-    return new Promise(waitForGradle);
   }
 }

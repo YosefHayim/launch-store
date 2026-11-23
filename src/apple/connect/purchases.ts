@@ -1103,8 +1103,12 @@ export class ConnectPurchases {
     versionId: string,
     copy: LocaleCopy,
   ): Promise<LocalizationResource> {
-    const hasNoDescription = copy.description == null;
-    const descriptionField = hasNoDescription ? {} : { description: copy.description };
+    const description = copy.description;
+    let descriptionField: { description?: string } = {};
+
+    if (description != null) {
+      descriptionField = { description };
+    }
     const localizationAttributes = { locale: copy.locale, name: copy.name, ...descriptionField };
     const appleResources = await this.client.createResource<{
       locale?: string;

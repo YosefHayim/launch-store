@@ -1,6 +1,6 @@
 import { parseBuildRollout } from '../build/build-command-input.ts';
 import { worstDownloadBytes } from '../build/pipeline-artifact.ts';
-import { resolveCommandEnv, selectApp } from '../build/pipeline-env.ts';
+import { applyBuildEnvironment, resolveCommandEnv, selectApp } from '../build/pipeline-env.ts';
 import { mb, submitToStores } from '../build/pipeline-providers.ts';
 import { resolveIosAccount } from '../build/pipeline-signing.ts';
 import { loadConfig } from '../config/config.ts';
@@ -1486,8 +1486,10 @@ async function readResolvedEnvironment(
   commandOptions: ReleaseCommandOptions,
   envExclude: readonly string[] | undefined,
 ) {
+  let resolved: Awaited<ReturnType<typeof resolveCommandEnv>>;
+
   try {
-    return await resolveCommandEnv({
+    resolved = await resolveCommandEnv({
       app: appDescriptor,
       profile: buildProfile,
       cliEnv: environmentOverrides,
@@ -1497,4 +1499,6 @@ async function readResolvedEnvironment(
   } catch (error) {
     throw releaseFailure('resolve release environment', error);
   }
+
+  return applyBuildEnvironment(resolved, createLogger(false));
 }

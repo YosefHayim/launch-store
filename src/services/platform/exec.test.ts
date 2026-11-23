@@ -192,6 +192,40 @@ function describeChildEnvironmentExclusions() {
     'drops excluded values inherited from the parent process',
     dropsExcludedValuesInheritedFromTheParentProcess,
   );
+
+  async function dropsASecretLookingParentValueUnlessOverridden() {
+    const previous = process.env['LAUNCH_AUDIT_TOKEN'];
+
+    process.env['LAUNCH_AUDIT_TOKEN'] = 'dummy-private-value';
+
+    try {
+      const inherited = await captureCommandOutput(process.execPath, [
+        '-e',
+        'process.stdout.write(String(process.env.LAUNCH_AUDIT_TOKEN ?? "missing"))',
+      ]);
+      const overridden = await captureCommandOutput(
+        process.execPath,
+        ['-e', 'process.stdout.write(String(process.env.LAUNCH_AUDIT_TOKEN ?? "missing"))'],
+        { environmentOverrides: { LAUNCH_AUDIT_TOKEN: 'dummy-override' } },
+      );
+
+      expect(inherited).toBe('missing');
+      expect(overridden).toBe('dummy-override');
+    } finally {
+      if (previous == null) {
+        delete process.env['LAUNCH_AUDIT_TOKEN'];
+      }
+
+      if (previous != null) {
+        process.env['LAUNCH_AUDIT_TOKEN'] = previous;
+      }
+    }
+  }
+
+  it(
+    'drops a secret-looking parent value unless it is an override',
+    dropsASecretLookingParentValueUnlessOverridden,
+  );
 }
 
 describe('child environment exclusions', describeChildEnvironmentExclusions);

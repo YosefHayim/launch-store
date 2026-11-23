@@ -241,11 +241,10 @@ export async function prepareBuild(buildOptions: BuildRunOptions): Promise<Prepa
     includeLocal: buildOptions.includeLocal,
     envExclude: launchConfig.envExclude,
   });
-  const environmentValues = resolved.values;
+  const checked = await validateResolvedEnv(app.dir, resolved, log, launchConfig.envExclude ?? []);
+  const environmentValues = checked.values;
 
-  await validateResolvedEnv(app.dir, resolved, log, launchConfig.envExclude ?? []);
-
-  const secretCount = Object.values(resolved.sources).filter(isSecretSource).length;
+  const secretCount = Object.values(checked.sources).filter(isSecretSource).length;
   const varCount = Object.keys(environmentValues).length;
   let keychainNote = '';
 

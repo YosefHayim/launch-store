@@ -85,17 +85,17 @@ function wrapAppleClient(client: AppStoreConnectClient): AppStoreConnectClient {
   });
 }
 
-type AppleClientFactory = (ascKey: AscKey) => AppStoreConnectClient;
+type CreateAppleStoreClient = (ascKey: AscKey) => AppStoreConnectClient;
 
-let appleClientFactory: AppleClientFactory | null = null;
+let appleStoreClient: CreateAppleStoreClient | null = null;
 
-export function useAppleStoreClientFactory(factory: AppleClientFactory | null): void {
-  appleClientFactory = factory;
+export function setAppleStoreClient(createClient: CreateAppleStoreClient | null): void {
+  appleStoreClient = createClient;
 }
 
 function createAppleClient(ascKey: AscKey): AppStoreConnectClient {
-  if (appleClientFactory != null) {
-    return appleClientFactory(ascKey);
+  if (appleStoreClient != null) {
+    return appleStoreClient(ascKey);
   }
 
   return wrapAppleClient(new AppStoreConnectClient(ascKey));

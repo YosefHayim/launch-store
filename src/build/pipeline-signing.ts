@@ -15,7 +15,7 @@ import type { Logger } from '../services/platform/logger.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.ts';
-import { AppleCredentialsClientFactory } from '../services/stores/apple-credentials-client.ts';
+import { createAppleCredentialsClient } from '../services/stores/apple-credentials-client.ts';
 import {
   ensureAdHocSigningCredentials,
   ensureSigningCredentials,
@@ -134,7 +134,7 @@ async function warnUnreadySigningTargets(
   log: Logger,
 ): Promise<void> {
   try {
-    const credentialsClient = await AppleCredentialsClientFactory.createClient(ascKey);
+    const credentialsClient = await createAppleCredentialsClient(ascKey);
     const readiness = await gatherTargetSigningReadiness(
       credentialsClient,
       bundleId,
@@ -164,7 +164,7 @@ async function reuseCachedSigning(
   let stale: { bundleId: string; missing: string[] }[] = [];
 
   if (isDryRun == false) {
-    const credentialsClient = await AppleCredentialsClientFactory.createClient(ascKey);
+    const credentialsClient = await createAppleCredentialsClient(ascKey);
 
     stale = await staleCachedSigningTargets(credentialsClient, signing);
   }

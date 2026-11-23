@@ -262,7 +262,11 @@ async function ensureExperience(
   if (hasExperience) {
     const currentActionText = existing.action;
     const isKnownAction = isListedText(currentActionText, APP_CLIP_ACTIONS);
-    const currentAction = isKnownAction ? currentActionText : undefined;
+    let currentAction: AppClipActionValue | undefined;
+
+    if (isKnownAction) {
+      currentAction = currentActionText;
+    }
 
     const shouldUpdateAction = needsActionUpdate(currentAction, action);
 

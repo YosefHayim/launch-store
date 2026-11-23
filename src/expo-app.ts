@@ -43,7 +43,11 @@ export async function readExpoApp(directory: string): Promise<ExpoApp> {
 
   const parsedBuildNumber = Number(expo.ios?.buildNumber);
   const hasBuildNumber = Number.isFinite(parsedBuildNumber);
-  const buildNumber = hasBuildNumber ? parsedBuildNumber : null;
+  let buildNumber: number | null = null;
+
+  if (hasBuildNumber) {
+    buildNumber = parsedBuildNumber;
+  }
   const versionCode = expo.android?.versionCode ?? null;
 
   return {

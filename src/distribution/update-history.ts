@@ -153,7 +153,11 @@ function decodeHistoryEntry(candidate: unknown): UpdateHistoryEntry {
     throw new Error('History entry signed flag is malformed.');
   }
 
-  const historyKind: UpdateHistoryEntry['kind'] = isPublish ? 'publish' : 'rollback';
+  let historyKind: UpdateHistoryEntry['kind'] = 'rollback';
+
+  if (isPublish) {
+    historyKind = 'publish';
+  }
 
   return {
     id: readString(candidateObject, 'id'),

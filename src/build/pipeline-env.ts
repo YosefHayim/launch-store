@@ -2,13 +2,7 @@ import type { AppDescriptor, BuildProfile } from '../types/app.ts';
 import { pickOne, type PickOneArgs } from '../services/platform/prompt.ts';
 import { readLastApp } from '../distribution/last-run.ts';
 import { resolveBuildSecrets } from './build-secrets.ts';
-import {
-  ENV_SOURCE,
-  missingKeys,
-  resolveEnv,
-  secretLookingKeys,
-  type ResolvedEnv,
-} from '../config/env.ts';
+import { keepBuildEnvironment, missingKeys, resolveEnv, type ResolvedEnv } from '../config/env.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
@@ -217,13 +211,13 @@ export async function resolveCommandEnv(request: CommandEnvironmentRequest): Pro
   return resolvedEnvironment;
 }
 
-/** Hard-fail on missing `.env.example` keys */
+/** Hard-fail on missing `.env.example` keys, then drop file secrets from the build env. */
 export async function validateResolvedEnv(
   appDir: string,
   resolved: ResolvedEnv,
   log: Logger,
   exclude: readonly string[] = [],
-): Promise<void> {
+): Promise<ResolvedEnv> {
   let missing: string[];
 
   try {
@@ -241,27 +235,23 @@ export async function validateResolvedEnv(
   if (hasMissingKeys) {
     throw makeBuildEnvironmentFailure({
       stage: 'validation',
-      message: `Missing env keys (in .env.example, absent from your env): ${missing.join(', ')}`,
+      message: `Missing ${missing.length} env keys that .env.example lists.`,
     });
   }
 
-  for (const environmentName of secretLookingKeys(resolved.values)) {
-    const environmentSource = resolved.sources[environmentName];
+  return applyBuildEnvironment(resolved, log);
+}
 
-    const isKeychainSecret = environmentSource == ENV_SOURCE.secret;
+/** Keep keychain and `--env` secrets. Leave file and profile secrets out of the build. */
+export function applyBuildEnvironment(resolved: ResolvedEnv, log: Logger): ResolvedEnv {
+  const kept = keepBuildEnvironment(resolved);
+  const hasOmitted = kept.omittedCount > 0;
 
-    if (isKeychainSecret) {
-      continue;
-    }
-
-    const isFlagOverride = environmentSource == ENV_SOURCE.flag;
-
-    if (isFlagOverride) {
-      continue;
-    }
-
+  if (hasOmitted) {
     log.warn(
-      `"${environmentName}" looks like a backend secret (from ${environmentSource}) - it would be bundled into the app. If the app needs it at build time, store it with \`launch-store secret set ${environmentName}\`; if it's backend-only, add it to \`envExclude\` in launch.config.ts.`,
+      `Left ${kept.omittedCount} secret-looking names out of the build. A build-time one belongs in the keychain via launch-store secret set. A backend-only one belongs in envExclude.`,
     );
   }
+
+  return kept.environment;
 }

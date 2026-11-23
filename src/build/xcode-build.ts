@@ -1,7 +1,7 @@
-import { spawn } from 'node:child_process';
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AppleSigningIdentity } from '../credentials/apple-signing.ts';
+import { executeCommand } from '../services/platform/exec.ts';
 
 interface ArchiveRequest {
   directory: string;
@@ -126,33 +126,15 @@ export class XcodeBuild {
     return join(iosDirectory, workspaceName);
   }
 
-  private runXcode(toolArguments: readonly string[], workingDirectory: string): Promise<void> {
-    function waitForXcode(resolveRun: () => void, rejectRun: (reason: Error) => void): void {
-      const child = spawn('xcodebuild', [...toolArguments], {
-        cwd: workingDirectory,
-        stdio: 'inherit',
-      });
-
-      function onStartError(error: Error): void {
-        rejectRun(new Error('xcodebuild did not start', { cause: error }));
-      }
-
-      function onClose(exitCode: number | null): void {
-        const isSuccess = exitCode == 0;
-
-        if (isSuccess) {
-          resolveRun();
-          return;
-        }
-
-        rejectRun(new Error(`xcodebuild exited with ${exitCode}`));
-      }
-
-      child.on('error', onStartError);
-      child.on('close', onClose);
+  private async runXcode(
+    toolArguments: readonly string[],
+    workingDirectory: string,
+  ): Promise<void> {
+    try {
+      await executeCommand('xcodebuild', toolArguments, { workingDirectory });
+    } catch (error) {
+      throw new Error('xcodebuild failed', { cause: error });
     }
-
-    return new Promise(waitForXcode);
   }
 }
 

@@ -327,7 +327,11 @@ export function TestflightCommandInputSchema(commandInput: unknown): TestflightC
 
 function formatGroupLine(betaGroup: BetaGroupResource, testerCount: number): string {
   const isInternal = betaGroup.isInternal == true;
-  const groupKind = isInternal ? 'internal' : 'external';
+  let groupKind = 'external';
+
+  if (isInternal) {
+    groupKind = 'internal';
+  }
   const publicLinkText = betaGroup.publicLink;
   let publicLink = '';
 
@@ -397,7 +401,11 @@ function formatTesterLine(betaTester: BetaTesterResource): string {
 
   const fullName = nameParts.join(' ');
   const hasFullName = fullName.length > 0;
-  const nameDetail = hasFullName ? ` - ${fullName}` : '';
+  let nameDetail = '';
+
+  if (hasFullName) {
+    nameDetail = ` - ${fullName}`;
+  }
   const testerState = betaTester.state;
   let stateDetail = '';
 
@@ -406,7 +414,11 @@ function formatTesterLine(betaTester: BetaTesterResource): string {
   }
 
   const isLabelEmpty = betaTester.email.length == 0;
-  const testerLabel = isLabelEmpty ? '(no email, public link)' : betaTester.email;
+  let testerLabel = betaTester.email;
+
+  if (isLabelEmpty) {
+    testerLabel = '(no email, public link)';
+  }
 
   return `- ${testerLabel}${nameDetail}${stateDetail}`;
 }

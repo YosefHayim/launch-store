@@ -61,6 +61,38 @@ export function isUsageError(error: unknown): error is Error & { exitCode: numbe
   return typeof exitCode == 'number';
 }
 
+function isOptionsEnd(optionsEnded: boolean, token: string): boolean {
+  if (optionsEnded) {
+    return false;
+  }
+
+  return token == '--';
+}
+
+function isHelpToken(token: string): boolean {
+  if (token == '--help') {
+    return true;
+  }
+
+  return token == '-h';
+}
+
+function isVersionToken(token: string): boolean {
+  if (token == '--version') {
+    return true;
+  }
+
+  return token == '-V';
+}
+
+function optionMatches(option: CommandOption, flag: string, kind: 'long' | 'short'): boolean {
+  if (kind == 'long') {
+    return option.long == flag;
+  }
+
+  return option.short == flag;
+}
+
 function usageError(message: string, exitCode: number): Error {
   const error = new Error(message);
 
@@ -537,7 +569,7 @@ export class Command {
         break;
       }
 
-      if (optionsEnded == false && token == '--') {
+      if (isOptionsEnd(optionsEnded, token)) {
         optionsEnded = true;
         index += 1;
         continue;
@@ -605,13 +637,13 @@ export class Command {
       return index;
     }
 
-    if (token == '--help' || token == '-h') {
+    if (isHelpToken(token)) {
       this.outputHelp();
 
       throw usageError('(outputHelp)', 0);
     }
 
-    if (token == '--version' || token == '-V') {
+    if (isVersionToken(token)) {
       const versionCommand = this.findVersionCommand();
 
       if (versionCommand != null) {
@@ -659,7 +691,17 @@ export class Command {
       return index + 2;
     }
 
-    if (nextToken == null || looksLikeOption(nextToken)) {
+    const isMissingNext = nextToken == null;
+
+    if (isMissingNext) {
+      this.setOption(parsed.option, null);
+
+      return index + 1;
+    }
+
+    const nextIsOption = looksLikeOption(nextToken);
+
+    if (nextIsOption) {
       this.setOption(parsed.option, null);
 
       return index + 1;
@@ -701,27 +743,60 @@ export class Command {
 
     const meta = this.optionMeta.get(option);
     const attached = flag.slice(2);
-    const hasAttached = attached != '' && inlineValue == null;
+    const attachedIsPresent = attached != '';
 
-    if (hasAttached && meta != null && meta.takesValue != 'none') {
-      return { option, inlineValue: attached };
+    if (attachedIsPresent == false) {
+      return { option, inlineValue };
     }
 
-    return { option, inlineValue };
+    const inlineIsMissing = inlineValue == null;
+
+    if (inlineIsMissing == false) {
+      return { option, inlineValue };
+    }
+
+    if (meta == null) {
+      return { option, inlineValue };
+    }
+
+    const takesValue = meta.takesValue != 'none';
+
+    if (takesValue == false) {
+      return { option, inlineValue };
+    }
+
+    return { option, inlineValue: attached };
   }
 
   private findOption(flag: string, kind: 'long' | 'short'): CommandOption | null {
     for (const option of this.options) {
-      if (kind == 'long' && option.long == flag) {
-        return option;
-      }
+      const matches = optionMatches(option, flag, kind);
 
-      if (kind == 'short' && option.short == flag) {
+      if (matches) {
         return option;
       }
     }
 
     return null;
+  }
+
+  private storeReduced(meta: OptionMeta, flagText: string | null): boolean {
+    const reducer = meta.reducer;
+
+    if (reducer == null) {
+      return false;
+    }
+
+    if (flagText == null) {
+      return false;
+    }
+
+    const previous = this.optionValues[meta.attribute];
+
+    this.optionValues[meta.attribute] = reducer(flagText, previous);
+    this.explicitKeys.add(meta.attribute);
+
+    return true;
   }
 
   private setOption(option: CommandOption, flagText: string | null): void {
@@ -731,12 +806,9 @@ export class Command {
       return;
     }
 
-    if (meta.reducer != null && flagText != null) {
-      const previous = this.optionValues[meta.attribute];
+    const didReduce = this.storeReduced(meta, flagText);
 
-      this.optionValues[meta.attribute] = meta.reducer(flagText, previous);
-      this.explicitKeys.add(meta.attribute);
-
+    if (didReduce) {
       return;
     }
 
@@ -809,8 +881,13 @@ export class Command {
     for (const argument of this.registeredArguments) {
       if (argument.variadic) {
         const remaining = positionals.slice(index);
+        const isRequired = argument.required;
+        const isEmpty = remaining.length == 0;
+        let isMissing = false;
 
-        const isMissing = argument.required && remaining.length == 0;
+        if (isRequired) {
+          isMissing = isEmpty;
+        }
 
         if (isMissing) {
           throw usageError(`error: missing required argument '${argument.name()}'`, 1);

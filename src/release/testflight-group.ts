@@ -129,7 +129,11 @@ function betaGroupChoice(betaGroup: BetaGroupResource): {
   hint: string;
 } {
   const isInternal = betaGroup.isInternal == true;
-  const hint = isInternal ? 'internal' : 'external';
+  let hint = 'external';
+
+  if (isInternal) {
+    hint = 'internal';
+  }
   return { selection: betaGroup, label: betaGroup.name, hint };
 }
 

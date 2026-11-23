@@ -7,6 +7,7 @@ import {
   isEnvExcluded,
   loadDotenvFile,
   missingKeys,
+  keepBuildEnvironment,
   parseCliEnv,
   parseDotenv,
   resolveEnv,
@@ -198,10 +199,12 @@ function describeSecretLookingKeysGentleGuardAgainstBundlingASecret() {
       SESSION_TOKEN: 'x',
       PRIVATE_THING: 'x',
       API_KEY: 'x',
+      DATABASE_URL: 'x',
     });
 
     expect(flagged.sort()).toEqual([
       'API_KEY',
+      'DATABASE_URL',
       'DB_PASSWORD',
       'PRIVATE_THING',
       'SESSION_TOKEN',
@@ -236,6 +239,43 @@ describe(
   'secretLookingKeys - gentle guard against bundling a secret',
   describeSecretLookingKeysGentleGuardAgainstBundlingASecret,
 );
+function describeKeepBuildEnvironment() {
+  function dropsFileSecretsAndKeepsExplicitOnes() {
+    const kept = keepBuildEnvironment({
+      values: {
+        API_TOKEN: 'from-file',
+        DATABASE_URL: 'postgres://db.example/app',
+        EXPO_PUBLIC_API_KEY: 'pk_visible',
+        SIGNING_TOKEN: 'from-keychain',
+        ONE_OFF_TOKEN: 'from-flag',
+        APP_NAME: 'Demo',
+      },
+      sources: {
+        API_TOKEN: '.env',
+        DATABASE_URL: '.env.production',
+        EXPO_PUBLIC_API_KEY: '.env',
+        SIGNING_TOKEN: ENV_SOURCE.secret,
+        ONE_OFF_TOKEN: ENV_SOURCE.flag,
+        APP_NAME: '.env',
+      },
+      excluded: [],
+    });
+
+    expect(kept.omittedCount).toBe(2);
+    expect(kept.environment.values).toEqual({
+      EXPO_PUBLIC_API_KEY: 'pk_visible',
+      SIGNING_TOKEN: 'from-keychain',
+      ONE_OFF_TOKEN: 'from-flag',
+      APP_NAME: 'Demo',
+    });
+    expect(JSON.stringify(kept)).not.toContain('from-file');
+    expect(JSON.stringify(kept)).not.toContain('postgres://');
+  }
+
+  it('drops file secrets and keeps keychain and flag values', dropsFileSecretsAndKeepsExplicitOnes);
+}
+
+describe('keepBuildEnvironment', describeKeepBuildEnvironment);
 function describeResolvePieceTheOnePrecedenceLadder() {
   async function layersLowestHighestPiecePieceProfilePieceLocalProfilePieceSecretsFlags() {
     const dir = makeTempDir();

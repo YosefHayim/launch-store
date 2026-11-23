@@ -31,9 +31,13 @@ export function registerReadinessProbe(probe: ReadinessProbe): void {
 export function listReadinessProbes(): ReadinessProbe[] {
   return [...PROBES.values()];
 }
-export const selectReadinessProbes = (category: ReadinessCategory): ReadinessProbe[] => {
-  return listReadinessProbes().filter((probe) => probe.categories.includes(category));
-};
+export function selectReadinessProbes(category: ReadinessCategory): ReadinessProbe[] {
+  function isInCategory(probe: ReadinessProbe): boolean {
+    return probe.categories.includes(category);
+  }
+
+  return listReadinessProbes().filter(isInCategory);
+}
 export function registerBuiltinProbes(): void {
   registerReadinessProbe(agreementsProbe);
   registerReadinessProbe(appRecordProbe);

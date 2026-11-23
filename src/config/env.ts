@@ -160,6 +160,12 @@ export function isSecretLookingName(name: string): boolean {
     return true;
   }
 
+  const isDatabaseUrl = /DATABASE_URL$/i.test(name);
+
+  if (isDatabaseUrl) {
+    return true;
+  }
+
   const endsWithKey = /_KEY$/i.test(name);
 
   if (endsWithKey == false) {
@@ -194,6 +200,64 @@ export type ResolvedEnv = {
   sources: Record<string, string>;
   excluded: string[];
 };
+
+function isExplicitBuildSource(environmentSource: string | undefined): boolean {
+  if (environmentSource == ENV_SOURCE.secret) {
+    return true;
+  }
+
+  return environmentSource == ENV_SOURCE.flag;
+}
+
+function shouldOmitFromBuild(
+  environmentName: string,
+  environmentSource: string | undefined,
+): boolean {
+  const looksSecret = isSecretLookingName(environmentName);
+
+  if (looksSecret == false) {
+    return false;
+  }
+
+  return isExplicitBuildSource(environmentSource) == false;
+}
+
+/** Drop file and profile secrets. Keychain values and `--env` overrides stay. */
+export function keepBuildEnvironment(resolved: ResolvedEnv): {
+  environment: ResolvedEnv;
+  omittedCount: number;
+} {
+  const values: Record<string, string> = {};
+  const sources: Record<string, string> = {};
+  let omittedCount = 0;
+
+  for (const environmentName of Object.keys(resolved.values)) {
+    const environmentValue = resolved.values[environmentName];
+
+    if (environmentValue == null) {
+      continue;
+    }
+
+    const environmentSource = resolved.sources[environmentName];
+    const omitName = shouldOmitFromBuild(environmentName, environmentSource);
+
+    if (omitName) {
+      omittedCount += 1;
+      continue;
+    }
+
+    values[environmentName] = environmentValue;
+
+    if (environmentSource != null) {
+      sources[environmentName] = environmentSource;
+    }
+  }
+
+  return {
+    environment: { values, sources, excluded: resolved.excluded },
+    omittedCount,
+  };
+}
 
 /** Inputs to {@link resolveEnv}. */
 type ResolveEnvInput = {

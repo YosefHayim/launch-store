@@ -26,6 +26,16 @@ export function redactLine(line: string): string {
   );
   out = out.replace(/(Bearer\s+)[A-Za-z0-9._~+/-]+=*/gi, `$1${MASK}`);
   out = out.replace(/\bAKIA[0-9A-Z]{16}\b/g, '[redacted-aws-key]');
+  // Database URLs carry a user and password in the address.
+  out = out.replace(
+    /\b(?:postgres|postgresql|mysql|mongodb(?:\+srv)?|redis|rediss|amqp|amqps):\/\/[^\s'"]+/gi,
+    '[redacted-url]',
+  );
+  out = out.replace(/\bsk-[A-Za-z0-9_-]{8,}/g, '[redacted-api-key]');
+  out = out.replace(/\bgithub_pat_[A-Za-z0-9_]{16,}/g, '[redacted-github-token]');
+  out = out.replace(/\bgh[pousr]_[A-Za-z0-9]{16,}/g, '[redacted-github-token]');
+  out = out.replace(/\bAIza[0-9A-Za-z_-]{20,}/g, '[redacted-google-key]');
+  out = out.replace(/\bya29\.[0-9A-Za-z._-]+/g, '[redacted-google-token]');
 
   return out;
 }

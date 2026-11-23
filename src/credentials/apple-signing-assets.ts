@@ -7,7 +7,10 @@ import {
   resolveCredentialsDirectory,
   resolveProvisioningProfilesDirectory,
 } from '../services/platform/paths.ts';
-import { AppleCredentialsClientFactory } from '../services/stores/apple-credentials-client.ts';
+import {
+  createAppleCredentialsClient,
+  type AppleCredentialsClient,
+} from '../services/stores/apple-credentials-client.ts';
 import {
   adHocProfileType,
   appStoreProfileType,
@@ -197,7 +200,7 @@ export async function ensureSigningCredentials(
   }
 
   const keyId = signingOptions.ascKey.keyId;
-  const client = await AppleCredentialsClientFactory.createClient(signingOptions.ascKey);
+  const client = await createAppleCredentialsClient(signingOptions.ascKey);
   const index = await readIndex(keyId);
   // One cert signs every bundle in the team, so it's resolved once and shared.
   const ensuredCertificate = await ensureDistributionCertificate({
@@ -292,7 +295,7 @@ export async function ensureAdHocSigningCredentials(
   }
 
   const keyId = signingOptions.ascKey.keyId;
-  const client = await AppleCredentialsClientFactory.createClient(signingOptions.ascKey);
+  const client = await createAppleCredentialsClient(signingOptions.ascKey);
   const index = await readIndex(keyId);
   const bundle = await ensureRegisteredBundleId({
     client,
@@ -411,7 +414,7 @@ export async function ensureRemoteSigningAssets(
   }
 
   const keyId = signingOptions.ascKey.keyId;
-  const client = await AppleCredentialsClientFactory.createClient(signingOptions.ascKey);
+  const client = await createAppleCredentialsClient(signingOptions.ascKey);
   const index = await readIndex(keyId);
   const bundle = await ensureRegisteredBundleId({
     client,
@@ -470,7 +473,7 @@ export async function ensureRemoteSigningAssets(
 }
 
 async function resolveRemoteProfile(remoteProfile: {
-  client: Awaited<ReturnType<typeof AppleCredentialsClientFactory.createClient>>;
+  client: AppleCredentialsClient;
   bundleIdResourceId: string;
   certId: string;
   freshCert: boolean;
@@ -498,7 +501,7 @@ async function resolveRemoteProfile(remoteProfile: {
 
 async function createRemoteProfile(
   remoteProfile: {
-    client: Awaited<ReturnType<typeof AppleCredentialsClientFactory.createClient>>;
+    client: AppleCredentialsClient;
     bundleIdResourceId: string;
     certId: string;
     platform: Platform;

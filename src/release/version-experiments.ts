@@ -130,7 +130,11 @@ function versionExperimentsFailure(
 ): VersionExperimentsFailure {
   const providedMessage = explicitMessage ?? errorMessage(cause);
   const hasText = providedMessage.length > 0;
-  const message = hasText ? providedMessage : `${operation} failed.`;
+  let message = `${operation} failed.`;
+
+  if (hasText) {
+    message = providedMessage;
+  }
 
   return { _tag: 'VersionExperimentsFailure', operation, message, cause };
 }

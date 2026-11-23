@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
-import { isEnvExcluded } from '@/config/env.js';
+import { isEnvExcluded, isSecretLookingName } from '@/config/env.js';
 import { mergeChildEnv } from '@/terminal/locale.js';
 import { readLaunchEnvironment } from './environment.ts';
 import { isJsonOutput } from './json-output-mode.ts';
@@ -90,9 +90,31 @@ function combineCapturedDiagnostics(standardOutput: string, standardError: strin
   return `${trimmedOutput}\n${trimmedError}`;
 }
 
+function isExplicitOverride(overrides: Record<string, string> | undefined, name: string): boolean {
+  if (overrides == null) {
+    return false;
+  }
+
+  return Object.hasOwn(overrides, name);
+}
+
+function shouldDropInheritedSecret(
+  name: string,
+  overrides: Record<string, string> | undefined,
+): boolean {
+  const looksSecret = isSecretLookingName(name);
+
+  if (looksSecret == false) {
+    return false;
+  }
+
+  return isExplicitOverride(overrides, name) == false;
+}
+
 function childEnvironment(commandOptions: CommandExecutionOptions): NodeJS.ProcessEnv {
   const environment = readLaunchEnvironment();
-  const merged = mergeChildEnv(environment.rawVariables, commandOptions.environmentOverrides);
+  const overrides = commandOptions.environmentOverrides;
+  const merged = mergeChildEnv(environment.rawVariables, overrides);
   let exclusions = inheritedExclusions;
 
   if (commandOptions.envExclude != null) {
@@ -105,6 +127,12 @@ function childEnvironment(commandOptions: CommandExecutionOptions): NodeJS.Proce
     const isExcluded = isEnvExcluded(name, exclusions);
 
     if (isExcluded) {
+      continue;
+    }
+
+    const dropSecret = shouldDropInheritedSecret(name, overrides);
+
+    if (dropSecret) {
       continue;
     }
 
@@ -199,10 +227,14 @@ export async function executeCommand(
     return;
   }
 
-  const child = startProcess(executable, commandArguments, commandOptions, 'inherit');
-  const exitCode = await waitForExit(child, executable);
+  function writeRedactedLine(line: string): void {
+    process.stdout.write(`${line}\n`);
+  }
 
-  checkExitCode(executable, exitCode, '');
+  await executeCommandQuietly(executable, commandArguments, {
+    ...commandOptions,
+    onLine: writeRedactedLine,
+  });
 }
 
 export async function captureCommandOutput(

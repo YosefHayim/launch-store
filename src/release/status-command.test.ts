@@ -10,7 +10,7 @@ import { resetSecretStore, useSecretStore } from '../services/credentials/secret
 import { errorMessage } from '../services/platform/error-message.ts';
 import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
-import { useAppleStoreClientFactory } from '../services/stores/apple-store-client.ts';
+import { setAppleStoreClient } from '../services/stores/apple-store-client.ts';
 import { isCommandExit } from '../terminal/command-exit.ts';
 import type { AppStoreVersionResource, BuildResource } from '../types/apple-catalog.ts';
 import type { AscReleaseApi } from './app-store-release.ts';
@@ -174,7 +174,7 @@ async function runStatusCommand(
     useLoggerSink(function writeLine(text: string) {
       logLines.push(text);
     });
-    useAppleStoreClientFactory(function createClient() {
+    setAppleStoreClient(function createClient() {
       return appleReleaseApi as ReturnType<
         typeof import('../services/stores/apple-store-client.ts').AppleStoreClientService.createClient
       >;
@@ -190,7 +190,7 @@ async function runStatusCommand(
     resetLaunchDirectories();
     resetSecretStore();
     resetLogger();
-    useAppleStoreClientFactory(null);
+    setAppleStoreClient(null);
     removeTemporaryHomeDirectory(homeDirectory);
   }
 }
@@ -199,7 +199,7 @@ afterEach(function resetStatusDoubles() {
   resetLaunchDirectories();
   resetSecretStore();
   resetLogger();
-  useAppleStoreClientFactory(null);
+  setAppleStoreClient(null);
 });
 function describeStatusCommandProgramPlainStatus() {
   async function printsTheStatusLineAndExits0WhenTheVersionIsLive() {

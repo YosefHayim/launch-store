@@ -216,7 +216,13 @@ export async function updateCommandProgram(commandInput: UpdateCommandInput): Pr
   try {
     selectedApp = await selectApp(loadedConfiguration.apps, commandInput.app);
   } catch (cause) {
-    throw updateFailure('select app', cause, hasMessage(cause) ? cause.message : undefined);
+    let failureMessage: string | undefined;
+
+    if (hasMessage(cause)) {
+      failureMessage = cause.message;
+    }
+
+    throw updateFailure('select app', cause, failureMessage);
   }
 
   let buildProfile = loadedConfiguration.config.profiles[commandInput.profile];
@@ -231,11 +237,13 @@ export async function updateCommandProgram(commandInput: UpdateCommandInput): Pr
   try {
     environmentOverrides = parseCliEnv([...commandInput.env]);
   } catch (cause) {
-    throw updateFailure(
-      'parse environment overrides',
-      cause,
-      hasMessage(cause) ? cause.message : undefined,
-    );
+    let failureMessage: string | undefined;
+
+    if (hasMessage(cause)) {
+      failureMessage = cause.message;
+    }
+
+    throw updateFailure('parse environment overrides', cause, failureMessage);
   }
 
   let resolvedEnvironment: Awaited<ReturnType<typeof resolveCommandEnv>>;
@@ -253,7 +261,7 @@ export async function updateCommandProgram(commandInput: UpdateCommandInput): Pr
   }
 
   try {
-    await validateResolvedEnv(
+    resolvedEnvironment = await validateResolvedEnv(
       selectedApp.dir,
       resolvedEnvironment,
       logger,

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppStoreConnectClient } from '@/apple/asc-client.js';
-import { makeAppleTransportFailure, useAppleStoreClientFactory } from './apple-store-client.ts';
+import { makeAppleTransportFailure, setAppleStoreClient } from './apple-store-client.ts';
 import { AppStoreIdentityService } from './app-store-identity.ts';
 
 const ascKey = { keyId: 'key', issuerId: 'issuer', p8: 'secret' };
@@ -12,7 +12,7 @@ const failure = makeAppleTransportFailure({
 });
 
 afterEach(function resetAppleClient() {
-  useAppleStoreClientFactory(null);
+  setAppleStoreClient(null);
 });
 
 function installClient(methods: {
@@ -20,7 +20,7 @@ function installClient(methods: {
   resolveTeamId: () => Promise<string | null>;
   listAppNames: () => Promise<string[]>;
 }): void {
-  useAppleStoreClientFactory(function createClient() {
+  setAppleStoreClient(function createClient() {
     const client = Object.create(AppStoreConnectClient.prototype);
 
     client.assertReady = methods.assertReady;

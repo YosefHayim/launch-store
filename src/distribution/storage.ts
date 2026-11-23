@@ -103,7 +103,15 @@ export async function resolveStorageProvider(
   const isS3 = config.storage == 's3';
   const isSupabase = config.storage == 'supabase';
 
-  const isCloudBackend = isS3 ? true : isSupabase;
+  function isCloudStorageKind(isS3Storage: boolean, isSupabaseStorage: boolean): boolean {
+    if (isS3Storage) {
+      return true;
+    }
+
+    return isSupabaseStorage;
+  }
+
+  const isCloudBackend = isCloudStorageKind(isS3, isSupabase);
 
   if (isCloudBackend) {
     const storageConfig = config.storageConfig;
