@@ -119,15 +119,15 @@ export function diffSnapshots(a: Snapshot, b: Snapshot): SnapshotDiff {
         continue;
     }
     if (prev && !next) {
-      entries.push(toEntry(prev, 'removed'));
+      entries.push(readDiffEntry(prev, 'removed'));
     } else if (!prev && next) {
-      entries.push(toEntry(next, 'added'));
+      entries.push(readDiffEntry(next, 'added'));
     } else if (
       prev &&
       next &&
       stableStringify(prev.entity.data) != stableStringify(next.entity.data)
     ) {
-      entries.push(toEntry(next, 'changed'));
+      entries.push(readDiffEntry(next, 'changed'));
     }
   }
   function filterPiece(entry: {
@@ -174,7 +174,7 @@ export function diffSnapshots(a: Snapshot, b: Snapshot): SnapshotDiff {
   };
 }
 /** Project a flattened entity to a diff entry under the given change kind. */
-function toEntry(flat: FlatEntity, change: DiffChange): EntityDiff {
+function readDiffEntry(flat: FlatEntity, change: DiffChange): EntityDiff {
   return {
     store: flat.store,
     sourceId: flat.sourceId,

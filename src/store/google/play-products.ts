@@ -23,7 +23,7 @@ type PlayProductsReconcileInput = {
   dryRun: boolean;
 };
 
-function toMoney(price: PlayPriceConfig): PlayMoney {
+function readPlayMoney(price: PlayPriceConfig): PlayMoney {
   return { priceMicros: price.priceMicros, currency: price.currency };
 }
 
@@ -41,7 +41,7 @@ function makePlayProductConfigFailure(fields: { message: string }): PlayProductC
  * Apple productId. The default language comes from the first localization. Throws when that localization
  * is missing, since Play requires a default language.
  */
-export function toPlayProduct(purchase: InAppPurchaseConfig): InAppProductResource {
+export function readPlayProduct(purchase: InAppPurchaseConfig): InAppProductResource {
   const playOverrides = purchase.play;
   let sku = purchase.productId;
   const overrideSku = playOverrides?.sku ?? null;
@@ -76,7 +76,7 @@ export function toPlayProduct(purchase: InAppPurchaseConfig): InAppProductResour
 
   if (playOverrides?.prices != null) {
     for (const [region, price] of Object.entries(playOverrides.prices)) {
-      prices[region] = toMoney(price);
+      prices[region] = readPlayMoney(price);
     }
   }
 
@@ -89,7 +89,7 @@ export function toPlayProduct(purchase: InAppPurchaseConfig): InAppProductResour
   };
 
   if (playOverrides?.defaultPrice != null) {
-    desiredProduct.defaultPrice = toMoney(playOverrides.defaultPrice);
+    desiredProduct.defaultPrice = readPlayMoney(playOverrides.defaultPrice);
   }
 
   const hasRegionalPrices = Object.keys(prices).length > 0;
@@ -261,7 +261,7 @@ export async function reconcilePlayProducts(
   }
 
   for (const product of reconcileInput.products) {
-    const desired = toPlayProduct(product);
+    const desired = readPlayProduct(product);
     const current = liveProductsBySku.get(desired.sku) ?? null;
 
     if (current == null) {

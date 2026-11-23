@@ -8,7 +8,7 @@ import {
   resolveProvisioningProfilesDirectory,
 } from '../services/platform/paths.ts';
 import type { AppleCredentialsClient } from '../services/stores/apple-credentials-client.ts';
-import { appStoreProfileType, toBundleIdPlatform } from '../services/stores/platform.ts';
+import { appStoreProfileType, readBundleIdPlatform } from '../services/stores/platform.ts';
 import type { Platform } from '../types/app.ts';
 import type { BundleIdResource, ProfileResource } from '../types/apple-catalog.ts';
 import type { SigningAssets } from '../types/credentials.ts';
@@ -182,7 +182,7 @@ export async function ensureRegisteredBundleId(
     throw makeAppleSigningFailure({ message: bundleOptions.declineMessage });
   }
 
-  const bundleIdPlatform = toBundleIdPlatform(bundleOptions.platform);
+  const bundleIdPlatform = readBundleIdPlatform(bundleOptions.platform);
   const createdBundle = await bundleOptions.client.createBundleId(
     bundleOptions.bundleId,
     bundleOptions.appName,

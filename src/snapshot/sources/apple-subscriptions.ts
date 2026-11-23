@@ -7,7 +7,7 @@ import type {
 } from '../../types/snapshot.ts';
 import { iosApps } from '../../readiness/app-scopes.ts';
 
-function toEntity(
+function readSnapshotEntity(
   group: string,
   sub: {
     productId: string;
@@ -51,7 +51,7 @@ async function captureGroup(
   const subs = await api.listSubscriptions(group.id);
 
   return subs.map(function subscriptionEntity(sub) {
-    return toEntity(group.referenceName, sub);
+    return readSnapshotEntity(group.referenceName, sub);
   });
 }
 

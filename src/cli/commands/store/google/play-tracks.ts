@@ -32,7 +32,7 @@ type TestersOptions = Readonly<{
 }>;
 
 /** Map the track status flags without explicit undefined optionals. */
-function toTrackStatusInput(commandOptions: StatusOptions): PlayTracksStatusInput {
+function readTrackStatus(commandOptions: StatusOptions): PlayTracksStatusInput {
   let commandInput: PlayTracksStatusInput = {
     operation: 'status',
     json: commandOptions.json,
@@ -44,7 +44,7 @@ function toTrackStatusInput(commandOptions: StatusOptions): PlayTracksStatusInpu
 }
 
 /** Map the promotion flags without explicit undefined optionals. */
-function toTrackPromoteInput(commandOptions: PromoteOptions): PlayTracksPromoteInput {
+function readTrackPromote(commandOptions: PromoteOptions): PlayTracksPromoteInput {
   let commandInput: PlayTracksPromoteInput = {
     operation: 'promote',
     track: commandOptions.track,
@@ -72,7 +72,7 @@ function toTrackPromoteInput(commandOptions: PromoteOptions): PlayTracksPromoteI
 }
 
 /** Map the tester flags without explicit undefined optionals. */
-function toTrackTestersInput(commandOptions: TestersOptions): PlayTracksTestersInput {
+function readTrackTesters(commandOptions: TestersOptions): PlayTracksTestersInput {
   let commandInput: PlayTracksTestersInput = {
     operation: 'testers',
     track: commandOptions.track,
@@ -93,7 +93,7 @@ export function registerPlayTracksCommand(program: Command): void {
     .command('play-tracks')
     .description('manage Google Play release tracks from the CLI');
   function runStatus(commandOptions: StatusOptions) {
-    const trackStatus = toTrackStatusInput(commandOptions);
+    const trackStatus = readTrackStatus(commandOptions);
     const playTracksProgram = playTracksCommandProgram(trackStatus);
     return runCliProgram(playTracksProgram);
   }
@@ -105,7 +105,7 @@ export function registerPlayTracksCommand(program: Command): void {
     .option('--json', 'output machine-readable JSON', false)
     .action(runStatus);
   function runPromote(commandOptions: PromoteOptions) {
-    const trackPromote = toTrackPromoteInput(commandOptions);
+    const trackPromote = readTrackPromote(commandOptions);
     const playTracksProgram = playTracksCommandProgram(trackPromote);
     return runCliProgram(playTracksProgram);
   }
@@ -132,7 +132,7 @@ export function registerPlayTracksCommand(program: Command): void {
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(runPromote);
   function runTesters(commandOptions: TestersOptions) {
-    const trackTesters = toTrackTestersInput(commandOptions);
+    const trackTesters = readTrackTesters(commandOptions);
     const playTracksProgram = playTracksCommandProgram(trackTesters);
     return runCliProgram(playTracksProgram);
   }

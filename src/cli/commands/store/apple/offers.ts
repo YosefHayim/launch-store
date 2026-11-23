@@ -26,7 +26,7 @@ type GenerateCodesOptions = AppScopedOptions &
   }>;
 
 /** Map the default offers command without explicit undefined properties. */
-function toOffersReconcileInput(commandOptions: OffersOptions): OffersReconcileInput {
+function readOffersReconcile(commandOptions: OffersOptions): OffersReconcileInput {
   let offersInput: OffersReconcileInput = {
     operation: 'reconcile',
     dryRun: commandOptions.dryRun,
@@ -37,7 +37,7 @@ function toOffersReconcileInput(commandOptions: OffersOptions): OffersReconcileI
 }
 
 /** Map code-generation arguments without explicit undefined properties. */
-function toGenerateCodesInput(
+function readOfferCodes(
   productId: string,
   offerName: string,
   commandOptions: GenerateCodesOptions,
@@ -61,14 +61,14 @@ function toGenerateCodesInput(
 }
 
 /** Map a list request without an explicit undefined app. */
-function toOffersListInput(productId: string, commandOptions: AppScopedOptions): OffersListInput {
+function readOffersList(productId: string, commandOptions: AppScopedOptions): OffersListInput {
   let listInput: OffersListInput = { operation: 'list', productId };
   if (commandOptions.app != null) listInput = { ...listInput, app: commandOptions.app };
   return listInput;
 }
 
 /** Map a deactivate request without an explicit undefined app. */
-function toOffersDeactivateInput(
+function readOffersDeactivate(
   productId: string,
   offerName: string,
   commandOptions: AppScopedOptions,
@@ -83,7 +83,7 @@ function toOffersDeactivateInput(
 /** Attach offers reconciliation and offer-code operations. */
 export function registerOffersCommand(program: Command): void {
   function runOffers(commandOptions: OffersOptions) {
-    const offersReconcile = toOffersReconcileInput(commandOptions);
+    const offersReconcile = readOffersReconcile(commandOptions);
     const offersProgram = offersCommandProgram(offersReconcile);
     return runCliProgram(offersProgram);
   }
@@ -105,7 +105,7 @@ export function registerOffersCommand(program: Command): void {
     offerName: string,
     commandOptions: GenerateCodesOptions,
   ) {
-    const generateCodes = toGenerateCodesInput(productId, offerName, commandOptions);
+    const generateCodes = readOfferCodes(productId, offerName, commandOptions);
     const offersProgram = offersCommandProgram(generateCodes);
     return runCliProgram(offersProgram);
   }
@@ -122,7 +122,7 @@ export function registerOffersCommand(program: Command): void {
     )
     .action(runGenerateCodesProductIdOfferName);
   function runListProductId(productId: string, commandOptions: AppScopedOptions) {
-    const offersList = toOffersListInput(productId, commandOptions);
+    const offersList = readOffersList(productId, commandOptions);
     const offersProgram = offersCommandProgram(offersList);
     return runCliProgram(offersProgram);
   }
@@ -137,7 +137,7 @@ export function registerOffersCommand(program: Command): void {
     offerName: string,
     commandOptions: AppScopedOptions,
   ) {
-    const offersDeactivate = toOffersDeactivateInput(productId, offerName, commandOptions);
+    const offersDeactivate = readOffersDeactivate(productId, offerName, commandOptions);
     const offersProgram = offersCommandProgram(offersDeactivate);
     return runCliProgram(offersProgram);
   }

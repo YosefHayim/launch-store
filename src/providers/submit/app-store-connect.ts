@@ -12,7 +12,7 @@ import {
   AppleStoreClientService,
   appRecordMissingMessage,
 } from '../../services/stores/apple-store-client.ts';
-import { toAscPlatform } from '../../services/stores/platform.ts';
+import { readConnectPlatform } from '../../services/stores/platform.ts';
 import type { AppStoreConnectClient } from '../../apple/asc-client.ts';
 
 const PROVIDER = 'app-store-connect';
@@ -139,7 +139,7 @@ async function submitAppleBuild(
     });
   }
 
-  const ascPlatform = toAscPlatform(buildContext.platform);
+  const ascPlatform = readConnectPlatform(buildContext.platform);
   const appStoreClient = AppleStoreClientService.createEffectClient(buildCredentials.ascKey);
   const appId = await appStoreClient.getAppId(bundleId);
 

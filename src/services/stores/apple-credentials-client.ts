@@ -53,7 +53,7 @@ export type AppleCredentialsClientFactory = Readonly<{
 }>;
 
 /** Translate the Apple transport shape without leaking explicit `undefined` fields into the domain. */
-function toDomainBundleId(bundleIdentifier: AscBundleIdResource): BundleIdResource {
+function readDomainBundleId(bundleIdentifier: AscBundleIdResource): BundleIdResource {
   if (bundleIdentifier.seedId == null)
     return { id: bundleIdentifier.id, identifier: bundleIdentifier.identifier };
   return {
@@ -64,15 +64,15 @@ function toDomainBundleId(bundleIdentifier: AscBundleIdResource): BundleIdResour
 }
 
 /** Preserve a missing bundle identifier while translating a present Apple transport resource. */
-function toOptionalDomainBundleId(
+function readOptionalDomainBundleId(
   bundleIdentifier: AscBundleIdResource | null,
 ): BundleIdResource | null {
   if (bundleIdentifier == null) return null;
-  return toDomainBundleId(bundleIdentifier);
+  return readDomainBundleId(bundleIdentifier);
 }
 
 /** Translate an Apple certificate while preserving an absent expiration date as an absent field. */
-function toDomainCertificate(certificate: AscCertificateResource): CertificateResource {
+function readDomainCertificate(certificate: AscCertificateResource): CertificateResource {
   if (certificate.expirationDate == null) {
     return {
       id: certificate.id,
@@ -89,13 +89,13 @@ function toDomainCertificate(certificate: AscCertificateResource): CertificateRe
 }
 
 /** Translate an Apple device while preserving an absent status as an absent field. */
-function toDomainDevice(device: AscDeviceResource): AppleDeviceResource {
+function readDomainDevice(device: AscDeviceResource): AppleDeviceResource {
   if (device.status == null) return { id: device.id, udid: device.udid, name: device.name };
   return { id: device.id, udid: device.udid, name: device.name, status: device.status };
 }
 
 /** Translate one enabled capability and its optional setting choices into the domain API. */
-function toDomainCapability(capability: AscBundleIdCapabilityResource): BundleIdCapabilityResource {
+function readDomainCapability(capability: AscBundleIdCapabilityResource): BundleIdCapabilityResource {
   if (capability.settings == null)
     return { id: capability.id, capabilityType: capability.capabilityType };
   function mapSetting(setting: {
@@ -119,19 +119,19 @@ async function createAppleCredentialsClient(ascKey: AscKey): Promise<AppleCreden
   return {
     async findBundleId(identifier) {
       const bundleIdentifier = await appStoreClient.findBundleId(identifier);
-      return toOptionalDomainBundleId(bundleIdentifier);
+      return readOptionalDomainBundleId(bundleIdentifier);
     },
     async createBundleId(identifier, name, platform) {
       const bundleIdentifier = await appStoreClient.createBundleId(identifier, name, platform);
-      return toDomainBundleId(bundleIdentifier);
+      return readDomainBundleId(bundleIdentifier);
     },
     async listDistributionCertificates() {
       const certificates = await appStoreClient.listDistributionCertificates();
-      return certificates.map(toDomainCertificate);
+      return certificates.map(readDomainCertificate);
     },
     async createCertificate(csrContent) {
       const certificate = await appStoreClient.createCertificate(csrContent);
-      return toDomainCertificate(certificate);
+      return readDomainCertificate(certificate);
     },
     findProfileByName(name) {
       return appStoreClient.findProfileByName(name);
@@ -149,7 +149,7 @@ async function createAppleCredentialsClient(ascKey: AscKey): Promise<AppleCreden
     },
     async listDevices() {
       const devices = await appStoreClient.listDevices();
-      return devices.map(toDomainDevice);
+      return devices.map(readDomainDevice);
     },
     createAdHocProfile(name, bundleIdResourceId, certificateId, deviceIds, profileType) {
       return appStoreClient.createAdHocProfile(
@@ -162,7 +162,7 @@ async function createAppleCredentialsClient(ascKey: AscKey): Promise<AppleCreden
     },
     async listBundleIdCapabilities(bundleIdResourceId) {
       const capabilities = await appStoreClient.listBundleIdCapabilities(bundleIdResourceId);
-      return capabilities.map(toDomainCapability);
+      return capabilities.map(readDomainCapability);
     },
   };
 }

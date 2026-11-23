@@ -38,7 +38,7 @@ export type RemoteBuildInputs = {
  * `extensionProfiles` is absent: the remote path uploads one profile, so it is single-target-only.
  * The local engine stamps profiles into the pbxproj; the remote script still pins one global profile.
  */
-function toSigningAssets(bundle: RemoteSigningBundle): SigningAssets {
+function readSigningAssets(bundle: RemoteSigningBundle): SigningAssets {
   return {
     bundleId: bundle.bundleId,
     teamId: bundle.teamId,
@@ -116,7 +116,7 @@ export async function uploadSigningMaterial(
     const credentialsDirectory = session.credentialsDirectory;
     const plistLocal = join(stagingDirectory, 'ExportOptions.plist');
 
-    const exportPlist = exportOptionsPlist(toSigningAssets(inputs.signing));
+    const exportPlist = exportOptionsPlist(readSigningAssets(inputs.signing));
     await writeFile(plistLocal, exportPlist);
     await scpUp(session.target, inputs.signing.p12Path, `${credentialsDirectory}/dist.p12`);
     await scpUp(

@@ -137,7 +137,7 @@ export function buildId(artifact: BuildArtifact): string {
   return buildLogId(artifact);
 }
 
-export function toBuildRow(artifact: BuildArtifact): BuildRow {
+export function readBuildRow(artifact: BuildArtifact): BuildRow {
   const buildRow: BuildRow = {
     id: buildId(artifact),
     app: artifact.appName,
@@ -719,7 +719,7 @@ async function listBuilds(
     buildFilters.platform = platform;
   }
 
-  const buildRows = filterBuilds(storedBuilds, buildFilters).map(toBuildRow);
+  const buildRows = filterBuilds(storedBuilds, buildFilters).map(readBuildRow);
   const wantsJson = commandInput.json == true;
 
   if (wantsJson) {
@@ -748,8 +748,8 @@ async function viewBuild(
   const wantsJson = commandInput.json == true;
 
   if (wantsJson) {
-    const toBuild = toBuildRow(storedBuild);
-    const serialized = JSON.stringify(toBuild, null, 2);
+    const buildRow = readBuildRow(storedBuild);
+    const serialized = JSON.stringify(buildRow, null, 2);
     tools.logger.line(serialized);
     return;
   }

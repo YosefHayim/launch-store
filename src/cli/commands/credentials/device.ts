@@ -3,7 +3,7 @@ import { type DeviceAddInput, deviceCommandProgram } from '../store/apple/device
 import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Map the optional device name without passing an explicit undefined. */
-function toDeviceAddInput(udid: string, name: string | undefined): DeviceAddInput {
+function readDeviceAdd(udid: string, name: string | undefined): DeviceAddInput {
   let commandInput: DeviceAddInput = { operation: 'add', udid };
   if (name != null) commandInput = { ...commandInput, name };
   return commandInput;
@@ -15,7 +15,7 @@ export function registerDeviceCommand(program: Command): void {
     .command('device')
     .description('manage iOS devices for ad-hoc (internal) distribution');
   function runAdd(udid: string, name: string | undefined) {
-    const deviceAdd = toDeviceAddInput(udid, name);
+    const deviceAdd = readDeviceAdd(udid, name);
     const deviceProgram = deviceCommandProgram(deviceAdd);
     return runCliProgram(deviceProgram);
   }

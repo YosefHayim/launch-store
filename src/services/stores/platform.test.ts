@@ -12,8 +12,8 @@ import {
   parsePlatform,
   PLATFORMS,
   platformLabel,
-  toAscPlatform,
-  toBundleIdPlatform,
+  readConnectPlatform,
+  readBundleIdPlatform,
 } from './platform.ts';
 
 const APPLE: Platform[] = ['ios', 'tvos', 'macos', 'visionos'];
@@ -110,10 +110,10 @@ function describePlatformLabelHumanFacingNames() {
 describe('platformLabel - human-facing names', describePlatformLabelHumanFacingNames);
 function describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMapping() {
   function mapsTheVersionFilterPlatformToTheFourDistinctASCValues() {
-    expect(toAscPlatform('ios')).toBe('IOS');
-    expect(toAscPlatform('tvos')).toBe('TV_OS');
-    expect(toAscPlatform('macos')).toBe('MAC_OS');
-    expect(toAscPlatform('visionos')).toBe('VISION_OS');
+    expect(readConnectPlatform('ios')).toBe('IOS');
+    expect(readConnectPlatform('tvos')).toBe('TV_OS');
+    expect(readConnectPlatform('macos')).toBe('MAC_OS');
+    expect(readConnectPlatform('visionos')).toBe('VISION_OS');
   }
 
   it(
@@ -121,10 +121,10 @@ function describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMap
     mapsTheVersionFilterPlatformToTheFourDistinctASCValues,
   );
   function collapsesTheBundleIdPlatformTvOSVisionOSRegisterAsIOSFamilyOnlyMacOSIsMACOS() {
-    expect(toBundleIdPlatform('ios')).toBe('IOS');
-    expect(toBundleIdPlatform('tvos')).toBe('IOS');
-    expect(toBundleIdPlatform('visionos')).toBe('IOS');
-    expect(toBundleIdPlatform('macos')).toBe('MAC_OS');
+    expect(readBundleIdPlatform('ios')).toBe('IOS');
+    expect(readBundleIdPlatform('tvos')).toBe('IOS');
+    expect(readBundleIdPlatform('visionos')).toBe('IOS');
+    expect(readBundleIdPlatform('macos')).toBe('MAC_OS');
   }
 
   it(
@@ -132,8 +132,8 @@ function describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMap
     collapsesTheBundleIdPlatformTvOSVisionOSRegisterAsIOSFamilyOnlyMacOSIsMACOS,
   );
   function provesTheSplitVisionOSIsVISIONOSForAVersionFilterButIOSForABundleId() {
-    expect(toAscPlatform('visionos')).toBe('VISION_OS');
-    expect(toBundleIdPlatform('visionos')).toBe('IOS');
+    expect(readConnectPlatform('visionos')).toBe('VISION_OS');
+    expect(readBundleIdPlatform('visionos')).toBe('IOS');
   }
 
   it(
@@ -142,10 +142,10 @@ function describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMap
   );
   function bothThrowForAndroidNoAppStoreConnectPresence() {
     const ascPlatformFailure = thrownMessage(function readAscPlatform() {
-      toAscPlatform('android');
+      readConnectPlatform('android');
     });
     const bundleIdPlatformFailure = thrownMessage(function readBundlePlatform() {
-      toBundleIdPlatform('android');
+      readBundleIdPlatform('android');
     });
     expect(ascPlatformFailure).toMatch(/Android/);
     expect(bundleIdPlatformFailure).toMatch(/Android/);
@@ -158,7 +158,7 @@ function describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMap
 }
 
 describe(
-  'toAscPlatform vs toBundleIdPlatform - the two ASC enums are NOT the same mapping',
+  'readConnectPlatform vs readBundleIdPlatform - the two ASC enums are NOT the same mapping',
   describeToAscPlatformVsToBundleIdPlatformTheTwoASCEnumsAreNOTTheSameMapping,
 );
 function describeProvisioningProfileTypesVisionOSReusesIOSMacOSHasNoAdHoc() {

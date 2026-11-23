@@ -29,7 +29,7 @@ import {
   restoreErrorMessage,
   skippedAction,
   stringField,
-  toPriceConfig,
+  readPriceConfig,
 } from './play-restore.ts';
 import type { PlayMoneyUnits } from '../../types/play-pricing.ts';
 
@@ -93,7 +93,7 @@ function listings(items: readonly SubscriptionListing[]): JsonValue {
   return items.map(mapListing);
 }
 /** One captured subscription -> a snapshot entity keyed by its product id. */
-function toEntity(subscription: SubscriptionResource): SnapshotEntity {
+function readSnapshotEntity(subscription: SubscriptionResource): SnapshotEntity {
   const subscriptionFields: Record<string, JsonValue> = { productId: subscription.productId };
   if (subscription.basePlans) subscriptionFields['basePlans'] = basePlans(subscription.basePlans);
   if (subscription.listings) subscriptionFields['listings'] = listings(subscription.listings);
@@ -112,12 +112,12 @@ type RestorableBasePlan = {
   prices: Record<string, PlayPriceConfig>;
 };
 /** Invert a captured `prices` map (`{ region: { priceMicros, currency } }`) back to per-region price configs. */
-function toPriceMap(capturedPrices: JsonValue | undefined): Record<string, PlayPriceConfig> {
+function readPriceMap(capturedPrices: JsonValue | undefined): Record<string, PlayPriceConfig> {
   const map = jsonRecord(capturedPrices);
   if (!map) return {};
   const prices: Record<string, PlayPriceConfig> = {};
   for (const [region, raw] of Object.entries(map)) {
-    const price = toPriceConfig(raw);
+    const price = readPriceConfig(raw);
     if (price) prices[region] = price;
   }
   return prices;
@@ -133,10 +133,10 @@ function firstBasePlan(capturedBasePlans: JsonValue | undefined): RestorableBase
   if (!first) return null;
   const basePlanId = stringField(first, 'basePlanId');
   if (basePlanId == null) return null;
-  return { basePlanId, period: stringField(first, 'period'), prices: toPriceMap(first['prices']) };
+  return { basePlanId, period: stringField(first, 'period'), prices: readPriceMap(first['prices']) };
 }
 /** Invert a captured `listings` array (`{ languageCode, title }`) back into the shared localization list. */
-function toLocalizations(capturedListings: JsonValue | undefined): ProductLocalization[] {
+function readCapturedLocalizations(capturedListings: JsonValue | undefined): ProductLocalization[] {
   if (!Array.isArray(capturedListings)) return [];
   const localizations: ProductLocalization[] = [];
   for (const capturedListing of capturedListings) {
@@ -163,7 +163,7 @@ function toLocalizations(capturedListings: JsonValue | undefined): ProductLocali
  * no base plan, an unknown billing period, or no captured prices (`PlaySubscriptionOverride` requires at
  * least one region). `referenceName` is an Apple-only field the Play path ignores, so the product id fills it.
  */
-function toSubscriptionConfig(entity: SnapshotEntity): SubscriptionConfig | null {
+function readSubscriptionConfig(entity: SnapshotEntity): SubscriptionConfig | null {
   const subscriptionFields = jsonRecord(entity.data);
   if (!subscriptionFields) return null;
   let productId = stringField(subscriptionFields, 'productId');
@@ -182,7 +182,7 @@ function toSubscriptionConfig(entity: SnapshotEntity): SubscriptionConfig | null
     productId,
     referenceName: productId,
     subscriptionPeriod,
-    localizations: toLocalizations(subscriptionFields['listings']),
+    localizations: readCapturedLocalizations(subscriptionFields['listings']),
     play,
   };
 }
@@ -221,7 +221,7 @@ async function captureOneSubscriptionApp(
   const records = await client.listSubscriptions(app.identifier);
 
   return {
-    captured: { app: app.name, identifier: app.identifier, entities: records.map(toEntity) },
+    captured: { app: app.name, identifier: app.identifier, entities: records.map(readSnapshotEntity) },
   };
 }
 
@@ -291,7 +291,7 @@ async function restorePlaySubscriptions({ ctx: restoreContext, saved, dryRun }: 
     const subscriptions: SubscriptionConfig[] = [];
 
     for (const entity of app.entities) {
-      const subscriptionConfig = toSubscriptionConfig(entity);
+      const subscriptionConfig = readSubscriptionConfig(entity);
 
       if (subscriptionConfig == null) {
         actions.push(

@@ -11,7 +11,7 @@ import {
   BASE_URL,
   AscRequestError,
   isRetryableIdempotentFailure,
-  toReportRequest,
+  readReportRequest,
   describeErrors,
   parseErrorCodes,
 } from './shared.ts';
@@ -57,7 +57,7 @@ export class ConnectReports {
       attributes: { accessType?: string; stoppedDueToInactivity?: boolean };
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
-      return toReportRequest(entry, accessType);
+      return readReportRequest(entry, accessType);
     }
 
     return appleResources.map(mapPiece);
@@ -75,7 +75,7 @@ export class ConnectReports {
       attributes: { accessType },
       relationships: { app: { data: { type: 'apps', id: appId } } },
     });
-    return toReportRequest(appleResources, accessType);
+    return readReportRequest(appleResources, accessType);
   }
 
   async listAnalyticsReports(

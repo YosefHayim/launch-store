@@ -11,7 +11,7 @@ type DoctorOptions = Readonly<{
 }>;
 
 /** Map doctor options without explicit undefined fields. */
-function toDoctorCommandInput(commandOptions: DoctorOptions): DoctorCommandInput {
+function readDoctorCommand(commandOptions: DoctorOptions): DoctorCommandInput {
   let commandInput: DoctorCommandInput = {
     fix: commandOptions.fix,
     yes: commandOptions.yes,
@@ -29,7 +29,7 @@ function toDoctorCommandInput(commandOptions: DoctorOptions): DoctorCommandInput
 /** Attach the doctor command. */
 export function registerDoctorCommand(program: Command): void {
   function runDoctor(commandOptions: DoctorOptions) {
-    const doctorCommand = toDoctorCommandInput(commandOptions);
+    const doctorCommand = readDoctorCommand(commandOptions);
     const doctorProgram = doctorCommandProgram(doctorCommand);
     return runCliProgram(doctorProgram);
   }

@@ -12,7 +12,7 @@ type AvailabilityOptions = Readonly<{
   readonly yes: boolean;
 }>;
 
-function toAvailabilityInput(commandOptions: AvailabilityOptions): AvailabilityCommandInput {
+function readAvailabilityCommand(commandOptions: AvailabilityOptions): AvailabilityCommandInput {
   let availabilityInput: AvailabilityCommandInput = {
     config: commandOptions.config,
     dryRun: commandOptions.dryRun,
@@ -26,7 +26,7 @@ function toAvailabilityInput(commandOptions: AvailabilityOptions): AvailabilityC
 
 export function registerAvailabilityCommand(program: Command): void {
   function runAvailability(commandOptions: AvailabilityOptions) {
-    const availability = toAvailabilityInput(commandOptions);
+    const availability = readAvailabilityCommand(commandOptions);
     const availabilityProgram = availabilityCommandProgram(availability);
     return runCliProgram(availabilityProgram);
   }

@@ -13,7 +13,7 @@ import {
   createMarketingVersionFilter,
   buildUploadProblems,
   putAssetFile,
-  toBuildResources,
+  readBuildResources,
 } from './shared.ts';
 
 export class ConnectBuilds {
@@ -227,7 +227,7 @@ export class ConnectBuilds {
       'GET',
       `/builds?filter[app]=${appId}&sort=-uploadedDate&limit=${limit}&${BUILD_PAGE_QUERY}`,
     );
-    return toBuildResources(buildPage);
+    return readBuildResources(buildPage);
   }
 
   async findBuildByVersion(
@@ -240,7 +240,7 @@ export class ConnectBuilds {
       'GET',
       `/builds?filter[app]=${appId}&filter[version]=${buildNumber}${versionFilter}&sort=-uploadedDate&limit=1&${BUILD_PAGE_QUERY}`,
     );
-    const [firstBuild] = toBuildResources(buildPage);
+    const [firstBuild] = readBuildResources(buildPage);
     if (firstBuild == null) return null;
     return firstBuild;
   }

@@ -35,7 +35,7 @@ export function stringField(
  * fields are required - a partial price (one half dropped at capture) can't be restored, so it yields
  * `null` and the caller drops it rather than writing an invalid price.
  */
-export function toPriceConfig(capturedNode: JsonValue | undefined): PlayPriceConfig | null {
+export function readPriceConfig(capturedNode: JsonValue | undefined): PlayPriceConfig | null {
   const record = jsonRecord(capturedNode);
   if (!record) return null;
   const priceMicros = stringField(record, 'priceMicros');

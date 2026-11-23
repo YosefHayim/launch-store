@@ -10,7 +10,7 @@ type AppClipsOptions = Readonly<{
 }>;
 
 /** Map Commander values without explicit undefined optionals. */
-function toAppClipsInput(
+function readAppClipsCommand(
   commandOptions: AppClipsOptions,
   explicitConfig: boolean,
 ): AppClipsCommandInput {
@@ -30,7 +30,7 @@ function toAppClipsInput(
 export function registerAppClipsCommand(program: Command): void {
   function runAppClips(commandOptions: AppClipsOptions, registeredCommand: Command) {
     const explicitConfig = registeredCommand.getOptionValueSource('config') == 'cli';
-    const appClips = toAppClipsInput(commandOptions, explicitConfig);
+    const appClips = readAppClipsCommand(commandOptions, explicitConfig);
     const appClipsProgram = appClipsCommandProgram(appClips);
     return runCliProgram(appClipsProgram);
   }

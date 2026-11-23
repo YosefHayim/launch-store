@@ -7,7 +7,7 @@ import type {
 } from '../../types/snapshot.ts';
 import { iosApps } from '../../readiness/app-scopes.ts';
 
-function toEntity(capabilityType: string): SnapshotEntity {
+function readSnapshotEntity(capabilityType: string): SnapshotEntity {
   return { key: capabilityType, summary: `capability ${capabilityType}`, data: { capabilityType } };
 }
 
@@ -21,7 +21,7 @@ async function captureApp(api: SnapshotAscApi, app: { name: string; identifier: 
   const capabilities = await api.listBundleIdCapabilities(bundle.id);
   const entities = capabilities
     .map(function capabilityEntity(capability) {
-      return toEntity(capability.capabilityType);
+      return readSnapshotEntity(capability.capabilityType);
     })
     .sort(function byKey(left, right) {
       return left.key.localeCompare(right.key);

@@ -8,13 +8,13 @@ import type {
   SnapshotSource,
 } from '../../types/snapshot.ts';
 import type { PlannedAction } from '../../types/reconcile.ts';
-import { readAppleLocaleFields, toLocaleInfo } from '../../store/apple/apple-listing-read.ts';
+import { readAppleLocaleFields, readLocaleInfo } from '../../store/apple/apple-listing-read.ts';
 import type { AppleLocaleInfo, AppleStoreConfig } from '../../store/shared/store-config.ts';
 import { reconcileAppListing } from '../../store/apple/asc-sync.ts';
 import { iosApps } from '../../readiness/app-scopes.ts';
 import { readPlainObject } from '../../services/platform/plain-object.ts';
 /** One locale's merged listing fields -> a snapshot entity keyed by the locale (its natural, stable id). */
-function toEntity(locale: string, fields: Record<string, string>): SnapshotEntity {
+function readSnapshotEntity(locale: string, fields: Record<string, string>): SnapshotEntity {
   return {
     key: locale,
     summary: `listing ${locale} (${Object.keys(fields).length} field(s))`,
@@ -25,11 +25,11 @@ async function captureListing(api: SnapshotAscApi, appId: string): Promise<Snaps
   const localeFields = await readAppleLocaleFields(api, appId);
 
   return localeFields.map(function listingEntity(localeField) {
-    return toEntity(localeField.locale, localeField.fields);
+    return readSnapshotEntity(localeField.locale, localeField.fields);
   });
 }
 /** Rebuild the `AppleStoreConfig` listing from one app's captured per-locale entities (skips malformed ones). */
-function toListing(saved: AppEntities): AppleStoreConfig {
+function readSavedListing(saved: AppEntities): AppleStoreConfig {
   const localeInfoByLocale: Record<string, AppleLocaleInfo> = {};
   for (const entity of saved.entities) {
     const capturedListing = readPlainObject(entity.data);
@@ -38,7 +38,7 @@ function toListing(saved: AppEntities): AppleStoreConfig {
     const fields = readPlainObject(capturedListing['fields']);
     if (typeof locale != 'string') continue;
     if (fields == null) continue;
-    localeInfoByLocale[locale] = toLocaleInfo(fields as Readonly<{ [key: string]: JsonValue }>);
+    localeInfoByLocale[locale] = readLocaleInfo(fields as Readonly<{ [key: string]: JsonValue }>);
   }
   return { info: localeInfoByLocale };
 }
@@ -108,7 +108,7 @@ async function restoreOneListing(
   app: AppEntities,
   dryRun: boolean,
 ): Promise<PlannedAction[]> {
-  const listing = toListing(app);
+  const listing = readSavedListing(app);
 
   if (Object.keys(listing.info).length == 0) {
     return [];

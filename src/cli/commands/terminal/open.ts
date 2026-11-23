@@ -6,7 +6,7 @@ import { runCliProgram } from '../../run-cli-program.ts';
 type OpenCommandOptions = Readonly<{ platform?: string; app?: string }>;
 
 /** Map open arguments without explicit undefined optionals. */
-function toOpenCommandInput(
+function readOpenCommand(
   target: string | undefined,
   commandOptions: OpenCommandOptions,
 ): OpenCommandInput {
@@ -24,7 +24,7 @@ function toOpenCommandInput(
 /** Attach the top-level `open` command to the program. */
 export function registerOpenCommand(program: Command): void {
   function runOpen(target: string | undefined, commandOptions: OpenCommandOptions) {
-    const openCommand = toOpenCommandInput(target, commandOptions);
+    const openCommand = readOpenCommand(target, commandOptions);
     const openProgram = openCommandProgram(openCommand);
     return runCliProgram(openProgram);
   }

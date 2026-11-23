@@ -52,7 +52,7 @@ function insightsFailure(operation: string, cause: unknown): InsightsCommandFail
 }
 
 /** Narrow an external rating to Launch's one-to-five-star domain. */
-function toStarRating(rating: number): StarRating | null {
+function readStarRating(rating: number): StarRating | null {
   switch (rating) {
     case 1:
     case 2:
@@ -69,7 +69,7 @@ function toStarRating(rating: number): StarRating | null {
 function normalizeAscReviews(customerReviews: readonly CustomerReviewResource[]): ReviewDatum[] {
   const normalizedReviews: ReviewDatum[] = [];
   for (const customerReview of customerReviews) {
-    const starRating = toStarRating(customerReview.rating);
+    const starRating = readStarRating(customerReview.rating);
     if (starRating == null) continue;
     const normalizedReview: MutableDeep<ReviewDatum> = {
       store: 'appstore',
@@ -88,7 +88,7 @@ function normalizeAscReviews(customerReviews: readonly CustomerReviewResource[])
 function normalizePlayReviews(playReviews: readonly PlayReview[]): ReviewDatum[] {
   const normalizedReviews: ReviewDatum[] = [];
   for (const playReview of playReviews) {
-    const starRating = toStarRating(playReview.rating);
+    const starRating = readStarRating(playReview.rating);
     if (starRating == null) continue;
     const normalizedReview: MutableDeep<ReviewDatum> = {
       store: 'play',

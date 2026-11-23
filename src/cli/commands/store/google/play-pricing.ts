@@ -12,7 +12,7 @@ type PlayPricingOptions = Readonly<{
 }>;
 
 /** Map pricing flags without explicit undefined optionals. */
-function toPlayPricingInput(
+function readPlayPricing(
   amount: string,
   commandOptions: PlayPricingOptions,
 ): PlayPricingCommandInput {
@@ -33,7 +33,7 @@ export function registerPlayPricingCommand(program: Command): void {
     .command('play-pricing')
     .description('compute recommended Google Play prices for every region from one base price');
   function runLocalizeAmount(amount: string, commandOptions: PlayPricingOptions) {
-    const playPricing = toPlayPricingInput(amount, commandOptions);
+    const playPricing = readPlayPricing(amount, commandOptions);
     const playPricingProgram = playPricingCommandProgram(playPricing);
     return runCliProgram(playPricingProgram);
   }

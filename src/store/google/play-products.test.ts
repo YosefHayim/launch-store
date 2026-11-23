@@ -7,7 +7,7 @@ import {
   productInSync,
   reconcilePlayProducts,
   summarizePlayProducts,
-  toPlayProduct,
+  readPlayProduct,
 } from './play-products.ts';
 
 type Calls = {
@@ -80,7 +80,7 @@ function insertedSku(insertedProduct: InAppProductResource): string {
 }
 function describeToPlayProduct() {
   function mapsSharedFieldsThePlayOverrideIntoAnActiveManagedProduct() {
-    expect(toPlayProduct(product())).toEqual({
+    expect(readPlayProduct(product())).toEqual({
       sku: 'com.acme.coins.100',
       status: 'active',
       purchaseType: 'managedUser',
@@ -95,7 +95,7 @@ function describeToPlayProduct() {
     mapsSharedFieldsThePlayOverrideIntoAnActiveManagedProduct,
   );
   function prefersPlaySkuOverTheSharedProductIdAndCarriesPerRegionPrices() {
-    const mapped = toPlayProduct(
+    const mapped = readPlayProduct(
       product({
         play: {
           sku: 'coins_100',
@@ -115,7 +115,7 @@ function describeToPlayProduct() {
   );
   function throwsWhenTheProductHasNoLocalizationToDeriveADefaultLanguageFrom() {
     function expectCall() {
-      return toPlayProduct(product({ localizations: [] }));
+      return readPlayProduct(product({ localizations: [] }));
     }
 
     expect(expectCall).toThrow(/at least one localization/);
@@ -127,9 +127,9 @@ function describeToPlayProduct() {
   );
 }
 
-describe('toPlayProduct', describeToPlayProduct);
+describe('readPlayProduct', describeToPlayProduct);
 function describeProductInSync() {
-  const desired = toPlayProduct(product());
+  const desired = readPlayProduct(product());
   function ignoresPlaySAutoFannedRegionalPricesNotNamedInPiece() {
     const live: InAppProductResource = {
       ...desired,
@@ -197,7 +197,7 @@ function describeReconcilePlayProducts() {
   it("creates a product Play doesn't have yet", createsAProductPlayDoesnTHaveYet);
   async function emitsNoActionWhenTheLiveProductAlreadyMatchesSubsetDiffVsPlaySExtraRegions() {
     const live: InAppProductResource = {
-      ...toPlayProduct(product()),
+      ...readPlayProduct(product()),
       prices: {
         US: { priceMicros: '1990000', currency: 'USD' },
         FR: { priceMicros: '1990000', currency: 'EUR' },

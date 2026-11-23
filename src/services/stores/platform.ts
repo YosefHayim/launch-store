@@ -76,7 +76,7 @@ export function parsePlatform(platformText: string) {
  * `filter[platform]` and on `appStoreVersions` / `reviewSubmissions`. Throws for Android, which has no
  * App Store Connect platform, so callers must only reach this on the Apple path.
  */
-export function toAscPlatform(platform: Platform) {
+export function readConnectPlatform(platform: Platform) {
   switch (platform) {
     case 'ios':
       return 'IOS';
@@ -96,10 +96,10 @@ export function toAscPlatform(platform: Platform) {
 }
 /**
  * The App Store Connect **bundle-id** platform for a build platform - a narrower mapping than
- * {@link toAscPlatform}: tvOS and visionOS bundle ids register as iOS-family (`IOS`); only macOS is
+ * {@link readConnectPlatform}: tvOS and visionOS bundle ids register as iOS-family (`IOS`); only macOS is
  * `MAC_OS`. Throws for Android.
  */
-export function toBundleIdPlatform(platform: Platform) {
+export function readBundleIdPlatform(platform: Platform) {
   switch (platform) {
     case 'ios':
     case 'tvos':

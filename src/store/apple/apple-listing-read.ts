@@ -23,7 +23,7 @@ function compareLocaleNames(
   return leftLocale[0].localeCompare(rightLocale[0]);
 }
 
-function toLocaleFields(localeEntry: readonly [string, Record<string, string>]): AppleLocaleFields {
+function readLocaleFields(localeEntry: readonly [string, Record<string, string>]): AppleLocaleFields {
   return { locale: localeEntry[0], fields: localeEntry[1] };
 }
 
@@ -70,7 +70,7 @@ export async function readAppleLocaleFields(
 
   const localeEntries = [...byLocale.entries()];
   const sortedLocaleEntries = localeEntries.sort(compareLocaleNames);
-  return sortedLocaleEntries.map(toLocaleFields);
+  return sortedLocaleEntries.map(readLocaleFields);
 }
 
 /** Read a string-valued field from a captured listing's `fields` map, or undefined when absent/non-string. */
@@ -92,7 +92,7 @@ function fieldString(
  * `ascSync.routeListing`. Only present fields are carried, and the comma-joined `keywords` string is split
  * back into the array shape `store.config.json` uses.
  */
-export function toLocaleInfo(fields: Readonly<{ [key: string]: JsonValue }>): AppleLocaleInfo {
+export function readLocaleInfo(fields: Readonly<{ [key: string]: JsonValue }>): AppleLocaleInfo {
   const localeInfo: AppleLocaleInfo = {};
   const title = fieldString(fields, 'name');
   if (title != null) localeInfo.title = title;
@@ -131,7 +131,7 @@ export async function readAppleListing(
   const localeInfoByLocale: Record<string, AppleLocaleInfo> = {};
 
   for (const { locale, fields } of localeFields) {
-    const localeInfo = toLocaleInfo(fields);
+    const localeInfo = readLocaleInfo(fields);
     const hasLocaleFields = Object.keys(localeInfo).length > 0;
 
     if (hasLocaleFields) {

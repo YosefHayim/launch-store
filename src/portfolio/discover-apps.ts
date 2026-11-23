@@ -169,7 +169,7 @@ async function discoverAppleAccount(account: AccountRecord): Promise<AccountDisc
 
     const ascApps = await listAppleApps(ascClient);
 
-    function toDiscoveredApp(ascApp: ListedAppleApp): DiscoveredApp {
+    function readDiscoveredApp(ascApp: ListedAppleApp): DiscoveredApp {
       return {
         key: createIosAppKey(ascApp.id),
         platform: 'ios',
@@ -182,7 +182,7 @@ async function discoverAppleAccount(account: AccountRecord): Promise<AccountDisc
       };
     }
 
-    return { accountLabel: account.label, apps: ascApps.map(toDiscoveredApp), warning: null };
+    return { accountLabel: account.label, apps: ascApps.map(readDiscoveredApp), warning: null };
   } catch (cause) {
     return failedAccountDiscovery(account.label, cause);
   }
@@ -309,7 +309,7 @@ async function discoverPlay(packageName: string): Promise<AccountDiscovery | nul
 
     const playApps = await listPlayApps(reportingClient);
 
-    function toDiscoveredApp(playApp: ListedPlayApp): DiscoveredApp {
+    function readDiscoveredApp(playApp: ListedPlayApp): DiscoveredApp {
       return {
         key: createAndroidAppKey(playApp.packageName),
         platform: 'android',
@@ -324,7 +324,7 @@ async function discoverPlay(packageName: string): Promise<AccountDiscovery | nul
 
     return {
       accountLabel: PLAY_ACCOUNT_LABEL,
-      apps: playApps.map(toDiscoveredApp),
+      apps: playApps.map(readDiscoveredApp),
       warning: null,
     };
   } catch (cause) {

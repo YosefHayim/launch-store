@@ -15,8 +15,8 @@ import {
   findVersionId,
   pickListingFields,
   EDITABLE_METADATA_STATES,
-  toVersionResource,
-  toPhasedRelease,
+  readVersionResource,
+  readPhasedRelease,
 } from './shared.ts';
 
 export class ConnectVersions {
@@ -164,7 +164,7 @@ export class ConnectVersions {
       `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=200&fields[appStoreVersions]=versionString,appStoreState,releaseType,build&include=build&fields[builds]=version,processingState`,
     );
     return versionPages.flatMap(({ data: entries, included = [] }) =>
-      entries.map((versionEntry) => toVersionResource(versionEntry, '', included)),
+      entries.map((versionEntry) => readVersionResource(versionEntry, '', included)),
     );
   }
 
@@ -192,7 +192,7 @@ export class ConnectVersions {
       attributes,
       relationships: { app: { data: { type: 'apps', id: appId } } },
     });
-    return toVersionResource(
+    return readVersionResource(
       { id: appleResources.id, attributes: appleResources.attributes },
       input.versionString,
     );
@@ -303,7 +303,7 @@ export class ConnectVersions {
         } | null;
       }>('GET', `/appStoreVersions/${versionId}/appStoreVersionPhasedRelease`);
       if (appleResources == null) return null;
-      return toPhasedRelease(appleResources);
+      return readPhasedRelease(appleResources);
     });
   }
 
@@ -316,7 +316,7 @@ export class ConnectVersions {
       attributes: { phasedReleaseState: 'ACTIVE' },
       relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } } },
     });
-    return toPhasedRelease({ id: appleResources.id, attributes: appleResources.attributes });
+    return readPhasedRelease({ id: appleResources.id, attributes: appleResources.attributes });
   }
 
   async updatePhasedRelease(phasedReleaseId: string, phasedReleaseState: string): Promise<void> {

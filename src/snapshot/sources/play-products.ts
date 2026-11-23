@@ -20,7 +20,7 @@ import {
   restoreErrorMessage,
   skippedAction,
   stringField,
-  toPriceConfig,
+  readPriceConfig,
 } from './play-restore.ts';
 /** A Play money value as a normalized, serializable record (fields Play left unset are dropped). */
 function money(playMoney: PlayMoney): JsonValue {
@@ -52,7 +52,7 @@ function listings(
   return Object.fromEntries(Object.entries(map).map(mapPiece));
 }
 /** One captured managed product -> a snapshot entity keyed by its SKU. */
-function toEntity(product: InAppProductResource): SnapshotEntity {
+function readSnapshotEntity(product: InAppProductResource): SnapshotEntity {
   const productFields: Record<string, JsonValue> = { sku: product.sku };
   if (product.status) productFields['status'] = product.status;
   if (product.defaultLanguage) productFields['defaultLanguage'] = product.defaultLanguage;
@@ -65,11 +65,11 @@ function toEntity(product: InAppProductResource): SnapshotEntity {
 /**
  * Invert a captured product's `listings` map back into the shared {@link ProductLocalization} list the
  * reconciler reads (title -> name, description -> description). The captured `defaultLanguage` is placed
- * first because {@link import("../../store/google/play-products.ts").toPlayProduct} derives the Play default language
+ * first because {@link import("../../store/google/play-products.ts").readPlayProduct} derives the Play default language
  * from the first localization; the rest follow sorted for a deterministic restore. Listings with no title
  * are dropped - Play requires a title, so a title-less locale can't become a localization.
  */
-function toLocalizations(
+function readCapturedLocalizations(
   listings: JsonValue | undefined,
   defaultLanguage: string | undefined,
 ): ProductLocalization[] {
@@ -109,18 +109,18 @@ function toLocalizations(
  * survive). Apple-only fields the Play path ignores (`type`, `referenceName`) get neutral placeholders.
  * Returns `null` when the product has no restorable listing (the reconciler requires at least one).
  */
-function toProductConfig(entity: SnapshotEntity): InAppPurchaseConfig | null {
+function readProductConfig(entity: SnapshotEntity): InAppPurchaseConfig | null {
   const productFields = jsonRecord(entity.data);
   if (!productFields) return null;
   let sku = stringField(productFields, 'sku');
   if (sku == null) sku = entity.key;
-  const localizations = toLocalizations(
+  const localizations = readCapturedLocalizations(
     productFields['listings'],
     stringField(productFields, 'defaultLanguage'),
   );
   if (localizations.length == 0) return null;
   const play: MutableDeep<PlayProductOverride> = { sku };
-  const defaultPrice = toPriceConfig(productFields['defaultPrice']);
+  const defaultPrice = readPriceConfig(productFields['defaultPrice']);
   if (defaultPrice) play.defaultPrice = defaultPrice;
   return { productId: sku, referenceName: sku, type: 'NON_CONSUMABLE', localizations, play };
 }
@@ -159,7 +159,7 @@ async function captureOneProductApp(
   const records = await client.listInAppProducts(app.identifier);
 
   return {
-    captured: { app: app.name, identifier: app.identifier, entities: records.map(toEntity) },
+    captured: { app: app.name, identifier: app.identifier, entities: records.map(readSnapshotEntity) },
   };
 }
 
@@ -229,7 +229,7 @@ async function restorePlayProducts({ ctx: restoreContext, saved, dryRun }: Resto
     const products: InAppPurchaseConfig[] = [];
 
     for (const entity of app.entities) {
-      const productConfig = toProductConfig(entity);
+      const productConfig = readProductConfig(entity);
 
       if (productConfig == null) {
         actions.push(skippedAction(`Play product ${entity.key}: skipped - no listing to restore`));

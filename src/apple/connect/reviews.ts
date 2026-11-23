@@ -4,7 +4,7 @@ import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
 } from '../../types/apple-catalog.ts';
-import { toReviewResponse } from './shared.ts';
+import { readReviewResponse } from './shared.ts';
 
 export class ConnectReviews {
   constructor(private readonly client: AscHost) {}
@@ -62,7 +62,7 @@ export class ConnectReviews {
         } | null;
       }>('GET', `/customerReviews/${reviewId}/response`);
       if (appleResources == null) return null;
-      return toReviewResponse(appleResources);
+      return readReviewResponse(appleResources);
     });
   }
 
@@ -79,7 +79,7 @@ export class ConnectReviews {
       attributes: { responseBody },
       relationships: { review: { data: { type: 'customerReviews', id: reviewId } } },
     });
-    return toReviewResponse(appleResources);
+    return readReviewResponse(appleResources);
   }
 
   async deleteCustomerReviewResponse(responseId: string): Promise<void> {

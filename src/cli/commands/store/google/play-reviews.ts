@@ -22,7 +22,7 @@ type ReplyOptions = Readonly<{
 }>;
 
 /** Map the list flags without explicit undefined optionals. */
-function toPlayReviewsListInput(commandOptions: PlayReviewsListOptions): PlayReviewsListInput {
+function readPlayReviewsList(commandOptions: PlayReviewsListOptions): PlayReviewsListInput {
   let commandInput: PlayReviewsListInput = {
     operation: 'list',
     unanswered: commandOptions.unanswered,
@@ -41,7 +41,7 @@ function toPlayReviewsListInput(commandOptions: PlayReviewsListOptions): PlayRev
 }
 
 /** Map the reply flags without explicit undefined optionals. */
-function toPlayReviewsReplyInput(
+function readPlayReviewsReply(
   reviewId: string,
   commandOptions: ReplyOptions,
 ): PlayReviewsReplyInput {
@@ -68,7 +68,7 @@ export function registerPlayReviewsCommand(program: Command): void {
     .command('play-reviews')
     .description('read Google Play customer reviews and reply from the CLI');
   function runList(commandOptions: PlayReviewsListOptions) {
-    const playReviewsList = toPlayReviewsListInput(commandOptions);
+    const playReviewsList = readPlayReviewsList(commandOptions);
     const playReviewsProgram = playReviewsCommandProgram(playReviewsList);
     return runCliProgram(playReviewsProgram);
   }
@@ -83,7 +83,7 @@ export function registerPlayReviewsCommand(program: Command): void {
     .option('--json', 'output machine-readable JSON', false)
     .action(runList);
   function runReply(reviewId: string, commandOptions: ReplyOptions) {
-    const playReviewsReply = toPlayReviewsReplyInput(reviewId, commandOptions);
+    const playReviewsReply = readPlayReviewsReply(reviewId, commandOptions);
     const playReviewsProgram = playReviewsCommandProgram(playReviewsReply);
     return runCliProgram(playReviewsProgram);
   }

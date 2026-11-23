@@ -20,7 +20,7 @@ import {
   isApplePlatform,
   parsePlatform,
   platformLabel,
-  toAscPlatform,
+  readConnectPlatform,
 } from '../services/stores/platform.ts';
 import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import type { AndroidReleaseOptions, AppDescriptor, BuildProfile, Platform } from '../types/app.ts';
@@ -1059,7 +1059,7 @@ async function readWhatsNew(launchConfig: LaunchConfig, appDirectory: string) {
 
 function readAscPlatform(platform: Platform): string {
   try {
-    return toAscPlatform(platform);
+    return readConnectPlatform(platform);
   } catch (error) {
     const failureMessage = errorMessage(error);
     throw releaseFailure('map App Store platform', error, failureMessage);

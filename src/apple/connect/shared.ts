@@ -717,7 +717,7 @@ export function summarizeAppleApp(appleResource: {
   return { id: appleResource.id, name, bundleId };
 }
 
-function toBuildResource(
+function readBuildResource(
   entry: BuildPage['data'][number],
   preReleaseVersions: readonly BuildPageIncluded[],
 ): BuildResource {
@@ -751,7 +751,7 @@ function toBuildResource(
   if (marketingVersion != null) Object.assign(buildResource, { marketingVersion });
   return buildResource;
 }
-export function toBuildResources({ data: builds, included = [] }: BuildPage): BuildResource[] {
+export function readBuildResources({ data: builds, included = [] }: BuildPage): BuildResource[] {
   function mapPiece(entry: {
     id: string;
     attributes: {
@@ -762,13 +762,13 @@ export function toBuildResources({ data: builds, included = [] }: BuildPage): Bu
     };
     relationships?: { preReleaseVersion?: { data?: { id: string } | null } };
   }) {
-    return toBuildResource(entry, included);
+    return readBuildResource(entry, included);
   }
 
   return builds.map(mapPiece);
 }
 
-export function toVersionResource(
+export function readVersionResource(
   entry: AppleResource<{
     versionString?: string;
     appStoreState?: string;
@@ -807,7 +807,7 @@ export function toVersionResource(
   return version;
 }
 
-export function toPhasedRelease(entry: {
+export function readPhasedRelease(entry: {
   id: string;
   attributes: {
     phasedReleaseState?: string;
@@ -851,7 +851,7 @@ export function matchPricePoint(
   return null;
 }
 
-export function toFeedbackScreenshots(
+export function readFeedbackScreenshots(
   raw:
     | {
         url?: string;
@@ -879,7 +879,7 @@ export function toFeedbackScreenshots(
   return raw.flatMap(flatMapScreenshot);
 }
 
-export function toReviewResponse(appleResources: {
+export function readReviewResponse(appleResources: {
   id: string;
   attributes: {
     responseBody?: string;
@@ -900,7 +900,7 @@ export function toReviewResponse(appleResources: {
   return reviewResponse;
 }
 
-export function toAppEvent(
+export function readAppEvent(
   appleEvent: {
     id: string;
     attributes: AppEventAttributes;
@@ -925,7 +925,7 @@ export function toAppEvent(
   return appEvent;
 }
 
-export function toAppEventLocalization(
+export function readAppEventLocalization(
   appleResources: {
     id: string;
     attributes: AppEventLocalizationAttributes;
@@ -951,7 +951,7 @@ export function toAppEventLocalization(
   return eventLocalization;
 }
 
-export function toReportRequest(
+export function readReportRequest(
   entry: {
     id: string;
     attributes: {

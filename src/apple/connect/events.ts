@@ -10,7 +10,7 @@ import type {
   NewAppEvent,
 } from '../../types/apple-catalog.ts';
 import type { AscHost } from './host.ts';
-import { toAppEvent, toAppEventLocalization } from './shared.ts';
+import { readAppEvent, readAppEventLocalization } from './shared.ts';
 
 export class ConnectEvents {
   constructor(private readonly client: AscHost) {}
@@ -24,7 +24,7 @@ export class ConnectEvents {
       attributes: AppEventAttributes;
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
-      return toAppEvent(appleEvent, '');
+      return readAppEvent(appleEvent, '');
     }
 
     return appleResources.map(mapAppleEvent);
@@ -39,7 +39,7 @@ export class ConnectEvents {
       attributes: AppEventLocalizationAttributes;
       relationships?: { build?: { data?: { id: string } | null } };
     }) {
-      return toAppEventLocalization(localization, '');
+      return readAppEventLocalization(localization, '');
     }
 
     return appleResources.map(mapLocalization);
@@ -60,7 +60,7 @@ export class ConnectEvents {
       attributes: eventAttributes,
       relationships: { app: { data: { type: 'apps', id: appId } } },
     });
-    return toAppEvent(appleResources, attributes.referenceName);
+    return readAppEvent(appleResources, attributes.referenceName);
   }
 
   async deleteAppEvent(eventId: string): Promise<void> {
@@ -87,7 +87,7 @@ export class ConnectEvents {
         relationships: { appEvent: { data: { type: 'appEvents', id: eventId } } },
       },
     );
-    return toAppEventLocalization(appleResources, locale);
+    return readAppEventLocalization(appleResources, locale);
   }
 
   async updateAppEventLocalization(
@@ -110,6 +110,6 @@ export class ConnectEvents {
         attributes: eventLocalizationAttributes,
       },
     });
-    return toAppEventLocalization(appleResources, '');
+    return readAppEventLocalization(appleResources, '');
   }
 }

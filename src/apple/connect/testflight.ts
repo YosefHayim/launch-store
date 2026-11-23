@@ -11,7 +11,7 @@ import type {
   BetaTesterResource,
 } from '../../types/apple-catalog.ts';
 import type { BetaFeedbackPage, BetaFeedbackRow } from './shared.ts';
-import { AscRequestError, isRetryableIdempotentFailure, toFeedbackScreenshots } from './shared.ts';
+import { AscRequestError, isRetryableIdempotentFailure, readFeedbackScreenshots } from './shared.ts';
 import { retryAppleTransportRequest } from '../transport-helpers.ts';
 
 export class ConnectTestflight {
@@ -268,7 +268,7 @@ export class ConnectTestflight {
           Object.assign(submission, { osVersion: attributes.osVersion });
         if (buildVersion != null) Object.assign(submission, { buildVersion });
         let screenshots: BetaFeedbackRow['screenshots'] = [];
-        if (withScreenshots) screenshots = toFeedbackScreenshots(attributes?.screenshots);
+        if (withScreenshots) screenshots = readFeedbackScreenshots(attributes?.screenshots);
         submissions.push({ base: submission, screenshots });
       }
       next = page.links?.next;

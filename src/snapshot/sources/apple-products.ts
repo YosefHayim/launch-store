@@ -7,7 +7,7 @@ import type {
 } from '../../types/snapshot.ts';
 import { iosApps } from '../../readiness/app-scopes.ts';
 
-function toEntity(iap: {
+function readSnapshotEntity(iap: {
   productId: string;
   inAppPurchaseType: string;
   state?: string | undefined;
@@ -43,7 +43,7 @@ async function captureApp(api: SnapshotAscApi, app: { name: string; identifier: 
 
   const purchases = await api.listInAppPurchases(appId);
 
-  return { app: app.name, identifier: app.identifier, entities: purchases.map(toEntity) };
+  return { app: app.name, identifier: app.identifier, entities: purchases.map(readSnapshotEntity) };
 }
 
 function keepApp<AppRecord>(app: AppRecord | null): AppRecord[] {

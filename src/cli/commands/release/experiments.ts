@@ -15,7 +15,7 @@ type ExperimentsOptions = Readonly<{
 }>;
 
 /** Map Commander values without explicit undefined optionals. */
-function toVersionExperimentsInput(
+function readVersionExperiments(
   commandOptions: ExperimentsOptions,
 ): VersionExperimentsCommandInput {
   let experimentsInput: VersionExperimentsCommandInput = {
@@ -34,7 +34,7 @@ function toVersionExperimentsInput(
 /** Attach the experiments command. */
 export function registerExperimentsCommand(program: Command): void {
   function runExperiments(commandOptions: ExperimentsOptions) {
-    const versionExperiments = toVersionExperimentsInput(commandOptions);
+    const versionExperiments = readVersionExperiments(commandOptions);
     const versionExperimentsProgram = versionExperimentsCommandProgram(versionExperiments);
     return runCliProgram(versionExperimentsProgram);
   }

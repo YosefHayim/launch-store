@@ -12,7 +12,7 @@ import {
   makeBuildHistoryCommandFailure,
   parsePruneDays,
   pruneConfirmationBlocked,
-  toBuildRow,
+  readBuildRow,
 } from './build-history-command.ts';
 
 const MB = 1024 * 1024;
@@ -54,7 +54,7 @@ describe(
 );
 function describeToBuildPiece() {
   function derivesTheWorstCaseDownloadFromThePerDeviceEntries() {
-    const tableRow = toBuildRow(
+    const tableRow = readBuildRow(
       artifact({
         sizeReport: {
           artifactBytes: 61 * MB,
@@ -76,7 +76,7 @@ function describeToBuildPiece() {
   );
 }
 
-describe('toBuildRow', describeToBuildPiece);
+describe('readBuildRow', describeToBuildPiece);
 function describeFilterBuilds() {
   const ios = artifact({ appName: 'demo', platform: 'ios' });
   const android = artifact({ appName: 'demo', platform: 'android', path: '/a/demo.aab' });
@@ -169,7 +169,7 @@ function describeBuildKindLabelBuildsLabel() {
 describe('buildKindLabel / buildsLabel', describeBuildKindLabelBuildsLabel);
 function describeFormatBuildsTable() {
   function rendersAHeaderPlusOneAlignedPiecePerBuild() {
-    const table = formatBuildsTable([artifact()].map(toBuildRow));
+    const table = formatBuildsTable([artifact()].map(readBuildRow));
     const [header, tableRow] = table.split('\n');
     expect(header).toContain('BUILD');
     expect(header).toContain('DOWNLOAD');
@@ -182,7 +182,7 @@ function describeFormatBuildsTable() {
 
   it('renders a header plus one aligned row per build', rendersAHeaderPlusOneAlignedPiecePerBuild);
   function labelsAnIncrementalBuild() {
-    const table = formatBuildsTable([artifact({ clean: false })].map(toBuildRow));
+    const table = formatBuildsTable([artifact({ clean: false })].map(readBuildRow));
     expect(table).toContain('incremental');
   }
 
@@ -221,9 +221,9 @@ function describeFormatBuildDetail() {
 describe('formatBuildDetail', describeFormatBuildDetail);
 function describePrunedBuildsHistorySurvivesBinaryIsMarkedGone() {
   function carriesPrunedAtOntoThePieceOnlyWhenSet() {
-    const toBuild = toBuildRow(artifact());
-    expect(toBuild.prunedAt).toBeUndefined();
-    expect(toBuildRow(artifact({ prunedAt: '2026-06-14T00:00:00.000Z' })).prunedAt).toBe(
+    const buildRow = readBuildRow(artifact());
+    expect(buildRow.prunedAt).toBeUndefined();
+    expect(readBuildRow(artifact({ prunedAt: '2026-06-14T00:00:00.000Z' })).prunedAt).toBe(
       '2026-06-14T00:00:00.000Z',
     );
   }
@@ -231,7 +231,7 @@ function describePrunedBuildsHistorySurvivesBinaryIsMarkedGone() {
   it('carries prunedAt onto the row only when set', carriesPrunedAtOntoThePieceOnlyWhenSet);
   function labelsAPrunedPiecePrunedInTheTYPEColumn() {
     const table = formatBuildsTable(
-      [artifact({ prunedAt: '2026-06-14T00:00:00.000Z' })].map(toBuildRow),
+      [artifact({ prunedAt: '2026-06-14T00:00:00.000Z' })].map(readBuildRow),
     );
     expect(table).toContain('pruned');
     expect(table).not.toContain('clean');

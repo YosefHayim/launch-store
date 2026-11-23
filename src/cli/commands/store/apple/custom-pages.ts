@@ -13,7 +13,7 @@ type CustomPagesOptions = Readonly<{
 }>;
 
 /** Map Commander values without explicit undefined optionals. */
-function toCustomProductPagesInput(
+function readCustomProductPages(
   commandOptions: CustomPagesOptions,
 ): CustomProductPagesCommandInput {
   let customPagesInput: CustomProductPagesCommandInput = {
@@ -30,7 +30,7 @@ function toCustomProductPagesInput(
 /** Attach the custom-pages command. */
 export function registerCustomPagesCommand(program: Command): void {
   function runCustomPages(commandOptions: CustomPagesOptions) {
-    const customProductPages = toCustomProductPagesInput(commandOptions);
+    const customProductPages = readCustomProductPages(commandOptions);
     const customProductPagesProgram = customProductPagesCommandProgram(customProductPages);
     return runCliProgram(customProductPagesProgram);
   }
