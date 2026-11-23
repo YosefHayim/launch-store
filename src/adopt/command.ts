@@ -366,7 +366,7 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
       );
     }
 
-    const appleCatalog: AdoptCatalogApi = AppleStoreClientService.createEffectClient(ascKey);
+    const appleCatalog: AdoptCatalogApi = AppleStoreClientService.createClient(ascKey);
     const launchConfigPath = join(launchPaths.workingDirectory, 'launch.config.ts');
     const hasLaunchConfig = await pathExists(launchConfigPath);
 

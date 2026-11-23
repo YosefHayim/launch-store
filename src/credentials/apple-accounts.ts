@@ -33,7 +33,7 @@ import { commandCanPrompt } from './credentials-prompt.ts';
 import { selectConfiguredApp } from './select-configured-app.ts';
 
 async function verifyPlayAccess(serviceAccountJson: string, packageName: string): Promise<void> {
-  const playClient = GoogleStoreClientService.createEffectClient(serviceAccountJson);
+  const playClient = GoogleStoreClientService.createClient(serviceAccountJson);
 
   await playClient.listTracks(packageName);
 }

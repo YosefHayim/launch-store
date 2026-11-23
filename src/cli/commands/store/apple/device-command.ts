@@ -6,7 +6,7 @@ import { loadActiveAppleStore } from './apple-store-command.ts';
 import { hasMessage } from '@/services/platform/error-message.js';
 import { readPlainObject } from '@/services/platform/plain-object.js';
 
-type DeviceAddInput = Readonly<{
+export type DeviceAddInput = Readonly<{
   operation: 'add';
   udid: string;
   name?: string;
@@ -17,8 +17,6 @@ type DeviceListInput = Readonly<{
 }>;
 
 type DeviceCommandInput = DeviceAddInput | DeviceListInput;
-
-export type { DeviceAddInput };
 
 /** A device command step failed. */
 type DeviceCommandFailure = Readonly<{

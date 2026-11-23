@@ -178,7 +178,7 @@ export async function accessibilityCommandProgram(
   }
 
   try {
-    var ascClient = AppleStoreClientService.createEffectClient(loadedAscKey);
+    var ascClient = AppleStoreClientService.createClient(loadedAscKey);
   } catch (cause) {
     throw accessibilityFailure('create App Store client', cause);
   }

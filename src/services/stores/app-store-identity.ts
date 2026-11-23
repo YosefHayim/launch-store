@@ -9,7 +9,7 @@ export type AppStoreIdentity = Readonly<{
 }>;
 
 async function readIdentity(ascKey: AscKey): Promise<AppStoreIdentity> {
-  const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+  const appStoreClient = AppleStoreClientService.createClient(ascKey);
 
   async function readTeamId(): Promise<string | null> {
     try {
@@ -53,7 +53,7 @@ export type AppStoreIdentityService = {
 
 export const AppStoreIdentityService = {
   async verifyCredentials(ascKey: AscKey): Promise<AppStoreIdentity> {
-    const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+    const appStoreClient = AppleStoreClientService.createClient(ascKey);
     await appStoreClient.assertReady();
 
     return readIdentity(ascKey);

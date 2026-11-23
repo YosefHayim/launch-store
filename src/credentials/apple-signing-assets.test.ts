@@ -8,12 +8,11 @@ import {
   useLaunchDirectories,
 } from '../services/platform/paths.ts';
 import { createLogger } from '../services/platform/logger.ts';
+import { ensureAdHocSigningCredentials, loadCachedSigningAssets } from './apple-signing-assets.ts';
 import {
-  ensureAdHocSigningCredentials,
-  loadCachedSigningAssets,
   profileStaleAgainstCapabilities,
   staleCachedSigningTargets,
-} from './apple-signing-assets.ts';
+} from './apple-signing-profiles.ts';
 import { extractProfileEntitlements } from '../adopt/profile-entitlements.ts';
 import type { AscKey, SigningAssets } from '../types/credentials.ts';
 import type { BundleIdCapabilityResource, ProfileResource } from '../types/apple-catalog.ts';

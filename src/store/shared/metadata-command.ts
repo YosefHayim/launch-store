@@ -10,14 +10,10 @@ import {
 import { pathExists } from '@/path-exists.js';
 import { errorMessage } from '@/services/platform/error-message.js';
 import { createLogger } from '@/services/platform/logger.js';
-import {
-  AppleStoreClientService,
-  type EffectAppStoreConnectClient,
-} from '@/services/stores/apple-store-client.js';
-import {
-  type EffectGooglePlayClient,
-  GoogleStoreClientService,
-} from '@/services/stores/google-store-client.js';
+import type { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
+import type { GooglePlayClient } from '@/google/play-client.js';
+import { AppleStoreClientService } from '@/services/stores/apple-store-client.js';
+import { GoogleStoreClientService } from '@/services/stores/google-store-client.js';
 import { isApplePlatform, parsePlatform, platformLabel } from '@/services/stores/platform.js';
 import type { AppDescriptor, Platform } from '@/types/app.js';
 import type { AscKey } from '@/types/credentials.js';
@@ -396,29 +392,23 @@ async function requirePlayServiceAccount(packageName: string, appName: string): 
   throw metadataFailure('load Play service account', 'missing-service-account', missingMessage);
 }
 
-async function createAppleClient(): Promise<EffectAppStoreConnectClient> {
+async function createAppleClient(): Promise<AppStoreConnectClient> {
   const ascKey = await requireActiveAscKey();
 
-  return AppleStoreClientService.createEffectClient(ascKey);
+  return AppleStoreClientService.createClient(ascKey);
 }
 
-async function createPlayClient(
-  packageName: string,
-  appName: string,
-): Promise<EffectGooglePlayClient> {
+async function createPlayClient(packageName: string, appName: string): Promise<GooglePlayClient> {
   const serviceAccountJson = await requirePlayServiceAccount(packageName, appName);
 
   try {
-    return GoogleStoreClientService.createEffectClient(serviceAccountJson);
+    return GoogleStoreClientService.createClient(serviceAccountJson);
   } catch (cause) {
     throw metadataFailure('create Google Play client', cause);
   }
 }
 
-async function requireAppId(
-  ascClient: EffectAppStoreConnectClient,
-  bundleId: string,
-): Promise<string> {
+async function requireAppId(ascClient: AppStoreConnectClient, bundleId: string): Promise<string> {
   let appId: string | null = null;
 
   try {

@@ -6,17 +6,17 @@ import { GoogleStoreClientService, makeGoogleTransportFailure } from './google-s
 
 export const SetupStoreReadiness = {
   async checkAppleAgreements(ascKey: AscKey): Promise<void> {
-    const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+    const appStoreClient = AppleStoreClientService.createClient(ascKey);
     await appStoreClient.assertReady();
   },
   async checkAppleApp(ascKey: AscKey, bundleId: string): Promise<boolean> {
-    const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+    const appStoreClient = AppleStoreClientService.createClient(ascKey);
     const appId = await appStoreClient.getAppId(bundleId);
 
     return appId != null;
   },
   async checkPlayApp(serviceAccountJson: string, packageName: string): Promise<void> {
-    const playStoreClient = GoogleStoreClientService.createEffectClient(serviceAccountJson);
+    const playStoreClient = GoogleStoreClientService.createClient(serviceAccountJson);
 
     try {
       await playStoreClient.assertAppExists(packageName);

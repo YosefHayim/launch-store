@@ -1,7 +1,6 @@
 // Exports the Launch config function and the config types an app imports.
 
-export { defineConfig } from './config/config.ts';
-export type { LaunchConfigInput } from './config/config.ts';
+export { defineConfig } from './define-launch-file.ts';
 export type { BuildProfile, PlayTrack } from './types/app.ts';
 export type {
   AppProducts,
@@ -18,7 +17,7 @@ export type {
   SubscriptionGroupConfig,
   SubscriptionPeriod,
 } from './types/catalog.ts';
-export type { LaunchConfig } from './types/config.ts';
+export type { LaunchConfig, LaunchConfigInput } from './types/config.ts';
 export type {
   AchievementConfig,
   AppClipConfig,

@@ -11,7 +11,8 @@ import {
 } from '../services/platform/paths.ts';
 import { AppStoreIdentityService } from '../services/stores/app-store-identity.ts';
 import type { AccountRecord, AccountsFile, AscKey } from '../types/credentials.ts';
-import { migrateLegacySigningIndex, p12PasswordAccount } from './apple-signing-assets.ts';
+import { migrateLegacySigningIndex } from './apple-signing-assets.ts';
+import { p12PasswordAccount } from './apple-signing-certs.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /** Secret-store account holding one Apple account's `.p8` PEM, namespaced by Key ID. */

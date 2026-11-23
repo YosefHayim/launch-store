@@ -1,7 +1,7 @@
 // Loads the selected app, picks a TestFlight group, and confirms a tester change.
 
 import { LaunchPrompt } from '../services/platform/prompt.ts';
-import type { EffectAppStoreConnectClient } from '../services/stores/apple-store-client.ts';
+import type { AppStoreConnectClient } from '../apple/app-store-connect-client.ts';
 import { selectStoreApp } from '../store/shared/select-store-app.ts';
 import type { BetaGroupResource } from '../types/apple-catalog.ts';
 
@@ -41,7 +41,7 @@ export function countLabel(count: number, singularNoun: string): string {
 }
 
 export async function loadSelectedAppleApp(
-  appleStore: EffectAppStoreConnectClient,
+  appleStore: AppStoreConnectClient,
   appSelector: string | undefined,
 ): Promise<SelectedAppleApp> {
   const selectedApp = await selectStoreApp(appSelector);
@@ -140,7 +140,7 @@ function betaGroupChoice(betaGroup: BetaGroupResource): {
 }
 
 export async function selectBetaGroup(
-  appleStore: EffectAppStoreConnectClient,
+  appleStore: AppStoreConnectClient,
   appId: string,
   requestedGroup: string | undefined,
   externalOnly: boolean,

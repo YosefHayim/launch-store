@@ -4,7 +4,7 @@ import { ensureToolchain } from '../config/toolchain.ts';
 import { hasMessage, errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { isApplePlatform, parsePlatform } from '../services/stores/platform.ts';
-import type { EffectAppStoreConnectClient } from '../services/stores/apple-store-client.ts';
+import type { AppStoreConnectClient } from '../apple/app-store-connect-client.ts';
 import { createAscClientResolver } from '../store/shared/store-clients.ts';
 import {
   summarizeExportComplianceResult,
@@ -202,7 +202,7 @@ function isApprovedDeclaration(encryptionDeclaration: EncryptionDeclarationResou
 }
 
 async function reconcileDoctorExportCompliance(
-  appleStore: EffectAppStoreConnectClient,
+  appleStore: AppStoreConnectClient,
   app: AppDescriptor,
   buildNumber: number,
 ): Promise<ExportComplianceResult> {
@@ -252,7 +252,7 @@ async function reconcileDoctorExportCompliance(
 }
 
 async function readComplianceLine(
-  appleStore: EffectAppStoreConnectClient,
+  appleStore: AppStoreConnectClient,
   selectedApp: AppDescriptor,
 ): Promise<string | null> {
   if (selectedApp.bundleId == null) {
@@ -289,7 +289,7 @@ async function readComplianceLine(
 
 async function fixExportCompliance(selectedApps: readonly AppDescriptor[]): Promise<void> {
   const resolveAppleStore = createAscClientResolver();
-  let appleStore: EffectAppStoreConnectClient | null = null;
+  let appleStore: AppStoreConnectClient | null = null;
 
   try {
     appleStore = await resolveAppleStore();

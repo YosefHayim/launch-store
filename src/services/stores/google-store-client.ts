@@ -37,9 +37,6 @@ function createGooglePlayClient(serviceAccountJson: string): GooglePlayClient {
 
 export const GoogleStoreClientService = {
   createClient: createGooglePlayClient,
-  createEffectClient: createGooglePlayClient,
 };
 
 export type GoogleStoreClientService = typeof GoogleStoreClientService;
-
-export type EffectGooglePlayClient = GooglePlayClient;

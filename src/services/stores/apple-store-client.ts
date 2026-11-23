@@ -105,10 +105,6 @@ function createAppleClient(ascKey: AscKey): AppStoreConnectClient {
 
 export const AppleStoreClientService = {
   createClient: createAppleClient,
-  createEffectClient: createAppleClient,
-  createReleaseAttributesClient: createAppleClient,
 };
 
 export type AppleStoreClientService = typeof AppleStoreClientService;
-
-export type EffectAppStoreConnectClient = AppStoreConnectClient;

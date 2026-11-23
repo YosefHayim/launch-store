@@ -79,7 +79,7 @@ function describeCreateAscClientResolver() {
     vi.mocked(loadActiveAscKey).mockResolvedValue({ keyId: 'K', issuerId: 'I', p8: 'pem' });
 
     const createClient = vi
-      .spyOn(AppleStoreClientService, 'createEffectClient')
+      .spyOn(AppleStoreClientService, 'createClient')
       .mockReturnValue(appStoreClient);
     const resolveAppStoreClient = createAscClientResolver();
 
@@ -100,7 +100,7 @@ function describeCreateAscClientResolver() {
     vi.mocked(loadActiveAscKey).mockResolvedValue(null);
 
     const createClient = vi
-      .spyOn(AppleStoreClientService, 'createEffectClient')
+      .spyOn(AppleStoreClientService, 'createClient')
       .mockReturnValue(appStoreClient);
     const resolveAppStoreClient = createAscClientResolver();
 
@@ -123,7 +123,7 @@ function describeCreatePlayClientResolver() {
     vi.mocked(loadServiceAccount).mockResolvedValue('{}');
 
     const createClient = vi
-      .spyOn(GoogleStoreClientService, 'createEffectClient')
+      .spyOn(GoogleStoreClientService, 'createClient')
       .mockReturnValue(playStoreClient);
     const resolvePlayStoreClient = createPlayClientResolver();
 
@@ -144,7 +144,7 @@ function describeCreatePlayClientResolver() {
     vi.mocked(loadServiceAccount).mockResolvedValue(null);
 
     const createClient = vi
-      .spyOn(GoogleStoreClientService, 'createEffectClient')
+      .spyOn(GoogleStoreClientService, 'createClient')
       .mockReturnValue(playStoreClient);
     const resolvePlayStoreClient = createPlayClientResolver();
 
@@ -170,7 +170,7 @@ function describePerPackagePlayClientResolution() {
     });
 
     const createClient = vi
-      .spyOn(GoogleStoreClientService, 'createEffectClient')
+      .spyOn(GoogleStoreClientService, 'createClient')
       .mockReturnValue(playStoreClient);
     const resolvePackageClient = createPlayClientResolver();
 

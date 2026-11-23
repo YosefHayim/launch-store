@@ -1,7 +1,7 @@
 // Prints TestFlight crash and screenshot feedback and can save the screenshots.
 
 import { createLogger, type Logger } from '../services/platform/logger.ts';
-import type { EffectAppStoreConnectClient } from '../services/stores/apple-store-client.ts';
+import type { AppStoreConnectClient } from '../apple/app-store-connect-client.ts';
 import { loadActiveAppleStore } from '../cli/commands/store/apple/apple-store-command.ts';
 import type { BetaFeedback, BetaFeedbackKind } from '../types/app.ts';
 import {
@@ -145,7 +145,7 @@ function withKindFilter(
 }
 
 async function downloadRequestedAttachments(
-  appleStore: EffectAppStoreConnectClient,
+  appleStore: AppStoreConnectClient,
   feedbackEntries: readonly BetaFeedback[],
   outputDirectory: string | undefined,
   wantsJson: boolean,

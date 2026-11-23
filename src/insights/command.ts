@@ -3,8 +3,8 @@
 import { loadConfig } from '../config/config.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
-import type { EffectAppStoreConnectClient } from '../services/stores/apple-store-client.ts';
-import type { EffectGooglePlayClient } from '../services/stores/google-store-client.ts';
+import type { AppStoreConnectClient } from '../apple/app-store-connect-client.ts';
+import type { GooglePlayClient } from '../google/play-client.ts';
 import { listReviews } from '../store/apple/reviews.ts';
 import {
   createAscClientResolver,
@@ -231,7 +231,7 @@ function reviewFailureMessage(readFailure: unknown): string {
 /** Read App Store reviews and degrade an unavailable store to a warning. */
 async function readAscInsights(
   appDescriptor: AppDescriptor,
-  ascClient: EffectAppStoreConnectClient | null,
+  ascClient: AppStoreConnectClient | null,
   logger: Logger,
 ): Promise<ReviewDatum[]> {
   const bundleId = appDescriptor.bundleId;
@@ -262,7 +262,7 @@ async function readAscInsights(
 /** Read Google Play reviews and degrade an unavailable store to a warning. */
 async function readPlayInsights(
   appDescriptor: AppDescriptor,
-  playClient: EffectGooglePlayClient | null,
+  playClient: GooglePlayClient | null,
   logger: Logger,
 ): Promise<ReviewDatum[]> {
   const packageName = appDescriptor.packageName;
@@ -293,8 +293,8 @@ async function readPlayInsights(
 /** Collect both stores' reviews for one app. */
 async function gatherAppReviews(
   appDescriptor: AppDescriptor,
-  ascClient: EffectAppStoreConnectClient | null,
-  playClient: EffectGooglePlayClient | null,
+  ascClient: AppStoreConnectClient | null,
+  playClient: GooglePlayClient | null,
   logger: Logger,
 ): Promise<ReviewDatum[]> {
   const ascReviewsPromise = readAscInsights(appDescriptor, ascClient, logger);

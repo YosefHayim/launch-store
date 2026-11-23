@@ -26,22 +26,13 @@ import {
   makeAppleSigningFailure,
   readIndex,
 } from './apple-signing-index.ts';
-import {
-  DISTRIBUTION_CERT_NAME,
-  ensureDistributionCertificate,
-  p12PasswordAccount,
-} from './apple-signing-certs.ts';
+import { DISTRIBUTION_CERT_NAME, ensureDistributionCertificate } from './apple-signing-certs.ts';
 import {
   ensureAppStoreProfileForBundle,
   ensureRegisteredBundleId,
   installProfile,
-  profileStaleAgainstCapabilities,
   resolveProfileTeamId,
-  staleCachedSigningTargets,
 } from './apple-signing-profiles.ts';
-
-export { p12PasswordAccount };
-export { profileStaleAgainstCapabilities, staleCachedSigningTargets };
 
 /** Inputs for {@link ensureSigningCredentials}. */
 type EnsureSigningOptions = {

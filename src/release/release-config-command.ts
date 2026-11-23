@@ -234,10 +234,10 @@ export async function releaseConfigCommandProgram(
     );
   }
 
-  let ascClient: ReturnType<typeof AppleStoreClientService.createReleaseAttributesClient>;
+  let ascClient: ReturnType<typeof AppleStoreClientService.createClient>;
 
   try {
-    ascClient = AppleStoreClientService.createReleaseAttributesClient(activeAscKey);
+    ascClient = AppleStoreClientService.createClient(activeAscKey);
   } catch (cause) {
     throw releaseConfigFailure('create App Store client', cause);
   }

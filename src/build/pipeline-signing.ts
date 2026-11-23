@@ -21,8 +21,8 @@ import { createAppleCredentialsClient } from '../services/stores/apple-credentia
 import {
   ensureAdHocSigningCredentials,
   ensureSigningCredentials,
-  staleCachedSigningTargets,
 } from '../credentials/apple-signing-assets.ts';
+import { staleCachedSigningTargets } from '../credentials/apple-signing-profiles.ts';
 import {
   appGroupPreflightNotice,
   gatherTargetSigningReadiness,

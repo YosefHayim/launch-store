@@ -485,7 +485,7 @@ export async function reportProcessing(
   buildNumber: number,
   log: Logger,
 ): Promise<void> {
-  const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+  const appStoreClient = AppleStoreClientService.createClient(ascKey);
 
   async function pollProcessing(): Promise<string | null> {
     const processingState = await pollAppleProcessingState(appStoreClient, bundleId, buildNumber);
@@ -828,7 +828,7 @@ export async function resolveAscBuildLink(
   ascKey: AppleCredentials['ascKey'],
   bundleId: string,
 ): Promise<string> {
-  const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+  const appStoreClient = AppleStoreClientService.createClient(ascKey);
   let appId: string | null = null;
 
   try {

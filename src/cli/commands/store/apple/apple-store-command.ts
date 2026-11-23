@@ -47,7 +47,7 @@ export async function loadActiveAppleStore(): Promise<AppStoreConnectClient> {
   }
 
   try {
-    return AppleStoreClientService.createEffectClient(loadedAscKey);
+    return AppleStoreClientService.createClient(loadedAscKey);
   } catch (cause) {
     throw makeActiveAppleStoreFailure({
       message: 'Could not create the App Store Connect client.',

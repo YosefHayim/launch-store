@@ -12,7 +12,7 @@ import type {
 import type { InsightsStore } from '../types/insights.ts';
 
 /** The star levels, fixed so the distribution always has all five keys (even at zero). */
-const STARS: readonly StarRating[] = [1, 2, 3, 4, 5];
+export const STARS: readonly StarRating[] = [1, 2, 3, 4, 5];
 
 /** Round to one decimal place - the precision both the average rating and the trend report at. */
 function round1(numericAmount: number): number {
@@ -147,5 +147,3 @@ export function buildInsightsReport(
     overall: summarizeRatings(perApp.flatMap(listReviews)),
   };
 }
-/** Re-export so callers can iterate the canonical star order without re-declaring it. */
-export { STARS };

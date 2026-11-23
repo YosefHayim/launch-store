@@ -5,9 +5,9 @@ import { loadServiceAccount } from '@/credentials/android-keystore-assets.js';
 import { AppleStoreClientService } from '@/services/stores/apple-store-client.js';
 import { GoogleStoreClientService } from '@/services/stores/google-store-client.js';
 
-type AppStoreClient = ReturnType<typeof AppleStoreClientService.createEffectClient>;
+type AppStoreClient = ReturnType<typeof AppleStoreClientService.createClient>;
 
-type PlayStoreClient = ReturnType<typeof GoogleStoreClientService.createEffectClient>;
+type PlayStoreClient = ReturnType<typeof GoogleStoreClientService.createClient>;
 
 /** Build one memoized App Store client resolver. */
 export function createAscClientResolver(): () => Promise<AppStoreClient | null> {
@@ -27,7 +27,7 @@ export function createAscClientResolver(): () => Promise<AppStoreClient | null> 
       return null;
     }
 
-    cachedClient = AppleStoreClientService.createEffectClient(ascKey);
+    cachedClient = AppleStoreClientService.createClient(ascKey);
     hasCachedClient = true;
 
     return cachedClient;
@@ -64,7 +64,7 @@ export function createPlayClientResolver(): (
       return null;
     }
 
-    const client = GoogleStoreClientService.createEffectClient(serviceAccountJson);
+    const client = GoogleStoreClientService.createClient(serviceAccountJson);
 
     clients.set(packageName, client);
 

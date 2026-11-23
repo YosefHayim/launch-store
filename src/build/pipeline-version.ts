@@ -134,7 +134,7 @@ export async function nextBuildNumber(
     return 1;
   }
 
-  const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+  const appStoreClient = AppleStoreClientService.createClient(ascKey);
   const latestBuildNumber = await appStoreClient.getLatestBuildNumber(bundleId);
 
   return latestBuildNumber + 1;
@@ -387,7 +387,7 @@ async function readStoreMarketingVersion(
     return null;
   }
 
-  const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+  const appStoreClient = AppleStoreClientService.createClient(ascKey);
 
   async function readLatest(): Promise<string | null> {
     const latest = await appStoreClient.getLatestMarketingVersion(bundleId);
@@ -421,7 +421,7 @@ export async function nextVersionCode(
     return nextCodeAboveFloor(floor);
   }
 
-  const playStoreClient = GoogleStoreClientService.createEffectClient(serviceAccountJson);
+  const playStoreClient = GoogleStoreClientService.createClient(serviceAccountJson);
   const latest = await playStoreClient.getLatestVersionCode(packageName);
 
   return Math.max(latest, floor) + 1;

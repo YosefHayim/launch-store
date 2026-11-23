@@ -127,8 +127,8 @@ function makePlayClientFake() {
 
 let appleReads = makeAppleReads();
 let playClientFake = makePlayClientFake();
-const createEffectAppleClient = vi.spyOn(AppleStoreClientService, 'createEffectClient');
-const createEffectPlayClient = vi.spyOn(GoogleStoreClientService, 'createEffectClient');
+const createEffectAppleClient = vi.spyOn(AppleStoreClientService, 'createClient');
+const createEffectPlayClient = vi.spyOn(GoogleStoreClientService, 'createClient');
 
 function installStoreFakes(): void {
   appleReads = makeAppleReads();

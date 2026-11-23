@@ -122,7 +122,7 @@ function readDomainCapability(
 export async function createAppleCredentialsClient(
   ascKey: AscKey,
 ): Promise<AppleCredentialsClient> {
-  const appStoreClient = AppleStoreClientService.createEffectClient(ascKey);
+  const appStoreClient = AppleStoreClientService.createClient(ascKey);
 
   return {
     async findBundleId(identifier) {

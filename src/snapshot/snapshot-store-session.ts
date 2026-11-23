@@ -2,10 +2,8 @@
 
 import { loadConfig } from '../config/config.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
-import {
-  AppleStoreClientService,
-  type EffectAppStoreConnectClient,
-} from '../services/stores/apple-store-client.ts';
+import type { AppStoreConnectClient } from '../apple/app-store-connect-client.ts';
+import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
 import { createPlayClientResolver } from '../store/shared/store-clients.ts';
 import { selectApps } from '../store/shared/sync-jobs.ts';
 import type { AppDescriptor } from '../types/app.ts';
@@ -20,7 +18,7 @@ export type PlayClientResolver = ReturnType<typeof createPlayClientResolver>;
 export type SnapshotStoreSession = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
-  ascClient: EffectAppStoreConnectClient | null;
+  ascClient: AppStoreConnectClient | null;
   playClient: PlayClientResolver;
 }>;
 
@@ -41,7 +39,7 @@ async function selectSnapshotApps(
 
 function createAscClient(ascKey: NonNullable<Awaited<ReturnType<typeof loadActiveAscKey>>>) {
   try {
-    return AppleStoreClientService.createEffectClient(ascKey);
+    return AppleStoreClientService.createClient(ascKey);
   } catch (cause) {
     throw snapshotFailure('create App Store client', cause);
   }
@@ -66,7 +64,7 @@ export async function loadSnapshotStoreSession(
     throw snapshotFailure('load active Apple account', cause);
   }
 
-  let ascClient: EffectAppStoreConnectClient | null = null;
+  let ascClient: AppStoreConnectClient | null = null;
 
   if (ascKey != null) {
     ascClient = createAscClient(ascKey);

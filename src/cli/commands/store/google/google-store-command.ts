@@ -60,7 +60,7 @@ export async function loadActiveGoogleStore(
   }
 
   try {
-    return GoogleStoreClientService.createEffectClient(serviceAccountJson);
+    return GoogleStoreClientService.createClient(serviceAccountJson);
   } catch (cause) {
     throw makeActiveGoogleStoreFailure({
       message: 'Could not create the Google Play client.',

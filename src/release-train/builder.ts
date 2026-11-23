@@ -34,10 +34,8 @@ import {
   AppleStoreClientService,
   appRecordMissingMessage,
 } from '../services/stores/apple-store-client.ts';
-import {
-  GoogleStoreClientService,
-  type EffectGooglePlayClient,
-} from '../services/stores/google-store-client.ts';
+import type { GooglePlayClient } from '../google/play-client.ts';
+import { GoogleStoreClientService } from '../services/stores/google-store-client.ts';
 import type { AndroidReleaseOptions, AppDescriptor, BuildProfile } from '../types/app.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';
@@ -163,7 +161,7 @@ export function createTrainRuntime(
   logger: Logger,
 ): TrainRuntime {
   let cachedAppleClient: AscReleaseApi | null = null;
-  let cachedGoogleClient: EffectGooglePlayClient | null = null;
+  let cachedGoogleClient: GooglePlayClient | null = null;
   let cachedCodeSigner: CodeSigner | null = null;
 
   async function loadAppleClient(): Promise<AscReleaseApi> {
@@ -198,7 +196,7 @@ export function createTrainRuntime(
     return cachedAppleClient;
   }
 
-  async function loadGoogleClient(): Promise<EffectGooglePlayClient> {
+  async function loadGoogleClient(): Promise<GooglePlayClient> {
     if (cachedGoogleClient != null) {
       return cachedGoogleClient;
     }
