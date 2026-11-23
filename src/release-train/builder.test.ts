@@ -137,7 +137,7 @@ function describeCreateTrainRuntimeEngineGuardsFailLoudlyBeforeAnyStoreCall() {
       engineFor({ bundleId: 'com.demo' }, { storage: 'local' }).publishOta(otaCar),
     ).rejects.toMatchObject({
       _tag: 'TrainRuntimeFailure',
-      message: expect.stringContaining('OTA needs a cloud storage provider'),
+      message: expect.stringContaining('public artifact store'),
     });
   }
 
