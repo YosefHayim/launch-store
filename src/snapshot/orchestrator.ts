@@ -7,18 +7,10 @@ import type {
 } from '../types/snapshot.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 
-/**
- * Exit codes for `snapshot create`, mirroring the `launch-store plan` convention (error-or-clean):
- * - `ok` (0) - every source captured or was benignly skipped (no credentials).
- * - `error` (1) - at least one source threw while reading, so the saved snapshot is incomplete.
- */
+/** Exit codes for `snapshot create` */
 export const SNAPSHOT_EXIT = { ok: 0, error: 1 } as const;
 
-/**
- * The result of a capture run: the {@link Snapshot} to persist plus the tallies that drive the summary line
- * and the exit code. `entityCount` is the headline "N item(s) captured"; `skippedCount` / `errorCount`
- * surface partial captures.
- */
+/** The result of a capture run */
 export type CaptureResult = {
   snapshot: Snapshot;
   entityCount: number;
@@ -36,12 +28,7 @@ type CaptureMeta = {
 /** On-disk schema version for a {@link Snapshot} - bump when the record shape changes incompatibly. */
 export const SNAPSHOT_VERSION = 1;
 
-/**
- * Capture every source concurrently and assemble the record. Each source owns its expected empty/skip
- * conditions; only an unexpected throw lands here, caught and recorded as an `errored` report so one flaky
- * read never sinks the rest. Omitted sources are dropped before persisting so an unconfigured store adds no
- * noise to the record.
- */
+/** Capture every source concurrently and assemble the record. */
 export async function captureSnapshot(
   snapshotContext: SnapshotContext,
   sources: readonly SnapshotSource[],

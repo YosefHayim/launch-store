@@ -1,11 +1,6 @@
 export const APP_PRIVACY_HELP_URL =
   'https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy/';
-/**
- * The ordered manual steps to complete the App Privacy "nutrition label" in App Store Connect. UI-only:
- * App Store Connect exposes no API for these declarations (see the module verdict), so Launch can guide
- * and remind, never automate. Mirrors the questionnaire's dimensions: collection -> categories -> purposes
- * -> identity linkage -> cross-app tracking -> publish.
- */
+/** The ordered manual steps to complete the App Privacy "nutrition label" in App Store Connect. */
 export const APP_PRIVACY_STEPS: readonly string[] = [
   'Open App Store Connect -> your app -> App Privacy.',
   'Under Data Collection, declare whether your app or its third-party SDKs collect any data.',
@@ -15,11 +10,7 @@ export const APP_PRIVACY_STEPS: readonly string[] = [
   "Declare whether any data type is used to track the user across other companies' apps and websites.",
   'Save, then Publish the App Privacy details so they appear on the App Store product page.',
 ];
-/**
- * Render the App Privacy checklist as printable lines: a one-line UI-only verdict, the numbered steps,
- * and the help link. Used by `launch-store doctor` to emit the precise "do these in the UI" list the API
- * cannot perform - the first line is the headline, the rest are indented detail.
- */
+/** Render the App Privacy checklist as printable lines */
 export function appPrivacyChecklist(): string[] {
   function mapStep(step: string, index: number) {
     return `  ${index + 1}. ${step}`;

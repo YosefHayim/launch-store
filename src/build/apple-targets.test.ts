@@ -92,11 +92,7 @@ const APP_WITH_WIDGET = `// !$*UTF8*$!
 	};
 }
 `;
-/**
- * A single-target Expo app WITH a real Release config - the plain #301 archive path. The stamp writes the
- * app's own profile into this Release config so xcodebuild reads it from the app target instead of a global xcarg
- * that would leak onto the (separate) Pods project.
- */
+/** A single-target Expo app WITH a real Release config - the plain #301 archive path. */
 const SINGLE_TARGET_WITH_RELEASE = `// !$*UTF8*$!
 {
 	objects = {

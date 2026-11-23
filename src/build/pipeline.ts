@@ -206,10 +206,7 @@ async function attachAndroidRelease(
   return { ...buildContext, android: androidRelease };
 }
 
-/**
- * Resolve config, the chosen app, the profile, a validated env, a logger, and the build context.
- * Local, remote, and EAS builds all start here.
- */
+/** Resolve config, the chosen app, the profile, a validated env, a logger */
 export async function prepareBuild(buildOptions: BuildRunOptions): Promise<PreparedBuild> {
   const isDryRun = buildOptions.dryRun == true;
   const platform = buildOptions.platform;
@@ -555,10 +552,7 @@ async function dispatchBuild(
   }
 }
 
-/**
- * Run a build, then notify success. A failed step notifies the failure first, and that notify error
- * replaces the build error when it throws. Dry-runs never notify. `--print-env` stops before exclusions.
- */
+/** Run a build, then notify success. */
 export async function runBuild(buildOptions: BuildRunOptions): Promise<void> {
   const shouldPrintEnvironment = buildOptions.printEnv == true;
 

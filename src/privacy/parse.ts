@@ -114,11 +114,7 @@ function collectedDataTypesFrom(manifestEntries: unknown): string[] {
   }
   return unique(types);
 }
-/**
- * Build a surface from native files. Usage descriptions union across all `Info.plist`s; the manifest
- * fields union across all `.xcprivacy`s (tracking is true if any manifest enables it). `hasManifest`
- * reflects whether any privacy manifest was found at all.
- */
+/** Build a surface from native files. */
 export function surfaceFromNative(files: {
   infoPlists: string[];
   privacyManifests: string[];
@@ -147,11 +143,7 @@ export function surfaceFromNative(files: {
     androidPermissions: unique(androidPermissions),
   };
 }
-/**
- * Build a surface from a resolved Expo config - the managed-workflow source, read before `expo prebuild`
- * has generated any native files. Reads usage strings from `ios.infoPlist`, the manifest from
- * `ios.privacyManifests`, and permissions from `android.permissions`.
- */
+/** Build a surface from a resolved Expo config */
 export function surfaceFromExpoConfig(config: Record<string, unknown>): PrivacySurface {
   const decodedExpo = readPlainObject(config['expo']);
   let expo = config;

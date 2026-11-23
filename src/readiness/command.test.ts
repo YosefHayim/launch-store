@@ -6,10 +6,7 @@ import type { ProbeResult, ReadinessOutcome, ReadinessProbe } from '../types/rea
 import { formatReadinessSummaryDetail, readinessStoreLabel } from './command.ts';
 import { READINESS_EXIT } from './orchestrator.ts';
 
-/**
- * The category passed to the last `selectReadinessProbes` call, captured so a test can assert that a
- * command's probe slice reaches the registry unchanged. Mutated by the mock below.
- */
+/** The category passed to the last `selectReadinessProbes` call */
 let selectedCategory: string | undefined;
 /** A fake probe that returns a fixed result with no network - same idiom as `orchestrator.test.ts`. */
 function probe(id: string, probeOutcome: ProbeResult): ReadinessProbe {

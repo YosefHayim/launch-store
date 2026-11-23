@@ -196,11 +196,7 @@ function pickNestedBranchViolations(
   return chosen;
 }
 
-/**
- * Validate `candidateValue` against `schema`, collecting every violation (rather than failing on the first) so a
- * caller can report all problems at once. `root` carries the `definitions` that `$ref`s resolve against -
- * defaults to `schema`, so a self-contained document validates with one arg.
- */
+/** Validate `candidateValue` against `schema` */
 export const validate = (
   candidateValue: unknown,
   schema: JsonSchema,

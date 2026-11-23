@@ -1,8 +1,5 @@
 export type ActionStatus = 'planned' | 'applied' | 'skipped' | 'failed';
-/**
- * One unit of store-reconcile work shown in plans and apply summaries.
- * Description and destructive are fixed when planned; status/error are filled in by the owning apply path.
- */
+/** One unit of store-reconcile work shown in plans and apply summaries. */
 export type PlannedAction = {
   readonly description: string;
   readonly destructive: boolean;

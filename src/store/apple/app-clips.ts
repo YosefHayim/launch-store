@@ -18,10 +18,7 @@ import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 const APP_CLIPS_DOCUMENT_NAME = 'appclips.config.json';
 
-/**
- * The exact slice of App Store Connect the App Clips reconciler depends on. Declaring it here
- * keeps the diff logic unit-testable with a hand-rolled fake.
- */
+/** The exact slice of App Store Connect the App Clips reconciler depends on. */
 export type AscAppClipsApi = {
   getAppId(bundleId: string): Promise<string | null>;
   findEditableAppStoreVersion(appId: string, platform: string): Promise<{ id: string } | null>;
@@ -248,9 +245,7 @@ async function applyWrite(plannedAction: PlannedAction, write: () => Promise<voi
   }
 }
 
-/**
- * Ensure a clip has a default experience for the editable version, reconciling its action.
- */
+/** Ensure a clip has a default experience for the editable version, reconciling its action. */
 async function ensureExperience(
   reconcileContext: ReconcileContext,
   api: AscAppClipsApi,
@@ -432,10 +427,7 @@ async function reconcileClip(
   }
 }
 
-/**
- * Reconcile one app's declared App Clip cards. Throws only for a precondition the user must fix (no ASC
- * app record); everything else is captured per-action so a single failure never aborts the run.
- */
+/** Reconcile one app's declared App Clip cards. */
 export async function reconcileAppClips(
   api: AscAppClipsApi,
   reconcileInput: AppClipsReconcileInput,

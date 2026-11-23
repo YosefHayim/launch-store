@@ -35,11 +35,7 @@ import {
   type ReconcileContext,
 } from '../shared/reconcile.ts';
 
-/**
- * The exact slice of {@link AppStoreConnectClient} the offers reconciler depends on. Declared here (not
- * the concrete client) so the diff logic is unit-testable with a hand-rolled fake, mirroring
- * {@link AscCatalogApi} in `core/store/apple/asc-sync.ts`. `AppStoreConnectClient` satisfies it structurally.
- */
+/** The exact slice of {@link AppStoreConnectClient} the offers reconciler depends on. */
 export type AscOffersApi = {
   getAppId(bundleId: string): Promise<string | null>;
   listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]>;
@@ -132,10 +128,7 @@ function freeTrialPriceError(priceCount: number): string | null {
   return null;
 }
 
-/**
- * Validate a price-bearing offer (offer code, promotional, win-back) at the boundary: `FREE_TRIAL` must
- * carry no prices; any other mode needs at least one. Returns a human reason when invalid, else null.
- */
+/** Validate a price-bearing offer (offer code, promotional, win-back) at the boundary */
 function priceModeError(
   offerMode: string,
   prices: readonly OfferPrice[] | undefined,
@@ -537,12 +530,7 @@ function subscriptionDeclaresOffers(subscription: SubscriptionConfig): boolean {
   return hasConfigs(subscription.winBackOffers);
 }
 
-/**
- * Whether an app's declared catalog carries anything this reconciler acts on - at least one subscription
- * offer (of any kind) or a promoted-purchase ordering. Lets `launch-store plan`'s offers surface omit apps that
- * declare only plain products, reusing {@link subscriptionDeclaresOffers} so "what counts as an offer"
- * has one home.
- */
+/** Whether an app's declared catalog carries anything this reconciler acts on */
 export function appDeclaresOffers(products: AppProducts): boolean {
   const subscriptionGroups = products.subscriptionGroups;
 
@@ -658,12 +646,7 @@ function hasPromotionOrderChanged(
   return false;
 }
 
-/**
- * Reconcile every promoted purchase declared on the app: create the ones Apple doesn't have yet, then
- * rewrite the order to put the declared products first (in declared order), preserving any undeclared
- * promotions after them. A `productId` that resolves to neither a subscription nor an IAP is recorded as
- * skipped. The reorder is a single action, fired only when the resulting order differs from the live one.
- */
+/** Reconcile every promoted purchase declared on the app */
 async function reconcilePromotedPurchases(
   offersContext: OffersContext,
   appId: string,
@@ -816,12 +799,7 @@ async function reconcilePromotedPurchases(
   }
 }
 
-/**
- * Reconcile one app's offers and promoted-purchase ordering end to end. Fails only for a precondition
- * the user must fix (no ASC app record); every offer write is captured per-action so a single failure
- * never aborts the run. Subscriptions are matched to Apple by `productId`, so a subscription that isn't
- * created yet is reported as skipped with a pointer to `launch-store sync`.
- */
+/** Reconcile one app's offers and promoted-purchase ordering end to end. */
 export async function reconcileOffers(
   api: AscOffersApi,
   reconcileInput: ReconcileOffersInput,

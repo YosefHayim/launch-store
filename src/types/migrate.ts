@@ -1,40 +1,23 @@
 export type MigrationSource = 'eas' | 'fastlane';
-/**
- * How faithfully one piece of the source setup carried over, shown as the report's leading glyph:
- * - `mapped` - Launch translated it automatically into an emitted artifact (OK).
- * - `manual` - Launch can't translate it; the developer must act (the note says how) (~).
- * - `skipped` - intentionally left as-is (e.g. an existing `store.config.json` Launch reuses verbatim) (-).
- * - `info` - informational only; nothing to write and no action needed.
- */
+/** How faithfully one piece of the source setup carried over */
 export type MigrationNoteLevel = 'mapped' | 'manual' | 'skipped' | 'info';
 /** One line in the migration report: what happened to a piece of the source setup, and (when `manual`) how to finish it. */
 export type MigrationNote = Readonly<{
   level: MigrationNoteLevel;
   message: string;
 }>;
-/**
- * A file the migration would write, as a path relative to the output directory plus its full contents.
- * Existence/overwrite is decided at write time against the output dir (see `write.ts`), so an artifact
- * carries no `exists` flag - the same artifact can be previewed (`--dry-run`) or written unchanged.
- */
+/** A file the migration would write */
 export type MigrationArtifact = Readonly<{
   path: string;
   contents: string;
 }>;
-/**
- * The outcome of one migration run: which toolchain it read, the artifacts to write, and the per-item
- * report. Returned by a source's migrate function (e.g. {@link import("../migrate/eas.ts").migrateEas}) and
- * consumed by `report.ts` (render) and `write.ts` (persist) - both shared across every source.
- */
+/** The outcome of one migration run */
 export type MigrationResult = Readonly<{
   source: MigrationSource;
   artifacts: readonly MigrationArtifact[];
   notes: readonly MigrationNote[];
 }>;
-/**
- * One `build.<profile>` block in `eas.json`. Only the fields Launch maps or reports on are modeled:
- * `channel`/`distribution`/`developmentClient` become report notes, `env` keys seed `.env.example`.
- */
+/** One `build.<profile>` block in `eas.json`. */
 export type EasBuildProfile = Readonly<{
   channel?: string;
   distribution?: string;
@@ -62,10 +45,7 @@ export type EasSubmitProfile = Readonly<{
 type EasCli = Readonly<{
   appVersionSource?: string;
 }>;
-/**
- * The parsed `eas.json`, narrowed to what Launch reads. `build`/`submit` default to `{}` so a file with
- * only one of them (or neither) still migrates cleanly; `cli` is optional.
- */
+/** The parsed `eas.json`, narrowed to what Launch reads. */
 export type EasJson = Readonly<{
   cli?: EasCli;
   build: Record<string, EasBuildProfile>;
@@ -80,10 +60,7 @@ export type AppfileData = Readonly<{
   itcTeamId?: string;
   packageName?: string;
 }>;
-/**
- * The `Matchfile` - fastlane `match`'s signing strategy. Launch manages its own certificates in the OS
- * keychain, so every field here becomes a `manual` note (you don't carry match over), not config.
- */
+/** The `Matchfile` - fastlane `match`'s signing strategy. */
 export type MatchfileData = Readonly<{
   gitUrl?: string;
   type?: string;
@@ -96,12 +73,7 @@ export type SupplyfileData = Readonly<{
   jsonKey?: string;
   track?: string;
 }>;
-/**
- * One lane parsed from a `Fastfile`: its name, the `platform` block it sits in (when any), and the
- * recognized fastlane actions found in its body. The body is captured by line-scan (see fastlane.ts
- * `parseFastfile`) - tolerant, not a Ruby parser - so `actions` is best-effort, and a lane with no
- * recognized actions still appears (with an empty `actions`) so the report can flag it as custom.
- */
+/** One lane parsed from a `Fastfile` */
 export type FastlaneLane = Readonly<{
   name: string;
   platform?: string;

@@ -27,10 +27,7 @@ type CreatedGameCenterItem = {
   versionId: string | null;
 };
 
-/**
- * The exact slice of App Store Connect the Game Center reconciler depends on. Declared here
- * so the diff logic is unit-testable with a hand-rolled fake.
- */
+/** The exact slice of App Store Connect the Game Center reconciler depends on. */
 export type AscGameCenterApi = {
   getAppId(bundleId: string): Promise<string | null>;
   getGameCenterDetail(appId: string): Promise<GameCenterDetailResource | null>;
@@ -70,10 +67,7 @@ type GameCenterReconcileInput = {
   dryRun: boolean;
 };
 
-/**
- * Where the detail stands after ensuring it: its id (and whether it pre-existed), or `null` when
- * create failed and the rest of the walk must skip.
- */
+/** Where the detail stands after ensuring it */
 type EnsuredDetail = {
   detailId: string | null;
   existed: boolean;
@@ -391,10 +385,7 @@ function localizationLocale(locale: string | undefined): string {
   return 'en-US';
 }
 
-/**
- * Run a localization create against the version returned by the parent create. When Apple didn't echo a
- * version id, the parent still succeeded - so the localization is recorded as skipped.
- */
+/** Run a localization create against the version returned by the parent create. */
 async function applyLocalization(
   localizationAction: MutableDeep<PlannedAction>,
   versionId: string | null,
@@ -418,9 +409,7 @@ async function applyLocalization(
   }
 }
 
-/**
- * Plan create + localization, then apply when not dry-run. Create failures skip localization.
- */
+/** Plan create + localization, then apply when not dry-run. */
 async function createItemWithLocalization(
   reconcileContext: ReconcileContext,
   createDescription: string,
@@ -615,11 +604,7 @@ async function reconcileLeaderboards(
   }
 }
 
-/**
- * Reconcile one app's Game Center achievements and leaderboards. Fails only for a precondition the user
- * must fix (no ASC app record); everything else is captured per-action so a single failure never aborts
- * the run.
- */
+/** Reconcile one app's Game Center achievements and leaderboards. */
 export async function reconcileGameCenter(
   api: AscGameCenterApi,
   reconcileInput: GameCenterReconcileInput,

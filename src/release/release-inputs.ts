@@ -4,10 +4,7 @@ import { pathExists } from '../path-exists.ts';
 import type { ReleaseConfig, ReleaseType } from '../types/store-surface.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
-/**
- * The per-run CLI flags that override the configured release type for a single `launch-store release`.
- * `--scheduled` and `--manual` are mutually exclusive overrides; absent, the configured default wins.
- */
+/** The per-run CLI flags that override the configured release type for a single `launch-store */
 type ReleaseTypeOverrides = {
   scheduled?: string;
   manual?: boolean;
@@ -115,11 +112,7 @@ function readLocaleReleaseNotes(localeListings: unknown): Record<string, string>
   return releaseNotesByLocale;
 }
 
-/**
- * Per-locale `releaseNotes` from the app's `store.config.json` - the same listing file `launch-store sync`
- * and `launch-store metadata` read - or `{}` when the file is absent. A malformed file fails loudly, the
- * same way those commands do (the developer fixes the typo once).
- */
+/** Per-locale `releaseNotes` from the app's `store.config.json` */
 export async function readStoreReleaseNotes(appDirectory: string): Promise<Record<string, string>> {
   const configPath = join(appDirectory, 'store.config.json');
   const isConfigPresent = await pathExists(configPath);
@@ -152,11 +145,7 @@ export async function readStoreReleaseNotes(appDirectory: string): Promise<Recor
   return readLocaleReleaseNotes(appleListingObject['info']);
 }
 
-/**
- * The "What's New" to write, merging both sources Launch supports: `release.releaseNotes` from
- * `launch.config.ts` as the base, with `store.config.json`'s per-locale `releaseNotes` taking precedence
- * (it's the richer, per-locale, EAS-compatible listing file). Empty leaves the version's notes untouched.
- */
+/** The "What's New" to write, merging both sources Launch supports */
 export async function resolveWhatsNew(
   release: ReleaseConfig | undefined,
   appDirectory: string,

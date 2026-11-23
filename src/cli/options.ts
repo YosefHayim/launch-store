@@ -1,9 +1,5 @@
 import type { Command } from './command.ts';
-/**
- * The parsed env flags shared by build/release/update. `env` is the raw repeated `--env KEY=VAL`
- * strings (commander collects them); `includeLocal` and `printEnv` are the two booleans. Each
- * command's own options interface extends this shape.
- */
+/** The parsed env flags shared by build/release/update. */
 export type EnvFlags = {
   env: string[];
   includeLocal: boolean;
@@ -13,10 +9,7 @@ export type EnvFlags = {
 function collectEnv(environmentFlag: string, previousFlags: readonly string[]): string[] {
   return [...previousFlags, environmentFlag];
 }
-/**
- * Attach `--env`, `--include-local`, and `--print-env` to a command. Returns the command for
- * chaining so it slots into the existing `.option(...).option(...)` builders.
- */
+/** Attach `--env`, `--include-local`, and `--print-env` to a command. */
 export function addEnvFlags(command: Command): Command {
   return command
     .option(

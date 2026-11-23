@@ -88,10 +88,7 @@ function configuredSubmitters(
   return configured;
 }
 
-/**
- * The store(s) a build for `platform` is submitted to. A string submitter yields one store.
- * A per-platform map yields that platform's list, or the platform's standard store when omitted.
- */
+/** The store(s) a build for `platform` is submitted to. */
 export function resolveSubmitters(launchConfig: LaunchConfig, platform: Platform): string[] {
   const submitSetting = launchConfig.submit;
   const isMap = isSubmitByPlatform(submitSetting);
@@ -127,9 +124,7 @@ export function resolveSubmitterName(launchConfig: LaunchConfig, platform: Platf
   return primarySubmitter;
 }
 
-/**
- * Upload `artifact` to every store configured for `platform`, in order, and return the store names.
- */
+/** Upload `artifact` to every store configured for `platform`, in order */
 export async function submitToStores(
   launchConfig: LaunchConfig,
   platform: Platform,
@@ -187,10 +182,7 @@ function readReleaseRollout(
   return profileRollout;
 }
 
-/**
- * Resolve the Android track + rollout for one invocation: an explicit flag wins, then the profile,
- * then the safe `internal` fallback.
- */
+/** Resolve the Android track + rollout for one invocation */
 export function resolveAndroidRelease(
   buildOptions: Pick<BuildRunOptions, 'track' | 'rollout'>,
   profile: BuildProfile,
@@ -212,10 +204,7 @@ export function androidReleaseNotesFromLocaleMap(
   return Object.entries(releaseNotesByLocale).map(releaseNoteFromEntry);
 }
 
-/**
- * Resolve Play release notes for an Android ship: `--notes` JSON wins when set, otherwise the same
- * `release.releaseNotes` sources iOS uses. Empty means the submitter skips changelogs.
- */
+/** Resolve Play release notes for an Android ship */
 export async function resolveAndroidSubmitReleaseNotes(
   launchConfig: LaunchConfig,
   appDirectory: string,
@@ -237,10 +226,7 @@ export async function resolveAndroidSubmitReleaseNotes(
   return androidReleaseNotesFromLocaleMap(releaseNotesByLocale);
 }
 
-/**
- * The soft size budget (MB) the pre-upload gate enforces: a per-run override wins, then the profile,
- * then the default.
- */
+/** The soft size budget (MB) the pre-upload gate enforces */
 export function resolveSizeBudgetMB(
   buildOptions: Pick<BuildRunOptions, 'sizeBudgetMB'>,
   profile: Pick<BuildProfile, 'sizeBudgetMB'>,
@@ -325,10 +311,7 @@ function localAppleTransport(
   return { kind: 'local' };
 }
 
-/**
- * Pick the build fork for one run. Android always builds locally. iOS may go remote or to EAS.
- * The other Apple platforms build locally; an explicit off-Mac request fails fast.
- */
+/** Pick the build fork for one run. */
 export function resolveBuildTransport(
   platform: Platform,
   buildEngine: string,

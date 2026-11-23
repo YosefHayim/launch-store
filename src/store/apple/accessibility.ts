@@ -34,10 +34,7 @@ export type AccessibilityConfig = {
   declarations: AccessibilityDeclarationConfig[];
 };
 
-/**
- * The exact slice of App Store Connect the accessibility reconciler depends on. Declared here
- * so the diff logic is unit-testable with a hand-rolled fake.
- */
+/** The exact slice of App Store Connect the accessibility reconciler depends on. */
 export type AscAccessibilityApi = {
   getAppId(bundleId: string): Promise<string | null>;
   listAccessibilityDeclarations(appId: string): Promise<AccessibilityDeclarationResource[]>;
@@ -227,10 +224,7 @@ function normalizeSupport(support: AccessibilitySupport): AccessibilitySupport {
   return normalizedSupport;
 }
 
-/**
- * Index each device family to the declaration Launch should edit: the editable DRAFT when one exists,
- * otherwise the live PUBLISHED one. REPLACED history is dropped.
- */
+/** Index each device family to the declaration Launch should edit */
 function indexEditableByFamily(
   declarations: AccessibilityDeclarationResource[],
 ): Map<DeviceFamily, AccessibilityDeclarationResource> {
@@ -407,10 +401,7 @@ async function updateDeclaration(
   });
 }
 
-/**
- * Reconcile one app's accessibility declarations. Throws only for a precondition the user must fix (no
- * App Store Connect app record); everything else is captured per-action.
- */
+/** Reconcile one app's accessibility declarations. */
 export async function reconcileAccessibility(
   api: AscAccessibilityApi,
   reconcileInput: AccessibilityReconcileInput,

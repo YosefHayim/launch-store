@@ -107,9 +107,5 @@ function describeEnsureArtifactDirIgnored() {
   it("no-ops when the project dir isn't a git repo", noOpsWhenTheProjectDirIsnTAGitRepo);
 }
 
-/**
- * Exercise the auto-gitignore against a real git repo in a temp dir (git's own `check-ignore` decides
- * "already covered", so a mocked repo wouldn't prove anything). `realpathSync` resolves the macOS
- * `/var -> /private/var` symlink up front, since `git rev-parse --show-toplevel` returns the real path.
- */
+/** Exercise the auto-gitignore against a real git repo in a temp dir (git's own `check-ignore` */
 describe('ensureArtifactDirIgnored', describeEnsureArtifactDirIgnored);

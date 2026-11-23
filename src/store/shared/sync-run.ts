@@ -13,16 +13,10 @@ import type { SyncJob } from './sync-jobs.ts';
 /** How many apps reconcile concurrently. Bounded so the single ASC key stays under Apple's rate ceiling. */
 const SYNC_CONCURRENCY = 4;
 
-/**
- * The slice of the App Store Connect client a sync reconcile touches: the catalog surface plus the
- * screenshot and preview surfaces.
- */
+/** The slice of the App Store Connect client a sync reconcile touches */
 type SyncCatalogClient = AscCatalogApi & ScreenshotsApi & PreviewsApi;
 
-/**
- * One app's reconcile outcome, carrying its own job so we never index a parallel array. A precondition
- * failure (e.g. no ASC app record) lands in `error`; otherwise `report` holds the planned/applied actions.
- */
+/** One app's reconcile outcome, carrying its own job so we never index a parallel array. */
 export type JobOutcome =
   | {
       job: SyncJob;
@@ -46,10 +40,7 @@ type SyncAppReport = {
   };
 };
 
-/**
- * The structured result of a headless {@link runSyncBatch}. A per-app breakdown plus a roll-up across
- * all apps.
- */
+/** The structured result of a headless {@link runSyncBatch}. */
 type SyncRunReport = {
   apps: SyncAppReport[];
   summary: {
@@ -125,10 +116,7 @@ function failedAssetAction(label: string, failure: unknown): PlannedAction {
   };
 }
 
-/**
- * Run the screenshot/asset pass for one app, returning its actions. Isolated so a screenshot failure
- * is one failed action rather than discarding the catalog actions.
- */
+/** Run the screenshot/asset pass for one app, returning its actions. */
 async function screenshotActions(
   client: ScreenshotsApi,
   job: SyncJob,
@@ -172,10 +160,7 @@ async function screenshotActions(
   }
 }
 
-/**
- * Run the app-preview-video pass for one app, returning its actions. Isolated so a preview failure
- * is one recorded action, not a lost report.
- */
+/** Run the app-preview-video pass for one app, returning its actions. */
 async function previewActions(
   client: PreviewsApi,
   job: SyncJob,
@@ -198,10 +183,7 @@ async function previewActions(
   }
 }
 
-/**
- * The screenshot + preview-video asset reconcile for one app, as a single ordered action list.
- * A pass failure is captured as a `failed` action, never thrown.
- */
+/** The screenshot + preview-video asset reconcile for one app, as a single ordered action list. */
 export async function reconcileAssetActions(
   client: ScreenshotsApi & PreviewsApi,
   job: SyncJob,
@@ -345,10 +327,7 @@ export function mergeOutcomes(
   return plans.map(appliedFor);
 }
 
-/**
- * Reconcile a batch of jobs headlessly: a read-only plan pass, then an apply pass over only the jobs
- * that planned real work, both behind the bounded pool. Never prompts.
- */
+/** Reconcile a batch of jobs headlessly */
 export async function runSyncBatch(
   client: SyncCatalogClient,
   jobs: readonly SyncJob[],

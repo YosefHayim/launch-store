@@ -17,21 +17,9 @@ import type { PlayProductsApi } from '../store/google/play-products.ts';
 import type { PlaySubscriptionsApi } from '../store/google/play-subscriptions.ts';
 /** Which store a surface belongs to - drives credential resolution and how the diff is grouped. */
 export type PlanStore = 'appstore' | 'play';
-/**
- * The read surface of the Google Play catalog the Play planners share - the union of the products and
- * subscriptions reconcilers' interfaces. One resolver hands this to both planners (mirroring how a single
- * {@link AscCatalogApi} backs every App Store surface); each planner uses only the slice it needs, and
- * `GooglePlayClient` satisfies the whole thing structurally.
- */
+/** The read surface of the Google Play catalog the Play planners share */
 export type PlayCatalogApi = PlayProductsApi & PlaySubscriptionsApi;
-/**
- * The full read surface of App Store Connect the App Store planners share - the union of every ASC
- * surface reconciler's API slice (mirrors how {@link PlayCatalogApi} unions the two Play interfaces). One
- * resolver hands this to every App Store planner; each planner passes it to its reconciler, which uses
- * only the slice it needs. `AppStoreConnectClient` satisfies the whole thing structurally - every `launch-store`
- * command already passes that client to these reconcilers individually - so no widening of the client is
- * required, only of the resolver's declared type. Grows by one `extends` as each surface is wired.
- */
+/** The full read surface of App Store Connect the App Store planners share */
 export type AscSurfacesApi = AscCatalogApi &
   AscReleaseApi &
   AscGameCenterApi &
@@ -45,40 +33,16 @@ export type AscSurfacesApi = AscCatalogApi &
   AscOffersApi &
   ScreenshotsApi &
   PreviewsApi;
-/**
- * One app's slice of a surface's plan. `actions` is the reconciler's existing {@link PlannedAction} list
- * (all `planned` in dry-run, with advisory `skipped` lines for length-limit/precondition notes); empty
- * means in sync. `error` is set instead when the app couldn't be planned at all - a precondition the
- * user must fix, e.g. no App Store Connect app record - so the gate never silently certifies it as clean.
- */
+/** One app's slice of a surface's plan. */
 export type AppPlan = Readonly<{
   app: string;
   identifier: string;
   actions: readonly PlannedAction[];
   error?: string;
 }>;
-/**
- * How completely a surface detects drift - surfaced on the plan and in `--json` so a `drift` gate's
- * guarantee is legible:
- * - `two-way` - the reconciler lists live state and reports items that are missing **and** extra/changed,
- *   so a `= in sync` result means live == config.
- * - `additive` - the reconciler only ensures declared items exist (it never deletes), so it detects
- *   `config -> live` gaps but is **blind to portal-side additions**; `= in sync` means "config is fully
- *   applied," not "live == config." Genuine bidirectional drift for these surfaces is a v2 depth pass.
- */
+/** How completely a surface detects drift */
 export type PlanDirection = 'two-way' | 'additive';
-/**
- * The outcome of running one surface's planner, as a discriminated union on `state` (and, for a read
- * surface, on `scope`):
- * - `omitted` - nothing declared for this surface (e.g. no products at all); dropped from output and
- *   exit codes, so an ASC-only project never sees empty Play noise.
- * - `skipped` - declared but unreadable (credentials missing). Benign for plain `launch-store plan` (a visible
- *   skip at exit 0); a hard error for `launch-store plan --check`, which cannot certify what it could not read.
- * - `planned` + `scope: "app"` - read successfully; `apps` carries the per-app diff (the usual case).
- * - `planned` + `scope: "team"` - a team-level surface with no bundle id (wallet / EU distribution);
- *   `actions` carries the diff directly, with no per-app grouping.
- * Every `planned` variant carries its {@link PlanDirection} so the renderer can flag additive surfaces.
- */
+/** The outcome of running one surface's planner, as a discriminated union on `state` (and */
 export type SurfacePlan =
   | Readonly<{
       surface: string;
@@ -108,24 +72,14 @@ export type SurfacePlan =
       direction: PlanDirection;
       actions: readonly PlannedAction[];
     }>;
-/**
- * What a {@link SurfacePlanner} is handed: the loaded config, the apps to consider (already narrowed by
- * `-a`), and lazy store-client resolvers. A resolver returns `null` when the account isn't configured,
- * letting the planner emit a `skipped` surface rather than throw. Resolvers are memoized by the command,
- * so several planners over the same store share one client (and one credential read).
- */
+/** What a {@link SurfacePlanner} is handed */
 export type PlanContext = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
   resolveAscApi(): Promise<AscSurfacesApi | null>;
   resolvePlayApi(packageName?: string): Promise<PlayCatalogApi | null>;
 }>;
-/**
- * One config-as-code surface's planner. {@link plan} is **read-only**: it resolves live state and returns
- * the diff it *would* apply without performing any write, so the same call powers both `launch-store plan` and
- * the `launch-store drift` gate. Registered like a provider/adopter (see {@link import("../plan/registry.ts")}); the
- * orchestrator resolves every registered planner and never names a concrete one.
- */
+/** One config-as-code surface's planner. */
 export type SurfacePlanner = Readonly<{
   id: string;
   store: PlanStore;

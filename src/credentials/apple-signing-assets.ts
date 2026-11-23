@@ -68,16 +68,7 @@ export async function describeStoredCredentials(keyId: string): Promise<{
   };
 }
 
-/**
- * Return cached signing assets for a bundle id without any network call - the build's silent-reuse
- * path. Null if anything is missing (no cert backup, no installed profile), which tells the caller
- * to run setup. Verifies the files actually exist, not just that metadata mentions them.
- *
- * `extensions` are the app's embedded extension bundle ids: every one must already have its own cached,
- * installed profile for the fast path to apply - if any is missing, this returns null so the build
- * re-provisions the whole set rather than exporting an `.ipa` that can't sign its widget/share target.
- * Each present extension's `bundleId -> profileName` is folded into {@link SigningAssets.extensionProfiles}.
- */
+/** Return cached signing assets for a bundle id without any network call */
 export async function loadCachedSigningAssets(
   keyId: string,
   bundleId: string,
@@ -176,17 +167,7 @@ function dryRunExtensionName(extensionId: string): [string, string] {
   return [extensionId, `Launch_${extensionId}_AppStore`];
 }
 
-/**
- * Resolve a bundle's signing assets, reusing what already exists and creating only what's missing.
- *
- * Order: ensure a usable distribution certificate (reuse the cached one if it still exists on Apple, else
- * create a fresh key/CSR/cert) -> for the main bundle and each {@link EnsureSigningOptions.extensions}
- * target, ensure its App ID and App Store profile (reuse by name, or recreate when a new cert was issued),
- * all signed by that one shared certificate. The cert is resolved first since every bundle shares it. Each
- * extension's `bundleId -> profileName` lands in {@link SigningAssets.extensionProfiles}. Every creation is
- * gated by {@link EnsureSigningOptions.confirmCreate}. Idempotent: a second run with everything in place
- * performs no writes and no creations.
- */
+/** Resolve a bundle's signing assets */
 export async function ensureSigningCredentials(
   signingOptions: EnsureSigningOptions,
 ): Promise<SigningAssets> {
@@ -293,16 +274,7 @@ function readAdHocProfileType(platform: Platform): 'IOS_APP_ADHOC' | 'TVOS_APP_A
   return profileType;
 }
 
-/**
- * Resolve signing assets for an ad-hoc (internal-distribution) build - the install-link twin of
- * {@link ensureSigningCredentials}.
- *
- * Same App ID + distribution certificate as the App Store path, but the profile is an `IOS_APP_ADHOC`
- * profile scoped to every registered, enabled device (so the resulting `.ipa` installs over the air on
- * those devices). Because an ad-hoc profile is only valid for the exact device set it was minted with,
- * this recreates the profile on every run rather than reusing a stale one - the cheap, always-correct
- * choice. Throws with an actionable message when no devices are registered (`launch-store device add`).
- */
+/** Resolve signing assets for an ad-hoc (internal-distribution) build */
 export async function ensureAdHocSigningCredentials(
   signingOptions: EnsureSigningOptions,
 ): Promise<SigningAssets> {
@@ -398,14 +370,7 @@ export async function ensureAdHocSigningCredentials(
   };
 }
 
-/**
- * Local files + identifiers needed to sign on a REMOTE Mac, produced by {@link ensureRemoteSigningAssets}.
- *
- * The remote pipeline uploads `p12Path` and `profilePath` (plus the API `.p8`) into a throwaway
- * keychain on the host; `p12Password` unlocks the `.p12` there. `teamId`/`profileName`/`certName` feed
- * the host's manual-signing export options. The remote Mac re-reads the profile's UUID itself, so it
- * isn't carried here. Distinct from {@link SigningAssets} (which assumes a locally-installed profile).
- */
+/** Local files + identifiers needed to sign on a REMOTE Mac */
 export type RemoteSigningBundle = {
   bundleId: string;
   certName: string;
@@ -417,16 +382,7 @@ export type RemoteSigningBundle = {
   profilePath: string;
 };
 
-/**
- * Resolve a bundle's signing assets for a REMOTE (off-Mac) build, leaving local files to upload.
- *
- * The cross-platform twin of {@link ensureSigningCredentials}: it ensures the same Apple resources
- * over the API and packages the distribution `.p12` locally with openssl (decision 7 - the private
- * key is born on your machine, never on rented infra), but it does NOT import anything into a local
- * codesign keychain or install the profile where a local Xcode looks - there is none. The remote Mac
- * imports the `.p12` into a throwaway keychain and reads the profile itself. Touches only the ASC API
- * and openssl, so it runs on Windows/Linux.
- */
+/** Resolve a bundle's signing assets for a REMOTE (off-Mac) build */
 export async function ensureRemoteSigningAssets(
   signingOptions: EnsureSigningOptions,
 ): Promise<RemoteSigningBundle> {
@@ -552,14 +508,7 @@ async function createRemoteProfile(
   return profile;
 }
 
-/**
- * Move a pre-multi-account signing index (the flat `~/.launch/credentials/index.json` plus the `.p12`
- * and `.mobileprovision` files it references) into the per-account folder for `keyId`, rewriting the
- * stored paths so a later reuse still finds the cached `.p12` (and so doesn't burn an Apple cert slot
- * re-creating one). Best-effort and idempotent: a missing legacy index is a no-op, and a failed file
- * move just leaves that account to re-provision on its next build. Called once by the account-registry
- * migration; see `core/accounts.ts`.
- */
+/** Move a pre-multi-account signing index (the flat `~/.launch/credentials/index.json` plus the */
 export async function migrateLegacySigningIndex(keyId: string): Promise<void> {
   const credentialsDirectory = resolveCredentialsDirectory();
   const legacyIndexPath = join(credentialsDirectory, 'index.json');

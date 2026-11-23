@@ -11,12 +11,7 @@ type NotifyEventBase = {
   platform: Platform;
   version: string;
 };
-/**
- * A finished build or submit run - the original completion ping. `event` is the furthest stage reached
- * (`submit` once an upload was attempted, else `build`); `status` is its outcome. Size/buildNumber/
- * destination are filled when known (a success has them; an early failure may not). Fired from the
- * build->submit pipeline and the `release` command.
- */
+/** A finished build or submit run - the original completion ping. */
 type CompletionEvent = NotifyEventBase & {
   event: 'build' | 'submit';
   status: 'success' | 'failure';
@@ -25,20 +20,13 @@ type CompletionEvent = NotifyEventBase & {
   destination?: string;
   error?: string;
 };
-/**
- * An App Store review reached a verdict. Fired from `launch-store status --watch` the first time an app
- * settles to a terminal verdict, so a dev who walked away learns the outcome without babysitting the
- * poll loop.
- */
+/** An App Store review reached a verdict. */
 type ReviewEvent = NotifyEventBase & {
   event: 'review';
   status: 'approved' | 'rejected';
   detail?: string;
 };
-/**
- * A phased rollout changed state. Fired from `launch-store rollout` after a successful pause/resume/complete,
- * and from `launch-store status --watch` when Apple advances the ramp (`advanced`) between polls.
- */
+/** A phased rollout changed state. */
 type RolloutEvent = NotifyEventBase & {
   event: 'rollout';
   status: 'paused' | 'resumed' | 'completed' | 'advanced';
@@ -81,11 +69,7 @@ export function notifyMessage(event: NotifyEvent): string {
     }
   }
 }
-/**
- * The JSON body POSTed to the webhook. `text` (Slack) and `content` (Discord) both carry the human
- * message so the same URL works for either; the structured event fields ride alongside for a custom
- * endpoint. Pure - the exact bytes are determined by the event.
- */
+/** The JSON body POSTed to the webhook. */
 export function notificationDocument(event: NotifyEvent): Record<string, unknown> {
   const message = notifyMessage(event);
   const notification: Record<string, unknown> = {
@@ -163,11 +147,7 @@ async function postWebhook(url: string, event: NotifyEvent, logger: Logger): Pro
   }
 }
 
-/**
- * Run the shell hook with the event in its environment. The command is the user's own
- * `launch.config.ts` value, and event data reaches it only as `LAUNCH_*` environment vars,
- * never spliced into the command string. A non-zero exit is reported, never thrown.
- */
+/** Run the shell hook with the event in its environment. */
 async function runHook(command: string, event: NotifyEvent, logger: Logger): Promise<void> {
   try {
     await executeCommandQuietly('/bin/sh', ['-c', command], {
@@ -179,11 +159,7 @@ async function runHook(command: string, event: NotifyEvent, logger: Logger): Pro
   }
 }
 
-/**
- * Fire the configured notifications for `event`. A no-op when neither a `webhookUrl` nor a `command` is
- * set, or when `notify.events` is declared and doesn't include this event's transition. The webhook and
- * the shell hook run together; both are best-effort, so this resolves even when one (or both) fail.
- */
+/** Fire the configured notifications for `event`. */
 export async function notify(launchConfig: LaunchConfig, event: NotifyEvent): Promise<void> {
   const notifyConfig: NotifyConfig | undefined = launchConfig.notify;
   const hasWebhook = hasNotifyText(notifyConfig?.webhookUrl);

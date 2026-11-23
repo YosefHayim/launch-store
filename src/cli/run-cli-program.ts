@@ -40,10 +40,7 @@ function writeStderr(text: string): void {
   stderr.write(text);
 }
 
-/**
- * Run a command for `--json`. The starter runs only after JSON mode is on, so the command
- * cannot log or prompt before stdout is NDJSON. The run ends with exactly one `result` line.
- */
+/** Run a command for `--json`. */
 export async function runJsonCliProgram<Success>(
   summary: JsonRunSummary,
   startProgram: () => Promise<Success>,

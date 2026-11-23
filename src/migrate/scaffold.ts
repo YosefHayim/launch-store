@@ -23,10 +23,7 @@ function blankEnvLine(key: string): string {
   return `${key}=`;
 }
 
-/**
- * Emit a skeleton `store.config.json` when absent, or skip when present.
- * Shared by EAS and Fastlane migrations.
- */
+/** Emit a skeleton `store.config.json` when absent, or skip when present. */
 export async function scaffoldStoreConfig(
   workingDirectory: string,
 ): Promise<StoreScaffoldDecision> {
@@ -57,10 +54,7 @@ export async function scaffoldStoreConfig(
   };
 }
 
-/**
- * `.env.example` body from imported env KEYS only (values dropped; may be secrets).
- * Falls back to the starter template when no keys were found. Shared by EAS and Fastlane.
- */
+/** `.env.example` body from imported env KEYS only (values dropped; may be secrets). */
 export function buildEnvExample(keys: readonly string[]): string {
   const hasNoKeys = keys.length == 0;
 

@@ -2,28 +2,14 @@ import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
 
-/**
- * One build target discovered in a generated Xcode project's `project.pbxproj` - a target name paired
- * with its authoritative `PRODUCT_BUNDLE_IDENTIFIER`.
- *
- * The pbxproj is the source of truth for what a multi-target app actually signs: `@bacons/apple-targets`
- * derives an extension's bundle id from the target FOLDER name (`targets/widget/` => `...​.widget`), NOT
- * the `name:` field, so neither the config nor the target name can be trusted to reconstruct it - only
- * the `PRODUCT_BUNDLE_IDENTIFIER` Xcode wrote into the project is. Used by signing preflight + discovery
- * to feed every embedded extension's bundle id into provisioning. `productType` distinguishes the main
- * app (`com.apple.product-type.application`) from its app-extension targets.
- */
+/** One build target discovered in a generated Xcode project's `project.pbxproj` */
 type DiscoveredTarget = Readonly<{
   name: string;
   bundleId: string;
   productType: string;
 }>;
 
-/**
- * One target's signing readiness, as established by the build preflight before the long archive: is its
- * App ID registered, and which required capabilities (if any) is that App ID missing. Pure input to
- * {@link multiTargetSigningWarnings} so the messaging is unit-testable without a network call.
- */
+/** One target's signing readiness, as established by the build preflight before the long archive */
 export type TargetSigningReadiness = {
   bundleId: string;
   registered: boolean;
@@ -41,34 +27,21 @@ function lineAt(lines: readonly string[], lineIndex: number): string {
   if (sourceLine == null) return '';
   return sourceLine;
 }
-/**
- * Pull the object id assigned on a line like `<key> = <id> /* ... *​/;` - the unquoted hex (or any
- * non-whitespace token) immediately after `=`. Used for `buildConfigurationList` references. Returns
- * null when the line carries no assignment.
- */
+/** Pull the object id assigned on a line like `<key> = <id> /* ... */
 function assignedId(line: string): string | null {
   const match = /[=]\s*([^\s;]+)/.exec(line);
   const assignedIdentifier = match?.[1];
   if (assignedIdentifier == null) return null;
   return assignedIdentifier;
 }
-/**
- * Pull a bare `<key> = <value>;` string value (e.g. `name = widget;` or `PRODUCT_BUNDLE_IDENTIFIER =
- * com.x.y;`), stripping surrounding quotes Xcode adds around values with special characters. Returns
- * null when the line doesn't assign `key`.
- */
+/** Pull a bare `<key> = <value>;` string value (e.g. */
 function stringValue(line: string, key: string): string | null {
   const match = new RegExp(`^\\s*${key}\\s*=\\s*"?([^";]+)"?\\s*;`).exec(line);
   const assignedText = match?.[1]?.trim();
   if (assignedText == null) return null;
   return assignedText;
 }
-/**
- * Parse every `PBXNativeTarget` block: its `name`, its `buildConfigurationList` id, and its
- * `productType`. One pass over the lines, tracking the brace depth of the target object so a nested
- * `buildSettings` key never leaks into the wrong target. The opening line of each target object is
- * `<id> /* <Name> *​/ = {` followed by `isa = PBXNativeTarget;`.
- */
+/** Parse every `PBXNativeTarget` block */
 function parseNativeTargets(lines: string[]): NativeTargetRef[] {
   const targets: NativeTargetRef[] = [];
   for (let i = 0; i < lines.length; i++) {
@@ -97,11 +70,7 @@ function parseNativeTargets(lines: string[]): NativeTargetRef[] {
   }
   return targets;
 }
-/**
- * Map each `XCConfigurationList` object id to the `XCBuildConfiguration` object ids it lists. A target
- * reaches its build settings through this indirection (`PBXNativeTarget.buildConfigurationList` ->
- * `XCConfigurationList.buildConfigurations` -> each `XCBuildConfiguration`).
- */
+/** Map each `XCConfigurationList` object id to the `XCBuildConfiguration` object ids it lists. */
 function parseConfigurationLists(lines: string[]): Map<string, string[]> {
   const lists = new Map<string, string[]>();
   for (let i = 0; i < lines.length; i++) {
@@ -126,11 +95,7 @@ function parseConfigurationLists(lines: string[]): Map<string, string[]> {
   }
   return lists;
 }
-/**
- * Map each `XCBuildConfiguration` object id to its `PRODUCT_BUNDLE_IDENTIFIER`, skipping any value that
- * is still an unexpanded build variable (`$(...)`) - those can't name an App ID, so a target with only
- * variable bundle ids is treated as having none (and is dropped from discovery rather than guessed at).
- */
+/** Map each `XCBuildConfiguration` object id to its `PRODUCT_BUNDLE_IDENTIFIER` */
 function parseBundleIdsByConfig(lines: string[]): Map<string, string> {
   const bundleIds = new Map<string, string>();
   for (let i = 0; i < lines.length; i++) {
@@ -223,10 +188,7 @@ export function splitMainAndExtensions(
   // De-dupe in case Debug/Release configs surfaced the same extension twice, preserving first-seen order.
   return { main, extensions: [...new Set(extensions)] };
 }
-/**
- * Locate the `*.xcodeproj/project.pbxproj` inside a generated native project directory (e.g. `ios/`),
- * or null when the project hasn't been generated yet (pre-prebuild). Reads only the directory listing.
- */
+/** Locate the `*.xcodeproj/project.pbxproj` inside a generated native project directory (e.g. */
 function isXcodeProject(directoryName: string): boolean {
   return directoryName.endsWith('.xcodeproj');
 }
@@ -290,12 +252,7 @@ export function multiTargetSigningWarnings(readiness: readonly TargetSigningRead
   }
   return warnings;
 }
-/**
- * The per-target manual-signing inputs stamped into a multi-target project before archiving: the one team
- * that signs every target, and each target's `bundleId -> profileName` (the main app plus every embedded
- * extension). Mirrors the {@link import("../services/provider-support/apple-artifact.ts").exportOptionsPlist} profile map so
- * the archive and the export agree on which profile signs which bundle.
- */
+/** The per-target manual-signing inputs stamped into a multi-target project before archiving */
 type ManualSigningTargets = {
   teamId: string;
   profileByBundleId: Record<string, string>;
@@ -308,11 +265,7 @@ function braceDelta(line: string): number {
   if (closingBraces == null) closingBraces = 0;
   return openingBraces - closingBraces;
 }
-/**
- * Map each `XCBuildConfiguration` object id to its `name` (`Debug` / `Release` / ...). Brace-depth-counted so
- * the name is read at the object's own scope and never confused with a key inside its nested `buildSettings`
- * dict - Expo writes `name = Release;` AFTER that dict, so a naive "stop at the first `};`" scan misses it.
- */
+/** Map each `XCBuildConfiguration` object id to its `name` (`Debug` / `Release` / ...). */
 function parseConfigNames(lines: string[]): Map<string, string> {
   const names = new Map<string, string>();
   for (let i = 0; i < lines.length; i++) {
@@ -332,11 +285,7 @@ function parseConfigNames(lines: string[]): Map<string, string> {
   }
   return names;
 }
-/**
- * For every target that has a resolved profile, map its **Release** `XCBuildConfiguration` object id to that
- * profile name - the exact configs {@link stampManualSigningIntoPbxproj} rewrites. Only Release is touched,
- * so a target's Debug config (used by dev-client runs) stays byte-identical. Pure.
- */
+/** For every target that has a resolved profile */
 function releaseConfigProfiles(
   lines: string[],
   profileByBundleId: Record<string, string>,
@@ -370,19 +319,7 @@ function releaseConfigProfiles(
   }
   return profilesByReleaseConfiguration;
 }
-/**
- * Stamp per-target manual signing into a project's `project.pbxproj` and return the rewritten text
- * (the input unchanged when no target matched a profile). Launch drops `PROVISIONING_PROFILE_SPECIFIER`
- * from the global `xcodebuild archive` settings - a workspace-wide specifier leaks onto the Pods library targets and
- * fails the Xcode 26 archive (issue #301), and would clobber an extension's bundle (issue #262); see
- * {@link import("./build-flags.ts").assembleArchiveArguments} - so each target's profile has to live in the
- * project, or `xcodebuild` fails the archive at exit 65 with "requires a provisioning profile ... Select a
- * provisioning profile in the Signing & Capabilities editor" for every target (issue #289).
- *
- * Each target's **Release** `buildSettings` gets `CODE_SIGN_STYLE = Manual`, the team, and its own
- * `PROVISIONING_PROFILE_SPECIFIER`; the three managed keys are replaced rather than appended, so re-running
- * across rebuilds is idempotent. Pure - the file I/O is {@link writeManualSigningToProject}.
- */
+/** Stamp per-target manual signing into a project's `project.pbxproj` and return the rewritten */
 export function stampManualSigningIntoPbxproj(
   pbxproj: string,
   signing: ManualSigningTargets,

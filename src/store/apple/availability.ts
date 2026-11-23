@@ -31,10 +31,7 @@ function makeAvailabilityConfigFailure(fields: {
   return { _tag: 'AvailabilityConfigFailure', ...fields };
 }
 
-/**
- * The exact slice of App Store Connect the availability reconciler depends on. Declared here
- * so the diff logic is unit-testable with a hand-rolled fake.
- */
+/** The exact slice of App Store Connect the availability reconciler depends on. */
 export type AscAvailabilityApi = {
   getAppId(bundleId: string): Promise<string | null>;
   getAppAvailability(appId: string): Promise<AppAvailabilityResource | null>;
@@ -214,10 +211,7 @@ type AvailabilityChange = {
   flagRequiresManualUpdate: boolean;
 };
 
-/**
- * Build the human description of the availability change. Names the resulting territory count and the
- * added / removed deltas (and the auto-add flag when it flips), so the plan is legible before applying.
- */
+/** Build the human description of the availability change. */
 function describeChange(change: AvailabilityChange): string {
   let territoryLabel = 'territories';
   const isSingleTerritory = change.total == 1;
@@ -345,11 +339,7 @@ async function applyAvailabilityCreate(
   }
 }
 
-/**
- * Reconcile one app's store availability. Throws only for a precondition the user must fix (no App Store
- * Connect app record). Emits a single planned "set availability" action when the desired territory set (or
- * the auto-add flag) differs from Apple's, or nothing when already in sync.
- */
+/** Reconcile one app's store availability. */
 export async function reconcileAvailability(
   api: AscAvailabilityApi,
   reconcileInput: AvailabilityReconcileInput,

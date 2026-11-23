@@ -4,11 +4,7 @@ import { isSecretLookingName } from '../../config/env.ts';
 const HOME = homedir();
 /** The masked placeholder substituted for any redacted value. */
 const MASK = '***';
-/**
- * Redact one line of log text: collapse the home path to `~`, mask secret-looking `NAME=value`
- * assignments, and strip JWTs, bearer tokens, and AWS access keys. Pure and idempotent; an
- * already-redacted line is unchanged. Multi-line secrets are not visible here - see {@link redactText}.
- */
+/** Redact one line of log text */
 export function redactLine(line: string): string {
   let out = line;
   if (HOME.length > 1) out = out.split(HOME).join('~');
@@ -29,11 +25,7 @@ export function redactLine(line: string): string {
   out = out.replace(/\bAKIA[0-9A-Z]{16}\b/g, '[redacted-aws-key]');
   return out;
 }
-/**
- * Redact a whole log document: drop any PEM key/cert blocks first (they span lines, so they're only
- * visible with the full text), then apply {@link redactLine} to every remaining line. Used when reading
- * a persisted log back for `launch-store builds log` - a second pass over what was already scrubbed on write.
- */
+/** Redact a whole log document */
 export function redactText(text: string): string {
   return text
     .replace(
@@ -54,10 +46,7 @@ function isPemBodyLine(line: string): boolean {
   return /^(Proc-Type|DEK-Info): /.test(line);
 }
 
-/**
- * Keep a PEM body off disk even when the child emits it over multiple chunks. A block that never
- * closes ends at the first line that is not key material, so later error lines still show.
- */
+/** Keep a PEM body off disk even when the child emits it over multiple chunks. */
 export function makeLogRedactor(): (line: string) => string {
   let withinPem = false;
   function runLine(line: string) {

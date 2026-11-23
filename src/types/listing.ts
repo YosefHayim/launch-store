@@ -1,9 +1,5 @@
 import type { AppleLocaleInfo } from '../store/shared/store-config.ts';
-/**
- * Everything a generator needs to draft one locale's listing. Seeded from the app's own config so the
- * model refines what's there rather than inventing from nothing: `about` and `keywords` carry the
- * existing pitch/keywords (or a `--about` override), and `current` is the locale's existing listing.
- */
+/** Everything a generator needs to draft one locale's listing. */
 export type ListingBrief = Readonly<{
   locale: string;
   appName: string;
@@ -11,11 +7,7 @@ export type ListingBrief = Readonly<{
   keywords?: readonly string[];
   current?: AppleLocaleInfo;
 }>;
-/**
- * A drafted listing for one locale - the App Store copy fields a generator produces. This is the
- * superset; the Play (`android`) fields are derived from it when the user targets Android. Every field
- * is optional so a generator (or a length clamp) can omit what it can't produce within store limits.
- */
+/** A drafted listing for one locale - the App Store copy fields a generator produces. */
 export type DraftListing = Readonly<{
   title?: string;
   subtitle?: string;
@@ -23,11 +15,7 @@ export type DraftListing = Readonly<{
   keywords?: readonly string[];
   promotionalText?: string;
 }>;
-/**
- * One locale's generated-and-clamped draft, ready to preview and (on confirmation) apply. `warnings`
- * records what the length clamp had to trim, so the user sees it in the preview before anything is
- * written. Produced by the command, consumed by `renderDraftPreview` and `applyDraft`.
- */
+/** One locale's generated-and-clamped draft, ready to preview and (on confirmation) apply. */
 export type LocaleDraft = Readonly<{
   locale: string;
   draft: DraftListing;

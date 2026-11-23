@@ -45,21 +45,9 @@ export function detectAppRoot(
 
   return `./${onlySegment}`;
 }
-/**
- * The in-repo artifact directory `launch-store init` scaffolds by default - a `.launch`
- * folder in the project, mirroring the global `~/.launch`. Auto-added to `.gitignore` so build binaries
- * never get committed. Users can point `artifactDir` elsewhere (or omit it for the global default).
- */
+/** The in-repo artifact directory `launch-store init` scaffolds by default */
 export const DEFAULT_IN_REPO_ARTIFACT_DIR = './.launch/artifacts';
-/**
- * The commented config Launch writes, tailored with a detected `appRoots` when there is one. `extraSections`
- * is injected verbatim just before the closing `});` - `launch-store adopt` passes a populated `products:` block
- * there; `launch-store init` passes nothing and gets the blank starter. `profilesSection`, when given, replaces
- * the default single-`production` profiles block - `launch-store migrate` passes the profiles it mapped from
- * `eas.json` there so the migrated config carries the user's real build profiles. `artifactDir`, when
- * given, emits an explicit `artifactDir:` line (e.g. the in-repo {@link DEFAULT_IN_REPO_ARTIFACT_DIR});
- * omit it to leave the config on the global `~/.launch/artifacts` default.
- */
+/** The commented config Launch writes, tailored with a detected `appRoots` when there is one. */
 export function configTemplate(
   appRoot: string | null,
   extraSections?: string,
@@ -89,11 +77,7 @@ export function configTemplate(
   }
   return `import { defineConfig } from "launch-store";
 
-/**
- * Launch configuration. App facts (bundle id, version) are read from each app.json - this file holds
- * only Launch-specific settings. Provider names are resolved from Launch's registry; the v1 built-ins
- * are shown below as the defaults.
- */
+/** Launch configuration. */
 export default defineConfig({
 ${appRootsLine}
 

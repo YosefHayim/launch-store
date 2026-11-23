@@ -17,10 +17,7 @@ export function listAdopters(): Adopter[] {
   return [...ADOPTERS.values()];
 }
 
-/**
- * Register the v1 built-in adopters, smallest-blast-radius first
- * (products -> capabilities -> certs -> listing). Idempotent.
- */
+/** Register the v1 built-in adopters */
 export function registerBuiltinAdopters(): void {
   registerAdopter(productsAdopter);
   registerAdopter(capabilitiesAdopter);

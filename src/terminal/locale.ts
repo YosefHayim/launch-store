@@ -6,10 +6,7 @@ export const UTF8_LOCALE = {
   LC_ALL: 'en_US.UTF-8',
 } as const;
 export type ShellLocaleEnv = Partial<Pick<NodeJS.ProcessEnv, 'LANG' | 'LC_ALL' | 'LANGUAGE'>>;
-/**
- * Merge the environment service's raw variables with UTF-8 locale defaults for child processes. Caller `env` wins last so tests
- * can override, but production builds always pass UTF-8 unless explicitly replaced.
- */
+/** Merge the environment service's raw variables with UTF-8 locale defaults for child processes. */
 export function mergeChildEnv(
   environmentVariables: NodeJS.ProcessEnv,
   extra?: Record<string, string>,

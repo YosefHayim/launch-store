@@ -1,20 +1,13 @@
 import { READINESS_EXIT } from '../readiness/orchestrator.ts';
 import type { PrivacyFinding, PrivacySurface } from '../types/privacy.ts';
-/**
- * The full result of a scan: every finding across the scanned apps plus the resolved process exit code
- * (0 clear - 2 blockers - 1 unreadable, per the shared readiness contract). This is the `--json` payload.
- */
+/** The full result of a scan */
 type PrivacyReport = Readonly<{
   findings: readonly PrivacyFinding[];
   scanned: readonly string[];
   exitCode: number;
 }>;
 
-/**
- * iOS permission usage-description key -> the privacy-manifest `NSPrivacyCollectedDataType` it implies.
- * Only the unambiguous mappings live here; keys without a clean data-type twin (calendars, motion, ...)
- * are intentionally absent so they're never wrongly flagged as undeclared.
- */
+/** iOS permission usage-description key -> the privacy-manifest `NSPrivacyCollectedDataType` it */
 const USAGE_TO_DATA_TYPE: Record<string, string> = {
   NSLocationWhenInUseUsageDescription: 'NSPrivacyCollectedDataTypePreciseLocation',
   NSLocationAlwaysAndWhenInUseUsageDescription: 'NSPrivacyCollectedDataTypePreciseLocation',
@@ -146,11 +139,7 @@ export function reconcilePrivacy(app: string, surface: PrivacySurface): PrivacyF
   }
   return findings;
 }
-/**
- * Roll findings across the scanned apps into a report. Exit code follows the shared readiness contract:
- * `error` (1) when nothing was scannable, `blocker` (2) when any blocker is present, else `ok` (0).
- * Warnings and advisories never fail the scan, so it's a safe pre-submit CI gate.
- */
+/** Roll findings across the scanned apps into a report. */
 export function buildPrivacyReport(
   findings: PrivacyFinding[],
   scanned: readonly string[],

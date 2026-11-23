@@ -24,10 +24,7 @@ export type CapabilityType =
   | 'ACCESS_WIFI_INFORMATION'
   | 'SYSTEM_EXTENSION_INSTALL'
   | 'APPLE_ID_AUTH';
-/**
- * Entitlement key -> capability type. The authoritative mapping, in one place. Several distinct iCloud
- * entitlements all gate the single `ICLOUD` capability, so they collapse to the same value here.
- */
+/** Entitlement key -> capability type. */
 const ENTITLEMENT_TO_CAPABILITY: Record<string, CapabilityType> = {
   'aps-environment': 'PUSH_NOTIFICATIONS',
   'com.apple.developer.aps-environment': 'PUSH_NOTIFICATIONS',
@@ -57,12 +54,7 @@ const ENTITLEMENT_TO_CAPABILITY: Record<string, CapabilityType> = {
   'com.apple.external-accessory.wireless-configuration': 'WIRELESS_ACCESSORY_CONFIGURATION',
   'inter-app-audio': 'INTER_APP_AUDIO',
 };
-/**
- * Entitlement keys that are NOT capabilities: signing plumbing Xcode/the profile own (team id, app
- * id, keychain groups, debug flag) or values the OS reads directly. Listing them explicitly means a
- * truly-unrecognized key still surfaces as {@link mapEntitlementsToCapabilities}'s `unmapped` (a real
- * "you may need to handle this in the portal" signal) instead of being lost in the noise.
- */
+/** Entitlement keys that are NOT capabilities */
 const ignoredEntitlements = new Set<string>([
   'application-identifier',
   'com.apple.developer.team-identifier',
@@ -72,18 +64,7 @@ const ignoredEntitlements = new Set<string>([
   'com.apple.developer.kernel.increased-memory-limit',
   'com.apple.developer.kernel.extended-virtual-addressing',
 ]);
-/**
- * Capability type -> the one **canonical** entitlement key `launch-store adopt` emits for it when a shipping
- * app's provisioning profile didn't supply a concrete value (so the entitlement is written with the
- * build-breaking {@link import("../adopt/capabilities.ts").NEEDS_VALUE} sentinel for the developer to fill in).
- *
- * This is the curated inverse of {@link ENTITLEMENT_TO_CAPABILITY}: that map is many-to-one (several
- * iCloud entitlements collapse to `ICLOUD`), so the inverse must pick a single representative key per
- * capability - the identifier-bearing one a developer most likely needs (e.g. the iCloud *container
- * identifiers*, not the kv-store key). Capabilities Apple always enables and that carry no entitlement
- * (`IN_APP_PURCHASE`, `GAME_CENTER`) are intentionally absent - there is nothing to write to `app.json`.
- * Kept here, beside the forward map, so the entitlementcapability vocabulary has one home to audit.
- */
+/** Capability type -> the one **canonical** entitlement key `launch-store adopt` emits for it */
 export const CAPABILITY_TO_ENTITLEMENT: Partial<Record<CapabilityType, string>> = {
   PUSH_NOTIFICATIONS: 'aps-environment',
   APPLE_ID_AUTH: 'com.apple.developer.applesignin',
@@ -126,11 +107,7 @@ export function isCapabilityType(capabilityText: string): capabilityText is Capa
 export function isCapabilityEntitlement(key: string): boolean {
   return key in ENTITLEMENT_TO_CAPABILITY;
 }
-/**
- * The canonical `app.json` entitlement key for a capability type, or `undefined` for an always-on /
- * value-less capability that needs no entitlement. Accepts a raw `capabilityType` string (Apple's wire
- * value) so `launch-store adopt` can look up a gap without first narrowing to {@link CapabilityType}.
- */
+/** The canonical `app.json` entitlement key for a capability type */
 export function entitlementForCapability(capabilityType: string): string | undefined {
   return capabilityToEntitlementLookup.get(capabilityType);
 }
@@ -139,12 +116,7 @@ type CapabilityMapping = {
   enable: CapabilityType[];
   unmapped: string[];
 };
-/**
- * Map an app's `ios.entitlements` to the capabilities Launch should enable on its bundle id. Pure:
- * the result depends only on the input keys (values are irrelevant - Apple toggles a capability by
- * presence, and the concrete container is out of API scope). De-dupes collapsing iCloud entitlements
- * and returns the enable list sorted for a deterministic plan/diff.
- */
+/** Map an app's `ios.entitlements` to the capabilities Launch should enable on its bundle id. */
 export function mapEntitlementsToCapabilities(
   entitlements: Record<string, unknown> | undefined,
 ): CapabilityMapping {
@@ -176,13 +148,7 @@ export function staleProfileCapabilities(
   }
   return [...missing].sort();
 }
-/**
- * The `group.*` App Group container ids declared by one bundle's entitlements. The
- * {@link APP_GROUPS_ENTITLEMENT} value is an array of group ids in a normal Expo config; this reads it
- * defensively (a lone string is tolerated, non-strings dropped) so a hand-edited config can't throw.
- * Pure - used to detect the portal-only App Group step (see {@link mapEntitlementsToCapabilities} for
- * why the *container* itself is out of API scope).
- */
+/** The `group.*` App Group container ids declared by one bundle's entitlements. */
 export const appGroupContainers = (entitlements: Record<string, unknown> | undefined): string[] => {
   const entitlementValue = entitlements?.['com.apple.security.application-groups'];
   if (typeof entitlementValue == 'string') return [entitlementValue];
@@ -192,15 +158,7 @@ export const appGroupContainers = (entitlements: Record<string, unknown> | undef
 /** The Apple Developer portal page where App Group container ids are created and assigned to bundle ids. */
 export const APP_GROUP_PORTAL_URL =
   'https://developer.apple.com/account/resources/identifiers/list/applicationGroup';
-/**
- * The actionable message to print when an app (or one of its extensions) declares App Group containers,
- * or `null` when it declares none. Creating a `group.*` container and assigning it to the bundle ids that
- * share it is the one signing step Apple's JWT API can't do - it needs the portal's cookie session, which
- * Launch deliberately doesn't automate. Surfacing this up front turns the otherwise cryptic `xcodebuild`
- * exit 65 ("provisioning profile doesn't include the application-groups entitlement") into a precise
- * to-do: which groups, where to create them, and which bundle ids must join. Pure - for the build path to
- * warn before archiving and for unit tests.
- */
+/** The actionable message to print when an app (or one of its extensions) declares App Group */
 export function appGroupPortalNotice(containers: readonly string[]): string | null {
   if (containers.length == 0) return null;
   function mapId(id: string) {

@@ -386,10 +386,7 @@ type ActivateUpdateInput = Readonly<{
   readonly signer: CodeSigner | null;
 }>;
 
-/**
- * Persist the active manifest + snapshot, record history, and clear any rollback-to-embedded
- * directive. Shared by first publish and snapshot republish.
- */
+/** Persist the active manifest + snapshot, record history */
 export async function activateUpdate(input: ActivateUpdateInput): Promise<UpdateHistoryEntry> {
   const { storage, channel, platform, updateManifest, kind, signer } = input;
   const existingHistory = await readHistory(storage, channel, platform);

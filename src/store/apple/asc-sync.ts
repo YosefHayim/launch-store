@@ -20,10 +20,7 @@ import type {
 import type { ActionStatus, PlannedAction, ReconcileReport } from '../../types/reconcile.ts';
 import { appRecordMissing } from '../shared/reconcile.ts';
 
-/**
- * ASC catalog surface the reconciler depends on. Structural subset of
- * `AppStoreConnectClient` so unit tests supply a hand fake without the live client.
- */
+/** ASC catalog surface the reconciler depends on. */
 export type AscCatalogApi = {
   getAppId(bundleId: string): Promise<string | null>;
   findBundleId(identifier: string): Promise<BundleIdResource | null>;
@@ -145,17 +142,10 @@ function makeCatalogPricePointFailure(message: string): CatalogPricePointFailure
 /** Stand-in parent id when a create was planned only (dry-run) so dependent plan lines still chain. */
 export const DRY_RUN_ID = '(dry-run)';
 
-/**
- * Capabilities Apple enables on every App ID and will not remove. Never plan a disable for these
- * merely because config omits them.
- */
+/** Capabilities Apple enables on every App ID and will not remove. */
 const alwaysEnabledCapabilities = new Set<string>(['IN_APP_PURCHASE', 'GAME_CENTER']);
 
-/**
- * Shared plan/apply log. `dryRun: true` is plan-only (record, no write); `dryRun: false` applies
- * non-destructive writes and destructive ones only when `allowDestructive`. Exported so
- * `ascScreenshots` reuses the same plan/apply vocabulary without taking the catalog API.
- */
+/** Shared plan/apply log. */
 export type ActionLog = {
   actions: PlannedAction[];
   dryRun: boolean;
@@ -175,10 +165,7 @@ export function succeededOrPlanned(status: ActionStatus): boolean {
   return status == 'planned';
 }
 
-/**
- * Plan an action, then apply it unless dry-run. Destructive writes stay skipped without
- * `allowDestructive`. Write failures mark the action `failed` and do not abort the walk.
- */
+/** Plan an action, then apply it unless dry-run. */
 export async function act<CreatedResource>(
   actionLog: ActionLog,
   description: string,
@@ -328,11 +315,7 @@ function emptyCatalogContext(
   };
 }
 
-/**
- * Full catalog reconcile in dependency order: capabilities, IAPs, subscription groups, then listing.
- * Plan: `dryRun: true`. Apply: `dryRun: false` (destructive gated by `allowDestructive`).
- * Fails only when the ASC app record is missing; every other miss is a per-action status.
- */
+/** Full catalog reconcile in dependency order */
 export async function reconcileApp(
   api: AscCatalogApi,
   reconcileInput: ReconcileInput,
@@ -375,10 +358,7 @@ export async function reconcileApp(
   return { bundleId: reconcileInput.bundleId, actions: catalogContext.actions };
 }
 
-/**
- * Listing-only reconcile for `launch-store plan listing` / snapshot - never double-counts catalog
- * surfaces. Listing is create/patch only, so `allowDestructive` is always false.
- */
+/** Listing-only reconcile for `launch-store plan listing` / snapshot */
 export async function reconcileAppListing(
   api: AscCatalogApi,
   listingInput: ListingReconcileInput,

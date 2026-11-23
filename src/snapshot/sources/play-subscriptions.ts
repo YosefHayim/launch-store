@@ -33,12 +33,7 @@ import {
 } from './play-restore.ts';
 import type { PlayMoneyUnits } from '../../types/play-pricing.ts';
 
-/**
- * A base plan's per-region prices -> the snapshot's `{ priceMicros, currency }` money shape (the same form
- * the products source records), sorted by region for a deterministic capture. Play expresses subscription
- * money as `units`+`nanos`, converted to micro-units here so a restore reads it straight back as a
- * {@link PlayPriceConfig}. Regions Play left price-less are dropped.
- */
+/** A base plan's per-region prices -> the snapshot's `{ priceMicros */
 function regionalPrices(configs: readonly RegionalBasePlanConfig[]): Record<string, JsonValue> {
   const prices: Record<string, JsonValue> = {};
   function sortA(
@@ -122,11 +117,7 @@ function readPriceMap(capturedPrices: JsonValue | undefined): Record<string, Pla
   }
   return prices;
 }
-/**
- * Read the first captured base plan back into a {@link RestorableBasePlan}. Launch models one config as one
- * Play subscription with a single base plan (see `reconcilePlaySubscriptions`), so restore rebuilds from
- * the first; any extra captured base plans aren't reconstructed. Returns `null` when none is well-formed.
- */
+/** Read the first captured base plan back into a {@link RestorableBasePlan}. */
 function firstBasePlan(capturedBasePlans: JsonValue | undefined): RestorableBasePlan | null {
   if (!Array.isArray(capturedBasePlans)) return null;
   const first = jsonRecord(capturedBasePlans[0]);
@@ -160,13 +151,7 @@ function readCapturedLocalizations(capturedListings: JsonValue | undefined): Pro
   }
   return localizations;
 }
-/**
- * Rebuild a {@link SubscriptionConfig} from one captured subscription entity, targeting the Play
- * reconciler. The billing period is read back from the first base plan's ISO duration and its per-region
- * prices become the `play` override. Returns `null` when the subscription can't be faithfully restored -
- * no base plan, an unknown billing period, or no captured prices (`PlaySubscriptionOverride` requires at
- * least one region). `referenceName` is an Apple-only field the Play path ignores, so the product id fills it.
- */
+/** Rebuild a {@link SubscriptionConfig} from one captured subscription entity */
 function readSubscriptionConfig(entity: SnapshotEntity): SubscriptionConfig | null {
   const subscriptionFields = jsonRecord(entity.data);
   if (!subscriptionFields) return null;
@@ -196,13 +181,7 @@ export const playSubscriptionsSource: SnapshotSource = {
   title: 'Google Play subscriptions',
   store: 'play',
   capture: capturePlaySubscriptions,
-  /**
-   * Restore each app's captured subscriptions to Google Play via the same `reconcilePlaySubscriptions` the
-   * `launch-store sync` / `launch-store plan` Play-subscriptions surface uses. Additive: it creates a missing
-   * subscription + base plan (and activates it), or patches drifted listings on an existing one, never
-   * deleting or repricing a live base plan. Each app is isolated - an unreachable Play app record becomes a
-   * skipped action - and a subscription that can't be faithfully rebuilt is skipped with a reason.
-   */
+  /** Restore each app's captured subscriptions to Google Play via the same */
   restore: restorePlaySubscriptions,
 };
 

@@ -18,11 +18,7 @@ import type { AppProducts, SubscriptionConfig } from '../../types/catalog.ts';
 import { appDeclaresOffers, reconcileOffers, type AscOffersApi } from './offers.ts';
 import type { ActionStatus } from '../../types/reconcile.ts';
 
-/**
- * Hand-rolled {@link AscOffersApi} fake - records every create/reorder and serves configurable existing
- * state, so the reconciler's diff/plan logic is testable with no network (mirrors the ascSync tests).
- * `findSubscriptionPricePoint` resolves any price except the sentinel `999` (which models "no match").
- */
+/** Hand-rolled {@link AscOffersApi} fake */
 class FakeOffersApi implements AscOffersApi {
   appId: string | null = 'app-1';
   groups: SubscriptionGroupResource[] = [{ id: 'grp-1', referenceName: 'Main' }];

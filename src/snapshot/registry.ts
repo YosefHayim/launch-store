@@ -15,12 +15,7 @@ function registerSnapshotSource(source: SnapshotSource): void {
 export function listSnapshotSources(): SnapshotSource[] {
   return [...SOURCES.values()];
 }
-/**
- * Register the built-in sources. Idempotent: safe to call from a command entry and from tests without
- * duplicating. A snapshot captures the cross-store product catalog - App Store + Google Play one-time
- * products and subscriptions - plus the App Store per-locale listing copy and App ID capabilities; further
- * surfaces (screenshots) land here as follow-up source files.
- */
+/** Register the built-in sources. */
 export function registerBuiltinSources(): void {
   registerSnapshotSource(appleProductsSource);
   registerSnapshotSource(appleSubscriptionsSource);

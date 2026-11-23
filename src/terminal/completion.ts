@@ -10,20 +10,11 @@ import { listSnapshots } from '../snapshot/store.ts';
 import type { Shell } from '../types/remote.ts';
 /** The shells `launch-store completion` supports, in the order help lists them; the first is the default fallback. */
 export const SHELLS: readonly Shell[] = ['bash', 'zsh', 'fish'] as const;
-/**
- * The marker comments that fence Launch's managed block inside a shell rc file. {@link installCompletion}
- * only ever rewrites the text between these lines, so re-running install replaces the block in place
- * instead of appending a duplicate - the same managed-region pattern `core/gitignore.ts` uses for
- * `.gitignore`. Editing or deleting the block by hand stays safe; the next install regenerates it.
- */
+/** The marker comments that fence Launch's managed block inside a shell rc file. */
 const BLOCK_START = '# launch-completion start';
 /** Closing fence of Launch's managed completion block; see {@link BLOCK_START}. */
 const BLOCK_END = '# launch-completion end';
-/**
- * The hidden subcommand the generated scripts invoke on `<Tab>`. Kept here (not in the command file) so the
- * script generators and the command wiring share one token and can't drift. The leading `__` keeps it out
- * of the user-facing help and the docs.
- */
+/** The hidden subcommand the generated scripts invoke on `<Tab>`. */
 export const COMPLETE_SUBCOMMAND = '__complete';
 /** Validate a raw `--shell`/positional value against {@link SHELLS}, with a pointed error listing the valid set. */
 export type CompletionFailure = Readonly<{
@@ -57,12 +48,7 @@ export function parseShell(shellText: string): Shell {
 
   return shell;
 }
-/**
- * Best-effort detect the user's shell from `$SHELL` (e.g. `/bin/zsh` -> `zsh`), returning `undefined` when
- * it's unset or unrecognized so the caller can ask for an explicit `--shell`. Read from the environment
- * rather than spawning a process - there's no portable, shell-free way to ask "what shell am I in", and
- * `$SHELL` is the login shell every installer (rustup, nvm, brew) keys off.
- */
+/** Best-effort detect the user's shell from `$SHELL` (e.g. */
 export function detectShell(
   environmentVariables: Readonly<Record<string, string | undefined>>,
 ): Shell | undefined {
@@ -75,13 +61,7 @@ export function detectShell(
 
   return SHELLS.find(findShell);
 }
-/**
- * The bash completion script. On `<Tab>` it forwards the words from after `launch-store` up to and including the
- * word under the cursor to `launch-store completion __complete`, and feeds the newline-separated candidates back
- * through `compgen`, which filters them by the current prefix. The slice `[@]:1:COMP_CWORD` drops the
- * leading `launch-store` AND everything past the cursor, so {@link resolveCompletions} always sees the in-progress
- * word last - completing mid-line (not just at the end) resolves the correct token.
- */
+/** The bash completion script. */
 export function bashCompletionScript(): string {
   return `# launch-store (bash) completion - eval with: source <(launch-store completion bash)
 _launch_complete() {
@@ -93,13 +73,7 @@ _launch_complete() {
 complete -o default -F _launch_complete launch-store
 `;
 }
-/**
- * The zsh completion script. Uses zsh's native `compadd` over the same callback. `words[2,CURRENT]` drops
- * the leading `launch-store` and everything past the cursor; the `(@)` flag expands those words as SEPARATE
- * arguments (a plain `"$words[2,-1]"` would join them into one space-delimited string and break command-tree
- * descent for nested commands like `snapshot diff`). `${(@f)...}` then splits the callback output on
- * newlines back into the candidate array.
- */
+/** The zsh completion script. */
 export function zshCompletionScript(): string {
   return `# launch-store (zsh) completion - eval with: source <(launch-store completion zsh)
 _launch_complete() {
@@ -110,11 +84,7 @@ _launch_complete() {
 compdef _launch_complete launch-store
 `;
 }
-/**
- * The fish completion script. fish re-evaluates the function on every keypress, so it passes the current
- * commandline tokens (minus the leading `launch-store`) to the callback and emits each candidate on its own line,
- * which fish offers directly. `-f` disables fish's default file completion so only Launch's candidates show.
- */
+/** The fish completion script. */
 export function fishCompletionScript(): string {
   return `# launch-store (fish) completion - eval with: launch-store completion fish | source
 function __launch_complete
@@ -175,22 +145,14 @@ async function snapshotNames(): Promise<string[]> {
 
   return snapshots.map(pickSnapshotName);
 }
-/**
- * Flags whose VALUE has a dynamic candidate set, keyed by every spelling (short and long) so a match
- * on the preceding word resolves the right source. One table, so adding a new value-completing flag is a
- * single entry rather than a branch in the resolver.
- */
+/** Flags whose VALUE has a dynamic candidate set */
 const flagSources: ReadonlyMap<string, CompletionCandidateSource> = new Map([
   ['-a', appHandles],
   ['--app', appHandles],
   ['-p', profileNames],
   ['--profile', profileNames],
 ]);
-/**
- * Commands whose POSITIONAL argument has a dynamic candidate set, keyed by the command's full path after
- * `launch-store` (e.g. `plan`, `snapshot diff`). A second table beside {@link FLAG_SOURCES} so positional and
- * flag-value completion stay declarative and centralized.
- */
+/** Commands whose POSITIONAL argument has a dynamic candidate set */
 const argumentSources: ReadonlyMap<string, CompletionCandidateSource> = new Map([
   ['plan', planSurfaceIds],
   ['drift', planSurfaceIds],
@@ -208,11 +170,7 @@ function optionFlags(command: Command): string[] {
 
   return command.options.flatMap(flatMapOption);
 }
-/**
- * Descend the commander tree to the deepest subcommand named by `words`, returning that command plus the
- * words consumed reaching it (its full path after `launch-store`). Stops at the first word that isn't a known
- * subcommand - that word and everything after it are arguments/flags of the resolved command.
- */
+/** Descend the commander tree to the deepest subcommand named by `words` */
 function descendCommandTree(
   program: Command,
   words: readonly string[],
@@ -234,20 +192,7 @@ function descendCommandTree(
   }
   return { command, commandPath };
 }
-/**
- * Resolve the completion candidates for a partially-typed `launch-store` command line - the single operation the
- * hidden `__complete` callback runs on every `<Tab>`. `words` is the line after `launch-store` (including the
- * word being typed, which the shell itself filters against, so this returns the unfiltered candidate set).
- *
- * Precedence:
- *  1. typing a flag (`-...`) -> the resolved command's own flags;
- *  2. the previous word is a value-taking flag with a dynamic source -> that source's live values;
- *  3. the resolved command takes a dynamic positional and none has been supplied yet -> that source's values;
- *  4. otherwise -> the resolved command's subcommand names plus its flags.
- *
- * Never throws: a failed config/snapshot read degrades to the static candidates so completion still works
- * without a `launch.config.ts` present.
- */
+/** Resolve the completion candidates for a partially-typed `launch-store` command line */
 function readEarlierWord(words: readonly string[]): string | null {
   const hasEarlierWord = words.length >= 2;
 
@@ -325,11 +270,7 @@ export async function resolveCompletions(words: string[], program: Command): Pro
 
   return readCompletionCandidates(argumentSource);
 }
-/**
- * Every option spelling (short + long) on the resolved command or its ancestors that takes a VALUE
- * (declared `<x>` or `[x]`). Used to tell a flag's value apart from a real positional argument - without it,
- * the token after `--app` would be miscounted as a positional and wrongly close the dynamic positional slot.
- */
+/** Every option spelling (short + long) on the resolved command or its ancestors that takes a */
 function valueTakingFlags(command: Command): Set<string> {
   const flags = new Set<string>();
   for (
@@ -345,12 +286,7 @@ function valueTakingFlags(command: Command): Set<string> {
   }
   return flags;
 }
-/**
- * Whether a real positional argument has already been supplied to the resolved command. Walks the words
- * after the command path (excluding the in-progress word), skipping flags and the VALUE that follows a
- * value-taking flag - so `plan --app web <Tab>` still completes the `[surface]` positional, while
- * `plan catalog <Tab>` correctly sees the slot as filled.
- */
+/** Whether a real positional argument has already been supplied to the resolved command. */
 function hasPositional(
   words: string[],
   pathLength: number,
@@ -385,12 +321,7 @@ function completionSourceLine(shell: Shell): string {
   if (shell == 'fish') return 'launch-store completion fish | source';
   return `source <(launch-store completion ${shell})`;
 }
-/**
- * The outcome of an {@link installCompletion} attempt. A discriminated union so the command can render the
- * right message without re-deriving state: `installed` when the rc file was written/updated, `manual` when
- * Launch couldn't safely edit it (e.g. the rc file's directory doesn't exist) and the user should add the
- * line themselves.
- */
+/** The outcome of an {@link installCompletion} attempt. */
 export type InstallResult =
   | {
       /** Launch wrote the managed block into the rc file. */
@@ -417,19 +348,11 @@ export type InstallOptions = {
   shell?: Shell | undefined;
   home?: string | undefined;
 };
-/**
- * Build the managed block (fences + the source line) for a shell - the exact text written between
- * {@link BLOCK_START} and {@link BLOCK_END}. Pure, so the install logic and its tests share one definition.
- */
+/** Build the managed block (fences + the source line) for a shell */
 export function managedBlock(shell: Shell): string {
   return `${BLOCK_START}\n${completionSourceLine(shell)}\n${BLOCK_END}`;
 }
-/**
- * Splice the managed block into existing rc-file contents idempotently: replace an existing
- * {@link BLOCK_START}...{@link BLOCK_END} region in place, or append a fresh one. Returns the new contents and
- * whether a block was replaced. Pure string surgery - the disk I/O lives in {@link installCompletion} - so
- * the idempotency (running twice yields the same file) is unit-testable without a filesystem.
- */
+/** Splice the managed block into existing rc-file contents idempotently */
 export function spliceManagedBlock(
   existing: string,
   block: string,
@@ -457,14 +380,7 @@ export function spliceManagedBlock(
     updated: false,
   };
 }
-/**
- * Wire Launch's completion into the resolved shell's rc file, idempotently. Replaces any existing managed
- * block (so re-running never duplicates the source line) or appends one. When the rc file's parent directory
- * doesn't exist (so creating the file would be a surprise - e.g. fish without `~/.config/fish`), returns a
- * `manual` result with the exact line to add instead of silently creating directories.
- *
- * Only ever writes the user's own shell rc file - never a secret and never anything under `~/.launch`.
- */
+/** Wire Launch's completion into the resolved shell's rc file, idempotently. */
 function isManualInstall(rcFileExists: boolean, rcDirectoryExists: boolean): boolean {
   if (rcFileExists) {
     return false;

@@ -33,14 +33,7 @@ export type ProfileResource = Readonly<{
   uuid: string;
   profileContent: string;
 }>;
-/**
- * One configured key on a capability's `settings` - Apple's per-capability toggle list (e.g. the
- * iCloud version or the data-protection permission level). The `key` is Apple's setting enum value
- * (`ICLOUD_VERSION`, `DATA_PROTECTION_PERMISSION_LEVEL`, ...) and `options` carries the chosen option
- * key(s). Toggles only: a capability's `settings` never carry the concrete identifier values (app
- * group ids, container ids) - those live in the provisioning profile, which is why `launch-store adopt`
- * reads capability *values* from the profile and uses these settings only as advisory detail.
- */
+/** One configured key on a capability's `settings` - Apple's per-capability toggle list (e.g. */
 export type CapabilitySetting = Readonly<{
   key: string;
   options?: Readonly<{
@@ -61,12 +54,7 @@ export type InAppPurchaseResource = Readonly<{
   inAppPurchaseType: string;
   state?: string;
 }>;
-/**
- * One **sandbox tester** (`sandboxTesters`) - a fake Apple ID for StoreKit testing of purchases and
- * subscriptions, created in App Store Connect (Apple exposes no API to create one). `acAccountName` is the
- * tester's sandbox email - the key `launch-store sandbox clear` matches on. `subscriptionRenewalRate` is the
- * accelerated renewal interval Apple uses for sandbox subscriptions.
- */
+/** One **sandbox tester** (`sandboxTesters`) */
 export type SandboxTesterResource = Readonly<{
   id: string;
   acAccountName: string;
@@ -90,120 +78,68 @@ export type SubscriptionResource = Readonly<{
   subscriptionPeriod?: string;
   state?: string;
 }>;
-/**
- * One locale's stored copy for a product, group, or subscription. The same shape serves in-app-purchase,
- * subscription, and subscription-group localizations - Apple keys them all on `locale`, with `name`
- * always present and `description` only on the product/subscription variants.
- */
+/** One locale's stored copy for a product, group, or subscription. */
 export type LocalizationResource = Readonly<{
   id: string;
   locale: string;
   name: string;
   description?: string;
 }>;
-/**
- * A price point - one rung of Apple's fixed price ladder for a product in a territory. `customerPrice`
- * is the amount the buyer pays (e.g. `"9.99"`); a price is set by linking the product to one of these.
- */
+/** A price point - one rung of Apple's fixed price ladder for a product in a territory. */
 export type PricePointResource = Readonly<{
   id: string;
   customerPrice: string;
   territory: string;
 }>;
-/**
- * An existing App Encryption Declaration on an app - the reusable, one-time export-compliance answer
- * for builds that use non-exempt encryption. Only an `APPROVED` declaration clears a build without a
- * fresh, document-backed submission, so `state` is what gates reuse. See
- * {@link AppStoreConnectClient.listEncryptionDeclarations}.
- */
+/** An existing App Encryption Declaration on an app */
 export type EncryptionDeclarationResource = Readonly<{
   id: string;
   state: string;
 }>;
-/**
- * One locale's stored App Store listing copy, normalized to the present (non-empty) fields only. The
- * same shape serves both the app-level `appInfoLocalizations` (name/subtitle/privacy URL - persists
- * across versions) and the version-level `appStoreVersionLocalizations` (description/keywords/whatsNew/...
- * - per release); the caller picks which level. `fields` is keyed by Apple's attribute name, so a diff
- * against desired config is a plain key-by-key comparison.
- */
+/** One locale's stored App Store listing copy */
 export type ListingLocalization = Readonly<{
   id: string;
   locale: string;
   fields: Record<string, string>;
 }>;
-/**
- * One App Store screenshot **set** - the per-(version localization x device target) bucket screenshots
- * hang off. `screenshotDisplayType` is Apple's device-target enum (e.g. `APP_IPHONE_67`); the reconciler
- * matches a local folder's target to the set with the same type, creating the set when none exists.
- */
+/** One App Store screenshot **set** */
 export type ScreenshotSetResource = Readonly<{
   id: string;
   screenshotDisplayType: string;
 }>;
-/**
- * One uploaded App Store screenshot. `sourceFileChecksum` is the MD5 Apple stored at commit time - the
- * reconciler's idempotency key: a local file whose MD5 already appears here is skipped. `assetDeliveryState`
- * (`UPLOAD_COMPLETE` / `COMPLETE` / `FAILED`) flags a half-finished upload worth re-sending. Both are
- * absent until requested/committed.
- */
+/** One uploaded App Store screenshot. */
 export type ScreenshotResource = Readonly<{
   id: string;
   fileName: string;
   sourceFileChecksum?: string;
   assetDeliveryState?: string;
 }>;
-/**
- * A subscription's App Review screenshot (`subscriptionAppStoreReviewScreenshots`) - the single image
- * Apple requires to submit a subscription. Same idempotency key as {@link ScreenshotResource}: re-upload
- * only when the stored MD5 differs from the local file's.
- */
+/** A subscription's App Review screenshot (`subscriptionAppStoreReviewScreenshots`) */
 export type ReviewScreenshotResource = Readonly<{
   id: string;
   sourceFileChecksum?: string;
   assetDeliveryState?: string;
 }>;
-/**
- * One App Store app-preview-video **set** - the per-(version localization x device target) bucket previews
- * hang off, the video counterpart of {@link ScreenshotSetResource}. `previewType` is Apple's device-target
- * enum (e.g. `IPHONE_67`); the reconciler matches a local folder's target to the set with the same type,
- * creating the set when none exists.
- */
+/** One App Store app-preview-video **set** */
 export type PreviewSetResource = Readonly<{
   id: string;
   previewType: string;
 }>;
-/**
- * One uploaded App Store app preview video. Same idempotency contract as {@link ScreenshotResource}:
- * `sourceFileChecksum` is the MD5 Apple stored at commit time (the reconciler's skip key), and
- * `assetDeliveryState` flags a half-finished upload worth re-sending. Apple processes the video
- * asynchronously after commit, but the checksum is recorded at commit - so a re-run while processing is
- * still in flight matches by checksum and re-uploads nothing.
- */
+/** One uploaded App Store app preview video. */
 export type PreviewResource = Readonly<{
   id: string;
   fileName: string;
   sourceFileChecksum?: string;
   assetDeliveryState?: string;
 }>;
-/**
- * A TestFlight beta group - a named tester bucket that belongs to exactly one app. External groups
- * invite testers by email (and can gate distribution on Beta App Review); the internal group holds
- * App Store Connect team users. A tester reaches an app's TestFlight by being in one of its groups,
- * which is why every `launch-store testflight` tester operation goes through a group.
- */
+/** A TestFlight beta group - a named tester bucket that belongs to exactly one app. */
 export type BetaGroupResource = Readonly<{
   id: string;
   name: string;
   isInternal?: boolean;
   publicLink?: string;
 }>;
-/**
- * A TestFlight tester. Apple keys testers on `email` and scopes them to the team - the same person is
- * one tester resource reused across apps/groups - so adding an existing email to a new group links
- * rather than duplicates. `firstName`/`lastName` are optional and shown in the invite. `email` is empty
- * for a tester who joined through a public link, since Apple does not share their address.
- */
+/** A TestFlight tester. */
 export type BetaTesterResource = Readonly<{
   id: string;
   email: string;
@@ -211,13 +147,7 @@ export type BetaTesterResource = Readonly<{
   lastName?: string;
   state?: string;
 }>;
-/**
- * Common attributes shared by Apple's two beta-feedback submission resources
- * (`betaFeedbackCrashSubmissions` / `betaFeedbackScreenshotSubmissions`) - the device/OS context, the
- * tester's comment + email, and the timestamp. The screenshot resource adds `screenshots`; this base
- * is the part {@link BetaFeedbackCrashSubmissionResource} and {@link BetaFeedbackScreenshotSubmissionResource}
- * both expose. Optional fields are absent (not empty) when Apple omits them.
- */
+/** Common attributes shared by Apple's two beta-feedback submission resources */
 export type BetaFeedbackSubmissionResource = Readonly<{
   id: string;
   createdDate?: string;
@@ -229,11 +159,7 @@ export type BetaFeedbackSubmissionResource = Readonly<{
 }>;
 /** A TestFlight crash-feedback submission (`betaFeedbackCrashSubmissions`) - the device/OS context plus the tester's comment. */
 export type BetaFeedbackCrashSubmissionResource = BetaFeedbackSubmissionResource;
-/**
- * A TestFlight screenshot-feedback submission (`betaFeedbackScreenshotSubmissions`) - like a crash
- * submission, plus the attached screenshots. Each screenshot carries a short-lived presigned `url`
- * (and pixel dimensions when Apple reports them) suitable for immediate viewing or download.
- */
+/** A TestFlight screenshot-feedback submission (`betaFeedbackScreenshotSubmissions`) */
 export type BetaFeedbackScreenshotSubmissionResource = BetaFeedbackSubmissionResource &
   Readonly<{
     screenshots: Readonly<{
@@ -242,19 +168,11 @@ export type BetaFeedbackScreenshotSubmissionResource = BetaFeedbackSubmissionRes
       height?: number;
     }>[];
   }>;
-/**
- * Server-side narrowing for the beta-feedback readers - Apple's `filter[build]` takes a *build resource
- * id* (not a version string), so the caller resolves a `--build <ver>` to its id first. Absent means
- * "all builds". Kept as a named query type to mirror the other ASC `*Query` params in this file.
- */
+/** Server-side narrowing for the beta-feedback readers */
 export type BetaFeedbackQuery = Readonly<{
   buildId?: string;
 }>;
-/**
- * One customer review of an app. `answered` is derived from the `response` relationship so a caller
- * can filter unanswered reviews without a follow-up request per review. Optional text fields are absent
- * (not empty) when Apple omits them - a review can have a rating but no title or body.
- */
+/** One customer review of an app. */
 export type CustomerReviewResource = Readonly<{
   id: string;
   rating: number;
@@ -272,12 +190,7 @@ export type CustomerReviewResponseResource = Readonly<{
   state?: string | undefined;
   lastModifiedDate?: string | undefined;
 }>;
-/**
- * One App Store Connect **team member** (`users`) - a person who has accepted access to the account.
- * `username` is their Apple ID email (the key `launch-store team remove` matches on); `roles` is Apple's
- * permission set (`ADMIN`, `APP_MANAGER`, `DEVELOPER`, ...). Contrast {@link UserInvitationResource}, which
- * is a member who's been invited but hasn't accepted yet.
- */
+/** One App Store Connect **team member** (`users`) */
 export type UserResource = Readonly<{
   id: string;
   username: string;
@@ -285,11 +198,7 @@ export type UserResource = Readonly<{
   lastName?: string;
   roles: readonly string[];
 }>;
-/**
- * One **pending** team invitation (`userInvitations`) - an invited member who hasn't accepted. Mirrors
- * {@link UserResource} but keyed by `email` and carrying the invite's `expirationDate`. Removing one cancels
- * the invitation rather than revoking access.
- */
+/** One **pending** team invitation (`userInvitations`) - an invited member who hasn't accepted. */
 export type UserInvitationResource = Readonly<{
   id: string;
   email: string;
@@ -298,12 +207,7 @@ export type UserInvitationResource = Readonly<{
   roles: readonly string[];
   expirationDate?: string;
 }>;
-/**
- * The attributes required to invite a new team member, passed straight to `POST /v1/userInvitations`.
- * `allAppsVisible` grants visibility to every app (the default for a CLI invite); `provisioningAllowed`
- * lets the member create signing assets. Per-app visibility scoping (the `visibleApps` relationship) is a
- * portal/follow-up concern and intentionally not modeled here.
- */
+/** The attributes required to invite a new team member */
 export type NewUserInvitation = Readonly<{
   email: string;
   firstName: string;
@@ -312,10 +216,7 @@ export type NewUserInvitation = Readonly<{
   allAppsVisible: boolean;
   provisioningAllowed: boolean;
 }>;
-/**
- * An analytics report request - the subscription that makes reports available for an app. `ONGOING`
- * keeps producing daily/weekly/monthly instances; `ONE_TIME_SNAPSHOT` is a single historical pull.
- */
+/** An analytics report request - the subscription that makes reports available for an app. */
 export type AnalyticsReportRequestResource = Readonly<{
   id: string;
   accessType: string;
@@ -333,22 +234,14 @@ export type AnalyticsReportInstanceResource = Readonly<{
   granularity: string;
   processingDate?: string | undefined;
 }>;
-/**
- * One downloadable segment of a report instance: a presigned `url` to a gzipped TSV plus its
- * `checksum`. A large instance is split across several segments that the caller concatenates.
- */
+/** One downloadable segment of a report instance */
 export type AnalyticsReportSegmentResource = Readonly<{
   id: string;
   url: string;
   checksum?: string | undefined;
   sizeInBytes?: number | undefined;
 }>;
-/**
- * One **in-app event** (`appEvents`) - a time-bounded happening (a live event, premiere, challenge, ...)
- * surfaced on the App Store product page. `eventState` is Apple's lifecycle (`DRAFT` -> `READY_FOR_REVIEW`
- * -> ... -> `PUBLISHED` -> `PAST`/`ARCHIVED`); `referenceName` is the internal label. Localized copy and
- * territory schedules hang off it separately.
- */
+/** One **in-app event** (`appEvents`) */
 export type AppEventResource = Readonly<{
   id: string;
   referenceName: string;
@@ -382,11 +275,7 @@ export type AppEventLocalizationInput = Readonly<{
   shortDescription?: string;
   longDescription?: string;
 }>;
-/**
- * Parameters for a Sales & Trends report download - Apple's `filter[...]` query for `/v1/salesReports`.
- * `reportDate`'s format follows `frequency` (a day `2026-06-01` for DAILY, a year `2026` for YEARLY).
- * A disallowed `reportType`/`reportSubType` combination surfaces as a misleading "invalid vendor number".
- */
+/** Parameters for a Sales & Trends report download */
 export type SalesReportQuery = Readonly<{
   vendorNumber: string;
   frequency: string;
@@ -418,11 +307,7 @@ export type BuildResource = Readonly<{
 }>;
 /** One reason App Store Connect gave about a build upload (an error such as `90062`, or a warning). */
 export type BuildUploadProblem = Readonly<{ code: string; description: string }>;
-/**
- * Where an IPA delivery stands: the build upload's state (`AWAITING_UPLOAD`, `PROCESSING`, `COMPLETE`,
- * `FAILED`), its file's delivery state (`AWAITING_UPLOAD`, `UPLOAD_COMPLETE`, `COMPLETE`, `FAILED`, or
- * empty before Apple reports one), and every error Apple attached to either.
- */
+/** Where an IPA delivery stands */
 export type BuildUploadStatus = Readonly<{
   state: string;
   fileState: string;
@@ -436,20 +321,12 @@ export type BetaBuildLocalizationResource = Readonly<{
 }>;
 /** Apple's Beta App Review verdict for a build's submission. */
 export type BetaReviewState = components['schemas']['BetaReviewState'];
-/**
- * A build's Beta App Review submission (`betaAppReviewSubmissions`) - the request that lets *external*
- * TestFlight testers install it. One per build; `state` is Apple's verdict. Absent until the build is
- * submitted for beta review.
- */
+/** A build's Beta App Review submission (`betaAppReviewSubmissions`) */
 export type BetaAppReviewSubmissionResource = Readonly<{
   id: string;
   state?: BetaReviewState;
 }>;
-/**
- * An App Store version - the per-release container carrying lifecycle state, release type, and the
- * attached build. One per marketing version + platform; `launch-store release` reuses an editable one or
- * creates the next.
- */
+/** An App Store version - the per-release container carrying lifecycle state, release type */
 export type AppStoreVersionResource = Readonly<{
   id: string;
   versionString: string;
@@ -472,21 +349,12 @@ export type PhasedReleaseResource = Readonly<{
   phasedReleaseState: string;
   currentDayNumber?: number;
 }>;
-/**
- * An App Store review submission - Apple's current submission model: a per-app container the version is
- * added to as an item, then submitted as a unit. `state` distinguishes an addable draft
- * (`READY_FOR_REVIEW`) from one already in Apple's queue.
- */
+/** An App Store review submission */
 export type ReviewSubmissionResource = Readonly<{
   id: string;
   state: string;
 }>;
-/**
- * One territory's resolved offer price: the territory code plus the Apple `subscriptionPricePoints` id
- * the customer-facing amount maps to. The reconciler resolves each {@link OfferPrice} to one of these
- * (via {@link AppStoreConnectClient.findSubscriptionPricePoint}) before any offer is created, so the
- * client only ever builds wire bodies from already-validated price points.
- */
+/** One territory's resolved offer price */
 export type ResolvedOfferPrice = Readonly<{
   territory: string;
   pricePointId: string;
@@ -503,10 +371,7 @@ export type PromotionalOfferResource = Readonly<{
   name: string;
   offerCode: string;
 }>;
-/**
- * An introductory offer on a subscription. `territory` is the territory code it applies to, or null for
- * an all-territories offer - the reconciler's key (Apple permits at most one intro offer per territory).
- */
+/** An introductory offer on a subscription. */
 export type IntroductoryOfferResource = Readonly<{
   id: string;
   territory: string | null;
@@ -516,11 +381,7 @@ export type WinBackOfferResource = Readonly<{
   id: string;
   offerId: string;
 }>;
-/**
- * A promoted purchase on an app's product page. Exactly one of `inAppPurchaseId` / `subscriptionId` is
- * set - the live *resource* id of the promoted product (not its `productId`); the reconciler maps config
- * `productId`s onto these via the subscription/IAP listings to find what's already promoted.
- */
+/** A promoted purchase on an app's product page. */
 export type PromotedPurchaseResource = Readonly<{
   id: string;
   inAppPurchaseId: string | null;
@@ -588,11 +449,7 @@ export type PromotedPurchaseCreate = Readonly<{
   visibleForAllUsers: boolean;
   enabled: boolean;
 }>;
-/**
- * An app's App Info record - the container that owns the App Store category relationships and the
- * age-rating declaration. An app can have more than one (a live one plus an editable one); the
- * reconciler edits the editable one, falling back to the first when no state is reported.
- */
+/** An app's App Info record */
 export type AppInfoResource = Readonly<{
   id: string;
   state?: string;
@@ -623,12 +480,7 @@ export function deprecatedAgeRatingVerdict(
   }
   return true;
 }
-/**
- * An app's age-rating declaration. Apple's attribute set (content-descriptor enums like
- * `violenceCartoonOrFantasy`, plus booleans and age bands) changes over time, so the attributes are
- * carried as an open `name -> value` map rather than a fixed shape: config supplies the answers verbatim
- * and the reconciler PATCHes only the ones that differ, so a new descriptor needs no code change here.
- */
+/** An app's age-rating declaration. */
 export type AgeRatingDeclarationResource = Readonly<{
   id: string;
   attributes: Record<string, AgeRatingValue>;
@@ -636,14 +488,7 @@ export type AgeRatingDeclarationResource = Readonly<{
 /** The device families an accessibility declaration can target. */
 export type DeviceFamily = components['schemas']['DeviceFamily'];
 
-/**
- * The accessibility-support flags an accessibility declaration carries - the answers behind Apple's 2025
- * "Accessibility Nutrition Labels". Unlike the age-rating declaration's open map, Apple's accessibility
- * attribute set is a *fixed, enumerable* list of nine `supports*` booleans, so a typed shape is both safe
- * and honest here (a new flag is a deliberate Apple change, not silent config drift). Every flag is
- * optional: an omitted flag means "the app does not support this feature" - the reconciler normalizes
- * absent to `false` so diffs are deterministic.
- */
+/** The accessibility-support flags an accessibility declaration carries */
 export type AccessibilitySupport = Readonly<{
   supportsAudioDescriptions?: boolean;
   supportsCaptions?: boolean;
@@ -667,22 +512,14 @@ export const ACCESSIBILITY_SUPPORT_KEYS: readonly (keyof AccessibilitySupport)[]
   'supportsVoiceControl',
   'supportsVoiceover',
 ];
-/**
- * One app's accessibility declaration for a single {@link DeviceFamily}. Apple keeps at most one live
- * declaration per family; `state` distinguishes a `DRAFT` (editable, not yet shown to users) from the
- * live `PUBLISHED` one and the `REPLACED` history a publish leaves behind.
- */
+/** One app's accessibility declaration for a single {@link DeviceFamily}. */
 export type AccessibilityDeclarationResource = Readonly<{
   id: string;
   deviceFamily: DeviceFamily;
   state: 'DRAFT' | 'PUBLISHED' | 'REPLACED';
   support: AccessibilitySupport;
 }>;
-/**
- * An app's store availability (Apple's v2 model): whether it auto-enables in territories Apple adds later,
- * plus the territory codes it's currently for sale in. `availableTerritories` holds Apple territory codes
- * (e.g. `USA`, `GBR`) - the `territories` resource ids, used directly when setting availability.
- */
+/** An app's store availability (Apple's v2 model) */
 export type AppAvailabilityResource = Readonly<{
   id: string;
   availableInNewTerritories: boolean;
@@ -722,21 +559,12 @@ export type ExperimentTreatmentLocalizationResource = Readonly<{
   id: string;
   locale: string;
 }>;
-/**
- * An app version's App Review details - the contact info and demo-account credentials Apple's reviewer
- * uses. Carried as an open attribute map for the same forward-compat reason as the age-rating
- * declaration. Note `demoAccountPassword` is write-only on Apple's side: it is never returned on a read
- * (so a change to the password alone can't be diffed) and Launch never logs it.
- */
+/** An app version's App Review details */
 export type AppStoreReviewDetailResource = Readonly<{
   id: string;
   attributes: Record<string, string | boolean>;
 }>;
-/**
- * The App Clip card's call-to-action button - Apple's `AppClipAction` enum. Array-first (SSOT) so the
- * config schemas (`AppClipConfig.action` in `core/types`) reuse it without duplicating
- * Apple's list; `satisfies` keeps it in lockstep with the generated OpenAPI enum (drift fails the build).
- */
+/** The App Clip card's call-to-action button - Apple's `AppClipAction` enum. */
 export const APP_CLIP_ACTIONS = [
   'OPEN',
   'VIEW',
@@ -744,20 +572,12 @@ export const APP_CLIP_ACTIONS = [
 ] as const satisfies readonly components['schemas']['AppClipAction'][];
 /** The App Clip card's call-to-action button. */
 export type AppClipActionValue = components['schemas']['AppClipAction'];
-/**
- * An app's App Clip - the install-free slice launched from a link / NFC / App Clip Code. Created by
- * uploading a build with an App Clip target (Apple has no API to create one), so this is read-only; the
- * reconciler matches a config entry to a clip by its own `bundleId` and skips clips no build produced yet.
- */
+/** An app's App Clip - the install-free slice launched from a link / NFC / App Clip Code. */
 export type AppClipResource = Readonly<{
   id: string;
   bundleId?: string;
 }>;
-/**
- * One default App Clip experience - the App Clip card configuration for a specific App Store version.
- * `action` is the card's call-to-action; `versionId` is the editable version it releases with (from the
- * `releaseWithAppStoreVersion` relationship), used to pick the experience for the version being prepared.
- */
+/** One default App Clip experience */
 export type AppClipDefaultExperienceResource = Readonly<{
   id: string;
   action?: string;
@@ -769,47 +589,30 @@ export type AppClipLocalizationResource = Readonly<{
   locale: string;
   subtitle?: string;
 }>;
-/**
- * One alternative-distribution domain - a domain the team is authorized to distribute apps from under
- * the EU DMA (web distribution / alternative marketplaces). Team-level, not per-app; matched to config
- * on `domain`.
- */
+/** One alternative-distribution domain */
 export type AlternativeDistributionDomainResource = Readonly<{
   id: string;
   domain?: string;
   referenceName?: string;
 }>;
-/**
- * The team's alternative-distribution **public** key - the package-signing key Apple verifies EU
- * distribution packages against (the developer keeps the private half). Not a secret; registered once
- * at the team level.
- */
+/** The team's alternative-distribution **public** key */
 export type AlternativeDistributionKeyResource = Readonly<{
   id: string;
   publicKey?: string;
 }>;
-/**
- * An Apple Pay **merchant id** (e.g. `merchant.com.acme.app`) registered on the team. Team-level, like a
- * bundle id; matched to config on `identifier`. (Its payment-processing certificate is a separate flow.)
- */
+/** An Apple Pay **merchant id** (e.g. */
 export type MerchantIdResource = Readonly<{
   id: string;
   identifier?: string;
   name?: string;
 }>;
-/**
- * A Wallet **pass type id** (e.g. `pass.com.acme.coupon`) registered on the team - the identifier a
- * `.pkpass` is signed against. Team-level; matched to config on `identifier`.
- */
+/** A Wallet **pass type id** (e.g. */
 export type PassTypeIdResource = Readonly<{
   id: string;
   identifier?: string;
   name?: string;
 }>;
-/**
- * Apple's leaderboard score formatters - the closed enum a leaderboard's `defaultFormatter` must be.
- * `satisfies` keeps this runtime list in lockstep with the generated OpenAPI enum: drift fails the build.
- */
+/** Apple's leaderboard score formatters */
 export const LEADERBOARD_FORMATTERS = [
   'INTEGER',
   'DECIMAL_POINT_1_PLACE',
@@ -832,11 +635,7 @@ export const LEADERBOARD_FORMATTERS = [
 ] as const satisfies readonly components['schemas']['GameCenterLeaderboardFormatter'][];
 /** One of Apple's leaderboard score formatters. */
 export type LeaderboardFormatter = components['schemas']['GameCenterLeaderboardFormatter'];
-/**
- * How a leaderboard score is aggregated and sorted - Apple's two closed enums (inline in the OpenAPI, so
- * there's no named component to `satisfies` against). Array-first (SSOT) so the config schema
- * (`LeaderboardConfig` in `core/types`) reuse them without duplicating Apple's lists.
- */
+/** How a leaderboard score is aggregated and sorted */
 export const LEADERBOARD_SUBMISSION_TYPES = ['BEST_SCORE', 'MOST_RECENT_SCORE'] as const;
 type LeaderboardSubmissionType = (typeof LEADERBOARD_SUBMISSION_TYPES)[number];
 export const LEADERBOARD_SORT_TYPES = ['ASC', 'DESC'] as const;

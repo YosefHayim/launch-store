@@ -34,10 +34,7 @@ export type RemoteBuildInputs = {
   env: Record<string, string>;
 };
 
-/**
- * `extensionProfiles` is absent: the remote path uploads one profile, so it is single-target-only.
- * The local engine stamps profiles into the pbxproj; the remote script still pins one global profile.
- */
+/** `extensionProfiles` is absent */
 function readSigningAssets(bundle: RemoteSigningBundle): SigningAssets {
   return {
     bundleId: bundle.bundleId,
@@ -129,10 +126,7 @@ export async function uploadSigningMaterial(
   });
 }
 
-/**
- * Run the toolchain doctor on the remote Mac. `install` fills gaps on an AWS host we own.
- * `assert` checks a BYO host and never mutates it.
- */
+/** Run the toolchain doctor on the remote Mac. */
 export async function runDoctorOnHost(
   session: RemoteSession,
   mode: 'install' | 'assert',
@@ -193,9 +187,7 @@ function isShellIdentifier(variableName: string): boolean {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(variableName);
 }
 
-/**
- * Upload the build script and run it on the host. Returns whether the host actually clean-built.
- */
+/** Upload the build script and run it on the host. */
 export async function runBuildOnHost(
   session: RemoteSession,
   inputs: RemoteBuildInputs,
@@ -290,9 +282,7 @@ export async function pullArtifact(
   return { ipaPath, sizeReport: { artifactBytes, entries } };
 }
 
-/**
- * Delete the ephemeral keychain and the per-run creds dir. The persistent work tree stays.
- */
+/** Delete the ephemeral keychain and the per-run creds dir. */
 export function shredHost(session: RemoteSession): Promise<void> {
   const keychain = `${session.credentialsDirectory}/launch.keychain-db`;
 

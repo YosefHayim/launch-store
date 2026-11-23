@@ -116,10 +116,7 @@ const walletConfigSpec = {
   decodeDocument: decodeWalletDocument,
 };
 
-/**
- * The exact slice of App Store Connect the wallet reconciler depends on. Declaring it here
- * (rather than taking the concrete client) keeps the diff logic unit-testable with a hand-rolled fake.
- */
+/** The exact slice of App Store Connect the wallet reconciler depends on. */
 export type AscWalletApi = {
   listMerchantIds(): Promise<MerchantIdResource[]>;
   createMerchantId(identifier: string, name: string): Promise<void>;
@@ -196,11 +193,7 @@ function identifiersOf(entries: { identifier?: string }[]): Set<string> {
   return identifiers;
 }
 
-/**
- * Reconcile the team's Apple Pay merchant ids and Wallet pass type ids. Only the families present in the
- * config are read and reconciled. Every write is captured per-action so a single failure never aborts the
- * run.
- */
+/** Reconcile the team's Apple Pay merchant ids and Wallet pass type ids. */
 export async function reconcileWalletIds(
   api: AscWalletApi,
   config: WalletConfig,

@@ -18,10 +18,7 @@ import type { ActionStatus } from '../../types/reconcile.ts';
 function effectMethods<Api extends object>(api: Api): Api {
   return api;
 }
-/**
- * A fully-stubbed {@link ScreenshotsApi}. Reads default to "an editable version with one en-US locale and
- * no screenshots yet"; writes resolve to a created resource. Override per test to set up other states.
- */
+/** A fully-stubbed {@link ScreenshotsApi}. */
 function makeApi(overrides: Partial<ScreenshotsApi> = {}): ScreenshotsApi {
   function mockImplementationLoc(_loc: string, displayType: string) {
     return Promise.resolve({ id: 'set-new', screenshotDisplayType: displayType });
@@ -440,10 +437,7 @@ describe(
   'reconcileScreenshots - subscription review screenshots',
   describeReconcileScreenshotsSubscriptionReviewScreenshots,
 );
-/**
- * A fully-stubbed {@link PreviewsApi}. Reads default to "an editable version with one en-US locale and no
- * previews yet"; writes resolve to a created resource. Override per test to set up other states.
- */
+/** A fully-stubbed {@link PreviewsApi}. */
 function makePreviewsApi(overrides: Partial<PreviewsApi> = {}): PreviewsApi {
   function mockImplementationLoc2(_loc: string, previewType: string) {
     return Promise.resolve({ id: 'set-new', previewType });

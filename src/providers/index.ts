@@ -20,14 +20,7 @@ import { easSubmitter } from './submit/eas.ts';
 import { makeAwsEc2MacComputeHost } from './compute/aws-ec2-mac.ts';
 import { byoSshComputeHost } from './compute/byo-ssh.ts';
 
-/**
- * Register every provider that ships with Launch.
- *
- * The compute hosts and the EAS submitter are cheap to register - the heavy SDKs (AWS, eas-cli) are
- * dynamic-imported inside their methods, so a local-only run that never builds remotely never loads them.
- * The iOS (`xcode`/`app-store-connect`) and Android (`gradle`/`google-play`) engines + submitters are
- * all registered; the pipeline selects the right pair per platform (see `resolveBuildEngineName`).
- */
+/** Register every provider that ships with Launch. */
 export async function registerBuiltins(): Promise<void> {
   const localCredentialsProvider = makeLocalCredentialsProvider();
   registerCredentialsProvider(localCredentialsProvider);

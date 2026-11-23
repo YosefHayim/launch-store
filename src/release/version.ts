@@ -1,10 +1,5 @@
 type VersionBump = 'major' | 'minor' | 'patch';
-/**
- * A user-facing version-bump choice: a semver {@link VersionBump} or `"keep"` (reuse the current version).
- * This is the rememberable set - the kind persisted as a build's last pick (see `core/last-run.ts`) and the
- * accepted values of `launch-store build --bump` (alongside the CLI-only `"ask"`, which forces the prompt). A
- * "Custom..." typed version has no kind, so it's never remembered.
- */
+/** A user-facing version-bump choice */
 export type BumpKind = VersionBump | 'keep';
 /** A parsed marketing version. Pre-release / build metadata is dropped - only the numeric core is kept. */
 type SemVer = {
@@ -13,11 +8,7 @@ type SemVer = {
   patch: number;
 };
 const ZERO_VERSION: SemVer = { major: 0, minor: 0, patch: 0 };
-/**
- * Parse a version string into its numeric core, or null when it has no usable `MAJOR[.MINOR[.PATCH]]`
- * shape. Tolerates a leading `v`, surrounding whitespace, and a `-prerelease`/`+build` suffix (which
- * is ignored); missing minor/patch default to 0. Non-string input (malformed store data) yields null.
- */
+/** Parse a version string into its numeric core */
 export function parseVersion(input: string): SemVer | null {
   const versionParts = input.trim().replace(/^v/i, '').split(/[-+]/);
   let core = versionParts[0];
@@ -45,20 +36,14 @@ export function bumpVersion(version: SemVer, bump: VersionBump): SemVer {
       return { major: version.major, minor: version.minor, patch: version.patch + 1 };
   }
 }
-/**
- * The next version string for a bump, starting from `current`. An unparseable `current` is treated as
- * `0.0.0`, so `nextVersion("", "patch")` is `"0.0.1"` rather than throwing.
- */
+/** The next version string for a bump, starting from `current`. */
 export function nextVersion(current: string, bump: VersionBump): string {
   let parsed = parseVersion(current);
   if (parsed == null) parsed = ZERO_VERSION;
   const version = bumpVersion(parsed, bump);
   return formatVersion(version);
 }
-/**
- * Compare two versions by numeric core: `-1` if `a < b`, `1` if `a > b`, `0` if equal. Unparseable
- * inputs compare as `0.0.0` so a stray value never reorders real versions ahead of valid ones.
- */
+/** Compare two versions by numeric core: `-1` if `a < b`, `1` if `a > b`, `0` if equal. */
 export function compareVersions(a: string, b: string): number {
   let left = parseVersion(a);
   if (left == null) left = ZERO_VERSION;
@@ -70,11 +55,7 @@ export function compareVersions(a: string, b: string): number {
   }
   return 0;
 }
-/**
- * The highest parseable version in a list, returned in its original form, or null when none parse.
- * Used to fold App Store + TestFlight versions into a single "latest on record" without trusting the
- * store's own (lexical) sort, which would order `1.10.0` below `1.9.0`.
- */
+/** The highest parseable version in a list, returned in its original form */
 export function highestVersion(versions: readonly string[]): string | null {
   function filterVersion(version: string) {
     return parseVersion(version) != null;

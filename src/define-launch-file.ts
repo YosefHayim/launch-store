@@ -6,10 +6,7 @@ import {
   DEFAULT_SUBMITTER,
 } from './types/config.ts';
 
-/**
- * The function launch.config.ts calls. Hover any property inside the object to read what it does.
- * Unknown keys are kept, so `launch-store config validate` can report a typo.
- */
+/** The function launch.config.ts calls. */
 export function defineConfig(launchFile: LaunchConfigInput): LaunchConfig {
   const credentials = launchFile.credentials ?? DEFAULT_CREDENTIALS_PROVIDER;
   const storage = launchFile.storage ?? DEFAULT_STORAGE_PROVIDER;

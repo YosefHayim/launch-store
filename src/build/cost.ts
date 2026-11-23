@@ -1,10 +1,7 @@
 export const EC2_MAC_HOURLY_USD = 0.65;
 /** Apple-license minimum allocation before the Dedicated Host may be released, in hours. */
 export const MIN_ALLOCATION_HOURS = 24;
-/**
- * When Launch schedules an automatic release, in hours after allocation. Just under the 24h mark so a
- * forgotten host can never roll into a second paid day, with a little slack for the release call.
- */
+/** When Launch schedules an automatic release, in hours after allocation. */
 export const AUTO_RELEASE_HOURS = 23.5;
 const HOUR_MS = 60 * 60 * 1000;
 /** The unavoidable floor you pay the moment you allocate, regardless of how many builds you run. */
@@ -38,11 +35,7 @@ export function formatAge(ms: number): string {
   const minutes = totalMinutes % 60;
   return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
 }
-/**
- * The one-time, typed-consent text shown before the first billable allocation. States the floor, that
- * stopping != not billing, and that Savings Plans only help constant usage - so the user opts in with
- * eyes open, per decision 1/3.
- */
+/** The one-time, typed-consent text shown before the first billable allocation. */
 export function consentMessage(): string {
   return [
     `Allocating an AWS EC2 Mac costs about ${usd(MINIMUM_CHARGE_USD)} minimum:`,

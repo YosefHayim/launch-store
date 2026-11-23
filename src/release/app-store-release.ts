@@ -9,11 +9,7 @@ import type { ReleaseType } from '../types/store-surface.ts';
 
 const BUILD_AND_RELEASE_STEP = 'run `launch-store build ios`, then release that build.';
 
-/**
- * Exact App Store Connect surface the release walk needs. Declared here so the state machine is
- * fakeable and documents the client's release methods in one place; AppStoreConnectClient satisfies
- * it structurally.
- */
+/** Exact App Store Connect surface the release walk needs. */
 export type AscReleaseApi = {
   getAppId(bundleId: string): Promise<string | null>;
   /** Used by release command / release-train; kept on the surface for structural client typing. */
@@ -112,14 +108,7 @@ function releaseFailure(
 /** Apple platform filter/create value for App Store versions. iOS is all v1 covers. */
 export const IOS_PLATFORM = 'IOS';
 
-/**
- * What a version's `appStoreState` permits - the transition table for idempotent resume.
- * - `editable`: attach build, set notes, submit
- * - `submitted`: already in Apple's queue - re-run is a no-op
- * - `pending-release`: approved, awaiting go-live
- * - `live`: exact version is public - must bump
- * - `blocked`: unknown/removed state we will not mutate
- */
+/** What a version's `appStoreState` permits - the transition table for idempotent resume. */
 type ReleasePhase = 'editable' | 'submitted' | 'pending-release' | 'live' | 'blocked';
 
 /** Classify a version's `appStoreState` into the action the release flow may take. Pure. */
@@ -306,10 +295,7 @@ type PerformedReleaseAction<ActionValue> = {
   actionValue?: ActionValue;
 };
 
-/**
- * Record a step and, unless dry-run, perform it. Failures are captured on the action (status
- * `failed`) rather than propagated so the walk keeps going and the summary reports every failure.
- */
+/** Record a step and, unless dry-run, perform it. */
 async function performReleaseAction<ActionValue>(
   releaseContext: ReleaseContext,
   description: string,
@@ -434,15 +420,7 @@ function releaseStateAfterRun(isAttachOnly: boolean, currentState: string): stri
   return 'WAITING_FOR_REVIEW';
 }
 
-/**
- * Drive one App Store version to "submitted for review", idempotently. Reuses, retargets, or creates
- * the editable version; attaches build; declares export compliance; writes notes; sets release type /
- * phased rollout; submits via Apple's review-submission model. With `releaseInput.attachOnly` it stops
- * before that submit, leaving the version editable. With `releaseInput.dryRun` records
- * planned steps and performs no writes. Fails only on preconditions the user must fix (no app record,
- * build not VALID/expired, build's marketing version already live, version already live); every other
- * step is captured per-action so one failure never aborts the rest.
- */
+/** Drive one App Store version to "submitted for review", idempotently. */
 export async function releaseApp(
   appleReleaseApi: AscReleaseApi,
   releaseInput: ReleaseInput,
@@ -751,12 +729,7 @@ function isEditableVersion(storeVersion: AppStoreVersionResource): boolean {
   return nextReleaseAction(storeVersion.appStoreState) == 'editable';
 }
 
-/**
- * Resolve the version to act on: reuse the one already at this version string (no-op if already
- * submitted/approved, error if live), else retarget the open editable version, else create a fresh
- * one. Returns its id ({@link DRY_RUN_ID} when create was only planned or failed) plus
- * `idempotentState` when the caller should stop (already submitted/approved).
- */
+/** Resolve the version to act on */
 async function selectReleaseVersion(
   releaseContext: ReleaseContext,
   releaseInput: ReleaseInput,
@@ -879,10 +852,7 @@ function reuseMatchingVersion(
 
 type VersionLocalization = { id: string; locale: string; whatsNew?: string };
 
-/**
- * Write each locale's release notes, creating the localization or updating its `whatsNew`. Skipped on
- * an app's first version: Apple refuses `whatsNew` there (409 "cannot be edited at this time").
- */
+/** Write each locale's release notes, creating the localization or updating its `whatsNew`. */
 async function applyReleaseNotes(
   releaseContext: ReleaseContext,
   versionId: string,
@@ -1106,10 +1076,7 @@ export type ReleaseStatus = {
   verdict: ReleaseVerdict;
 };
 
-/**
- * Read the most relevant version (in-flight over live) plus build processing and phased-release
- * state, and classify a verdict. Fails when the app record is missing.
- */
+/** Read the most relevant version (in-flight over live) plus build processing and */
 export async function readReleaseStatus(
   appleReleaseApi: AscReleaseApi,
   bundleId: string,
@@ -1257,10 +1224,7 @@ function isRejectedProcessing(processingState: string): boolean {
   return processingState == 'FAILED';
 }
 
-/**
- * Poll a freshly uploaded build until processing reaches `VALID`. Fails on `INVALID`, `FAILED` or timeout.
- * Returns the chosen build so the caller can hand it to {@link releaseApp}.
- */
+/** Poll a freshly uploaded build until processing reaches `VALID`. */
 export async function waitForValidBuild(
   appleReleaseApi: AscReleaseApi,
   appId: string,

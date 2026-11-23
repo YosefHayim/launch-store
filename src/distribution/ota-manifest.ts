@@ -1,9 +1,6 @@
 import { extname } from 'node:path';
 
-/**
- * One asset (or the launch bundle) in an update manifest: where it lives and what it is.
- * Fields stay writable so copy helpers outside this module can assemble assets without casts.
- */
+/** One asset (or the launch bundle) in an update manifest: where it lives and what it is. */
 export type ManifestAsset = {
   key: string;
   contentType: string;
@@ -107,10 +104,7 @@ export function rollbackDirectiveKey(
   return `updates/${channel}/${platform}/${runtimeVersion}/rollback.json`;
 }
 
-/**
- * One row in the per-(channel, platform) update history index. The full manifest lives in its
- * {@link historySnapshotKey} snapshot so the index stays a single cheap read for `updates list`.
- */
+/** One row in the per-(channel, platform) update history index. */
 export type UpdateHistoryEntry = {
   id: string;
   runtimeVersion: string;
@@ -136,23 +130,14 @@ export function assembleRollbackDirective(commitTime: string): RollbackDirective
   };
 }
 
-/**
- * Object stored at {@link rollbackDirectiveKey}: the exact serialized {@link RollbackDirective}
- * the worker serves byte-for-byte (so its signature stays valid), optional signature, and an
- * `active` flag. Publish flips `active` to false rather than deleting - the storage seam has no delete.
- */
+/** Object stored at {@link rollbackDirectiveKey} */
 export type StoredRollbackDirective = {
   active: boolean;
   body: string;
   signature?: string;
 };
 
-/**
- * Cloudflare Worker that turns the static bucket layout into an Expo Updates protocol-v1 endpoint.
- * Serves multipart/mixed (manifest + optional rollback directive) with per-part signatures.
- * Bodies are served byte-for-byte as published so signatures stay valid. Deploy in the user's
- * Cloudflare account and point `updates.url` at it.
- */
+/** Cloudflare Worker that turns the static bucket layout into an Expo Updates protocol-v1 */
 export function updatesWorkerScript(publicBaseUrl: string): string {
   const publicBase = publicBaseUrl.replace(/\/+$/, '');
   return [
@@ -220,10 +205,7 @@ type AppConfigSnippetInput = {
   signed: boolean;
 };
 
-/**
- * One-time `app.json` `expo.updates` block after first publish so the app points at the
- * self-hosted endpoint. Includes the code-signing certificate pointer when signed.
- */
+/** One-time `app.json` `expo.updates` block after first publish so the app points at the */
 export function updatesAppConfigSnippet(input: AppConfigSnippetInput): string {
   const updatesBlock: Record<string, unknown> = {
     url: input.updateUrl,

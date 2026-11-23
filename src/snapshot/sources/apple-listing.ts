@@ -48,12 +48,7 @@ export const appleListingSource: SnapshotSource = {
   title: 'App Store listing',
   store: 'appstore',
   capture: captureAppleListing,
-  /**
-   * Restore each app's captured listing copy back to App Store Connect, reusing the same per-locale
-   * reconciler `launch-store sync` / `launch-store plan`'s listing surface uses. Additive: `reconcileAppListing`
-   * creates/patches text and never removes it. Each app is isolated - a missing app-record precondition
-   * is recorded as a skipped action rather than aborting the rest.
-   */
+  /** Restore each app's captured listing copy back to App Store Connect */
   restore: restoreAppleListing,
 };
 

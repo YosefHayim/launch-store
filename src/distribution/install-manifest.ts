@@ -19,10 +19,7 @@ type IosManifestOptions = Readonly<{
   readonly title: string;
 }>;
 
-/**
- * Build the iOS OTA-install manifest plist (the document an `itms-services://...&url=` link fetches).
- * iOS requires this exact items/assets/metadata shape to install an ad-hoc `.ipa` from a web link.
- */
+/** Build the iOS OTA-install manifest plist (the document an `itms-services://...&url=` link */
 export function iosInstallManifestPlist(options: IosManifestOptions): string {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -43,10 +40,7 @@ export function iosInstallManifestPlist(options: IosManifestOptions): string {
   ].join('\n');
 }
 
-/**
- * Wrap a manifest URL in the `itms-services://` scheme iOS recognizes as "install this app".
- * The manifest URL must be HTTPS and is URL-encoded so its query string survives intact.
- */
+/** Wrap a manifest URL in the `itms-services://` scheme iOS recognizes as "install this app". */
 export function itmsServicesUrl(manifestUrl: string): string {
   return `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`;
 }
@@ -71,10 +65,7 @@ function installNote(platform: Platform): string {
   return '<p>Android: you may need to allow installs from this browser/source.</p>';
 }
 
-/**
- * Tester-facing install landing page: app name, version/build, and one Install button wired to
- * {@link LandingPageOptions.installUrl}.
- */
+/** Tester-facing install landing page */
 export function installLandingPage(options: LandingPageOptions): string {
   const platformNote = installNote(options.platform);
   return [

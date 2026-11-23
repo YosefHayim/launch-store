@@ -1,9 +1,5 @@
 import type { EncryptionDeclarationResource } from '../../types/apple-catalog.ts';
-/**
- * The slice of {@link AppStoreConnectClient} that {@link reconcileExportCompliance} needs. Declared as a
- * seam (not the whole client) so the reconcile is testable with a fake and the core layer stays
- * decoupled from the live HTTP client - mirrors {@link AscCatalogApi} in `asc-sync.ts`.
- */
+/** The slice of {@link AppStoreConnectClient} that {@link reconcileExportCompliance} needs. */
 export type ExportComplianceApi = {
   findBuild(
     bundleId: string,
@@ -22,17 +18,7 @@ type ExportComplianceInput = {
   buildNumber: number;
   usesNonExemptEncryption: boolean | undefined;
 };
-/**
- * Outcome of {@link reconcileExportCompliance}, as a discriminated union so the caller renders an exact
- * line and the tests assert on `status` without string matching:
- * - `undeclared` - `app.json` answers nothing; the upload will be prompted (nothing was changed).
- * - `build-not-found` - no build with that number on App Store Connect yet (still ingesting after upload).
- * - `already-answered` - the build already carries the desired answer (e.g. from the `Info.plist` key).
- * - `answered` - the no/exempt-encryption answer was written to the build's `usesNonExemptEncryption`.
- * - `reused-declaration` - an existing approved declaration was reused for a non-exempt-encryption build.
- * - `needs-declaration` - non-exempt encryption with no approved declaration to reuse; a one-time
- *   documented declaration is still owed in App Store Connect (the build was flagged accordingly).
- */
+/** Outcome of {@link reconcileExportCompliance} */
 export type ExportComplianceResult =
   | {
       status: 'undeclared';
@@ -100,11 +86,7 @@ function isApprovedDeclaration(encryptionDeclaration: EncryptionDeclarationResou
   return encryptionDeclaration.state == 'APPROVED';
 }
 
-/**
- * Ensure an uploaded build carries the export-compliance answer from the app's Expo config, reusing an
- * approved declaration when one applies. Idempotent: a build that already has the desired answer is left
- * untouched (`already-answered`). See the module doc for the layering with the `Info.plist` path.
- */
+/** Ensure an uploaded build carries the export-compliance answer from the app's Expo config */
 export async function reconcileExportCompliance(
   exportComplianceApi: ExportComplianceApi,
   reconciliationInput: ExportComplianceInput,
@@ -161,11 +143,7 @@ type ExportComplianceConfigStatus = {
   ok: boolean;
   message: string;
 };
-/**
- * Describe export-compliance posture from `ios.config.usesNonExemptEncryption` alone, the network-free
- * check `launch-store doctor` shows per iOS app. Only the explicit `false` answer is "clean" (the binary
- * self-answers); `true` is declared-but-owes-a-declaration, and `undefined` means every upload re-prompts.
- */
+/** Describe export-compliance posture from `ios.config.usesNonExemptEncryption` alone */
 export function describeExportComplianceConfig(
   usesNonExemptEncryption: boolean | undefined,
 ): ExportComplianceConfigStatus {

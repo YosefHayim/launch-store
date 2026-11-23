@@ -18,12 +18,7 @@ import {
   type LocalScreenshot,
 } from '../../listing/screenshots/assets.ts';
 import { appleDisplayTypeLabel, applePreviewTypeLabel } from '../../listing/screenshots/targets.ts';
-/**
- * The slice of {@link AppStoreConnectClient} the screenshot reconciler depends on. Declared here (rather
- * than taking the concrete client) so the reconcile logic is unit-testable against a hand-rolled fake.
- * `AppStoreConnectClient` satisfies it structurally. The high-level `upload*` methods hide the
- * reserve->PUT->commit asset flow so this module never deals with upload operations or checksums directly.
- */
+/** The slice of {@link AppStoreConnectClient} the screenshot reconciler depends on. */
 export type ScreenshotsApi = {
   getAppId(bundleId: string): Promise<string | null>;
   getEditableVersionId(appId: string): Promise<string | null>;
@@ -51,11 +46,7 @@ export type ScreenshotSetApi = Pick<
   ScreenshotsApi,
   'listScreenshots' | 'uploadScreenshot' | 'deleteScreenshot' | 'reorderScreenshots'
 >;
-/**
- * One localization that owns screenshot sets: its locale plus how to list and create its sets. `exact`
- * sets hold only the local screenshots, in file order (Apple fills a new treatment localization with the
- * original's screenshots); other sets only gain the missing ones.
- */
+/** One localization that owns screenshot sets: its locale plus how to list and create its sets. */
 export type ScreenshotSetOwner = Readonly<{
   locale: string;
   exact: boolean;
@@ -169,12 +160,7 @@ function hasNoScreenshotWork(reconcileInput: ScreenshotReconcileInput): boolean 
   return reconcileInput.subscriptionReviewScreenshots.length == 0;
 }
 
-/**
- * Reconcile one app's App Store assets. Resolves the ASC app record once, then runs the screenshot and
- * subscription-review-screenshot passes; returns the actions planned/performed (the command merges them
- * into the app's overall sync report). Never throws for a per-asset failure - those are captured on their
- * action by {@link act}.
- */
+/** Reconcile one app's App Store assets. */
 export async function reconcileScreenshots(
   api: ScreenshotsApi,
   reconcileInput: ScreenshotReconcileInput,
@@ -370,10 +356,7 @@ async function removeUnlistedScreenshots(
 
   return keptScreenshots;
 }
-/**
- * A local screenshot the set holds after this run, by its Apple id. Apple fills `sourceFileChecksum`
- * only once it has processed an upload, so a fresh upload is known by the id its upload returned.
- */
+/** A local screenshot the set holds after this run, by its Apple id. */
 type HeldScreenshot = Readonly<{ checksum: string; id: string }>;
 
 function needsScreenshotReorder(holdsEveryScreenshot: boolean, inFileOrder: boolean): boolean {
@@ -694,14 +677,7 @@ export type PreviewReconcileInput = {
   dryRun: boolean;
   allowDestructive: boolean;
 };
-/**
- * Reconcile one app's App Store **preview videos**, the video counterpart of {@link reconcileScreenshots}.
- * Resolves the ASC app record + editable version once, then uploads per locale and `previewType` set the
- * videos Apple doesn't already have. Idempotent and additive: a local file whose MD5 already appears on
- * Apple is skipped, and because Apple records that checksum at commit time - before it finishes processing
- * the video asynchronously - a re-run mid-processing re-uploads nothing. Never throws for a per-asset
- * failure; those are captured on their action by {@link act}.
- */
+/** Reconcile one app's App Store **preview videos** */
 export async function reconcilePreviews(
   api: PreviewsApi,
   reconcileInput: PreviewReconcileInput,

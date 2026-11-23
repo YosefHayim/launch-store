@@ -54,10 +54,7 @@ type ExportArgsInput = {
   exportPath: string;
 };
 
-/**
- * The `xcodebuild archive` argv. Signing is manual and never carries a global
- * `PROVISIONING_PROFILE_SPECIFIER`: each signed target holds its own profile in the pbxproj (issue #301).
- */
+/** The `xcodebuild archive` argv. */
 export function assembleArchiveArguments(archiveInput: ArchiveArgsInput): string[] {
   const archiveArguments = [
     '-workspace',

@@ -173,10 +173,7 @@ function isTaxTransaction(transactionType: string | undefined): boolean {
   return transactionType.toLowerCase().includes('tax');
 }
 
-/**
- * Net proceeds per day and merchant currency for one package: charges, Google fees, refunds, rebills
- * and adjustments added up as signed amounts. Tax lines are left out because the developer does not keep them.
- */
+/** Net proceeds per day and merchant currency for one package */
 export function readEarningsStats(
   table: PlayCsvTable,
   packageName: string,

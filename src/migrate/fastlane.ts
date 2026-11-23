@@ -22,11 +22,7 @@ import type {
 import type { MutableDeep } from '../types/mutable.ts';
 import { buildEnvExample, scaffoldStoreConfig } from './scaffold.ts';
 
-/**
- * A parsed fastlane setup, narrowed to what Launch reads from the standard files. Lanes and recognized
- * actions drive the report (Launch's pipeline replaces lanes); the per-file blocks are present only when
- * that file existed. Mirrors {@link EasJson} as the file-based input to a migration source.
- */
+/** A parsed fastlane setup, narrowed to what Launch reads from the standard files. */
 type FastlaneSetup = Readonly<{
   appfile?: AppfileData;
   matchfile?: MatchfileData;

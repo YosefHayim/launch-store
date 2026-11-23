@@ -52,10 +52,7 @@ export function periodFromIso(iso: string): SubscriptionPeriod | undefined {
   }
 }
 
-/**
- * The slice of GooglePlayClient the subscriptions reconciler depends on.
- * Declared here so the logic is unit-testable with a hand-rolled fake.
- */
+/** The slice of GooglePlayClient the subscriptions reconciler depends on. */
 export type PlaySubscriptionsApi = {
   assertAppExists(packageName: string): Promise<void>;
   listSubscriptions(packageName: string): Promise<SubscriptionResource[]>;
@@ -330,10 +327,7 @@ function phaseKeepsSharedRegions(
   };
 }
 
-/**
- * Build a Play offer from config. A free-trial phase and an introductory-price phase are both optional.
- * Every region in the offer must appear in every phase, so the offer's region set is their intersection.
- */
+/** Build a Play offer from config. */
 export function offerFromConfig(
   productId: string,
   basePlanId: string,
@@ -775,10 +769,7 @@ function annotateFailedActions(
   }
 }
 
-/**
- * Reconcile one app's Play subscriptions. Fails only when the Play app record is unreachable.
- * Everything else is captured per-action.
- */
+/** Reconcile one app's Play subscriptions. */
 export async function reconcilePlaySubscriptions(
   api: PlaySubscriptionsApi,
   reconcileInput: PlaySubscriptionsReconcileInput,

@@ -21,11 +21,7 @@ export function sentimentOf(rating: StarRating): Sentiment {
   if (rating == 3) return 'neutral';
   return 'negative';
 }
-/**
- * Roll a set of reviews up into a {@link RatingSummary}. Single pass: tallies the distribution,
- * answered count, and sentiment split, then derives the mean and answered rate. An empty set yields an
- * all-zero summary (average 0, rates 0) so callers render it without special-casing emptiness.
- */
+/** Roll a set of reviews up into a {@link RatingSummary}. */
 export function summarizeRatings(reviews: readonly ReviewDatum[]): RatingSummary {
   const distribution: Record<StarRating, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   const sentiment: Record<Sentiment, number> = { positive: 0, neutral: 0, negative: 0 };
@@ -54,11 +50,7 @@ export function summarizeRatings(reviews: readonly ReviewDatum[]): RatingSummary
     sentiment,
   };
 }
-/**
- * Build the chronological monthly trend: group dated reviews by `YYYY-MM`, then report each month's
- * volume and mean rating, oldest first. Reviews with no date are skipped (they can't be placed on a
- * timeline) - so a trend can be shorter than the review count, by design.
- */
+/** Build the chronological monthly trend */
 export function monthlyTrend(reviews: readonly ReviewDatum[]): MonthlyRatingPoint[] {
   const byMonth = new Map<
     string,
@@ -89,10 +81,7 @@ export function monthlyTrend(reviews: readonly ReviewDatum[]): MonthlyRatingPoin
 
   return [...byMonth.entries()].sort(sortPiece).map(mapPiece);
 }
-/**
- * Assemble one app's insights from its normalized reviews: the combined summary, a per-store summary
- * for each store that returned at least one review, and the monthly trend across all of them.
- */
+/** Assemble one app's insights from its normalized reviews */
 export function buildAppInsights(app: string, reviews: readonly ReviewDatum[]): AppInsights {
   const byStore: AppInsights['byStore'] = {};
   for (const store of ['appstore', 'play'] as const) {
@@ -115,11 +104,7 @@ export function buildAppInsights(app: string, reviews: readonly ReviewDatum[]): 
     trend: monthlyTrend(reviews),
   };
 }
-/**
- * Combine per-app insights into the full {@link InsightsReport}, computing the `overall` summary from
- * every app's reviews at once. Takes the apps already paired with their reviews so the command stays
- * the only place that touches the network.
- */
+/** Combine per-app insights into the full {@link InsightsReport} */
 export function buildInsightsReport(
   perApp: readonly {
     app: string;

@@ -1,12 +1,7 @@
 import type { PlanContext, SurfacePlan, SurfacePlanner } from '../types/plan.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 
-/**
- * Exit codes mirror `launch-store status` (worst-wins, error first):
- * - `inSync` (0) - config matches live state, or plain `launch-store plan` with only drift/skips
- * - `error` (1) - unreadable surface/app; a gate cannot certify state it failed to read
- * - `drift` (2) - `--check` only: pending planned actions
- */
+/** Exit codes mirror `launch-store status` (worst-wins, error first): */
 export const PLAN_EXIT = { inSync: 0, error: 1, drift: 2 } as const;
 
 /** Surfaces that produced output; omitted (nothing declared) are dropped upstream. */
@@ -22,10 +17,7 @@ type PlanRunOptions = Readonly<{
   check?: boolean;
 }>;
 
-/**
- * Aggregate plan outcome for rendering and `--json`.
- * `changeCount` counts only `planned` actions (not advisory skips).
- */
+/** Aggregate plan outcome for rendering and `--json`. */
 export type PlanOutcome = Readonly<{
   surfaces: readonly RenderableSurface[];
   changeCount: number;
@@ -108,10 +100,7 @@ export function tallyPlanSurfaces(surfaces: readonly RenderableSurface[]): PlanS
   return { changeCount, appErrorCount, skippedSurfaceCount };
 }
 
-/**
- * Plain `launch-store plan` is informational (exit 0 with drift/skips); only app-level errors fail it.
- * `--check` / `drift` is the gate: unreadable state wins (1), then drift (2), then in-sync (0).
- */
+/** Plain `launch-store plan` is informational (exit 0 with drift/skips) */
 export function planExitCode({
   check,
   changeCount,
@@ -151,10 +140,7 @@ export function planExitCode({
   return PLAN_EXIT.inSync;
 }
 
-/**
- * Run planners concurrently, drop omitted surfaces, tally diffs, and compute the exit code.
- * Planners self-isolate per-app failures; this only aggregates.
- */
+/** Run planners concurrently, drop omitted surfaces, tally diffs, and compute the exit code. */
 export async function runPlanners(
   planContext: PlanContext,
   planners: readonly SurfacePlanner[],

@@ -46,10 +46,7 @@ async function clearEveryTester(
   return { cleared: testers, notFound: [] };
 }
 
-/**
- * Clear sandbox testers' StoreKit purchase history - either every tester (`all`) or the ones matching the
- * given emails (case-insensitive on `acAccountName`). Throws when neither emails nor `all` are given.
- */
+/** Clear sandbox testers' StoreKit purchase history */
 export async function clearPurchaseHistory(
   api: AscSandboxApi,
   request: ClearRequest,

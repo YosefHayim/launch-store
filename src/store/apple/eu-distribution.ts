@@ -83,20 +83,13 @@ const euDistributionConfigSpec = {
   decodeDocument: decodeEuDistributionDocument,
 };
 
-/**
- * The exact slice of App Store Connect the domain reconciler depends on. Declaring it here
- * (rather than taking the concrete client) keeps the diff logic unit-testable with a hand-rolled fake.
- */
+/** The exact slice of App Store Connect the domain reconciler depends on. */
 export type AscEuDistributionApi = {
   listAlternativeDistributionDomains(): Promise<AlternativeDistributionDomainResource[]>;
   createAlternativeDistributionDomain(domain: string, referenceName: string): Promise<void>;
 };
 
-/**
- * Reconcile the team's authorized distribution domains: create each declared domain Apple doesn't already
- * have (matched on `domain`), leaving undeclared ones untouched. Every write is captured per-action so a
- * single failure never aborts the run.
- */
+/** Reconcile the team's authorized distribution domains */
 export async function reconcileEuDistributionDomains(
   api: AscEuDistributionApi,
   config: EuDistributionConfig,

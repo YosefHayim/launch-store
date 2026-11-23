@@ -12,11 +12,7 @@ import type {
 } from '../types/vitals.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import { describePlayErrors, nonEmptyPageToken, serviceAccountJwtOptions } from './play-client.ts';
-/**
- * The metric set behind each vital: its API resource segment and the three metrics Launch reads.
- * `rate`/`userPerceivedRate` are the headline + foreground-only figures; `distinctUsers` is the
- * denominator. Keyed by {@link PlayVitalsMetric} so the query path and normalization stay table-driven.
- */
+/** The metric set behind each vital */
 const METRIC_SETS: Record<
   PlayVitalsMetric,
   {
@@ -45,10 +41,7 @@ function shiftIsoDate(iso: string, delta: number): string {
   const shifted = new Date(Date.UTC(year, month - 1, day + delta));
   return shifted.toISOString().slice(0, 10);
 }
-/**
- * DAILY query window of `days` inclusive days ending at `latestDate` (metric-set freshness from `:get`).
- * Falls back to ending today when freshness is unknown - the API clamps an over-reaching end.
- */
+/** DAILY query window of `days` inclusive days ending at `latestDate` (metric-set freshness */
 export function vitalsWindowFromLatestDate(latestDate: string | null, days: number): VitalsWindow {
   let endDate = new Date().toISOString().slice(0, 10);
   if (latestDate != null) endDate = latestDate;
@@ -170,12 +163,7 @@ export type PlayReportingTransport = {
 export class PlayReportingClient {
   /** Official generated Play Developer Reporting v1beta1 transport. */
   private readonly reporting: PlayReportingTransport;
-  /**
-   * Bind the adapter to one service account.
-   *
-   * @param account - Validated Google service-account credentials.
-   * @param generatedReporting - Optional generated transport supplied by adapter tests.
-   */
+  /** Bind the adapter to one service account. */
   constructor(account: ServiceAccount, generatedReporting?: PlayReportingTransport) {
     if (generatedReporting != null) {
       this.reporting = generatedReporting;
@@ -238,11 +226,7 @@ export class PlayReportingClient {
 
     return apps;
   }
-  /**
-   * Read the latest DAILY day Google has finished aggregating for a metric set, as ISO `YYYY-MM-DD`,
-   * or null when no freshness is published yet (a brand-new app). Used to bound the default query
-   * window so a request never reaches past available data.
-   */
+  /** Read the latest DAILY day Google has finished aggregating for a metric set */
   async latestDailyDate(packageName: string, metric: PlayVitalsMetric): Promise<string | null> {
     const { resource } = METRIC_SETS[metric];
     const name = `apps/${packageName}/${resource}`;
@@ -277,12 +261,7 @@ export class PlayReportingClient {
 
     return null;
   }
-  /**
-   * Fetch one vital's full DAILY timeline: bound the window by the metric set's freshness (via `:get`,
-   * so the request never reaches past available data), then query + normalize. This is the single
-   * call `launch-store play-reports vitals` makes per metric - the freshness->window->query orchestration that
-   * belongs in the client, not the CLI.
-   */
+  /** Fetch one vital's full DAILY timeline */
   async vitalsTimeline(
     packageName: string,
     metric: PlayVitalsMetric,
@@ -301,11 +280,7 @@ export class PlayReportingClient {
   async queryAnrRate(packageName: string, window: VitalsWindow): Promise<PlayVitalsRow[]> {
     return this.queryVitals('anr', packageName, window);
   }
-  /**
-   * Query one metric set over a DAILY window and normalize every row, paging through Google's
-   * `nextPageToken` in full. No dimensions are requested, so each row is one day aggregated across
-   * the whole user base - the headline timeline `launch-store play-reports vitals` shows.
-   */
+  /** Query one metric set over a DAILY window and normalize every row */
   private async queryVitals(
     metric: PlayVitalsMetric,
     packageName: string,

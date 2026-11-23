@@ -41,10 +41,7 @@ function isDirectoryName(childName: string): boolean {
   return childName != '';
 }
 
-/**
- * Find the native target directory that holds Info.plist. Directories are checked before the plist
- * probe because a regular file makes `Info.plist` look like `ENOTDIR`.
- */
+/** Find the native target directory that holds Info.plist. */
 export async function findNativeTargetDirectory(nativeDirectory: string): Promise<string | null> {
   const nativeEntries = await readdir(nativeDirectory);
 
@@ -148,9 +145,7 @@ function isExplicitBumpKind(flag: BumpKind | 'ask' | undefined): flag is BumpKin
   return flag != 'ask';
 }
 
-/**
- * Decide how to pick the version bump. An explicit `--bump` kind wins, even without a TTY.
- */
+/** Decide how to pick the version bump. */
 export function resolveBumpKind(args: {
   flag: BumpKind | 'ask' | undefined;
   remembered: BumpKind | undefined;
@@ -300,9 +295,7 @@ function currentMarketingVersion(app: AppDescriptor): string {
   return app.version;
 }
 
-/**
- * Resolve and apply the marketing version before the build. Returns the bump kind to remember.
- */
+/** Resolve and apply the marketing version before the build. */
 export async function resolveMarketingVersion(
   ascKey: AppleCredentials['ascKey'],
   bundleId: string,

@@ -39,11 +39,7 @@ function mutableGoogleRequest<GoogleRequest>(requestShape: unknown): GoogleReque
 }
 
 type PlayTrackInfo = Readonly<{ track: string; releases: readonly PlayRelease[] }>;
-/**
- * Region snapshot the subscriptions monetization API pins prices against - a required query parameter on
- * every subscription/offer write. `2022/02` is Google's current published version; bump it here if Google
- * retires it (the API rejects an unsupported value with an actionable message).
- */
+/** Region snapshot the subscriptions monetization API pins prices against */
 const REGIONS_VERSION = '2022/02';
 /** A generated Android Publisher request failed. */
 export type GooglePlayApiError = Readonly<{
@@ -214,11 +210,7 @@ export function nonEmptyPageToken(token: string | null | undefined): string | un
   if (token.length == 0) return;
   return token;
 }
-/**
- * Walk every page of a token-bearing generated list into one Launch-owned collection.
- * Callers supply the page load, item projection, and next-token extraction so product,
- * subscription, offer, and review lists share one pagination loop.
- */
+/** Walk every page of a token-bearing generated list into one Launch-owned collection. */
 async function collectGeneratedPages<Page, Collected>(
   loadPage: (pageToken: string | undefined) => Promise<Page>,
   collectedFromPage: (page: Page) => readonly Collected[],
@@ -625,12 +617,7 @@ export class GooglePlayClient {
   readonly serviceAccountEmail: string;
   /** Official generated Android Publisher v3 transport. */
   private readonly publisher: GooglePlayTransport;
-  /**
-   * Bind the adapter to one service account.
-   *
-   * @param account - Validated Google service-account credentials.
-   * @param generatedPublisher - Optional generated transport supplied by adapter tests.
-   */
+  /** Bind the adapter to one service account. */
   constructor(account: ServiceAccount, generatedPublisher?: GooglePlayTransport) {
     this.serviceAccountEmail = account.clientEmail;
     if (generatedPublisher != null) {
@@ -713,13 +700,7 @@ export class GooglePlayClient {
       await this.abandonEdit(packageName, editId);
     }
   }
-  /**
-   * Run edit-scoped **writes** transactionally: open an edit, apply changes via `apply`, then COMMIT so
-   * they land atomically. On any error the edit is abandoned (rolled back) so a partial change never
-   * lands. This is the write twin of {@link withReadEdit} and the foundation the edit-based Play
-   * reconcilers (tracks, testers, country availability, listings) build on. Returns whatever `apply`
-   * returns. The Play API requires every track/listing change to live inside such an edit.
-   */
+  /** Run edit-scoped **writes** transactionally */
   async withEdit<Applied>(
     packageName: string,
     apply: (editId: string) => Promise<Applied>,
@@ -735,10 +716,7 @@ export class GooglePlayClient {
       throw applyError;
     }
   }
-  /**
-   * Return the highest `versionCode` already uploaded for an app, or 0 if none exist yet. The caller
-   * bumps this for the next upload (parallels {@link AppStoreConnectClient.getLatestBuildNumber}).
-   */
+  /** Return the highest `versionCode` already uploaded for an app, or 0 if none exist yet. */
   async getLatestVersionCode(packageName: string): Promise<number> {
     const readLatestVersionCode = async (editId: string): Promise<number> => {
       const bundlePage = await this.executeGeneratedRequest('list bundles', () =>
@@ -808,11 +786,7 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readTracks);
   }
-  /**
-   * Replace a track's releases in one committed edit - the promote/rollout/halt write. Play supersedes
-   * any prior release on the track, so a single new release is the standard request. Transactional via
-   * {@link withEdit}: a failure abandons the edit, leaving the live track untouched.
-   */
+  /** Replace a track's releases in one committed edit - the promote/rollout/halt write. */
   async setTrackReleases(
     packageName: string,
     track: string,
@@ -831,10 +805,7 @@ export class GooglePlayClient {
 
     await this.withEdit(packageName, writeTrackReleases);
   }
-  /**
-   * Upload an AAB and release it on a track in one committed edit. The release names the versionCode
-   * Play assigned the upload, and a failure abandons both, so a bundle never lands without its release.
-   */
+  /** Upload an AAB and release it on a track in one committed edit. */
   async uploadBundleToTrack(
     packageName: string,
     bundleStream: Readable,
@@ -937,10 +908,7 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readListings);
   }
-  /**
-   * Patch the given localized store listings inside ONE committed edit, so every language lands together or
-   * none does. Patch keeps fields the listing does not mention (for example the video) untouched.
-   */
+  /** Patch the given localized store listings inside ONE committed edit */
   async updateListings(packageName: string, listings: readonly PlayListing[]): Promise<void> {
     const writeListings = async (editId: string): Promise<void> => {
       for (const listing of listings) {
@@ -994,10 +962,7 @@ export class GooglePlayClient {
 
     return this.withReadEdit(packageName, readCountryAvailability);
   }
-  /**
-   * Confirm the service account can reach the app's Play record, failing with {@link PlayAppNotFoundError}
-   * when it can't - the detect-and-deep-link probe for `launch-store doctor` (Play can't create the app).
-   */
+  /** Confirm the service account can reach the app's Play record */
   async assertAppExists(packageName: string): Promise<void> {
     let editId: string;
 
@@ -1021,10 +986,7 @@ export class GooglePlayClient {
 
     await this.abandonEdit(packageName, editId);
   }
-  /**
-   * List the app's in-app **managed products** (`inappproducts`). Not edit-scoped - the products API is a
-   * direct CRUD surface (unlike tracks/listings). Pages through Google's token pagination in full.
-   */
+  /** List the app's in-app **managed products** (`inappproducts`). */
   async listInAppProducts(packageName: string): Promise<InAppProductResource[]> {
     const loadProductPage = (pageToken: string | undefined) => {
       const listParameters: androidpublisher_v3.Params$Resource$Inappproducts$List = {
@@ -1081,14 +1043,7 @@ export class GooglePlayClient {
       }),
     );
   }
-  /**
-   * Convert a single base price into Google's **recommended local price for every Play market** via
-   * `pricing:convertRegionPrices` (today's exchange rate + Google's per-country pricing patterns).
-   * Advisory and read-only - it computes a recommendation and changes nothing live; callers apply the
-   * numbers through the product/subscription write paths. Regions come back sorted by code; `otherRegions`
-   * carries the USD/EUR fallback for markets without a local currency. `productTaxCategoryCode`, when
-   * given, factors the matching tax rates into the conversion.
-   */
+  /** Convert a single base price into Google's **recommended local price for every Play */
   async convertRegionPrices(
     packageName: string,
     price: PlayMoneyUnits,
@@ -1187,10 +1142,7 @@ export class GooglePlayClient {
       collectGeneratedPagesSubscriptionPage2,
     );
   }
-  /**
-   * Create a subscription with its base plans (which Play creates in DRAFT - activate them separately).
-   * `regionsVersion.version` is required; the product id is sent in the query and request document.
-   */
+  /** Create a subscription with its base plans (which Play creates in DRAFT */
   async createSubscription(packageName: string, subscription: SubscriptionResource): Promise<void> {
     await this.executeGeneratedRequest('create subscription', () => {
       return this.publisher.monetization.subscriptions.create({
@@ -1204,11 +1156,7 @@ export class GooglePlayClient {
       });
     });
   }
-  /**
-   * Patch a subscription's masked fields (PATCH with an `updateMask` - Play requires field-level updates).
-   * The masked fields are replaced by `subscription`, so the reconciler sends a merged document
-   * (e.g. existing listings + the changed ones) to stay additive.
-   */
+  /** Patch a subscription's masked fields (PATCH with an `updateMask` */
   async patchSubscription(
     packageName: string,
     subscription: SubscriptionResource,
@@ -1335,11 +1283,7 @@ export class GooglePlayClient {
       }),
     );
   }
-  /**
-   * List the app's customer reviews (flattened to {@link PlayReview}), paging in full. `translationLanguage`
-   * asks Play to machine-translate review text into that BCP-47 language. Only reviews with text from the
-   * last ~week are returned - a Play platform limit, not Launch's.
-   */
+  /** List the app's customer reviews (flattened to {@link PlayReview}), paging in full. */
   async listReviews(
     packageName: string,
     options: Readonly<{
@@ -1420,10 +1364,7 @@ export class GooglePlayClient {
       throw requestFailure;
     }
   }
-  /**
-   * Post (or replace) the public developer reply to a review. Play's reply endpoint is an upsert - it
-   * edits an existing reply in place - and only accepts reviews from the last ~week.
-   */
+  /** Post (or replace) the public developer reply to a review. */
   async replyToReview(
     packageName: string,
     reviewId: string,
@@ -1618,11 +1559,7 @@ function readGoogleErrorDocument(googleErrorText: string): GoogleErrorDocument |
   return document;
 }
 
-/**
- * Extract Google's human-readable error detail, falling back to the raw transport text.
- * Recognizes the sensitive/high-risk permission rejection and appends the fix, so the CLI doesn't just
- * echo a 403 - it tells you the release was blocked on a permission declaration.
- */
+/** Extract Google's human-readable error detail, falling back to the raw transport text. */
 export function describePlayErrors(googleErrorText: string): string {
   const googleErrorDocument = readGoogleErrorDocument(googleErrorText);
   const isDocumentMissing = googleErrorDocument == null;

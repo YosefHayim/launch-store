@@ -93,12 +93,7 @@ async function readProfileMetadata(profilePath: string): Promise<{
   return { uuid, name, teamId: plistFirstArrayString(xml, 'TeamIdentifier') };
 }
 
-/**
- * Decode the base64 profile content, install it where Xcode looks, and back it up per-account.
- * `backupName` is the backup filename base (without extension) - the App Store path passes the bundle
- * id; the ad-hoc path passes `<bundleId>.adhoc` so the two profiles for one bundle don't overwrite
- * each other's backup. (The installed copy is keyed by UUID, so it never collides regardless.)
- */
+/** Decode the base64 profile content, install it where Xcode looks, and back it up per-account. */
 export async function installProfile(
   keyId: string,
   backupName: string,
@@ -159,10 +154,7 @@ type EnsureRegisteredBundleIdOptions = {
   declineMessage: string;
 };
 
-/**
- * Ensure the App ID exists in App Store Connect before a profile can reference it. Shared by
- * App Store, ad-hoc, and remote signing paths.
- */
+/** Ensure the App ID exists in App Store Connect before a profile can reference it. */
 export async function ensureRegisteredBundleId(
   bundleOptions: EnsureRegisteredBundleIdOptions,
 ): Promise<BundleIdResource> {
@@ -320,13 +312,7 @@ function canReuseProfile(
   return staleCapabilityCount == 0;
 }
 
-/**
- * Ensure one bundle id's App ID + App Store provisioning profile against a shared distribution cert,
- * install the profile where Xcode looks, and record it in the account index. The per-bundle unit reused
- * by the main app and each embedded extension - both follow the identical App ID -> App Store profile
- * path; only the certificate (one per team) is shared between them. Returns the local
- * {@link SigningAssets} for the bundle.
- */
+/** Ensure one bundle id's App ID + App Store provisioning profile against a shared distribution */
 export async function ensureAppStoreProfileForBundle(
   profileOptions: EnsureProfileForBundleOptions,
 ): Promise<SigningAssets> {

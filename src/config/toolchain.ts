@@ -2,11 +2,7 @@ import { checkCommandExists, executeCommand } from '../services/platform/exec.ts
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { checkIsMacOperatingSystem } from '../services/platform/os.ts';
 import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.ts';
-/**
- * A tool a local iOS build needs, and how to install it on macOS.
- * - `brew`: installable non-interactively via `brew install <formula>`.
- * - `guide`: can't be cleanly automated (Xcode); we print the guide text for the user instead.
- */
+/** A tool a local iOS build needs, and how to install it on macOS. */
 export type Tool = {
   label: string;
   command: string;
@@ -21,10 +17,7 @@ export type Tool = {
         how: string;
       };
 };
-/**
- * The canonical toolchain an iOS build needs. Single source of truth - `doctor` renders this list
- * and {@link ensureToolchain} installs from it, so the two never drift.
- */
+/** The canonical toolchain an iOS build needs. */
 export const REQUIRED_TOOLS: Tool[] = [
   {
     label: 'Xcode (xcodebuild)',
@@ -56,13 +49,7 @@ export const REQUIRED_TOOLS: Tool[] = [
     install: { kind: 'brew', formula: 'ccache' },
   },
 ];
-/**
- * The toolchain an Android build needs - the executables `launch-store doctor --platform android` probes.
- * Unlike iOS, none of these are macOS-only (Android builds anywhere), and Xcode has no analog: the
- * JDK supplies `keytool`, gradle runs via the project's own wrapper (checked separately, not here),
- * and `bundletool` estimates the download. `ANDROID_HOME` (the SDK) is an
- * env var, also checked separately in `doctor`.
- */
+/** The toolchain an Android build needs */
 export const ANDROID_TOOLS: Tool[] = [
   {
     label: 'JDK (keytool)',
@@ -83,10 +70,7 @@ export function fixHint(tool: Tool): string {
   if (tool.install.kind == 'brew') return `brew install ${tool.install.formula}`;
   return tool.install.how;
 }
-/**
- * Split missing tools into the ones we can `brew install` as a batch and the ones we can only guide.
- * Pure, so the planning is unit-testable without touching the system.
- */
+/** Split missing tools into the ones we can `brew install` as a batch and the ones we can only */
 export function planInstall(missing: Tool[]): {
   brew: Tool[];
   guided: Tool[];
@@ -114,14 +98,7 @@ export function planInstall(missing: Tool[]): {
     guided: missing.filter(filterTool2),
   };
 }
-/**
- * The *required* iOS build tools currently absent from `PATH` - the signal for whether a Homebrew install
- * is even relevant. Recommended tools (ccache) are excluded: their absence only slows a build, it isn't a
- * gap worth an install prompt. Unlike `runDoctor`'s overall pass/fail this ignores non-tool preflight state
- * (a missing App Store Connect record, an unsigned agreement) that Homebrew can't fix, so a caller can
- * offer the install only when it would actually do something (issue #117). Probes through the injectable
- * {@link ToolchainIo.exists}, so it's unit-testable with no real PATH lookups.
- */
+/** The *required* iOS build tools currently absent from `PATH` */
 function isRequiredTool(tool: Tool): boolean {
   return tool.tier == 'required';
 }
@@ -137,20 +114,7 @@ export async function missingRequiredTools(io?: Pick<ToolchainIo, 'exists'>): Pr
 
   return missing.filter(isRequiredTool);
 }
-/**
- * Generate the bash toolchain preflight that runs ON the remote Mac before a build - the remote twin of
- * `launch-store doctor`, emitted from {@link REQUIRED_TOOLS} so the host and local checks never drift (issue #6).
- *
- * `mode` reflects who owns the host:
- * - `"install"` - the AWS EC2 Mac is ours, so a missing brew-able required tool is installed (and the
- *   recommended ccache best-effort), then re-checked; only an un-installable miss (Xcode) or a failed
- *   install fails the preflight.
- * - `"assert"` - a BYO-SSH host is the user's machine, so nothing is mutated: a missing required tool
- *   fails with the same `brew install ...` hint `launch-store doctor` prints; a missing ccache only warns.
- *
- * Prints `LAUNCH_PREFLIGHT_OK` on success; on a missing required tool it lists each gap and exits
- * non-zero, so the SSH step fails fast with an actionable message instead of a cryptic mid-build error.
- */
+/** Generate the bash toolchain preflight that runs ON the remote Mac before a build */
 export function remoteToolchainPreflight(mode: 'install' | 'assert'): string {
   const canInstall = mode == 'install';
   // Single-quote any message embedded in `echo` so backticks in a hint (e.g. Xcode's) stay literal.
@@ -187,10 +151,7 @@ export function remoteToolchainPreflight(mode: 'install' | 'assert'): string {
   lines.push('echo LAUNCH_PREFLIGHT_OK');
   return lines.join('\n');
 }
-/**
- * Side-effecting operations {@link ensureToolchain} needs, injected so tests can supply fakes.
- * Production wiring ({@link realIo}) maps these onto the repo's exec helpers, terminal prompts, and console.
- */
+/** Side-effecting operations {@link ensureToolchain} needs, injected so tests can supply fakes. */
 export type ToolchainIo = {
   exists(command: string): Promise<boolean>;
   run(command: string, args: readonly string[]): Promise<void>;
@@ -330,11 +291,7 @@ export async function ensureToolchain(options: EnsureToolchainOptions = {}): Pro
 }
 /** ccache cap and the sloppiness flags that make caching reliable for Xcode/CocoaPods ObjC/C++ builds. */
 const CCACHE_MAX_SIZE = '10G';
-/**
- * Configure ccache once, right after installing it: a generous size cap so warm objects survive between
- * builds, plus the sloppiness flags Xcode/CocoaPods builds need to actually hit the cache (timestamps and
- * the clang index store would otherwise bust every entry). Idempotent - safe to re-run on a later `--fix`.
- */
+/** Configure ccache once, right after installing it */
 async function configureCcache(io: ToolchainIo): Promise<void> {
   await io.log(`-> configuring ccache (max-size ${CCACHE_MAX_SIZE}, Xcode-friendly sloppiness)...`);
   await io.run('ccache', ['--max-size', CCACHE_MAX_SIZE]);
@@ -345,18 +302,7 @@ async function configureCcache(io: ToolchainIo): Promise<void> {
 }
 /** The outcome of the inline ccache offer, so a build can log it and persist a decline correctly. */
 type CcacheOfferResult = 'installed' | 'declined' | 'skipped-no-brew' | 'skipped-noninteractive';
-/**
- * Offer to install + configure ccache inline during a build when it's missing - the convenience twin of
- * `launch-store doctor --fix`, reusing {@link configureCcache} so the cache is tuned identically (no second
- * source of truth). The caller guarantees ccache is absent and owns the user-facing notices; this only
- * decides and acts:
- * - non-interactive (CI / piped / no TTY) -> `"skipped-noninteractive"` - never block a build on stdin;
- * - Homebrew missing -> `"skipped-no-brew"` - don't chain a brew bootstrap into a build; point at doctor;
- * - declined -> `"declined"` - the caller remembers it so later builds never re-prompt;
- * - accepted -> `brew install ccache` + configure -> `"installed"` - this build's pod-install/xcodebuild pick it up.
- *
- * Never throws on a decline or a failed install: a build without ccache simply runs uncached.
- */
+/** Offer to install + configure ccache inline during a build when it's missing */
 export async function ensureCcacheInstalled(options: {
   interactive: boolean;
   io?: ToolchainIo;
@@ -393,10 +339,7 @@ export async function ensureCcacheInstalled(options: {
 
   return 'installed';
 }
-/**
- * Ensure Homebrew exists (guided/consented), then install the brew-able tools in one batch.
- * Extracted from {@link ensureToolchain} to keep that function's flow legible.
- */
+/** Ensure Homebrew exists (guided/consented), then install the brew-able tools in one batch. */
 function brewFormula(tool: Tool): string {
   if (tool.install.kind == 'brew') {
     return tool.install.formula;
@@ -445,11 +388,7 @@ async function installBrewTools(
   await io.log(`-> brew install ${formulas.join(' ')}`);
   await io.run('brew', ['install', ...formulas]);
 }
-/**
- * Make sure Homebrew is present, installing it only behind an explicit typed-`yes` because its
- * installer pipes a remote script to bash and may prompt for a password. Returns whether brew is
- * usable afterward.
- */
+/** Make sure Homebrew is present */
 async function ensureHomebrew(io: ToolchainIo, assumeYes: boolean): Promise<boolean> {
   const brewExists = await io.exists('brew');
 

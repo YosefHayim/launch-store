@@ -49,25 +49,13 @@ export function makeStoreUploadFailure(fields: {
     message: fields.message,
   };
 }
-/**
- * Resolves and persists the credentials a build needs, for whichever platform the context names.
- *
- * The `local` implementation reads/writes the OS secret store and `~/.launch`, branching on
- * `buildContext.platform` to return {@link AppleCredentials} (iOS) or {@link AndroidCredentials}
- * (Android) as a {@link BuildCredentials}. A future `team`/`s3` implementation could fetch shared, encrypted
- * credentials instead - the pipeline neither knows nor cares which backend answered.
- */
+/** Resolves and persists the credentials a build needs */
 export type CredentialsProvider = Readonly<{
   readonly name: string;
   resolveBuildCredentials(buildContext: ResolvedBuildContext): Promise<BuildCredentials>;
   status(packageNames?: readonly string[]): Promise<string>;
 }>;
-/**
- * Compiles and signs the native project into a distributable artifact.
- *
- * `xcode` runs `xcodebuild archive` and `-exportArchive` -> `.ipa` (iOS); `gradle` runs `bundleRelease` -> `.aab` (Android). Each engine
- * narrows {@link BuildCredentials} to the platform it serves and rejects the other.
- */
+/** Compiles and signs the native project into a distributable artifact. */
 export type BuildEngine = Readonly<{
   readonly name: string;
   buildArtifact(
@@ -103,14 +91,7 @@ export type HostedBuildProvider = Readonly<{
     profileName: string,
   ): Promise<void>;
 }>;
-/**
- * Persists build artifacts and hands back a retrievable location.
- *
- * Shaped after the S3 object-store model (`put`/`list`/`url` for build artifacts, plus
- * `putObject`/`publicUrl` for the raw files ad-hoc install links and OTA manifests need) so cloud
- * providers (R2, S3, Supabase) are thin drop-ins. `local` writes under `~/.launch`; the cloud
- * providers upload to the user's own bucket and serve from {@link StorageConfig.publicBaseUrl}.
- */
+/** Persists build artifacts and hands back a retrievable location. */
 export type StorageProvider = Readonly<{
   readonly name: string;
   put(artifact: BuildArtifact): Promise<StoredArtifact>;
@@ -139,13 +120,7 @@ export type StorageProviderResolver = Readonly<{
 }>;
 /** The built binary a submitter uploads, with the version and build number stamped into it. */
 export type SubmitArtifact = Pick<BuildArtifact, 'path' | 'version' | 'buildNumber'>;
-/**
- * Uploads a built artifact to a distribution destination.
- *
- * `app-store-connect` uploads to TestFlight through App Store Connect's build upload API; `google-play`
- * uploads to a Play track through the Android Publisher edits API. Each narrows Readonly<{@link BuildCredentials}>
- * to its platform (Android also reads `buildContext.android`).
- */
+/** Uploads a built artifact to a distribution destination. */
 export type Submitter = Readonly<{
   readonly name: string;
   submit(
@@ -154,22 +129,8 @@ export type Submitter = Readonly<{
     buildContext: ResolvedBuildContext,
   ): Promise<void>;
 }>;
-/**
- * Generic OS-native secret storage - the cross-platform widening of the macOS-only Keychain.
- *
- * Backs the App Store Connect `.p8` and the distribution `.p12` password on whatever host Launch
- * runs on: macOS Keychain, Windows Credential Manager, or Linux libsecret. Non-Mac developers have
- * no Keychain; this seam gives them a real OS-native store. NOTE: importing a cert into a *codesign*
- * keychain (the `security import` calls) is a different concern and stays in `core/keychain.ts`.
- */
-/**
- * Provisions, connects to, and tears down a remote Mac for off-Mac iOS builds.
- *
- * `aws-ec2-mac` allocates a Dedicated Host + EC2 Mac instance (billing-aware, golden-AMI reuse);
- * `byo-ssh` simply wraps a Mac you already reach. `core/remote-pipeline.ts` then drives the same
- * xcodebuild build/sign/submit spine over the SSH connection, so the host backend and the build logic
- * stay independent. SSH command execution lives in `core/ssh.ts`, shared by every host impl.
- */
+/** Generic OS-native secret storage - the cross-platform widening of the macOS-only Keychain. */
+/** Provisions, connects to, and tears down a remote Mac for off-Mac iOS builds. */
 export type ComputeHost = Readonly<{
   readonly name: string;
   allocate(request: AllocateRequest): Promise<HostHandle>;

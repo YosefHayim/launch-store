@@ -5,10 +5,7 @@ import type {
 } from '../store/shared/store-config.ts';
 import type { DraftListing, ListingBrief, LocaleDraft } from '../types/listing.ts';
 import type { MutableDeep } from '../types/mutable.ts';
-/**
- * App Store field limits, in characters. `keywords` is the limit on the *comma-joined* string (Apple
- * counts the serialized field, and `storeConfig` joins with `", "`), not the count of keywords.
- */
+/** App Store field limits, in characters. */
 export const APPLE_LIMITS = {
   title: 30,
   subtitle: 30,
@@ -40,11 +37,7 @@ function clampKeywords(keywords: readonly string[], maxCharacters: number): stri
   }
   return keptKeywords;
 }
-/**
- * Clamp every field of a draft to its App Store limit, returning the safe draft plus a warning per
- * field that had to be trimmed. A generator is asked to respect the limits, but this is the guarantee:
- * nothing over-length ever reaches the config, and the user sees exactly what was cut in the preview.
- */
+/** Clamp every field of a draft to its App Store limit */
 export function clampDraft(listingDraft: DraftListing): {
   draft: DraftListing;
   warnings: string[];
@@ -89,12 +82,7 @@ export function clampDraft(listingDraft: DraftListing): {
   }
   return { draft: clampedDraft, warnings: warningMessages };
 }
-/**
- * Build the brief for one locale. The creative seed is `aboutOverride` (a `--about` flag) when given,
- * else the locale's existing promotional text or subtitle - so by default the model refines what's
- * already there rather than inventing from nothing. Existing keywords and the whole current listing are
- * passed through for the same reason.
- */
+/** Build the brief for one locale. */
 export function briefFor(
   localeName: string,
   displayName: string,
@@ -111,11 +99,7 @@ export function briefFor(
   if (currentListing != null) listingBrief.current = currentListing;
   return listingBrief;
 }
-/**
- * Derive a Play listing from the App Store draft: the Play short description has no Apple twin, so it
- * borrows the subtitle (falling back to the promotional text), clamped to Play's tighter limit. Title
- * and full description map straight across. Returns only the fields the draft actually supplies.
- */
+/** Derive a Play listing from the App Store draft */
 export function deriveAndroidLocale(listingDraft: DraftListing): AndroidLocaleInfo {
   const androidListing: AndroidLocaleInfo = {};
   if (listingDraft.title != null)
@@ -132,11 +116,7 @@ export function deriveAndroidLocale(listingDraft: DraftListing): AndroidLocaleIn
     );
   return androidListing;
 }
-/**
- * Fold a draft into a config for one locale, immutably: spread the draft over the locale's existing
- * fields (so untouched fields and other locales survive), per targeted platform. The App Store fields
- * map 1:1; the Play fields are derived via {@link deriveAndroidLocale}. Returns a new config.
- */
+/** Fold a draft into a config for one locale, immutably */
 /** Merge a draft over one locale's existing App Store listing, copying keywords into a mutable array. */
 function mergeAppleLocale(
   existingLocale: AppleLocaleInfo | undefined,
@@ -218,11 +198,7 @@ function previewLine(
 ): string {
   return `    ${fieldLabel.padEnd(13)} ${previewText(listingText)}  (${usedCharacters}/${characterLimit})`;
 }
-/**
- * Render the drafts for confirmation: per locale, the App Store fields (and, when Android is targeted,
- * the derived Play fields), each with its character budget, followed by any clamp warnings. This is the
- * "review" half of the plan->confirm->apply loop - what the user reads before agreeing to write.
- */
+/** Render the drafts for confirmation */
 export function renderDraftPreview(
   listingDrafts: LocaleDraft[],
   listingTargets: {

@@ -5,16 +5,7 @@ import { resolveLaunchHomeDirectory, resolvePushKeysFilePath } from '../services
 import { decodeP8, encodeP8 } from './accounts.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
-/**
- * One imported APNs authentication key (`.p8`) in Launch's push-key vault (`~/.launch/push-keys.json`).
- *
- * An APNs auth key is how a backend sends push notifications to your app. Unlike the App Store Connect
- * key, Apple exposes NO API to create one - it's a download-once, portal-only key (Certificates, IDs &
- * Profiles -> Keys), capped at 2 per account - so Launch can only *import* and safeguard a key you've
- * already downloaded, never mint one. Launch never *uses* these keys (push is a backend/runtime concern);
- * the vault exists so a download-once secret isn't lost. This record is non-secret metadata only - the
- * `.p8` PEM stays in the OS secret store under `apns-p8:<keyId>`. An APNs key is team-wide, not per-app.
- */
+/** One imported APNs authentication key (`.p8`) in Launch's push-key vault */
 type ApnsKeyRecord = Readonly<{
   keyId: string;
   teamId?: string;
@@ -192,11 +183,7 @@ type ImportPushKeyRequest = {
   label?: string;
 };
 
-/**
- * Import (or replace) an APNs key: the `.p8` goes to the OS secret store, the metadata to the vault
- * index. Re-importing an existing Key ID updates it in place (keeping its original `importedAt`), so
- * re-importing with a new label or team never creates a duplicate.
- */
+/** Import (or replace) an APNs key */
 export async function importPushKey(importRequest: ImportPushKeyRequest): Promise<ApnsKeyRecord> {
   await LaunchSecretStore.storeSecret(apnsAccount(importRequest.keyId), encodeP8(importRequest.p8));
 

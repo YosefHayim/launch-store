@@ -78,11 +78,7 @@ function ignoreGap(existingText: string): string {
   return '\n';
 }
 
-/**
- * Ensure `resolvedDir` (an absolute artifact directory) is git-ignored when it lives inside the project's
- * repo. `projectDir` is where the repo is located from - defaults to the current directory (which is the
- * project root, since `launch-store` loads its config from there). Returns whether an entry was added.
- */
+/** Ensure `resolvedDir` (an absolute artifact directory) is git-ignored when it lives inside */
 export async function ensureArtifactDirIgnored(
   resolvedDir: string,
   requestedProjectDirectory?: string,

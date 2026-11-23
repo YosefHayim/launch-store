@@ -269,9 +269,7 @@ function requireIosBundleId(bundleId: string | undefined, appName: string): stri
   return bundleId;
 }
 
-/**
- * Build on a remote Mac. Shred always runs. An AWS host stays up for the paid window.
- */
+/** Build on a remote Mac. */
 export async function runRemoteBuild(
   prepared: PreparedBuild,
   buildOptions: BuildRunOptions,

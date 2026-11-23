@@ -62,13 +62,7 @@ function readSnapshotEntity(product: InAppProductResource): SnapshotEntity {
   if (product.status) statusSuffix = ` (${product.status})`;
   return { key: product.sku, summary: `Play product${statusSuffix}`, data: productFields };
 }
-/**
- * Invert a captured product's `listings` map back into the shared {@link ProductLocalization} list the
- * reconciler reads (title -> name, description -> description). The captured `defaultLanguage` is placed
- * first because {@link import("../../store/google/play-products.ts").readPlayProduct} derives the Play default language
- * from the first localization; the rest follow sorted for a deterministic restore. Listings with no title
- * are dropped - Play requires a title, so a title-less locale can't become a localization.
- */
+/** Invert a captured product's `listings` map back into the shared {@link ProductLocalization} */
 function readCapturedLocalizations(
   listings: JsonValue | undefined,
   defaultLanguage: string | undefined,
@@ -102,13 +96,7 @@ function readCapturedLocalizations(
   localizations.sort(sortA);
   return localizations;
 }
-/**
- * Rebuild an {@link InAppPurchaseConfig} from one captured product entity, targeting the Play reconciler.
- * The SKU drives `productId` and the `play` override; pricing restores the captured `defaultPrice` (Play
- * fans it back out across regions, and the reconciler merges onto live so existing regional prices
- * survive). Apple-only fields the Play path ignores (`type`, `referenceName`) get neutral placeholders.
- * Returns `null` when the product has no restorable listing (the reconciler requires at least one).
- */
+/** Rebuild an {@link InAppPurchaseConfig} from one captured product entity */
 function readProductConfig(entity: SnapshotEntity): InAppPurchaseConfig | null {
   const productFields = jsonRecord(entity.data);
   if (!productFields) return null;
@@ -130,13 +118,7 @@ export const playProductsSource: SnapshotSource = {
   title: 'Google Play products',
   store: 'play',
   capture: capturePlayProducts,
-  /**
-   * Restore each app's captured managed products to Google Play via the same `reconcilePlayProducts` the
-   * `launch-store sync` / `launch-store plan` Play-products surface uses. Additive and merge-onto-live: it creates a
-   * missing product or patches a drifted one, never deletes, and preserves Play's auto-fanned regional
-   * prices. Each app is isolated - an unreachable Play app record is recorded as a skipped action rather
-   * than aborting the rest - and a product with no restorable listing is skipped with a reason.
-   */
+  /** Restore each app's captured managed products to Google Play via the same */
   restore: restorePlayProducts,
 };
 

@@ -49,9 +49,7 @@ async function pickAccount(
   return picked;
 }
 
-/**
- * Resolve which Apple account an iOS build uses. Logs the chosen account as a build step.
- */
+/** Resolve which Apple account an iOS build uses. */
 export async function resolveIosAccount(
   buildOptions: Pick<BuildRunOptions, 'account'>,
   log: Logger,
@@ -125,10 +123,7 @@ async function resolveExtensionBundleIds(
   return extensionIds.filter(isNotMainBundle(app.bundleId));
 }
 
-/**
- * Warn before the archive when an App ID is unregistered or missing a capability.
- * A failed read is ignored so a flaky preflight never blocks a build that would succeed.
- */
+/** Warn before the archive when an App ID is unregistered or missing a capability. */
 async function warnUnreadySigningTargets(
   ascKey: AppleCredentials['ascKey'],
   app: AppDescriptor,
@@ -157,9 +152,7 @@ async function warnUnreadySigningTargets(
   }
 }
 
-/**
- * Return cached signing assets when they still match live capabilities, or null to provision again.
- */
+/** Return cached signing assets when they still match live capabilities */
 async function reuseCachedSigning(
   signing: SigningAssets,
   ascKey: AppleCredentials['ascKey'],
@@ -241,9 +234,7 @@ async function provisionInternalSigning(request: {
   return signingAssets;
 }
 
-/**
- * Reuse cached signing assets, or provision them inline. An internal build always uses an ad-hoc profile.
- */
+/** Reuse cached signing assets, or provision them inline. */
 export async function resolveSigning(
   credentials: AppleCredentials,
   app: AppDescriptor,

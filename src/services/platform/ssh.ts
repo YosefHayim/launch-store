@@ -70,12 +70,7 @@ export function scpDown(target: SshTarget, remotePath: string, localPath: string
     localPath,
   ]);
 }
-/**
- * rsync a local directory UP to the remote over the same ssh transport, honoring an exclude list.
- *
- * `--delete` keeps the remote copy an exact mirror; the trailing slashes copy the directory's
- * CONTENTS into `remoteDir`. The `-e` value is one string rsync re-parses to launch ssh.
- */
+/** rsync a local directory UP to the remote over the same ssh transport */
 export function rsyncUp(
   target: SshTarget,
   localDir: string,

@@ -32,11 +32,7 @@ export type SyncJob = {
   unmapped: string[];
 };
 
-/**
- * Read an app's `store.config.json` `apple` listing, or undefined when absent. A malformed file is
- * swallowed here (returns undefined) so a broken listing never blocks product/capability sync - the
- * dedicated `launch-store metadata` command is where it's loudly validated.
- */
+/** Read an app's `store.config.json` `apple` listing, or undefined when absent. */
 async function loadListing(appDirectory: string): Promise<AppleStoreConfig | undefined> {
   try {
     const configPath = join(appDirectory, 'store.config.json');
@@ -60,10 +56,7 @@ function localeHasFields(localeListing: AppleLocaleInfo): boolean {
   return Object.keys(localeListing).length > 0;
 }
 
-/**
- * Whether a listing carries at least one locale with at least one field worth reconciling. A type guard,
- * so callers that filter on it narrow `listing` to a present {@link AppleStoreConfig}.
- */
+/** Whether a listing carries at least one locale with at least one field worth reconciling. */
 export function hasListing(listing: AppleStoreConfig | undefined): listing is AppleStoreConfig {
   if (listing == null) {
     return false;

@@ -20,11 +20,7 @@ import {
 /** Xcode identity name used for App Store and ad-hoc distribution certificates. */
 export const DISTRIBUTION_CERT_NAME = 'Apple Distribution';
 
-/**
- * Keychain account holding the random password that protects an account's `.p12` backup, namespaced
- * by Key ID so each Apple account's `.p12` has its own password. Exported so first-run migration can
- * rename the legacy single-account entry (`dist-cert-p12-password`) onto this scheme.
- */
+/** Keychain account holding the random password that protects an account's `.p12` backup */
 export function p12PasswordAccount(keyId: string): string {
   return `dist-cert-p12-password:${keyId}`;
 }
@@ -312,11 +308,7 @@ async function createDistributionCertificate(
   return createCertificateForUpload(client, password, keyId);
 }
 
-/**
- * Resolve the team distribution certificate shared by every bundle: reuse a still-live cached
- * `.p12`, or mint a fresh key/CSR/cert. Local and ad-hoc paths import into the login keychain;
- * the remote path leaves the `.p12` on disk for upload only.
- */
+/** Resolve the team distribution certificate shared by every bundle */
 export async function ensureDistributionCertificate(
   certificateOptions: EnsureDistributionCertificateOptions,
 ): Promise<EnsuredDistributionCertificate> {

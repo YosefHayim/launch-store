@@ -37,11 +37,7 @@ function makeArtifactUnavailableFailure(fields: {
   };
 }
 
-/**
- * Resolve `config.artifactDir` to the absolute base directory the `local` provider writes into.
- * Relative paths resolve against `projectRoot` (or the working directory); `~/` expands to home;
- * absolute paths are used as-is. Omitted -> `~/.launch/artifacts`. Empty string fails.
- */
+/** Resolve `config.artifactDir` to the absolute base directory the `local` provider writes into. */
 export function resolveArtifactDir(artifactDir: string | undefined, projectRoot?: string): string {
   const launchPaths = readLaunchDirectories();
   let projectDirectory = launchPaths.workingDirectory;
@@ -77,10 +73,7 @@ export function resolveArtifactDir(artifactDir: string | undefined, projectRoot?
   return resolve(projectDirectory, configuredDirectory);
 }
 
-/**
- * Build (or look up) the storage provider named by `config.storage`, wiring `artifactDir` for
- * `local` and `storageConfig` for cloud backends.
- */
+/** Build (or look up) the storage provider named by `config.storage` */
 export async function resolveStorageProvider(
   config: LaunchConfig,
   projectRoot?: string,
@@ -133,18 +126,12 @@ export async function resolveStorageProvider(
   });
 }
 
-/**
- * Whether the resolved storage can serve public HTTP(S) URLs - required for ad-hoc install links
- * and OTA manifests. `local` is for build-artifact history only.
- */
+/** Whether the resolved storage can serve public HTTP(S) URLs */
 export function isCloudStorage(config: LaunchConfig): boolean {
   return config.storage != 'local';
 }
 
-/**
- * Guard a promote/submit that reuses a stored binary. Turns a pruned or deleted binary into a
- * clear "rebuild first" precondition instead of an opaque store upload failure.
- */
+/** Guard a promote/submit that reuses a stored binary. */
 export async function ensureArtifactPresent(
   artifact: BuildArtifact,
   appName: string,

@@ -54,11 +54,7 @@ async function readAppPrivacy(
   };
 }
 
-/**
- * The App Privacy readiness probe. Apple's public API can neither read nor set App Privacy, so an app
- * that has never been released gets it as a manual step: its first submission fails with
- * APP_DATA_USAGES_REQUIRED until the answers are published in the web UI.
- */
+/** The App Privacy readiness probe. */
 export const appPrivacyProbe = {
   id: 'apple-app-privacy',
   title: 'App Privacy published',

@@ -365,10 +365,7 @@ async function listLocaleDirectories(metadataDirectory: string): Promise<string[
   return localeDirectories;
 }
 
-/**
- * Read fastlane `deliver` metadata folders under `dir` back into an {@link AppleStoreConfig}.
- * Used by the fastlane migration to import an existing `deliver` metadata tree.
- */
+/** Read fastlane `deliver` metadata folders under `dir` back into an {@link AppleStoreConfig}. */
 export async function readAppleMetadataDir(metadataDirectory: string): Promise<AppleStoreConfig> {
   const localeInfoByName: Record<string, AppleLocaleInfo> = {};
   const localeNames = await listLocaleDirectories(metadataDirectory);

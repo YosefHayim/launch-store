@@ -3,10 +3,7 @@ import type { PlayRelease } from '../types/google-play.ts';
 import type { NativeCarState, TrainPlatform } from '../types/release-train.ts';
 import type { OtaCarSpec } from './orchestrator.ts';
 
-/**
- * Map an App Store release verdict to a native car state.
- * `null` keeps the car put on transient/unknown reads.
- */
+/** Map an App Store release verdict to a native car state. */
 export function iosCarState(verdict: ReleaseVerdict): NativeCarState | null {
   switch (verdict.state) {
     case 'released':
@@ -24,10 +21,7 @@ export function iosCarState(verdict: ReleaseVerdict): NativeCarState | null {
   }
 }
 
-/**
- * Map a Play production track to a native car state.
- * Processed track releases count as live; empty/unknown holds the car put.
- */
+/** Map a Play production track to a native car state. */
 export function androidCarState(releases: readonly PlayRelease[]): NativeCarState | null {
   const release = releases[0];
   if (release == null) return null;
@@ -60,10 +54,7 @@ export type TrainCarPlanInput = Readonly<{
   noOta: boolean;
 }>;
 
-/**
- * Plan train cars from config + flags: native legs for declared
- * platforms, OTA followers when cloud storage is configured.
- */
+/** Plan train cars from config + flags */
 export function planTrainCars(planInput: TrainCarPlanInput): TrainCarPlan {
   const platforms: TrainPlatform[] = [];
   if (planInput.hasBundleId && planInput.platformFilter != 'android') platforms.push('ios');

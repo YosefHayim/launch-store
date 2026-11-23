@@ -123,10 +123,7 @@ function selectionFailureMessage(cause: unknown): string {
   return 'Could not choose an app.';
 }
 
-/**
- * Pick the app to build: an explicit `--app`, the sole discovered app, or an interactive prompt.
- * With no TTY and more than one app it refuses to guess.
- */
+/** Pick the app to build: an explicit `--app`, the sole discovered app */
 export async function selectApp(
   apps: readonly AppDescriptor[],
   appName: string | undefined,
@@ -190,9 +187,7 @@ type CommandEnvironmentRequest = {
   envExclude?: readonly string[] | undefined;
 };
 
-/**
- * Resolve the layered env for a command: keychain secrets, dotenv, profile env, and `--env` flags.
- */
+/** Resolve the layered env for a command */
 export async function resolveCommandEnv(request: CommandEnvironmentRequest): Promise<ResolvedEnv> {
   let secrets: Awaited<ReturnType<typeof resolveBuildSecrets>>;
 
@@ -220,9 +215,7 @@ export async function resolveCommandEnv(request: CommandEnvironmentRequest): Pro
   return resolvedEnvironment;
 }
 
-/**
- * Hard-fail on missing `.env.example` keys, then warn when a secret-looking name comes from plaintext.
- */
+/** Hard-fail on missing `.env.example` keys */
 export async function validateResolvedEnv(
   appDir: string,
   resolved: ResolvedEnv,

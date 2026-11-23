@@ -97,10 +97,7 @@ export type AscExperimentsApi = ScreenshotSetApi &
     submitReviewSubmission: (submissionId: string) => Promise<void>;
   }>;
 
-/**
- * Inputs for one app's experiment reconciliation. `treatmentScreenshots` holds each treatment's local
- * screenshots, keyed by the `screenshots` folder the treatment declares.
- */
+/** Inputs for one app's experiment reconciliation. */
 export type ExperimentsReconcileInput = Readonly<{
   bundleId: string;
   config: VersionExperimentsConfig;
@@ -873,10 +870,7 @@ function declaredScreenshotFolders(experimentsConfig: VersionExperimentsConfig):
   return [...new Set(screenshotFolders)];
 }
 
-/**
- * Read each treatment's screenshots folder, resolved from the config file's folder and laid out like
- * the listing's `<locale>/<DISPLAY_TYPE>/*.png`. Keyed by the folder exactly as the config declares it.
- */
+/** Read each treatment's screenshots folder */
 export async function discoverTreatmentScreenshots(
   configPath: string,
   experimentsConfig: VersionExperimentsConfig,

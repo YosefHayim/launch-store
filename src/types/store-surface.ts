@@ -4,353 +4,174 @@ import type {
   LEADERBOARD_SORT_TYPES,
   LEADERBOARD_SUBMISSION_TYPES,
 } from './apple-catalog.ts';
-/**
- * How an approved iOS build reaches the public App Store.
- * `AFTER_APPROVAL` goes live as soon as Apple says yes.
- * `MANUAL` waits until you release it yourself.
- * `SCHEDULED` waits until `earliestReleaseDate`.
- */
+/** How an approved iOS build reaches the public App Store. */
 export type ReleaseType = 'AFTER_APPROVAL' | 'MANUAL' | 'SCHEDULED';
 /** How `launch-store release` publishes an approved iOS version. */
 export type ReleaseConfig = {
-  /**
-   * What happens after Apple approves the version.
-   * `AFTER_APPROVAL` publishes immediately. That is the default.
-   * `MANUAL` waits for you. `SCHEDULED` waits for `earliestReleaseDate`.
-   * `--manual` and `--scheduled` override this for one run.
-   */
+  /** What happens after Apple approves the version. */
   readonly releaseType?: ReleaseType;
-  /**
-   * When a scheduled version goes live, as an ISO-8601 instant such as `2026-09-01T12:00:00Z`.
-   * Only used when `releaseType` is `SCHEDULED`. Other release types ignore it.
-   */
+  /** When a scheduled version goes live, as an ISO-8601 instant such as `2026-09-01T12:00:00Z`. */
   readonly earliestReleaseDate?: string;
-  /**
-   * Copyright line Apple shows on the version, such as `2026 Acme`.
-   * Apple will not send a version to review with an empty copyright.
-   * Leave it out to keep whatever is already set in App Store Connect.
-   */
+  /** Copyright line Apple shows on the version, such as `2026 Acme`. */
   readonly copyright?: string;
-  /**
-   * Turn on Apple's 7-day phased release, which grows the share of users each day.
-   * Leave it out, or set false, to publish to everyone at once.
-   * `--phased` overrides this for one run. Apple only phases updates, not a brand-new app.
-   * After release, `launch-store rollout` can pause, resume, or finish the ramp.
-   */
+  /** Turn on Apple's 7-day phased release, which grows the share of users each day. */
   readonly phasedRelease?: boolean;
-  /**
-   * Apple's export-compliance question: does the binary contain encryption beyond ordinary HTTPS?
-   * `false` is the usual answer and lets Launch clear the question over the API.
-   * `true` means you ship your own encryption. Launch then stops, because Apple needs documents the API cannot accept.
-   * The default is `false`.
-   */
+  /** Apple's export-compliance question */
   readonly usesNonExemptEncryption?: boolean;
-  /**
-   * "What's New in This Version", shown to people updating the app.
-   * A string is used for `primaryLocale`. An object is one note per locale, such as `{ "en-US": "Bug fixes." }`.
-   * Leave it out and Launch copies the previous version's notes, so a release does not ship an empty What's New.
-   * The first version of an app has no What's New, and this is skipped.
-   */
+  /** "What's New in This Version", shown to people updating the app. */
   readonly releaseNotes?: string | Record<string, string>;
-  /**
-   * Locale used when `releaseNotes` is a single string. The default is `en-US`.
-   * When notes are an object, this is the locale Launch treats as the primary one.
-   */
+  /** Locale used when `releaseNotes` is a single string. */
   readonly primaryLocale?: string;
 };
 /** A ping Launch sends after a build, a submit, a review verdict, or a rollout change. */
 export type NotifyConfig = {
-  /**
-   * Webhook posted on each selected event. The address is not a secret.
-   * The JSON body has `text` for Slack and `content` for Discord, plus the event fields,
-   * so either kind of incoming webhook can show it without a translator.
-   */
+  /** Webhook posted on each selected event. */
   readonly webhookUrl?: string;
-  /**
-   * Shell command run on each selected event, the same way a git hook runs.
-   * The event is in the environment as `LAUNCH_EVENT`, `LAUNCH_STATUS`, `LAUNCH_APP`, and `LAUNCH_VERSION`.
-   * A build or submit also sets `LAUNCH_BUILD_NUMBER`, `LAUNCH_DESTINATION`, and `LAUNCH_ERROR`.
-   * A review or rollout sets `LAUNCH_DETAIL`.
-   */
+  /** Shell command run on each selected event, the same way a git hook runs. */
   readonly command?: string;
-  /**
-   * Which events send a ping. Leave this out to send all four.
-   * `build` and `submit` fire when that step finishes. `review` fires when Apple approves or rejects.
-   * `rollout` fires when a phased release pauses, resumes, completes, or moves forward.
-   */
+  /** Which events send a ping. */
   readonly events?: Array<'build' | 'submit' | 'review' | 'rollout'>;
 };
 /** One Game Center achievement. `launch-store game-center` creates it if Apple does not have it yet. */
 export type AchievementConfig = {
-  /**
-   * Stable id you choose, such as `first_win`.
-   * Launch matches this config entry to Apple's achievement with it. Players never see it.
-   */
+  /** Stable id you choose, such as `first_win`. */
   readonly vendorIdentifier: string;
-  /**
-   * Name shown only inside App Store Connect, not to players.
-   */
+  /** Name shown only inside App Store Connect, not to players. */
   readonly referenceName: string;
-  /**
-   * Points a player earns. Apple caps the total of every achievement in the app at 1000.
-   */
+  /** Points a player earns. */
   readonly points: number;
-  /**
-   * Whether players can see the achievement before they earn it.
-   * Leave it out and it stays hidden until earned.
-   */
+  /** Whether players can see the achievement before they earn it. */
   readonly showBeforeEarned?: boolean;
-  /**
-   * Whether a player can earn it more than once.
-   * Leave it out and it can be earned once.
-   */
+  /** Whether a player can earn it more than once. */
   readonly repeatable?: boolean;
-  /**
-   * Title the player sees, in `locale`.
-   */
+  /** Title the player sees, in `locale`. */
   readonly name: string;
-  /**
-   * What the player reads before they earn it, in `locale`.
-   */
+  /** What the player reads before they earn it, in `locale`. */
   readonly beforeEarnedDescription: string;
-  /**
-   * What the player reads after they earn it, in `locale`.
-   */
+  /** What the player reads after they earn it, in `locale`. */
   readonly afterEarnedDescription: string;
-  /**
-   * Language of `name` and the two descriptions. The default is `en-US`.
-   */
+  /** Language of `name` and the two descriptions. */
   readonly locale?: string;
 };
 /** One Game Center leaderboard. `launch-store game-center` creates it if Apple does not have it yet. */
 export type LeaderboardConfig = {
-  /**
-   * Stable id you choose, such as `high_score`.
-   * Launch matches this config entry to Apple's leaderboard with it. Players never see it.
-   */
+  /** Stable id you choose, such as `high_score`. */
   readonly vendorIdentifier: string;
-  /**
-   * Name shown only inside App Store Connect, not to players.
-   */
+  /** Name shown only inside App Store Connect, not to players. */
   readonly referenceName: string;
-  /**
-   * How a score is printed. `INTEGER` is a whole number. `ELAPSED_TIME_SECOND` is a time.
-   * The money values print a currency. Apple's list is closed: you cannot invent a formatter.
-   */
+  /** How a score is printed. */
   readonly defaultFormatter: (typeof LEADERBOARD_FORMATTERS)[number];
-  /**
-   * Which score is kept for each player.
-   * `BEST_SCORE` keeps their best. `MOST_RECENT_SCORE` replaces it every time they submit.
-   */
+  /** Which score is kept for each player. */
   readonly submissionType: (typeof LEADERBOARD_SUBMISSION_TYPES)[number];
-  /**
-   * Which end of the list ranks first.
-   * `DESC` means a higher score wins. `ASC` means a lower score wins, such as a faster time.
-   */
+  /** Which end of the list ranks first. */
   readonly scoreSortType: (typeof LEADERBOARD_SORT_TYPES)[number];
-  /**
-   * Title the player sees, in `locale`.
-   */
+  /** Title the player sees, in `locale`. */
   readonly name: string;
-  /**
-   * Language of `name`. The default is `en-US`.
-   */
+  /** Language of `name`. */
   readonly locale?: string;
 };
 /** Game Center content for one app, under `gameCenter` keyed by that app's bundle id. */
 export type GameCenterConfig = {
-  /**
-   * Achievements to create. Leave it out if the app has none.
-   */
+  /** Achievements to create. */
   readonly achievements?: readonly AchievementConfig[];
-  /**
-   * Leaderboards to create. Leave it out if the app has none.
-   */
+  /** Leaderboards to create. */
   readonly leaderboards?: readonly LeaderboardConfig[];
 };
 /** The subtitle on an App Clip card in one language. */
 export type AppClipLocalizationConfig = {
-  /**
-   * Short line under the app name on the App Clip card, in this locale.
-   */
+  /** Short line under the app name on the App Clip card, in this locale. */
   readonly subtitle: string;
 };
 /** The card for one App Clip. The clip binary itself comes from the Xcode build, not from this block. */
 export type AppClipConfig = {
-  /**
-   * The button on the App Clip card.
-   * `OPEN` opens the clip. `VIEW` is for looking. `PLAY` is for a game. Leave it out to keep Apple's current button.
-   */
+  /** The button on the App Clip card. */
   readonly action?: (typeof APP_CLIP_ACTIONS)[number];
-  /**
-   * Card subtitles, keyed by Apple locale such as `en-US`.
-   */
+  /** Card subtitles, keyed by Apple locale such as `en-US`. */
   readonly localizations?: Record<string, AppClipLocalizationConfig>;
 };
-/**
- * App Clips that belong to one parent app.
- * The key under `appClips` is the parent bundle id. Each key inside `clips` is the clip's own bundle id.
- */
+/** App Clips that belong to one parent app. */
 export type AppClipsConfig = {
-  /**
-   * One card per clip, keyed by the clip bundle id, such as `com.acme.app.Clip`.
-   * `launch-store app-clips` matches that id to the clip the build already uploaded.
-   */
+  /** One card per clip, keyed by the clip bundle id, such as `com.acme.app.Clip`. */
   readonly clips: Record<string, AppClipConfig>;
 };
 /** One domain the team may ship iOS apps from in the EU. */
 export type EuDistributionDomainConfig = {
-  /**
-   * Host name that will serve the install packages, such as `downloads.example.com`.
-   * No `https://` prefix.
-   */
+  /** Host name that will serve the install packages, such as `downloads.example.com`. */
   readonly domain: string;
-  /**
-   * Label shown in App Store Connect so you can tell this domain from the others.
-   */
+  /** Label shown in App Store Connect so you can tell this domain from the others. */
   readonly referenceName: string;
 };
 /** EU alternative-distribution domains for the whole Apple team. `launch-store eu-distribution` registers them. */
 export type EuDistributionConfig = {
-  /**
-   * Domains to authorize. Launch adds any that the team does not have yet.
-   */
+  /** Domains to authorize. */
   readonly domains: readonly EuDistributionDomainConfig[];
 };
 /** One Apple Pay merchant id or one Wallet pass type id. */
 export type WalletIdConfig = {
-  /**
-   * Reverse-DNS id to register, such as `merchant.com.acme.app` or `pass.com.acme.app`.
-   */
+  /** Reverse-DNS id to register, such as `merchant.com.acme.app` or `pass.com.acme.app`. */
   readonly identifier: string;
-  /**
-   * Label shown in the Apple developer portal.
-   */
+  /** Label shown in the Apple developer portal. */
   readonly name: string;
 };
 /** Apple Pay and Wallet ids for the whole team. `launch-store wallet` registers them. */
 export type WalletConfig = {
-  /**
-   * Apple Pay merchant ids. The payment certificate is a separate step in the developer portal.
-   */
+  /** Apple Pay merchant ids. */
   readonly merchantIds?: readonly WalletIdConfig[];
-  /**
-   * Wallet pass type ids. A `.pkpass` is signed against one of these.
-   */
+  /** Wallet pass type ids. */
   readonly passTypeIds?: readonly WalletIdConfig[];
 };
 /** The App Store categories shoppers browse, under `releaseAttributes`. */
 export type ReleaseCategories = {
-  /**
-   * Main category id, such as `PRODUCTIVITY` or `GAMES`.
-   * This is the category Apple shows first on the product page.
-   */
+  /** Main category id, such as `PRODUCTIVITY` or `GAMES`. */
   readonly primary?: string;
-  /**
-   * Optional second category, the same kind of id.
-   * Leave it out to keep the second category already on the app.
-   */
+  /** Optional second category, the same kind of id. */
   readonly secondary?: string;
 };
 /** The app's price on the App Store, under `releaseAttributes`. This is the app itself, not an in-app purchase. */
 export type ReleasePricing = {
-  /**
-   * Territory whose price ladder is used, such as `USA`. The default is `USA`.
-   * Apple sets the other territories from this one.
-   */
+  /** Territory whose price ladder is used, such as `USA`. */
   readonly baseTerritory?: string;
-  /**
-   * Price the customer pays in that territory. `0` is free.
-   * It must be a rung on Apple's price ladder, such as `0.99`, not an arbitrary amount.
-   */
+  /** Price the customer pays in that territory. */
   readonly customerPrice: number;
 };
 /** Who App Review contacts, and how they sign in, under `releaseAttributes`. */
 export type ReviewDetailsConfig = {
-  /**
-   * First name of the person App Review should contact.
-   */
+  /** First name of the person App Review should contact. */
   readonly contactFirstName?: string;
-  /**
-   * Last name of that person.
-   */
+  /** Last name of that person. */
   readonly contactLastName?: string;
-  /**
-   * Phone number App Review can call. Include the country code.
-   */
+  /** Phone number App Review can call. */
   readonly contactPhone?: string;
-  /**
-   * Email App Review uses if they need to reach you.
-   */
+  /** Email App Review uses if they need to reach you. */
   readonly contactEmail?: string;
-  /**
-   * True when the reviewer has to sign in before they can use the app.
-   * False when the app works without an account.
-   */
+  /** True when the reviewer has to sign in before they can use the app. */
   readonly demoAccountRequired?: boolean;
-  /**
-   * User name for that demo account. Leave it out when no sign-in is required.
-   */
+  /** User name for that demo account. */
   readonly demoAccountName?: string;
-  /**
-   * Password for that demo account. Prefer not to commit the real password.
-   * `env:REVIEW_PASSWORD` reads it from the environment. `keychain:review-password` reads it from the OS keychain.
-   * Any other text is sent as the password itself. Launch does not print it and does not read it back from Apple.
-   */
+  /** Password for that demo account. */
   readonly demoAccountPassword?: string;
-  /**
-   * Anything else the reviewer should know, such as "No login is required."
-   */
+  /** Anything else the reviewer should know, such as "No login is required." */
   readonly notes?: string;
 };
-/**
- * Age rating, categories, price, and review contact for one app.
- * The key under `releaseAttributes` is the iOS bundle id. `launch-store release-config` writes each section you set.
- * This is not `release`, which only decides when an approved version goes live.
- */
+/** Age rating, categories, price, and review contact for one app. */
 export type ReleaseAttributesConfig = {
-  /**
-   * Answers to Apple's age-rating questions, keyed by Apple's question id, such as `violenceCartoonOrFantasy`.
-   * A frequency answer is `NONE`, `INFREQUENT_OR_MILD`, or `FREQUENT_OR_INTENSE`. A yes-or-no question is a boolean.
-   * Leave this out to keep the rating already set in App Store Connect.
-   */
+  /** Answers to Apple's age-rating questions, keyed by Apple's question id */
   readonly ageRating?: Record<string, string | boolean>;
-  /**
-   * Primary and secondary App Store categories.
-   */
+  /** Primary and secondary App Store categories. */
   readonly categories?: ReleaseCategories;
-  /**
-   * Price of the app itself. `customerPrice: 0` is free.
-   */
+  /** Price of the app itself. */
   readonly pricing?: ReleasePricing;
-  /**
-   * Contact and demo account for App Review.
-   */
+  /** Contact and demo account for App Review. */
   readonly reviewDetails?: ReviewDetailsConfig;
 };
-/**
- * Paths to the JSON files for store surfaces that have no inline block in launch.config.ts.
- * Each path is relative to the folder that holds launch.config.ts. Leave one out to use its default file name.
- */
+/** Paths to the JSON files for store surfaces that have no inline block in launch.config.ts. */
 export type SurfaceConfigFiles = {
-  /**
-   * Territories the app is sold in. The default file name is `availability.config.json`.
-   * `launch-store availability` reads it.
-   */
+  /** Territories the app is sold in. */
   readonly availability?: string;
-  /**
-   * Apple's accessibility nutrition labels. The default file name is `accessibility.config.json`.
-   * `launch-store accessibility` reads it.
-   */
+  /** Apple's accessibility nutrition labels. */
   readonly accessibility?: string;
-  /**
-   * Product-page A/B tests (icon, screenshots, or text). The default file name is `experiments.config.json`.
-   * `launch-store experiments` reads it.
-   */
+  /** Product-page A/B tests (icon, screenshots, or text). */
   readonly experiments?: string;
-  /**
-   * Extra App Store product pages, each with its own link. The default file name is `custom-pages.config.json`.
-   * `launch-store custom-pages` reads it.
-   */
+  /** Extra App Store product pages, each with its own link. */
   readonly customPages?: string;
 };

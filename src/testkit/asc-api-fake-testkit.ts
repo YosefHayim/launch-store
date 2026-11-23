@@ -1,11 +1,7 @@
 import { vi } from 'vitest';
 import type { AscSurfacesApi } from '../types/plan.ts';
 
-/**
- * A fully-stubbed AscSurfacesApi. Reads say the app exists and nothing is set up, so a
- * dry-run plans every create. Writes are inert mocks, so a test can assert they were
- * not called. Pass overrides for one case, such as getAppId resolving to null.
- */
+/** A fully-stubbed AscSurfacesApi. */
 export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurfacesApi {
   const base: AscSurfacesApi = {
     // shared

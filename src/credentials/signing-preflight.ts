@@ -69,11 +69,7 @@ async function readExtensionBundleIds(
   return splitMainAndExtensions(targets, mainBundleId).extensions;
 }
 
-/**
- * Resolve the embedded-extension bundle ids to grade: configured (`ios.extensions`) plus any discovered
- * in a generated `ios/*.xcodeproj/project.pbxproj`. Returns `[]` when the native project hasn't been
- * prebuilt yet - the configured list still covers the common case.
- */
+/** Resolve the embedded-extension bundle ids to grade */
 export async function resolveExtensionBundleIdsForApp(app: AppDescriptor): Promise<string[]> {
   let configured: readonly string[] = [];
 
@@ -103,11 +99,7 @@ type TargetRequirement = {
   required: string[];
 };
 
-/**
- * Read each target's App ID registration and live capabilities from App Store Connect. Pure output
- * shape - the network I/O is isolated here so tests can drive {@link multiTargetSigningWarnings} and
- * {@link signingPreflightDoctorChecks} without a client.
- */
+/** Read each target's App ID registration and live capabilities from App Store Connect. */
 export async function gatherTargetSigningReadiness(
   asc: SigningPreflightAscApi,
   bundleId: string,

@@ -26,11 +26,7 @@ type FlatEntity = {
   app: string;
   entity: SnapshotEntity;
 };
-/**
- * The composite key that pairs one entity across two snapshots. Serializing the identity tuple as JSON
- * gives a collision-free key (quoting escapes any character a part might contain) without picking a
- * separator that could appear in an app handle or product id.
- */
+/** The composite key that pairs one entity across two snapshots. */
 function compositeKey(
   store: SnapshotStore,
   sourceId: string,
@@ -92,10 +88,7 @@ function unavailableScopes(snapshot: Snapshot) {
   return { sources, apps };
 }
 
-/**
- * Compare snapshot `a` (the baseline) against `b` (the newer / `live`). Entries are emitted in the
- * deterministic order the combined key space sorts to, so the rendered diff is stable run to run.
- */
+/** Compare snapshot `a` (the baseline) against `b` (the newer / `live`). */
 export function diffSnapshots(a: Snapshot, b: Snapshot): SnapshotDiff {
   const before = flatten(a);
   const after = flatten(b);

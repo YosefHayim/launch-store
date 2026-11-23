@@ -39,11 +39,7 @@ export class GooglePlay {
     return publisher;
   }
 
-  /**
-   * Opens an edit. Commit it to publish, or delete it to leave the store unchanged.
-   *
-   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits/insert
-   */
+  /** Opens an edit. */
   async openEdit(packageName: string): Promise<string> {
     const publisher = await this.connect(packageName);
 
@@ -63,11 +59,7 @@ export class GooglePlay {
     return editId;
   }
 
-  /**
-   * Drops an edit so a read does not stay open on the account.
-   *
-   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits/delete
-   */
+  /** Drops an edit so a read does not stay open on the account. */
   async deleteEdit(packageName: string, editId: string): Promise<void> {
     const publisher = await this.connect(packageName);
 
@@ -78,11 +70,7 @@ export class GooglePlay {
     }
   }
 
-  /**
-   * Publishes the open edit.
-   *
-   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits/commit
-   */
+  /** Publishes the open edit. */
   async commitEdit(packageName: string, editId: string): Promise<void> {
     const publisher = await this.connect(packageName);
 
@@ -93,11 +81,7 @@ export class GooglePlay {
     }
   }
 
-  /**
-   * Uploads an Android App Bundle to an open edit.
-   *
-   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.bundles/upload
-   */
+  /** Uploads an Android App Bundle to an open edit. */
   async uploadBundle(
     bundleUpload: androidpublisher_v3.Params$Resource$Edits$Bundles$Upload,
   ): Promise<androidpublisher_v3.Schema$Bundle> {
@@ -122,11 +106,7 @@ export class GooglePlay {
     return uploaded.data;
   }
 
-  /**
-   * Puts one bundle on a track inside an open edit.
-   *
-   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.tracks/update
-   */
+  /** Puts one bundle on a track inside an open edit. */
   async setTrack(
     packageName: string,
     editId: string,
@@ -153,11 +133,7 @@ export class GooglePlay {
     }
   }
 
-  /**
-   * Lists in-app products for one app.
-   *
-   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/inappproducts/list
-   */
+  /** Lists in-app products for one app. */
   async listInAppProducts(packageName: string): Promise<readonly string[]> {
     const publisher = await this.connect(packageName);
 
@@ -190,11 +166,7 @@ export class GooglePlay {
     return productIds;
   }
 
-  /**
-   * Lists store listing languages inside an open edit.
-   *
-   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.listings/list
-   */
+  /** Lists store listing languages inside an open edit. */
   async listListings(packageName: string, editId: string): Promise<readonly string[]> {
     const publisher = await this.connect(packageName);
 
@@ -227,11 +199,7 @@ export class GooglePlay {
     return languages;
   }
 
-  /**
-   * Lists tracks inside an open edit.
-   *
-   * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.tracks/list
-   */
+  /** Lists tracks inside an open edit. */
   async listTracks(packageName: string, editId: string): Promise<readonly string[]> {
     const publisher = await this.connect(packageName);
 

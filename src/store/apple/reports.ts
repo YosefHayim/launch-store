@@ -57,12 +57,7 @@ function makeReportDateFailure(message: string): ReportDateFailure {
   return { _tag: 'ReportDateFailure', message };
 }
 
-/**
- * Parse a strict `YYYY-MM-DD` into a UTC timestamp, rejecting both a malformed format and an
- * out-of-range calendar date. `Date.parse`/`Date.UTC` silently *normalize* an overflow (e.g.
- * `2026-06-31` -> July 1), which would download the wrong day; the round-trip check below catches that
- * and fails loudly instead.
- */
+/** Parse a strict `YYYY-MM-DD` into a UTC timestamp */
 function parseYmd(date: string): number {
   // Four-digit year, two-digit month, two-digit day, nothing else.
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
@@ -119,12 +114,7 @@ function parseYmd(date: string): number {
   return ms;
 }
 
-/**
- * Every calendar date from `from` to `to` inclusive as `YYYY-MM-DD`, for downloading a span of DAILY
- * reports in one command. Pure UTC arithmetic, so it's deterministic regardless of host timezone.
- * Throws on a malformed/out-of-range bound or an inverted range, so a typo fails loudly rather than
- * looping or silently doing nothing.
- */
+/** Every calendar date from `from` to `to` inclusive as `YYYY-MM-DD` */
 export function eachDate(from: string, to: string): string[] {
   const start = parseYmd(from);
   const end = parseYmd(to);
@@ -181,11 +171,7 @@ function isUsableRequest(analyticsRequest: AnalyticsReportRequestResource): bool
   return isStopped == false;
 }
 
-/**
- * Find a usable analytics report request for an app, creating one if none exists. Reuses the first
- * request that Apple hasn't stopped for inactivity, so re-runs are idempotent and don't pile up
- * duplicate ONGOING requests.
- */
+/** Find a usable analytics report request for an app, creating one if none exists. */
 export async function ensureAnalyticsRequest(
   api: AscReportsApi,
   appId: string,
@@ -227,12 +213,7 @@ type AnalyticsCollection = {
   reportCount: number;
   downloads: SegmentDownload[];
 };
-/**
- * Walk the analytics resource chain (request -> reports -> instances -> segments) and return every
- * matching segment to download, flattened with the context needed to name each output file. The
- * caller downloads + writes the segments; this function does no I/O beyond the API reads, so the walk
- * is unit-testable with a fake {@link AscReportsApi}.
- */
+/** Walk the analytics resource chain (request -> reports -> instances -> segments) and return */
 export async function collectAnalyticsSegments(
   api: AscReportsApi,
   query: AnalyticsQuery,

@@ -13,10 +13,7 @@ function makeSecretReferenceFailure(message: string): SecretReferenceFailure {
   return { _tag: 'SecretReferenceFailure', message };
 }
 
-/**
- * Resolve `secretReference` to a concrete secret. `label` names the field in error messages (e.g.
- * `demoAccountPassword`) so a missing reference points the developer at what to fix.
- */
+/** Resolve `secretReference` to a concrete secret. */
 export async function resolveSecretRef(secretReference: string, label = 'secret'): Promise<string> {
   const isEnvironmentReference = secretReference.startsWith(ENV_PREFIX);
 

@@ -40,10 +40,7 @@ import {
   platformLabel,
 } from '../../services/stores/platform.ts';
 
-/**
- * Resolve an app's native Xcode project directory to an absolute path.
- * A relative workspace path gets doubled when xcodebuild's cwd is already the app directory.
- */
+/** Resolve an app's native Xcode project directory to an absolute path. */
 export function resolveNativeDir(appDirectory: string, platform: Platform): string {
   const nativeDirectoryName = nativeProjectDirName(platform);
 

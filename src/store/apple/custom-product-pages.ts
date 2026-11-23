@@ -24,10 +24,7 @@ export type CustomProductPagesConfig = {
   pages: CustomProductPageConfig[];
 };
 
-/**
- * The exact slice of App Store Connect the custom-pages reconciler depends on, declared here so
- * the diff logic is unit-testable with a hand-rolled fake.
- */
+/** The exact slice of App Store Connect the custom-pages reconciler depends on */
 export type AscCustomPagesApi = {
   getAppId(bundleId: string): Promise<string | null>;
   listCustomProductPages(appId: string): Promise<CustomProductPageResource[]>;
@@ -330,10 +327,7 @@ async function reconcilePromoText(
   }
 }
 
-/**
- * Reconcile one app's custom product pages. Throws only for a precondition the user must fix (no App
- * Store Connect app record); per-action failures are captured so one never aborts the rest.
- */
+/** Reconcile one app's custom product pages. */
 export async function reconcileCustomProductPages(
   api: AscCustomPagesApi,
   reconcileInput: CustomPagesReconcileInput,

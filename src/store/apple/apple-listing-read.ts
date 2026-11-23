@@ -29,11 +29,7 @@ function readLocaleFields(
   return { locale: localeEntry[0], fields: localeEntry[1] };
 }
 
-/**
- * Merge the app-level and version-level listing localizations into one record per locale. App-info fields
- * (name/subtitle/privacy URL) and version fields (description/keywords/...) are disjoint, so a plain spread by
- * locale composes the full listing; the result is sorted by locale for a deterministic capture.
- */
+/** Merge the app-level and version-level listing localizations into one record per locale. */
 export async function readAppleLocaleFields(
   api: AppleListingReadApi,
   appId: string,
@@ -89,11 +85,7 @@ function fieldString(
   return undefined;
 }
 
-/**
- * Invert one locale's Apple-named fields back into an {@link AppleLocaleInfo} - the mirror of
- * `ascSync.routeListing`. Only present fields are carried, and the comma-joined `keywords` string is split
- * back into the array shape `store.config.json` uses.
- */
+/** Invert one locale's Apple-named fields back into an {@link AppleLocaleInfo} */
 export function readLocaleInfo(fields: Readonly<{ [key: string]: JsonValue }>): AppleLocaleInfo {
   const localeInfo: AppleLocaleInfo = {};
   const title = fieldString(fields, 'name');

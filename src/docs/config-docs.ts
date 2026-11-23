@@ -12,11 +12,7 @@ function refName(ref: string): string {
   if (referenceSegment == null) referenceSegment = '';
   return decodeURIComponent(referenceSegment);
 }
-/**
- * Resolve a `{@link Foo}` / `{@link Foo display}` / `{@link Foo | display}` tag down to plain text: the
- * display label when one is given, otherwise the symbol's last path segment (stripping any
- * `import("...").` prefix the generator emits). Keeps the reference readable instead of leaking TSDoc tags.
- */
+/** Resolve a `{@link Foo}` / `{@link Foo display}` / `{@link Foo | display}` tag down to plain */
 function resolveLink(inner: string): string {
   const [target, ...rest] = inner.split('|');
   if (rest.length > 0) return rest.join('|').trim();
@@ -43,11 +39,7 @@ function cleanDescription(description: string | undefined): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
-/**
- * Render a property's schema as a TypeScript-flavoured type string: `$ref`->the def name, `enum`->a literal
- * union, arrays->`T[]`, `Record<...>` from an open object, and `anyOf`/`oneOf`/`allOf` joined. Recursive, so
- * nested arrays and maps read naturally (`Record<string, BuildProfile>`, `string[]`).
- */
+/** Render a property's schema as a TypeScript-flavoured type string */
 function renderType(schema: JsonSchema): string {
   if (schema.$ref) return refName(schema.$ref);
   function mapEnumMember(enumMember: unknown) {
@@ -104,12 +96,7 @@ function renderTypeSection(name: string, definition: JsonSchema): string {
   parts.push(propertiesTable);
   return parts.join('\n');
 }
-/**
- * Render the full `launch.config.ts` field reference from its generated JSON Schema: the top-level fields
- * (the `LaunchConfigInput` root) as one table, then a `Types` section with a table per nested object
- * definition (sorted for stable output). Pure - `launch-store config docs` prints this markdown. Enum and
- * `Record<...>` definitions render inline in the type columns rather than as their own sections.
- */
+/** Render the full `launch.config.ts` field reference from its generated JSON Schema */
 export function renderConfigDocs(schema: JsonSchema): string {
   let rootName = '';
   if (schema.$ref != null) rootName = refName(schema.$ref);

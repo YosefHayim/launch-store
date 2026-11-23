@@ -1,10 +1,7 @@
 import type { PlayPriceConfig } from '../../types/catalog.ts';
 import type { JsonValue } from '../../types/snapshot.ts';
 import type { PlannedAction } from '../../types/reconcile.ts';
-/**
- * Narrow a captured {@link JsonValue} to a plain object (rejecting arrays and null), or `null`, so a
- * malformed captured section is skipped rather than slipping through as an empty record.
- */
+/** Narrow a captured {@link JsonValue} to a plain object (rejecting arrays and null), or `null` */
 function isJsonRecord(
   capturedNode: JsonValue,
 ): capturedNode is Readonly<{ [key: string]: JsonValue }> {
@@ -30,11 +27,7 @@ export function stringField(
   if (typeof capturedField == 'string') return capturedField;
   return undefined;
 }
-/**
- * Invert a captured money record (`{ priceMicros, currency }`) back into a {@link PlayPriceConfig}. Both
- * fields are required - a partial price (one half dropped at capture) can't be restored, so it yields
- * `null` and the caller drops it rather than writing an invalid price.
- */
+/** Invert a captured money record (`{ priceMicros */
 export function readPriceConfig(capturedNode: JsonValue | undefined): PlayPriceConfig | null {
   const record = jsonRecord(capturedNode);
   if (!record) return null;

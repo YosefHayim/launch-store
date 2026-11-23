@@ -7,10 +7,7 @@ type BuildDiagnosis = {
 type DiagnosticSignature = BuildDiagnosis & {
   match: RegExp[];
 };
-/**
- * The known-failure table, most-specific first. Patterns are intentionally narrow so a diagnosis only
- * fires on its real signature, not on an incidental mention of a word.
- */
+/** The known-failure table, most-specific first. */
 const signatures: DiagnosticSignature[] = [
   {
     title: 'Code signing - app profile leaked onto CocoaPods targets (Xcode 26)',
@@ -138,10 +135,7 @@ const signatures: DiagnosticSignature[] = [
     match: [/command not found: (?:pod|bundletool)/i, /(?:pod|bundletool): command not found/i],
   },
 ];
-/**
- * Scan a build log and return the distinct diagnoses whose signatures matched, in table order. Returns
- * an empty array when nothing is recognized - the caller then falls back to the raw log tail.
- */
+/** Scan a build log and return the distinct diagnoses whose signatures matched, in table order. */
 export function diagnoseBuildLog(log: string): BuildDiagnosis[] {
   const matched: BuildDiagnosis[] = [];
   for (const signature of signatures) {

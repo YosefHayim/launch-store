@@ -40,22 +40,12 @@ function currentTimestamp(): string {
   return new Date().toISOString();
 }
 
-/**
- * Encode a `.p8` PEM as single-line base64 for storage.
- *
- * Why: the macOS `security -w` backend HEX-encodes any value containing newlines on read-back, which
- * silently corrupted multi-line PEMs. Base64 has no newlines, so the value round-trips verbatim on
- * every backend (macOS `security`, Windows Credential Manager, Linux libsecret).
- */
+/** Encode a `.p8` PEM as single-line base64 for storage. */
 export function encodeP8(pem: string): string {
   return Buffer.from(pem, 'utf8').toString('base64');
 }
 
-/**
- * Decode a stored `.p8` back to its PEM, repairing every legacy on-disk form so upgrading never forces
- * a re-import: current single-line base64; a legacy multi-line PEM the macOS backend hex-encoded; and
- * the oldest raw PEM that happened to survive. A value matching none of these is returned verbatim.
- */
+/** Decode a stored `.p8` back to its PEM */
 export function decodeP8(stored: string): string {
   const fromBase64 = Buffer.from(stored, 'base64').toString('utf8');
   const isPem = fromBase64.includes('PRIVATE KEY');
@@ -394,16 +384,7 @@ type AccountSummaryRequest = {
   includeLabel?: boolean;
 };
 
-/**
- * One human-recognizable line for an account, shared by the build step line, the `launch-store creds`
- * listing, and the account picker hint so all three read identically.
- *
- * It leads with the cached app names the key can see - the thing a person actually recognizes - then
- * the Team ID and Key ID for traceability: `default - Larkspur, Beacon, Cypress +4 - team ... - key ...`.
- * Up to {@link ACCOUNT_SUMMARY_APP_LIMIT} apps show inline and the rest collapse to `+N`; an empty or
- * not-yet-resolved app list is omitted, so the line degrades cleanly to `label - team - key`. Renders
- * only what's cached on the record - never an Apple call.
- */
+/** One human-recognizable line for an account, shared by the build step line */
 export function formatAccountSummary(
   account: AccountRecord,
   summary: AccountSummaryRequest = {},
@@ -472,11 +453,7 @@ function hasSuppliedIdentity(addRequest: AddAccountRequest): boolean {
   return addRequest.apps.length > 0;
 }
 
-/**
- * Add (or replace) an account and make it active. The `.p8` goes to the OS secret store; the metadata
- * to the registry. Re-adding an existing Key ID updates it in place (keeping its original `addedAt`),
- * so importing the same key with a new label or a fresh `.p8` never creates a duplicate.
- */
+/** Add (or replace) an account and make it active. */
 export async function addAccount(addRequest: AddAccountRequest): Promise<AccountRecord> {
   await LaunchSecretStore.storeSecret(p8Account(addRequest.keyId), encodeP8(addRequest.p8));
 
@@ -642,11 +619,7 @@ function nextActiveKeyId(
   return firstRemaining.keyId;
 }
 
-/**
- * Remove an account completely: its `.p8` and `.p12` password from the secret store, its per-account
- * signing folder, and its registry entry. If it was active, the active pointer falls to the first
- * remaining account (or null when none are left).
- */
+/** Remove an account completely */
 export async function removeAccount(keyId: string): Promise<void> {
   await LaunchSecretStore.deleteSecret(p8Account(keyId));
   await LaunchSecretStore.deleteSecret(p12PasswordAccount(keyId));
@@ -741,11 +714,7 @@ export async function loadAscKeyForAccount(
   return loadActiveAscKey();
 }
 
-/**
- * The decision tree for which account a build uses, factored out as a pure function so it's unit-
- * testable without the filesystem: an explicit selector wins (error if it matches nothing), else the
- * active account, else the sole account when there's exactly one, else a signal to prompt.
- */
+/** The decision tree for which account a build uses */
 type BuildAccountDecision =
   | {
       kind: 'use';
@@ -825,10 +794,7 @@ type ResolveBuildAccountRequest = {
   pick: (accounts: readonly AccountRecord[]) => Promise<AccountRecord>;
 };
 
-/**
- * Resolve the account a build should use, applying {@link decideBuildAccount} and then either using
- * the result, prompting via `pick` (interactive only), or throwing an actionable error in CI.
- */
+/** Resolve the account a build should use */
 export async function resolveBuildAccount(
   accountRequest: ResolveBuildAccountRequest,
 ): Promise<AccountRecord> {
@@ -860,11 +826,7 @@ function hasResolvedIdentity(account: AccountRecord): boolean {
   return account.resolvedAt != '';
 }
 
-/**
- * Backfill an account's cached team/apps the first time a live key is in hand (e.g. during a build),
- * skipping accounts already resolved. Best-effort: any Apple-side failure is swallowed so it never
- * disrupts the surrounding flow.
- */
+/** Backfill an account's cached team/apps the first time a live key is in hand (e.g. */
 export async function refreshIdentityIfStale(
   account: AccountRecord,
   ascKey: AscKey,
@@ -885,12 +847,7 @@ export async function refreshIdentityIfStale(
   }
 }
 
-/**
- * One-time, silent upgrade from the pre-multi-account layout. When `accounts.json` is absent but the
- * legacy single-key secret-store entries exist, move them into the registry as a `default` account:
- * namespace the `.p8` and `.p12` password by Key ID, relocate the signing index per-account, then mark
- * it active. Idempotent and best-effort - a partial run simply re-completes on the next invocation.
- */
+/** One-time, silent upgrade from the pre-multi-account layout. */
 export async function migrateLegacyAccounts(): Promise<void> {
   const accountsFilePath = resolveAccountsFilePath();
   const registryExists = await pathExists(accountsFilePath);

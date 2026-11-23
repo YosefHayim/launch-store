@@ -61,11 +61,7 @@ export function isNativeApprovedOrReleased(trainCar: NativeCar): boolean {
   return trainCar.state == 'released';
 }
 
-/**
- * Whether the release gate may fire this reconcile.
- * Hold waits for every native car to be approved or released unless forced.
- * A held failure blocks the gate.
- */
+/** Whether the release gate may fire this reconcile. */
 export function isReleaseGateOpen(
   hold: boolean,
   forced: boolean,

@@ -13,10 +13,7 @@ import {
 } from '../types/config.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 
-/**
- * Absolute path to this package's public entry, so a config's `import { defineConfig } from "launch-store"`
- * binds to the CLI that is loading it.
- */
+/** Absolute path to this package's public entry */
 const SELF_ENTRY = fileURLToPath(new URL('../index.js', import.meta.url));
 
 export type { LaunchConfigInput };
@@ -38,10 +35,7 @@ async function entryExists(candidatePath: string): Promise<boolean> {
   }
 }
 
-/**
- * Resolve a section declared on `launch.config.ts` or in a `*.config.json` sidecar.
- * An explicit `--config` wins, then the typed field, then a sidecar at the default path.
- */
+/** Resolve a section declared on `launch.config.ts` or in a `*.config.json` sidecar. */
 export async function resolveSidecarConfig<Section>(sidecarRequest: {
   typed: NoInfer<Section> | undefined;
   configPath: string;

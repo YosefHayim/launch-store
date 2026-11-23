@@ -117,10 +117,7 @@ async function readStatsReport(
   return { range, days: request.days, isStale: freshness.isStale, apps: appReports };
 }
 
-/**
- * Refresh old numbers once, then read them. A sync that failed does not fail the report: the old
- * numbers come back with `isStale: true`.
- */
+/** Refresh old numbers once, then read them. */
 export async function createStatsReport(request: StatsReportRequest): Promise<StatsReport> {
   const freshness = await ensureFreshStats(request.appName);
 

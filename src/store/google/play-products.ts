@@ -5,10 +5,7 @@ import { plan, type ReconcileContext } from '../shared/reconcile.ts';
 import { errorMessage } from '../../services/platform/error-message.ts';
 import type { MutableDeep } from '../../types/mutable.ts';
 
-/**
- * The slice of GooglePlayClient the products reconciler depends on. Declared here (not the
- * concrete client) so the diff logic is unit-testable with a hand-rolled fake.
- */
+/** The slice of GooglePlayClient the products reconciler depends on. */
 export type PlayProductsApi = {
   assertAppExists(packageName: string): Promise<void>;
   listInAppProducts(packageName: string): Promise<InAppProductResource[]>;
@@ -36,11 +33,7 @@ function makePlayProductConfigFailure(fields: { message: string }): PlayProductC
   return { _tag: 'PlayProductConfigFailure', ...fields };
 }
 
-/**
- * Build the Play product Launch wants from one declared in-app purchase. The SKU defaults to the shared
- * Apple productId. The default language comes from the first localization. Throws when that localization
- * is missing, since Play requires a default language.
- */
+/** Build the Play product Launch wants from one declared in-app purchase. */
 export function readPlayProduct(purchase: InAppPurchaseConfig): InAppProductResource {
   const playOverrides = purchase.play;
   let sku = purchase.productId;
@@ -125,10 +118,7 @@ function regionPriceMatches(
   return moneyEquals(current.prices?.[region], desiredPrice);
 }
 
-/**
- * Whether the live product already satisfies everything Launch manages. A subset check: it only
- * inspects the fields Launch writes, so Play's auto-fanned regional prices never trigger an update.
- */
+/** Whether the live product already satisfies everything Launch manages. */
 export function productInSync(
   current: InAppProductResource,
   desired: InAppProductResource,
@@ -182,10 +172,7 @@ export function productInSync(
   return true;
 }
 
-/**
- * Merge the fields Launch manages onto the live product so an update preserves everything else Play
- * holds, including regional prices Play fans out from defaultPrice.
- */
+/** Merge the fields Launch manages onto the live product so an update preserves everything else */
 function mergeOntoCurrent(
   current: InAppProductResource,
   desired: InAppProductResource,
@@ -241,10 +228,7 @@ async function updateProduct(
   await recordWrite(api.updateInAppProduct(packageName, mergedProduct), action);
 }
 
-/**
- * Reconcile one app's Play in-app products. Throws only when the Play app record is unreachable.
- * Every other failure is captured per-action.
- */
+/** Reconcile one app's Play in-app products. */
 export async function reconcilePlayProducts(
   api: PlayProductsApi,
   reconcileInput: PlayProductsReconcileInput,

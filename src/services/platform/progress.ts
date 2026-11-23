@@ -16,12 +16,7 @@ let streamRawOutput = false;
 export function setVerboseOutput(verbose: boolean): void {
   streamRawOutput = verbose;
 }
-/**
- * Whether to render a spinner or stream raw output. Pure so the decision is unit-testable. A spinner
- * needs a real interactive TTY that isn't CI and hasn't asked for verbose output; everything else
- * gets the raw stream so the full log survives in transcripts. `--json` always takes the quiet path,
- * so child output never reaches the NDJSON stdout.
- */
+/** Whether to render a spinner or stream raw output. */
 export function selectProgressMode(
   isTTY: boolean,
   env: Readonly<Record<string, string | undefined>>,
@@ -48,25 +43,13 @@ function truncateStep(step: string): string {
   if (step.length > max) return `${step.slice(0, max - 3)}...`;
   return step;
 }
-/**
- * Render the "candy" Aurora progress bar - rounded violet/cyan end-caps (``...``) around a heavy ``
- * fill that ramps violet->cyan, over a dim `` track. `fraction` is clamped to 0-1 so an over-budget
- * build (more steps/time than last time) shows a full-but-capped bar rather than overflowing the line.
- * On a color TTY each fill cell is its own gradient step; off a TTY / under `NO_COLOR` it degrades to a
- * plain ``, still legible in any captured log.
- */
+/** Render the "candy" Aurora progress bar */
 export function renderBar(fraction: number, width: number = 14): string {
   const clamped = Math.max(0, Math.min(1, fraction));
   const filled = Math.floor(clamped * width);
   return `[${'#'.repeat(filled)}${'-'.repeat(width - filled)}]`;
 }
-/**
- * Compose the one spinner line. With a {@link BuildEstimate} it shows a bar plus `count/~total` and
- * `elapsed / ~eta`; the bar fills by step-count (a good time proxy once steps parse) and falls back to
- * elapsed/eta before the first step or when no steps are emitted. With no estimate (the first build of a
- * kind, or a step-less tool like prebuild) it degrades to the plain `label - step   elapsed` clock. The
- * fraction is capped at 99% so the bar never reads "done" until the process actually exits. Pure -> testable.
- */
+/** Compose the one spinner line. */
 export function formatProgressLine(parts: {
   label: string;
   step: string;
@@ -119,10 +102,7 @@ export function xcodeProgressStep(line: string): string | undefined {
   const fileName = pathToken.slice(pathToken.lastIndexOf('/') + 1);
   return truncateStep(`${verb} ${fileName}`);
 }
-/**
- * Pull a compact step out of a Gradle line. Gradle announces work as `> Task :app:bundleRelease`,
- * so we surface the task path; bundletool/other lines are ignored.
- */
+/** Pull a compact step out of a Gradle line. */
 export function gradleProgressStep(line: string): string | undefined {
   const match = /^> Task (\S+)/.exec(line.trim());
   if (match?.[1]) return truncateStep(match[1]);
@@ -141,12 +121,7 @@ function logSlug(label: string): string {
 function logStamp(epochMilliseconds: number): string {
   return new Date(epochMilliseconds).toISOString().replace(/:/g, '-').replace(/\..+$/, '');
 }
-/**
- * Print a failed tool's captured tail and the path to its full log, then - when the log matches a known
- * native-build failure - the likely cause and the fix (see {@link diagnoseBuildLog}). Diagnostics scan
- * the full log on disk (falling back to the in-memory tail if it can't be read), since the real cause
- * sometimes precedes the trailing lines.
- */
+/** Print a failed tool's captured tail and the path to its full log, then */
 async function reportFailure(
   label: string,
   tail: readonly string[],
@@ -219,13 +194,7 @@ type ProgressRun = {
   steps: number;
 };
 
-/**
- * Run a long external tool under a spinner (or stream it raw - see {@link selectProgressMode}).
- *
- * In spinner mode the full output is tee'd to a per-run file under the logs directory; the spinner
- * shows the live step from `parseStep` and a running clock; on failure the tail and log path are
- * printed before the error propagates. In stream mode the child inherits stdio.
- */
+/** Run a long external tool under a spinner (or stream it raw - see {@link selectProgressMode}). */
 export async function runWithProgress(
   command: string,
   args: readonly string[],
@@ -311,13 +280,7 @@ export function isInteractiveTerminal(
   if (!isTTY) return false;
   return environment['CI'] == null;
 }
-/**
- * Run a silent async step under a spinner so long network round-trips (App Store Connect / Google
- * Play lookups, the TestFlight processing poll) don't show a frozen screen. Degrades to a plain
- * awaited call - no animation - whenever {@link selectProgressMode} picks "stream" (non-TTY, CI, or
- * `--verbose`), so logs and scripts stay clean. Unlike {@link runWithProgress} it drives no child
- * process; it just awaits `task` while telling the user what's happening.
- */
+/** Run a silent async step under a spinner so long network round-trips (App Store Connect / */
 export async function withSpinner<TaskResult>(
   label: string,
   task: () => Promise<TaskResult>,

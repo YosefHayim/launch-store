@@ -194,10 +194,7 @@ export function resolveRetentionDays(launchConfig: LaunchConfig): number {
   return configuredRetentionDays;
 }
 
-/**
- * Explicit `builds prune` window: CLI override wins; config when positive; default when unset or 0
- * so an explicit prune still does work when auto-sweep is disabled.
- */
+/** Explicit `builds prune` window */
 export function resolveCommandRetentionDays(
   launchConfig: LaunchConfig,
   retentionDaysOverride?: number,
