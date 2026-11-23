@@ -2,7 +2,7 @@
 
 import type { AppStoreConnect } from './app-store-connect.ts';
 
-export class AppleVersion {
+export class AppStoreVersions {
   constructor(private readonly apple: AppStoreConnect) {}
 
   async list(appId: string): Promise<readonly string[]> {

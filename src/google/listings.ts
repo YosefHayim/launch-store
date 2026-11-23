@@ -1,8 +1,8 @@
-// Lists the languages already present on a Google Play store listing.
+// Lists the languages already present on a Google Play listings resource.
 
 import type { GooglePlay } from '../google-play.ts';
 
-export class PlayListing {
+export class PlayListings {
   constructor(private readonly play: GooglePlay) {}
 
   async list(packageName: string): Promise<readonly string[]> {

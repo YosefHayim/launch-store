@@ -186,10 +186,7 @@ function showInitReceipt(writtenFiles: string): void {
     'Done',
     `Wrote: ${writtenFiles}`,
     '',
-    'Next:',
-    '  1. launch-store creds set-key   # import your App Store Connect API key',
-    '  2. launch-store creds setup     # create/reuse your cert + provisioning profile',
-    '  3. launch-store build ios --dry-run   # rehearse the whole flow, no changes',
+    'Run `launch-store --help` for the commands.',
   );
 }
 

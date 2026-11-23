@@ -3,7 +3,7 @@
 import type { AppStoreConnect } from './app-store-connect.ts';
 import type { InAppPurchaseResource } from '../types/apple-catalog.ts';
 
-export class AppleProducts {
+export class InAppPurchaseIds {
   constructor(private readonly apple: AppStoreConnect) {}
 
   async list(appId: string): Promise<readonly string[]> {

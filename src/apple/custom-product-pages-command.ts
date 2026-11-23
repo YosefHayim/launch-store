@@ -1,5 +1,7 @@
 // Plans custom product page changes and applies them on App Store Connect.
 
+import type { Command } from '../cli/command.ts';
+import { runCliProgram } from '../cli/run-cli-program.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import {
@@ -263,4 +265,43 @@ export async function customProductPagesCommandProgram(rawCommandInput: unknown)
   if (hasFailures) {
     completeCommand(1);
   }
+}
+
+type CustomPagesOptions = Readonly<{
+  readonly app?: string;
+  readonly dryRun: boolean;
+  readonly yes: boolean;
+}>;
+
+/** Map Commander values without explicit undefined optionals. */
+function readCustomProductPages(
+  commandOptions: CustomPagesOptions,
+): CustomProductPagesCommandInput {
+  let customPagesInput: CustomProductPagesCommandInput = {
+    dryRun: commandOptions.dryRun,
+    yes: commandOptions.yes,
+  };
+
+  if (commandOptions.app != null) {
+    customPagesInput = { ...customPagesInput, app: commandOptions.app };
+  }
+
+  return customPagesInput;
+}
+
+/** Attach the custom product pages command. */
+export function registerCustomPagesCommand(program: Command): void {
+  function runCustomPages(commandOptions: CustomPagesOptions) {
+    const customProductPages = readCustomProductPages(commandOptions);
+    const customProductPagesProgram = customProductPagesCommandProgram(customProductPages);
+    return runCliProgram(customProductPagesProgram);
+  }
+
+  program
+    .command('custom-pages')
+    .description('reconcile custom product pages (alternate listings) from launch.config.ts')
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('--dry-run', 'print the plan and exit, making no changes', false)
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
+    .action(runCustomPages);
 }

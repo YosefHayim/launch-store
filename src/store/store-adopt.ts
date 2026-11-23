@@ -8,9 +8,9 @@ import { createLaunchFileScaffold } from '../define-launch-file.ts';
 import { GooglePlay } from '../google-play.ts';
 import { Prompts } from '../prompts.ts';
 import { ApplePrivacy } from '../apple/privacy.ts';
-import { AppleProducts } from '../apple/products.ts';
-import { AppleVersion } from '../apple/version.ts';
-import { PlayListing } from '../google/listing.ts';
+import { InAppPurchaseIds } from '../apple/in-app-purchase-ids.ts';
+import { AppStoreVersions } from '../apple/app-store-versions.ts';
+import { PlayListings } from '../google/listings.ts';
 import { PlayTracks } from '../google/tracks.ts';
 
 interface AdoptRequest {
@@ -73,11 +73,11 @@ export class StoreAdopt {
         throw new Error(`App Store Connect has no app ${bundleId}`);
       }
 
-      const versions = new AppleVersion(this.apple);
-      const products = new AppleProducts(this.apple);
+      const appStoreVersions = new AppStoreVersions(this.apple);
+      const inAppPurchaseIds = new InAppPurchaseIds(this.apple);
       const privacy = new ApplePrivacy(this.apple);
-      const versionNames = await versions.list(appId);
-      const productIds = await products.list(appId);
+      const versionNames = await appStoreVersions.list(appId);
+      const productIds = await inAppPurchaseIds.list(appId);
       const appInfo = await privacy.list(appId);
 
       const serialized = JSON.stringify({ versionNames, productIds, appInfo });
@@ -92,9 +92,9 @@ export class StoreAdopt {
       return;
     }
 
-    const listing = new PlayListing(this.play);
+    const listings = new PlayListings(this.play);
     const tracks = new PlayTracks(this.play);
-    const languages = await listing.list(packageName);
+    const languages = await listings.list(packageName);
     const trackNames = await tracks.list(packageName);
 
     const serialized = JSON.stringify({ languages, trackNames });

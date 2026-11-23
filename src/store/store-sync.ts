@@ -3,7 +3,7 @@
 import { AppStoreConnect } from '../apple/app-store-connect.ts';
 import { GooglePlay } from '../google-play.ts';
 import { Prompts } from '../prompts.ts';
-import { AppleListing } from '../apple/listing.ts';
+import { RegisteredApps } from '../apple/registered-apps.ts';
 import { PlayProducts } from '../google/products.ts';
 import { planStore, type StoreChange, type StoreSnapshot } from './plan-store.ts';
 
@@ -40,11 +40,11 @@ export class StoreSync {
 
     this.packageName = syncRequest.packageName;
 
-    const listing = new AppleListing(this.apple);
+    const registeredApps = new RegisteredApps(this.apple);
     const products = new PlayProducts(this.play);
 
     for (const change of changes) {
-      await this.apply(change, listing, products);
+      await this.apply(change, registeredApps, products);
     }
   }
 
@@ -64,7 +64,7 @@ export class StoreSync {
 
   private async apply(
     change: StoreChange,
-    listing: AppleListing,
+    registeredApps: RegisteredApps,
     products: PlayProducts,
   ): Promise<void> {
     switch (change.action) {
@@ -75,7 +75,7 @@ export class StoreSync {
         await products.ensure(this.packageName, change.detail);
         return;
       case 'leave':
-        await listing.list();
+        await registeredApps.list();
         return;
     }
   }

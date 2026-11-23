@@ -28,7 +28,7 @@ import { registerWalletCommand } from '../apple/wallet.ts';
 import { registerGameCenterCommand } from '../apple/game-center-command.ts';
 import { registerAccessibilityCommand } from '../apple/accessibility-command.ts';
 import { registerAvailabilityCommand } from '../apple/availability-command.ts';
-import { registerCustomPagesCommand } from '../apple/custom-pages.ts';
+import { registerCustomPagesCommand } from '../apple/custom-product-pages-command.ts';
 import { registerExperimentsCommand } from './commands/release/experiments.ts';
 import { registerPlayProductsCommand } from '../google/play-products-command.ts';
 import { registerPlaySubscriptionsCommand } from '../google/play-subscriptions-command.ts';

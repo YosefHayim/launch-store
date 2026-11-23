@@ -93,7 +93,7 @@ import { retryAppleTransportRequest } from './transport-helpers.ts';
 import type { AscHost } from './host.ts';
 import { ConnectApps } from './apps.ts';
 import { ConnectBuilds } from './builds.ts';
-import { ConnectVersions } from './versions.ts';
+import { ConnectVersions } from './app-store-connect-versions.ts';
 import { ConnectAppClips } from './app-store-connect-app-clips.ts';
 import { ConnectSigning } from './signing.ts';
 import { ConnectSandbox } from './app-store-connect-sandbox.ts';
