@@ -17,7 +17,7 @@ const ascFake = vi.hoisted(function hoistAscFake() {
   };
 });
 
-vi.mock('@/apple/asc-client.js', function mockAscClient() {
+vi.mock('@/apple/app-store-connect-client.js', function mockAscClient() {
   return {
     AppStoreConnectClient: class {
       getAppId = ascFake.getAppId;

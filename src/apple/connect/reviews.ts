@@ -1,3 +1,5 @@
+// Lists customer reviews and writes or deletes a reply on App Store Connect.
+
 import type { AscHost } from './host.ts';
 import type { CustomerReviewPage } from './shared.ts';
 import type {

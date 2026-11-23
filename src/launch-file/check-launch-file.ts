@@ -1,3 +1,5 @@
+// Checks that a loaded launch.config.ts exports the config object Launch expects.
+
 import { basename } from 'node:path';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { LaunchConfig } from '../types/config.ts';

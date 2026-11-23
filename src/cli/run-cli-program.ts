@@ -1,3 +1,5 @@
+// Runs one Launch command, and prints one JSON result line when JSON output is on.
+
 import { stderr, stdout } from 'node:process';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { setJsonOutput } from '../services/platform/json-output-mode.ts';

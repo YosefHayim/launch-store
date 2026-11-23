@@ -1,3 +1,5 @@
+// Checks that the editable App Store Connect version has a copyright set.
+
 import type {
   AppReadiness,
   AscReadinessApi,

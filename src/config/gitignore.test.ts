@@ -10,7 +10,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { captureCommandOutput } from '../services/platform/exec.ts';
+import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import { ensureArtifactDirIgnored } from './gitignore.ts';
 
 function describeEnsureArtifactDirIgnored() {

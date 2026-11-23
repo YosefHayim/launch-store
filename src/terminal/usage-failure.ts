@@ -1,3 +1,5 @@
+// Prints a usage error and stops the command with exit code 2.
+
 import { createLogger } from '../services/platform/logger.ts';
 import { makeCommandExit } from './command-exit.ts';
 

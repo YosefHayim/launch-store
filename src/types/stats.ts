@@ -1,3 +1,5 @@
+// Holds store and analytics feeds, their metrics, and the sync report Launch writes.
+
 import type { AppStoreStatsClient, PlayVitalsReader } from '../stats/stats-credentials.ts';
 import type { PortfolioApp } from './portfolio.ts';
 import type { ServiceAccount } from './credentials.ts';

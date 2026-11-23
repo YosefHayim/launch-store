@@ -1,3 +1,5 @@
+// Requires an explicit yes before Launch submits a public store release.
+
 /** The command may either skip the prompt because `--yes` was passed, or show an interactive prompt. */
 type ReleaseConfirmationMode = 'confirmed' | 'prompt';
 

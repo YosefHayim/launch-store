@@ -1,3 +1,5 @@
+// Pulls store stats again when a saved feed is stale or its last sync failed.
+
 import { findAppsByName } from '../portfolio/portfolio-logic.ts';
 import type { PortfolioApp } from '../types/portfolio.ts';
 import type { AppFeedSyncReport, StatsFreshness } from '../types/stats.ts';

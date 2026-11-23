@@ -1,3 +1,5 @@
+// Reads daily active users, new users, and sessions from a Google Analytics property.
+
 import type { DailyStat, DateRange } from '@/types/stats.js';
 import {
   ANALYTICS_DATA_URL,

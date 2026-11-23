@@ -1,3 +1,5 @@
+// Builds an App Store Connect list path with filters, fields, sort, and limits.
+
 // The path carries the resource filter. `fields[...]`, `include`, and `sort` come from
 // `defaultQuery` unless the caller sets the same key. A caller `null` drops that key.
 // A collection `limit` is clamped to 0..200, and each `limit[resource]` to 50.

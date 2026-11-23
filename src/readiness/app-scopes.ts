@@ -1,3 +1,5 @@
+// Keeps apps that have an App Store bundle id or a Google Play package name.
+
 import type { AppDescriptor } from '../types/app.ts';
 
 /** An app scoped to one store, with the relevant identifier guaranteed present. */

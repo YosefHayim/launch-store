@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppStoreConnectClient } from '@/apple/asc-client.js';
+import { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
 import { GooglePlayClient, type GooglePlayTransport } from '@/google/play-client.js';
 import { loadActiveAscKey } from '@/credentials/accounts.js';
 import { loadServiceAccount } from '@/credentials/android-keystore-assets.js';

@@ -1,3 +1,5 @@
+// Validates a Launch config against the published schema and fills provider defaults.
+
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { deprecatedAgeRatingVerdict, type AgeRatingValue } from '../types/apple-catalog.ts';

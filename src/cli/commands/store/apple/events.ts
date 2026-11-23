@@ -1,3 +1,5 @@
+// Registers the commands that list, create, localize, and delete App Store in-app events.
+
 import type { Command } from '@/cli/command.js';
 import {
   eventsCommandProgram,

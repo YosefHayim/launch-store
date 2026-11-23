@@ -1,3 +1,5 @@
+// Stores App Store Connect keys and Google Play service accounts in the keychain.
+
 import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { homedir, platform } from 'node:os';

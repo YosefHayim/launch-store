@@ -1,3 +1,5 @@
+// Registers the command that prepares Launch and reports whether iOS signing is ready.
+
 import type { Command } from '@/cli/command.js';
 import { setupCommandProgram } from '@/config/setup-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

@@ -1,3 +1,5 @@
+// Saves an owner or analytics property change on the remembered app list.
+
 import type { AppTagChange } from '../types/portfolio.ts';
 import { applyTagChange } from './portfolio-logic.ts';
 import { loadPortfolioFile, pickSavedPortfolioFile, savePortfolioFile } from './portfolio-store.ts';

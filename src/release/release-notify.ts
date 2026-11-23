@@ -1,3 +1,5 @@
+// Decides which review and phased-rollout notices a status watch should send.
+
 import type { ReleaseStatus, ReleaseVerdict } from './app-store-release.ts';
 import type { NotifyEvent } from '../services/platform/notify.ts';
 

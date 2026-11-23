@@ -1,3 +1,5 @@
+// Remembers first-run choices, including whether the compiler-cache offer was declined.
+
 import { readFile, writeFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import {

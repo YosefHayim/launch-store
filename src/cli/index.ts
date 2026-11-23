@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// Starts Launch, checks for a newer release, and runs the command that was typed.
+
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { Cli } from '../cli.ts';

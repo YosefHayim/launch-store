@@ -1,3 +1,5 @@
+// Estimates the dollar cost and earliest release time of a rented Mac build host.
+
 export const EC2_MAC_HOURLY_USD = 0.65;
 /** Apple-license minimum allocation before the Dedicated Host may be released, in hours. */
 export const MIN_ALLOCATION_HOURS = 24;

@@ -1,3 +1,5 @@
+// Lists the names of apps already registered on App Store Connect.
+
 import type { AppStoreConnect } from '@/apple/app-store-connect.js';
 
 export class AppleListing {

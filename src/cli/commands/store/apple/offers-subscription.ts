@@ -1,5 +1,7 @@
+// Finds the App Store Connect subscription and offer-code campaign an offer action needs.
+
 import { loadConfig } from '@/config/config.js';
-import type { AppStoreConnectClient } from '@/apple/asc-client.js';
+import type { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
 import { errorMessage } from '@/services/platform/error-message.js';
 import { readLaunchDirectories } from '@/services/platform/paths.js';
 import type { AppDescriptor } from '@/types/app.js';

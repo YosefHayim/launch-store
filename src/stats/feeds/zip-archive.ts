@@ -1,3 +1,5 @@
+// Unpacks a Google Play report archive into the files stored inside it.
+
 import { inflateRawSync } from 'node:zlib';
 
 const zipLocalFileHeader = 0x04034b50;

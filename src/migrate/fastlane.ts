@@ -1,3 +1,5 @@
+// Reads Fastlane files into Launch config, store metadata, and follow-up notes.
+
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { configTemplate, detectAppRoot } from '../config/config-scaffold.ts';

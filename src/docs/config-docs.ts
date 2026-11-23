@@ -1,3 +1,5 @@
+// Renders the launch.config.ts field reference from the published JSON Schema.
+
 import type { JsonSchema } from '../config/json-schema.ts';
 
 // Escape backslashes first so they cannot hide a following markdown table delimiter.

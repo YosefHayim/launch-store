@@ -1,3 +1,5 @@
+// Reports whether a thrown value is a failure that carries one named tag.
+
 function isFailureTag(cause: unknown, tagName: string): boolean {
   if (cause == null) {
     return false;

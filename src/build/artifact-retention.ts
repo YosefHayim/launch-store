@@ -1,3 +1,5 @@
+// Decides which stored build binaries to keep and deletes the ones past their retention window.
+
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathExists } from '../path-exists.ts';
@@ -334,7 +336,9 @@ export function planPrune(
 
   for (const buildArtifact of artifactIndex) {
     const ageInDays = artifactAgeDays(buildArtifact, pruneOptions.now);
-    const isGroupNewest = newestByGroup.get(artifactGroupKey(buildArtifact)) == buildArtifact;
+    const groupKey = artifactGroupKey(buildArtifact);
+    const newestInGroup = newestByGroup.get(groupKey);
+    const isGroupNewest = Object.is(newestInGroup, buildArtifact);
 
     const shouldPrune = shouldPruneArtifact(buildArtifact, pruneOptions, isGroupNewest, ageInDays);
 

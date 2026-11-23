@@ -1,3 +1,5 @@
+// Pulls and pushes listing text for App Store Connect and Google Play.
+
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadActiveAscKey } from '@/credentials/accounts.js';
@@ -21,7 +23,7 @@ import type { AppDescriptor, Platform } from '@/types/app.js';
 import type { AscKey } from '@/types/credentials.js';
 import type { PlayListing } from '@/types/google-play.js';
 import { readAppleListing } from '../apple/apple-listing-read.ts';
-import { reconcileAppListing } from '../apple/asc-sync.ts';
+import { reconcileAppListing } from '../apple/app-store-sync.ts';
 import { loadStoreAppContext } from './select-store-app.ts';
 import {
   loadStoreConfig,

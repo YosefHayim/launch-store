@@ -1,4 +1,6 @@
-import type { AscPermissionProbeApi } from '../store/apple/asc-permissions.ts';
+// Holds the check lines, the report, and the store calls one doctor run may make.
+
+import type { AscPermissionProbeApi } from '../store/apple/app-store-connect-permissions.ts';
 import type { AppDescriptor } from './app.ts';
 import type { LaunchConfig } from './config.ts';
 import type { HostOs } from './remote.ts';

@@ -1,7 +1,9 @@
+// Adds a git ignore rule so Launch build artifacts are not committed.
+
 import { readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
 import { pathExists } from '../path-exists.ts';
-import { captureCommandOutput } from '../services/platform/exec.ts';
+import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 
 type GitignoreChange = { added: false } | { added: true; entry: string };

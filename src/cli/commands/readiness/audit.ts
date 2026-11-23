@@ -1,3 +1,5 @@
+// Registers the read-only sweep for problems that would reject a store submission now.
+
 import type { Command } from '@/cli/command.js';
 import { readinessCommandProgram } from '@/readiness/command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

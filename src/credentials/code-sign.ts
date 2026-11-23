@@ -1,9 +1,11 @@
+// Creates the key Launch uses to sign over-the-air update manifests.
+
 import { createSign } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
-import { captureCommandOutput } from '../services/platform/exec.ts';
+import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import { resolveCredentialsDirectory } from '../services/platform/paths.ts';
 

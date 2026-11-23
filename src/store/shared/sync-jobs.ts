@@ -1,3 +1,5 @@
+// Selects apps and gathers the App Store Connect work each one should sync.
+
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '@/path-exists.js';

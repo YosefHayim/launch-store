@@ -1,3 +1,5 @@
+// Checks that each App Store Connect app declares an account-deletion URL.
+
 import type {
   AppReadiness,
   AscReadinessApi,

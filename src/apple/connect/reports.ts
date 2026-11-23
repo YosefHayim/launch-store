@@ -1,3 +1,5 @@
+// Downloads sales, finance, and analytics reports from App Store Connect.
+
 import type {
   AnalyticsReportInstanceResource,
   AnalyticsReportRequestResource,

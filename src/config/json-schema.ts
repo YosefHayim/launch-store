@@ -1,3 +1,5 @@
+// Checks a value against a JSON Schema document and lists each violation.
+
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export type JsonSchema = {

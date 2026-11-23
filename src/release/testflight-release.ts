@@ -1,3 +1,5 @@
+// Submits one build to TestFlight Beta App Review and shows the planned steps.
+
 import { createLogger } from '../services/platform/logger.ts';
 import { loadActiveAppleStore } from '../cli/commands/store/apple/apple-store-command.ts';
 import type { PlannedAction } from '../types/reconcile.ts';

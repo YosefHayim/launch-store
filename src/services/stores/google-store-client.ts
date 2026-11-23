@@ -1,3 +1,5 @@
+// Opens a Google Play client and turns a transport failure into a named error.
+
 import { GooglePlayClient, readServiceAccount } from '@/google/play-client.js';
 import { hasMessage } from '../platform/error-message.ts';
 

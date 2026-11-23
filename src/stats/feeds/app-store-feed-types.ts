@@ -1,3 +1,5 @@
+// Names the sales and analytics report shapes the App Store Connect stats feed shares.
+
 export type SalesReportKind = 'download' | 'redownload' | 'update' | 'in-app-purchase';
 
 export type AppStoreStatsPath = 'sales' | 'analytics';

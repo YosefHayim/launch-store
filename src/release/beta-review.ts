@@ -1,3 +1,5 @@
+// Writes TestFlight What to Test notes and submits a build for Beta App Review.
+
 import { readFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import { errorMessage } from '../services/platform/error-message.ts';

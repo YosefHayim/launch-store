@@ -1,3 +1,5 @@
+// Registers the read-only command that summarizes ratings and reviews on both stores.
+
 import type { Command } from '@/cli/command.js';
 import { insightsCommandProgram } from '@/insights/command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

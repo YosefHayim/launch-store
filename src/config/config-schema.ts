@@ -1,3 +1,5 @@
+// Loads the published schema and validates a Launch config for the config commands.
+
 import type { JsonSchema, SchemaViolation } from './json-schema.ts';
 import { loadPublishedConfigSchema, validateLaunchConfig } from './schema.ts';
 

@@ -1,8 +1,10 @@
+// Hashes native iOS inputs so Launch can reuse a previous archive instead of cleaning.
+
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
-import { captureCommandOutput } from '../services/platform/exec.ts';
+import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import { ensureDirectoryExists, resolveLaunchHomeDirectory } from '../services/platform/paths.ts';
 import type { Platform } from '../types/app.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';

@@ -1,3 +1,5 @@
+// Saves App Store Connect subscriptions into a copy of the store.
+
 import type {
   SnapshotAscApi,
   SnapshotContext,

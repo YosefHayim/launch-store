@@ -1,3 +1,5 @@
+// Lists Google Play reviews and posts or replaces a developer reply.
+
 import { readFile } from 'node:fs/promises';
 import { hasMessage } from '@/services/platform/error-message.js';
 import { createLogger } from '@/services/platform/logger.js';

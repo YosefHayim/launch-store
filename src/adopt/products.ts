@@ -1,3 +1,5 @@
+// Copies App Store Connect in-app purchases and subscriptions into Launch product config.
+
 import type { AdoptCatalogApi, Adopter, PlannedWrite } from '../types/adopt.ts';
 import type {
   InAppPurchaseResource,

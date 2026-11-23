@@ -1,3 +1,5 @@
+// Checks an app config for a valid bundle id, icon, splash, and version before a store build.
+
 import { basename } from 'node:path';
 import { isApplePlatform } from '../services/stores/platform.ts';
 import type { AppDescriptor, Platform } from '../types/app.ts';

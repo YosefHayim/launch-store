@@ -1,3 +1,5 @@
+// Shapes for reading an Expo Application Services or fastlane setup into Launch.
+
 export type MigrationSource = 'eas' | 'fastlane';
 
 /** How faithfully one piece of the source setup carried over */

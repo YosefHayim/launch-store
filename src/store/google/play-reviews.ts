@@ -1,3 +1,5 @@
+// Lists Google Play reviews and stores a developer reply on one review.
+
 import type { PlayReplyResult, PlayReview } from '@/types/google-play.js';
 
 /** The Google Play review operations used by the reviews domain. */

@@ -1,3 +1,5 @@
+// Finds and loads the Launch config, and can write an app version or entitlements back into it.
+
 import { access, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

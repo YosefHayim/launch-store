@@ -1,3 +1,5 @@
+// Registers the commands that manage TestFlight groups, testers, releases, and feedback.
+
 import type { Command } from '@/cli/command.js';
 import { testflightCommandProgram } from '@/release/testflight-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

@@ -1,3 +1,5 @@
+// Creates Game Center details, achievements, and leaderboards on App Store Connect.
+
 import type { AscHost } from './host.ts';
 import type {
   GameCenterAchievementCreate,

@@ -1,3 +1,5 @@
+// Decodes the flags a Launch store sync command accepts.
+
 import { readPlainObject } from '@/services/platform/plain-object.js';
 
 type SyncCommandInput = {

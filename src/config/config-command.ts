@@ -1,3 +1,5 @@
+// Prints the Launch config schema, checks a config file, or prints the field guide.
+
 import { readFile, writeFile } from 'node:fs/promises';
 import { renderConfigDocs } from '../docs/config-docs.ts';
 import { errorMessage } from '../services/platform/error-message.ts';

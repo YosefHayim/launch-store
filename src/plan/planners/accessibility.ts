@@ -1,3 +1,5 @@
+// Compares App Store Connect accessibility declarations with the local config.
+
 import { resolveSidecarConfig } from '@/config/config.js';
 import { loadAccessibilityConfig, reconcileAccessibility } from '@/store/apple/accessibility.js';
 import { planAppStoreSurface } from './app-store-surface.ts';

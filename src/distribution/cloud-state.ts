@@ -1,3 +1,5 @@
+// Remembers the live remote-build machine and its saved machine image.
+
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import type { HostHandle, SshTarget } from '../types/remote.ts';

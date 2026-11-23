@@ -1,3 +1,5 @@
+// Holds App Store release, Game Center, App Clip, Wallet, and related store settings.
+
 import type {
   APP_CLIP_ACTIONS,
   LEADERBOARD_FORMATTERS,

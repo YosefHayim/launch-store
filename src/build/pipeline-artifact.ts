@@ -1,9 +1,11 @@
+// Runs shared build steps, stores the binary, checks its size, and uploads it with a receipt.
+
 import { ccacheOfferDeclined, markCcacheOfferDeclined } from '../config/first-run.ts';
 import { ensureArtifactDirIgnored } from '../config/gitignore.ts';
 import { ensureCcacheInstalled } from '../config/toolchain.ts';
 import { resolveArtifactDir, resolveStorageProvider } from '../distribution/storage.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
-import { captureCommandOutput, checkCommandExists } from '../services/platform/exec.ts';
+import { captureCommandOutput, checkCommandExists } from '../services/platform/execute-command.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import {
   nativeProjectDirName,

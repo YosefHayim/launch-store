@@ -1,3 +1,5 @@
+// Returns an unknown value when it is a plain object, and null when it is not.
+
 function readPlainObject(candidate: unknown): Record<string, unknown> | null {
   const isMissing = candidate == null;
 

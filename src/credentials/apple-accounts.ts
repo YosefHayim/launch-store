@@ -1,3 +1,5 @@
+// Runs account changes for App Store Connect and adopts old Google Play credentials.
+
 import { loadConfig } from '../config/config.ts';
 import {
   readDocumentFile,

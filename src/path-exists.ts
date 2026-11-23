@@ -1,3 +1,5 @@
+// Reports whether a file or folder path is present for Launch.
+
 import { access } from 'node:fs/promises';
 
 export async function pathExists(candidate: string): Promise<boolean> {

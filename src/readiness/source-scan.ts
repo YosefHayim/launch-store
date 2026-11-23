@@ -1,3 +1,5 @@
+// Walks an app's source so a readiness probe can look for product ids or a StoreKit file.
+
 import type { Stats } from 'node:fs';
 import { lstat, readdir, readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';

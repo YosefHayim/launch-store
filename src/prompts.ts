@@ -1,3 +1,5 @@
+// Asks yes, text, secret, and menu questions when Launch has a terminal.
+
 import { once } from 'node:events';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';

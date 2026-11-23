@@ -1,3 +1,5 @@
+// Builds Google Play Console links for user permissions and the payments profile.
+
 export const PLAY_CONSOLE_URL = 'https://play.google.com/console';
 
 /** Link to Play Console user grants, optionally pinned to one developer account. */

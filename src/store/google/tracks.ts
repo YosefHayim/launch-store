@@ -1,3 +1,5 @@
+// Lists the release track names configured for one app on Google Play.
+
 import type { GooglePlay } from '@/google-play.js';
 
 export class PlayTracks {

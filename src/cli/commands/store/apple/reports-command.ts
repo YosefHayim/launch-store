@@ -1,3 +1,5 @@
+// Downloads App Store Connect sales, finance, and analytics reports and saves them locally.
+
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { errorMessage } from '@/services/platform/error-message.js';

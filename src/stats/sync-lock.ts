@@ -1,3 +1,5 @@
+// Lets one stats sync run at a time and drops a lock left behind by a crash.
+
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { errorMessage } from '../services/platform/error-message.ts';

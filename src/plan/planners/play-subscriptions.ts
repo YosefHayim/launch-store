@@ -1,3 +1,5 @@
+// Compares Google Play subscriptions with the groups declared in Launch config.
+
 import { errorMessage } from '@/services/platform/error-message.js';
 import {
   reconcilePlaySubscriptions,

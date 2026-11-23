@@ -1,3 +1,5 @@
+// Defines how launch-store parses commands, flags, arguments, and help text.
+
 export interface CommandOption {
   readonly flags: string;
   readonly short?: string;

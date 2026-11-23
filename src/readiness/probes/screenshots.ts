@@ -1,3 +1,5 @@
+// Checks that each App Store Connect version has iPhone screenshots uploaded.
+
 import type {
   AppReadiness,
   AscReadinessApi,

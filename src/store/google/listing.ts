@@ -1,3 +1,5 @@
+// Lists the languages already present on a Google Play store listing.
+
 import type { GooglePlay } from '@/google-play.js';
 
 export class PlayListing {

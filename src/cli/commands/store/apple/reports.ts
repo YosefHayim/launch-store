@@ -1,3 +1,5 @@
+// Registers the commands that download App Store Connect sales, finance, and analytics reports.
+
 import type { Command } from '@/cli/command.js';
 import { reportsCommandProgram } from './reports-command.ts';
 import { runCliProgram } from '@/cli/run-cli-program.js';

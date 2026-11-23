@@ -1,3 +1,5 @@
+// Holds totals and daily series for one Launch report of store and analytics numbers.
+
 import type { AppOwner, PortfolioPlatform } from './portfolio.ts';
 import type { DateRange, MetricAggregation, StatsFeed, StatsMetric } from './stats.ts';
 

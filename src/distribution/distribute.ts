@@ -1,3 +1,5 @@
+// Uploads an internal build and publishes the page testers use to install it.
+
 import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
 import type { Logger } from '../services/platform/logger.ts';

@@ -1,3 +1,5 @@
+// Refreshes stale stats, then assembles the report for the apps that were asked for.
+
 import { filterPortfolioApps, findAppsByName } from '../portfolio/portfolio-logic.ts';
 import type { PortfolioApp } from '../types/portfolio.ts';
 import type { AppCoverage, DailyStat, DateRange, StatsFreshness } from '../types/stats.ts';

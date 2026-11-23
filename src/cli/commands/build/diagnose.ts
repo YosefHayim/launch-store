@@ -1,3 +1,5 @@
+// Registers the command that reads a failed native build log and explains the cause.
+
 import type { Command } from '@/cli/command.js';
 import { diagnoseCommandProgram } from '@/build/diagnose-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

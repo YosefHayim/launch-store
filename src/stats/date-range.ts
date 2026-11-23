@@ -1,3 +1,5 @@
+// Builds the day windows Launch uses when it pulls store stats.
+
 import type { DateRange } from '../types/stats.ts';
 
 export const REFRESH_TAIL_DAYS = 3;

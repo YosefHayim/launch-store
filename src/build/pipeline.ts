@@ -1,4 +1,6 @@
-import { setCommandEnvironmentExclusions } from '../services/platform/exec.ts';
+// Checks the app, prepares one build, runs it, and reports when it finishes.
+
+import { setCommandEnvironmentExclusions } from '../services/platform/execute-command.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type { ResolvedBuildContext } from '../types/config.ts';
 import type { MutableDeep } from '../types/mutable.ts';
@@ -6,7 +8,7 @@ import type { NotifyEvent } from '../services/platform/notify.ts';
 import { notify } from '../services/platform/notify.ts';
 import { loadConfig } from '../config/config.ts';
 import { checkApp, formatFinding } from '../config/config-check.ts';
-import { ENV_SOURCE } from '../config/env.ts';
+import { ENV_SOURCE } from '../config/environment-file.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { resolveStorageProvider } from '../distribution/storage.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
@@ -17,7 +19,7 @@ import {
   resolveAndroidSubmitReleaseNotes,
   resolveBuildTransport,
 } from './pipeline-providers.ts';
-import { resolveCommandEnv, selectApp, validateResolvedEnv } from './pipeline-env.ts';
+import { resolveCommandEnv, selectApp, validateResolvedEnv } from './pipeline-environment.ts';
 import { receiptDestination, worstDownloadBytes } from './pipeline-artifact.ts';
 import { runIosBuild } from './pipeline-ios.ts';
 import { runAndroidBuild } from './pipeline-android.ts';
@@ -541,7 +543,7 @@ async function dispatchBuild(
       return;
     }
     case 'eas': {
-      const easPipeline = await import('./eas-pipeline.ts');
+      const easPipeline = await import('./expo-application-services-pipeline.ts');
 
       await easPipeline.runEasBuild(prepared, buildOptions);
       return;

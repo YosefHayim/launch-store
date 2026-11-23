@@ -1,3 +1,5 @@
+// Registers the command that submits the latest build to the public store track.
+
 import type { Command } from '@/cli/command.js';
 import { releaseCommandProgram, type ReleaseCommandOptions } from '@/release/release-command.js';
 import { addEnvironmentFlags } from '@/cli/environment-flags.js';

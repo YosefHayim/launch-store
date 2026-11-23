@@ -1,3 +1,5 @@
+// Lists App Store Connect reviews and posts or deletes developer replies.
+
 import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,

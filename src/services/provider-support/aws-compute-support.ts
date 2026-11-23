@@ -1,3 +1,5 @@
+// Shares consent, cost, release time, and saved image identifiers for an Amazon EC2 Mac.
+
 import { consentMessage, costForDurationUsd, releasableAt } from '@/build/cost.js';
 import { REQUIRED_TOOLS } from '@/config/toolchain.js';
 import { getAmiId, setAmiId } from '@/distribution/cloud-state.js';

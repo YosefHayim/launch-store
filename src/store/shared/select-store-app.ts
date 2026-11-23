@@ -1,3 +1,5 @@
+// Loads the Launch project and picks the one app a store command should use.
+
 import { loadConfig } from '@/config/config.js';
 import { errorMessage } from '@/services/platform/error-message.js';
 import { readLaunchDirectories } from '@/services/platform/paths.js';

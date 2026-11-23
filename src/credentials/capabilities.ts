@@ -1,3 +1,5 @@
+// Maps App Store capabilities to entitlement keys and flags a profile that is out of date.
+
 export type CapabilityType =
   | 'ICLOUD'
   | 'IN_APP_PURCHASE'

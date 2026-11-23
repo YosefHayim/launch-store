@@ -1,3 +1,5 @@
+// Allocates a remote Mac, builds iOS there, and uploads the binary to App Store Connect.
+
 import type { BuildArtifact, SizeReport } from '../types/artifacts.ts';
 import type { LaunchConfig } from '../types/config.ts';
 import type { AccountRecord, AscKey, BuildCredentials } from '../types/credentials.ts';

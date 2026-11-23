@@ -1,3 +1,5 @@
+// Renders the migration report of what Launch mapped, skipped, or left to do by hand.
+
 import type { MigrationNoteLevel, MigrationResult, MigrationSource } from '../types/migrate.ts';
 
 const levelLabel: Record<MigrationNoteLevel, string> = {

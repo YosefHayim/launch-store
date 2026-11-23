@@ -1,3 +1,5 @@
+// Lists Google Play in-app products and checks that a declared product exists.
+
 import type { GooglePlay } from '@/google-play.js';
 
 export class PlayProducts {

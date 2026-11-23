@@ -1,3 +1,5 @@
+// Builds the tagged error a credentials command throws when a step fails.
+
 import { errorMessage } from '../services/platform/error-message.ts';
 
 export type CredentialsCommandFailure = Readonly<{

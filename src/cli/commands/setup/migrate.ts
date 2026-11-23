@@ -1,3 +1,5 @@
+// Registers the commands that import an Expo or fastlane project into the Launch config.
+
 import type { Command } from '@/cli/command.js';
 import { migrateCommandProgram } from '@/migrate/command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

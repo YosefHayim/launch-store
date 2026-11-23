@@ -1,3 +1,5 @@
+// Registers the build, storage, credentials, submit, and compute providers that ship with Launch.
+
 import {
   registerBuildEngine,
   registerComputeHost,
@@ -13,10 +15,10 @@ import { makeS3StorageProviderResolver } from './storage/s3.ts';
 import { makeSupabaseStorageProviderResolver } from './storage/supabase.ts';
 import { makeXcodeBuildEngine } from './build/xcode.ts';
 import { makeGradleBuildEngine } from './build/gradle.ts';
-import { easHostedBuildProvider } from './build/eas.ts';
+import { easHostedBuildProvider } from './build/expo-application-services.ts';
 import { appStoreConnectSubmitter } from './submit/app-store-connect.ts';
 import { googlePlaySubmitter } from './submit/google-play.ts';
-import { easSubmitter } from './submit/eas.ts';
+import { easSubmitter } from './submit/expo-application-services.ts';
 import { makeAwsEc2MacComputeHost } from './compute/aws-ec2-mac.ts';
 import { byoSshComputeHost } from './compute/byo-ssh.ts';
 

@@ -1,3 +1,5 @@
+// Registers the command that syncs App Clip card text and actions from a config file.
+
 import type { Command } from '@/cli/command.js';
 import { type AppClipsCommandInput, appClipsCommandProgram } from './app-clips-command.ts';
 import { runCliProgram } from '@/cli/run-cli-program.js';

@@ -1,3 +1,5 @@
+// Reconciles the territories where an app is available on App Store Connect.
+
 import { readFile } from 'node:fs/promises';
 import type { AppAvailabilityResource } from '@/types/apple-catalog.js';
 import type { MutableDeep } from '@/types/mutable.js';

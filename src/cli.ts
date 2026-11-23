@@ -1,3 +1,5 @@
+// Starts Launch and maps a usage or drift failure onto an exit code.
+
 import { isUsageError } from './cli/command.ts';
 import { Program } from './program.ts';
 import { DRIFT_MESSAGE } from './store/plan-store.ts';

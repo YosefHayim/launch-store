@@ -1,3 +1,5 @@
+// Retries a failed App Store Connect request and picks the newest marketing version.
+
 type AppleTransportRetryPolicy = {
   readonly attempts?: number;
   readonly baseDelayMs?: number;

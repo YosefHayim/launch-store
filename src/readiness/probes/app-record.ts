@@ -1,3 +1,5 @@
+// Checks that each iOS app already has a record in App Store Connect.
+
 import type {
   AppReadiness,
   ProbeResult,

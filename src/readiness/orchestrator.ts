@@ -1,3 +1,5 @@
+// Runs readiness probes together and turns blockers and errors into an exit code.
+
 import { errorMessage } from '../services/platform/error-message.ts';
 import type {
   ProbeOutcome,

@@ -1,3 +1,5 @@
+// Runs Launch setup, and can create iOS signing assets on App Store Connect.
+
 import {
   getActiveAccount,
   listAccounts,

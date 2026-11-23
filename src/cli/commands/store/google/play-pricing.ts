@@ -1,3 +1,5 @@
+// Registers the command that shows a recommended Google Play price in every region.
+
 import type { Command } from '@/cli/command.js';
 import {
   type PlayPricingCommandInput,

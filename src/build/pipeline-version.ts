@@ -1,3 +1,5 @@
+// Sets the marketing version and the iOS build number or Android version code before compile.
+
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
@@ -14,7 +16,7 @@ import {
 } from '../release/version.ts';
 import { readLastBump } from '../distribution/last-run.ts';
 import type { Logger } from '../services/platform/logger.ts';
-import { executeCommand } from '../services/platform/exec.ts';
+import { executeCommand } from '../services/platform/execute-command.ts';
 import { checkTerminalIsInteractive, withSpinner } from '../services/platform/progress.ts';
 import { nativeProjectDirName } from '../services/stores/platform.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';

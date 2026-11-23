@@ -1,3 +1,5 @@
+// Pulls App Store Connect sales and analytics reports for one app and date range.
+
 import { errorMessage } from '@/services/platform/error-message.js';
 import { summarizeRatings } from '@/insights/aggregate.js';
 import {

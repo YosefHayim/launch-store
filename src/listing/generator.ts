@@ -1,3 +1,5 @@
+// Builds a listing prompt, asks Anthropic, and parses the reply into a listing draft.
+
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 import type { DraftListing, ListingBrief } from '../types/listing.ts';

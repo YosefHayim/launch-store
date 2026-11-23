@@ -1,3 +1,5 @@
+// Checks that the Google Play app exists and the service account can open it.
+
 import type {
   AppReadiness,
   PlayReadinessApi,

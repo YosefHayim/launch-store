@@ -1,3 +1,5 @@
+// Picks the build engine, submitter, Play release notes, size budget, and upload transport.
+
 import { readFile } from 'node:fs/promises';
 import type {
   AndroidReleaseNote,

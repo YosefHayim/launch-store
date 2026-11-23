@@ -1,3 +1,5 @@
+// Compares Google Play in-app products with the products declared in Launch config.
+
 import { errorMessage } from '@/services/platform/error-message.js';
 import { reconcilePlayProducts, type PlayProductsApi } from '@/store/google/play-products.js';
 import type { AppDescriptor } from '@/types/app.js';

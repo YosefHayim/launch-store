@@ -1,3 +1,5 @@
+// Reads saved Apple signing keys, profiles, and Google Play service accounts on this machine.
+
 import {
   formatAccountSummary,
   getActiveKeyId,

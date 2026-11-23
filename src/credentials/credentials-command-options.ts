@@ -1,3 +1,5 @@
+// Lists the flags shared by credentials actions, from the account name to key file paths.
+
 export type CredentialsCommandOptions = {
   platform?: string;
   keyId?: string;

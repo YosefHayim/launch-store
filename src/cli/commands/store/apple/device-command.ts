@@ -1,3 +1,5 @@
+// Adds one iOS device on App Store Connect for internal installs, and lists devices already there.
+
 import { createLogger } from '@/services/platform/logger.js';
 import type { DeviceResource } from '@/types/apple-catalog.js';
 import { loadActiveAppleStore } from './apple-store-command.ts';

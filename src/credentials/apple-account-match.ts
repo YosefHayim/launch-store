@@ -1,3 +1,5 @@
+// Finds the single saved App Store Connect account a name or key id refers to.
+
 import type { AccountRecord } from '../types/credentials.ts';
 import { matchAccount } from './accounts.ts';
 import { failCommand } from './credentials-failure.ts';

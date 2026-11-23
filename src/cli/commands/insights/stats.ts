@@ -1,3 +1,5 @@
+// Registers the command that stores daily download, rating, and usage numbers on this machine.
+
 import type { Command } from '@/cli/command.js';
 import { statsReportProgram } from '@/stats/stats-command.js';
 import { statsSyncProgram } from '@/stats/stats-sync-command.js';

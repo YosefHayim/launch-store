@@ -1,3 +1,5 @@
+// Lists, sets, and removes keychain-backed secrets a build can read.
+
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';

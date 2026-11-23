@@ -1,3 +1,5 @@
+// Compares App Store Connect European Union distribution domains with local config.
+
 import { resolveSidecarConfig } from '@/config/config.js';
 import {
   loadEuDistributionConfig,

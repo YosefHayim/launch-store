@@ -1,3 +1,5 @@
+// Finds a price point and schedules a new app price on App Store Connect.
+
 import type { AscHost } from './host.ts';
 import type { PricePointResource } from '@/types/apple-catalog.js';
 import { matchPricePoint } from './shared.ts';

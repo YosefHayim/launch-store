@@ -1,3 +1,5 @@
+// Runs one decoded launch-store build request through the build pipeline.
+
 import { runBuild } from './pipeline.ts';
 import { setVerboseOutput } from '../services/platform/progress.ts';
 import { type BuildCommandOptions, parseBuildCommandInput } from './build-command-input.ts';

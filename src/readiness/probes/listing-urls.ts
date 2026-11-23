@@ -1,3 +1,5 @@
+// Checks that declared App Store Connect listing URLs answer with a successful status.
+
 import { join } from 'node:path';
 import { errorMessage } from '@/services/platform/error-message.js';
 import { loadStoreConfig, type AppleStoreConfig } from '@/store/shared/store-config.js';

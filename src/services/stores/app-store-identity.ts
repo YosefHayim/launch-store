@@ -1,3 +1,5 @@
+// Checks an App Store Connect key, then reads the Apple team and app names it can see.
+
 import type { AscKey } from '@/types/credentials.js';
 import { AppleStoreClientService } from './apple-store-client.ts';
 

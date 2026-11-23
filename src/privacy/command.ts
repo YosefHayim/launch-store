@@ -1,3 +1,5 @@
+// Scans the selected apps' privacy files and prints what they declare.
+
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadConfig, readResolvedConfig } from '../config/config.ts';

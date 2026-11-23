@@ -1,3 +1,5 @@
+// Shows Xcode and Gradle step lines, a bar, and a spinner while a long step runs.
+
 import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { stdout } from 'node:process';
@@ -5,7 +7,7 @@ import { diagnoseBuildLog, formatDiagnoses } from '@/build/build-diagnostics.js'
 import { currentBuildLog } from '@/build/build-log.js';
 import type { BuildEstimate } from '@/build/build-fingerprint.js';
 import { formatElapsed } from './elapsed.ts';
-import { executeCommand, executeCommandQuietly } from './exec.ts';
+import { executeCommand, executeCommandQuietly } from './execute-command.ts';
 import { readLaunchEnvironment } from './environment.ts';
 import { isJsonOutput } from './json-output-mode.ts';
 import { createLogger } from './logger.ts';

@@ -1,3 +1,5 @@
+// Checks that each iOS app declares export compliance before App Store Connect submission.
+
 import type { AppDescriptor } from '@/types/app.js';
 import type {
   AppReadiness,

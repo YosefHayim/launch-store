@@ -1,3 +1,5 @@
+// Signs the App Store Connect token from the private key saved for Launch.
+
 import { createPrivateKey, sign } from 'node:crypto';
 import type { AscKey } from '../types/credentials.ts';
 import {

@@ -1,3 +1,5 @@
+// Registers the command that checks the local build tools and the saved store account.
+
 import type { Command } from '@/cli/command.js';
 import { type DoctorCommandInput, doctorCommandProgram } from '@/doctor/command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

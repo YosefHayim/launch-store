@@ -1,3 +1,5 @@
+// Finds App Store Connect apps, plans the copy, and writes the adopted local files.
+
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { writeAppEntitlements } from '../config/config.ts';

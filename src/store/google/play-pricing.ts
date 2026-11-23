@@ -1,3 +1,5 @@
+// Converts one price into recommended Google Play prices for each region.
+
 import { hasMessage } from '@/services/platform/error-message.js';
 import { createLogger } from '@/services/platform/logger.js';
 import type { ConvertedPrices, PlayMoneyUnits } from '@/types/play-pricing.js';

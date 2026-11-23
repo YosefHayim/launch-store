@@ -1,3 +1,5 @@
+// Checks rollout, notes, and status, then builds one Google Play track release.
+
 import type { PlayRelease } from '@/types/google-play.js';
 import type { MutableDeep } from '@/types/mutable.js';
 import { readPlainObject } from '@/services/platform/plain-object.js';

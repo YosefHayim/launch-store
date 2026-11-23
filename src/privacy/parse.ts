@@ -1,3 +1,5 @@
+// Reads Apple privacy manifests, usage strings, and Android permission names.
+
 import type { PrivacySurface } from '../types/privacy.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 

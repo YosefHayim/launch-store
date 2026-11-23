@@ -1,3 +1,5 @@
+// Holds the teaching text for store, signing, and release terms the explain command prints.
+
 export type GlossaryTopic =
   // Ecosystem & frameworks - the stack your app is built on
   | 'react-native'

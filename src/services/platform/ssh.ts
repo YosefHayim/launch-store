@@ -1,4 +1,6 @@
-import { captureCommandOutput, type CommandExecutionOptions, executeCommand } from './exec.ts';
+// Runs a command and copies files on a remote build Mac over a secure shell.
+
+import { captureCommandOutput, type CommandExecutionOptions, executeCommand } from './execute-command.ts';
 import type { SshTarget } from '@/types/remote.js';
 
 /** `user@host` for ssh/scp/rsync destinations. */

@@ -1,3 +1,5 @@
+// Registers the command that pauses, resumes, or finishes an App Store phased release.
+
 import type { Command } from '@/cli/command.js';
 import { rolloutCommandProgram } from '@/release/rollout-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

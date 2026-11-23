@@ -1,3 +1,5 @@
+// Maps each app target to its store name, signing profile, and native project folder.
+
 import type { Platform } from '@/types/app.js';
 
 type PlatformMappingFailure = Readonly<{

@@ -1,3 +1,5 @@
+// Clamps a listing draft to App Store Connect and Google Play limits and merges it into config.
+
 import type {
   AndroidLocaleInfo,
   AppleLocaleInfo,

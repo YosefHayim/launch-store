@@ -1,3 +1,5 @@
+// Uploads an Android App Bundle to a Google Play track and commits the edit.
+
 import type { GooglePlay } from '../google-play.ts';
 
 interface PlayBundleUpload {

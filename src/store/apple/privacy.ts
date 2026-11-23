@@ -1,3 +1,5 @@
+// Lists the App Store Connect app info records that hold privacy details.
+
 import type { AppStoreConnect } from '@/apple/app-store-connect.js';
 
 export class ApplePrivacy {

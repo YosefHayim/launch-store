@@ -1,3 +1,5 @@
+// Allocates an Amazon EC2 Mac, installs the build tools, and releases the machine afterward.
+
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { _InstanceType } from '@aws-sdk/client-ec2';

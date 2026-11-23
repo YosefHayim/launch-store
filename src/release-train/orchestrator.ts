@@ -1,3 +1,5 @@
+// Starts a release train and advances each car until the train settles or fails.
+
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import type {

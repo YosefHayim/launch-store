@@ -1,3 +1,5 @@
+// Pulls Google Analytics users and sessions for one app over a date range.
+
 import { errorMessage } from '@/services/platform/error-message.js';
 import type { PortfolioApp } from '@/types/portfolio.js';
 import type { DateRange, FeedFetchReply, StatsFeedFailure } from '@/types/stats.js';

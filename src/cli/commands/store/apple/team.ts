@@ -1,3 +1,5 @@
+// Registers the commands that list, invite, and remove App Store Connect team members.
+
 import type { Command } from '@/cli/command.js';
 import {
   type TeamInviteInput,

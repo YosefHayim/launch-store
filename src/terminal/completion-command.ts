@@ -1,3 +1,5 @@
+// Installs shell completion, prints the script, or lists candidates for one tab press.
+
 import type { Command } from '../cli/command.ts';
 import { stdout } from 'node:process';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';

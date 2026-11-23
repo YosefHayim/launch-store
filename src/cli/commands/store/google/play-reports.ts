@@ -1,3 +1,5 @@
+// Registers the command that shows Google Play crash and ANR rates.
+
 import type { Command } from '@/cli/command.js';
 import { DEFAULT_VITALS_DAYS, playReportsCommandProgram } from './play-reports-command.ts';
 import { runCliProgram } from '@/cli/run-cli-program.js';

@@ -1,3 +1,5 @@
+// Prebuilds, signs, versions, bundles, stores, and submits one Android binary to Google Play.
+
 import type { AndroidCredentials, BuildCredentials } from '../types/credentials.ts';
 import { makeProviderInputFailure } from '../types/providers.ts';
 import { getBuildEngine, getCredentialsProvider } from '../services/provider-support/registry.ts';

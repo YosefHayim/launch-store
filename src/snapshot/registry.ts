@@ -1,3 +1,5 @@
+// Registers the App Store Connect and Google Play surfaces a store copy can capture.
+
 import type { SnapshotSource } from '../types/snapshot.ts';
 import { appleProductsSource } from './sources/apple-products.ts';
 import { appleSubscriptionsSource } from './sources/apple-subscriptions.ts';

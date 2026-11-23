@@ -1,3 +1,5 @@
+// Holds probe results for submitting an app to App Store Connect or Google Play.
+
 import type { AppDescriptor } from './app.ts';
 import type { LaunchConfig } from './config.ts';
 

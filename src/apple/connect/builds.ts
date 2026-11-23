@@ -1,3 +1,5 @@
+// Uploads an App Store Connect build and reads its number, state, and encryption.
+
 import type { AscHost } from './host.ts';
 import type {
   BuildResource,

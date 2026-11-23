@@ -1,3 +1,5 @@
+// Compares App Store Connect Wallet merchant identifiers with the local config.
+
 import { resolveSidecarConfig } from '@/config/config.js';
 import { loadWalletConfig, reconcileWalletIds } from '@/store/apple/wallet-ids.js';
 import { planTeamSurface } from './app-store-surface.ts';

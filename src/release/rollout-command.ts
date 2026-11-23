@@ -1,3 +1,5 @@
+// Pauses, resumes, or completes an App Store Connect phased release.
+
 import { loadConfig } from '../config/config.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
 import { errorMessage } from '../services/platform/error-message.ts';

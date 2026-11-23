@@ -1,3 +1,5 @@
+// Lines up text columns so a Launch table prints evenly in the terminal.
+
 export type Column<TableEntry> = Readonly<{
   header: string;
   cell: (tableEntry: TableEntry) => string;

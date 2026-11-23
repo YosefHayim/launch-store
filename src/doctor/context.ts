@@ -1,11 +1,13 @@
+// Collects config, host tools, credentials, and store clients for one doctor run.
+
 import { join } from 'node:path';
 import { loadConfig, type LoadedConfig } from '../config/config.ts';
 import type { LaunchEnvironmentValues } from '../config/environment.ts';
 import { pathExists } from '../path-exists.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
-import { captureCommandOutput, checkCommandExists } from '../services/platform/exec.ts';
-import { detectHostOperatingSystem } from '../services/platform/os.ts';
+import { captureCommandOutput, checkCommandExists } from '../services/platform/execute-command.ts';
+import { detectHostOperatingSystem } from '../services/platform/host-operating-system.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { getCredentialsProvider } from '../services/provider-support/registry.ts';
 import {

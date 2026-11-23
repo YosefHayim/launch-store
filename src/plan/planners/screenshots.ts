@@ -1,3 +1,5 @@
+// Compares App Store Connect screenshots and app previews with the local files.
+
 import { reconcileAssetActions } from '@/store/shared/sync-run.js';
 import { buildJobs, type SyncJob } from '@/store/shared/sync-jobs.js';
 import { checkScreenshotFile } from '@/listing/screenshots/specs.js';

@@ -1,3 +1,5 @@
+// Compares App Store Connect territory availability with the local config.
+
 import { pathExists } from '@/path-exists.js';
 import { readAvailabilityConfig, reconcileAvailability } from '@/store/apple/availability.js';
 import { planAppStoreSurface } from './app-store-surface.ts';

@@ -1,3 +1,5 @@
+// Detects which package manager and workspace root an app uses.
+
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { pathExists } from '../path-exists.ts';

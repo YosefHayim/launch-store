@@ -1,3 +1,5 @@
+// Reconciles App Clip experiences and localizations on App Store Connect.
+
 import {
   APP_CLIP_ACTIONS,
   type AppClipActionValue,

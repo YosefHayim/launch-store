@@ -1,3 +1,5 @@
+// Creates and reads the redacted log file for one native build.
+
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { resolveLogsDirectory } from '../services/platform/paths.ts';

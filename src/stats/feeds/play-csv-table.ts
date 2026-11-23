@@ -1,3 +1,5 @@
+// Decodes a Google Play stats CSV into rows that can be read by column name.
+
 export interface PlayCsvTable {
   readonly lines: readonly Readonly<Record<string, string>>[];
 }

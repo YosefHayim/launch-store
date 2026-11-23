@@ -1,3 +1,5 @@
+// Registers the command that opens one app page on App Store Connect or Google Play.
+
 import type { Command } from '@/cli/command.js';
 import { OPEN_TARGETS } from '@/terminal/console-links.js';
 import { type OpenCommandInput, openCommandProgram } from '@/terminal/open-command.js';

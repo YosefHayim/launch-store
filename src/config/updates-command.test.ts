@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { UpdateManifest } from '../distribution/ota-manifest.ts';
+import type { UpdateManifest } from '../distribution/over-the-air-manifest.ts';
 import {
   formatUpdateDetail,
   formatUpdatesTable,

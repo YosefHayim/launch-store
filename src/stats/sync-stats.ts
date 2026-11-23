@@ -1,3 +1,5 @@
+// Pulls App Store Connect, Google Play, and Google Analytics stats for the chosen apps.
+
 import { loadPortfolioApps } from '../portfolio/load-portfolio-apps.ts';
 import { findAppsByName, joinTags } from '../portfolio/portfolio-logic.ts';
 import { readDocumentFile } from '../services/platform/atomic-document-file.ts';

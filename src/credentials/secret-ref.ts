@@ -1,3 +1,5 @@
+// Turns an environment or keychain secret reference into the stored secret text.
+
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
 

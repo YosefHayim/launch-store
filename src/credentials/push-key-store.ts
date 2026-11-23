@@ -1,3 +1,5 @@
+// Saves Apple push notification keys and loads one key by its id.
+
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';

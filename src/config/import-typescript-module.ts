@@ -1,3 +1,5 @@
+// Loads a TypeScript module, such as the Launch config, while the program is running.
+
 import { existsSync, readFileSync } from 'node:fs';
 import { registerHooks, stripTypeScriptTypes } from 'node:module';
 import { dirname, join } from 'node:path';

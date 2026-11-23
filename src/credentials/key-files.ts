@@ -1,3 +1,5 @@
+// Reads the key id from an App Store Connect AuthKey file name and checks that it matches.
+
 import { readdir } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 

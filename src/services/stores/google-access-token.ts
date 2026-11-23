@@ -1,3 +1,5 @@
+// Creates a short-lived token Google Play accepts from a service-account key.
+
 import { createServiceAccountAccessToken } from '@/google/service-account-token.js';
 import { readServiceAccount } from '@/google/play-client.js';
 import type { ServiceAccount } from '@/types/credentials.js';

@@ -1,3 +1,5 @@
+// Reads and writes the listing text Launch syncs to App Store Connect and Google Play.
+
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '@/path-exists.js';

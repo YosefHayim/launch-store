@@ -1,8 +1,10 @@
+// Sends a completion, review, or rollout notice to a webhook or a shell command.
+
 import type { Platform } from '@/types/app.js';
 import type { LaunchConfig } from '@/types/config.js';
 import type { NotifyConfig } from '@/types/store-surface.js';
 import { errorMessage } from './error-message.ts';
-import { executeCommandQuietly } from './exec.ts';
+import { executeCommandQuietly } from './execute-command.ts';
 import { createLogger, type Logger } from './logger.ts';
 import { redactText } from './redact.ts';
 

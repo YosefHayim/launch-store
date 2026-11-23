@@ -1,3 +1,5 @@
+// Runs plan or drift and reports how Launch config differs from the live stores.
+
 import { loadConfig } from '../config/config.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';

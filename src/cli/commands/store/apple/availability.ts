@@ -1,3 +1,5 @@
+// Registers the command that sets the App Store countries an app is sold in.
+
 import type { Command } from '@/cli/command.js';
 import {
   type AvailabilityCommandInput,

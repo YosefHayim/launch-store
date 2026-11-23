@@ -1,16 +1,18 @@
+// Builds a signed Android release with Gradle and estimates the Google Play download size.
+
 import { mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { SizeReportEntry } from '@/types/artifacts.js';
 import type { KeystoreAssets } from '@/types/credentials.js';
 import { makeProviderInputFailure, type BuildEngine } from '@/types/providers.js';
-import { captureCommandOutput, executeCommand } from '@/services/platform/exec.js';
+import { captureCommandOutput, executeCommand } from '@/services/platform/execute-command.js';
 import {
   runWithProgress,
   gradleProgressStep,
   type ProgressRunOptions,
 } from '@/services/platform/progress.js';
-import { detectHostOperatingSystem } from '@/services/platform/os.js';
+import { detectHostOperatingSystem } from '@/services/platform/host-operating-system.js';
 import { pathExists } from '@/path-exists.js';
 import {
   estimateFor,

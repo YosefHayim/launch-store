@@ -1,3 +1,5 @@
+// Loads the App Store Connect key and Google Play account a stats sync needs.
+
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadConfig } from '../config/config.ts';

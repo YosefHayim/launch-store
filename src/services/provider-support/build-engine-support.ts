@@ -1,3 +1,5 @@
+// Shares archive flags, build estimates, and signing writes that the local build engines use.
+
 import {
   assembleArchiveArguments as assembleCoreArchiveArguments,
   assembleExportArguments as assembleCoreExportArguments,

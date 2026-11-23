@@ -1,3 +1,5 @@
+// Reads a Google Play reports bucket name from a copied Cloud Storage address.
+
 /** The bucket name from a copied Cloud Storage URI (`gs://pubsite_prod_123/`) or a bare name; null when it is neither. */
 export function parsePlayReportsBucket(copiedBucketUri: string): string | null {
   const trimmedUri = copiedBucketUri.trim();

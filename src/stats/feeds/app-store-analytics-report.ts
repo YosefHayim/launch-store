@@ -1,3 +1,5 @@
+// Turns a downloaded App Store Connect analytics report into daily stats.
+
 import type { DailyStat, DateRange } from '@/types/stats.js';
 import type {
   AnalyticsAccessType,

@@ -1,3 +1,5 @@
+// Saves App Store Connect in-app purchases into a copy of the store.
+
 import type {
   SnapshotAscApi,
   SnapshotContext,

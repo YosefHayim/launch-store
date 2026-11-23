@@ -1,3 +1,5 @@
+// Reads reviews from App Store Connect and Google Play, then prints the ratings report.
+
 import { loadConfig } from '../config/config.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';

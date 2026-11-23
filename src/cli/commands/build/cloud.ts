@@ -1,3 +1,5 @@
+// Registers the command that sets up, checks, and tears down the remote Mac build host.
+
 import type { Command } from '@/cli/command.js';
 import { cloudCommandProgram } from '@/distribution/cloud-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

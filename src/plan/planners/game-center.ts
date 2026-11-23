@@ -1,3 +1,5 @@
+// Compares App Store Connect Game Center achievements and leaderboards with local config.
+
 import { resolveSidecarConfig } from '@/config/config.js';
 import { loadGameCenterConfig, reconcileGameCenter } from '@/store/apple/game-center.js';
 import { planAppStoreSurface } from './app-store-surface.ts';

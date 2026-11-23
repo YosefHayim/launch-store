@@ -1,3 +1,5 @@
+// Exports the Launch config function and the config types an app imports.
+
 export { defineConfig } from './config/config.ts';
 export type { LaunchConfigInput } from './config/config.ts';
 export type { BuildProfile, PlayTrack } from './types/app.ts';

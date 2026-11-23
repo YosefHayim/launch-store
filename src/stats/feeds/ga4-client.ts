@@ -1,3 +1,5 @@
+// Calls Google Analytics Admin and Data while a stats sync is reading one app.
+
 import { errorMessage } from '@/services/platform/error-message.js';
 import type { StatsFeedFailure } from '@/types/stats.js';
 import { readPlainObject } from '@/services/platform/plain-object.js';

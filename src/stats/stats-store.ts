@@ -1,3 +1,5 @@
+// Saves and loads one app's daily stats, keeping a separate file for each month.
+
 import { join } from 'node:path';
 import {
   readDocumentFile,

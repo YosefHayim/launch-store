@@ -1,3 +1,5 @@
+// Keeps the built-in readiness probes and returns those in a chosen category.
+
 import type { ReadinessCategory, ReadinessProbe } from '../types/readiness.ts';
 import { agreementsProbe } from './probes/agreements.ts';
 import { appRecordProbe } from './probes/app-record.ts';
@@ -5,11 +7,11 @@ import { subscriptionGroupProbe } from './probes/subscription-group.ts';
 import { bundleIdProbe } from './probes/bundle-id.ts';
 import { distributionCertProbe } from './probes/distribution-cert.ts';
 import { exportComplianceProbe } from './probes/export-compliance.ts';
-import { iapProductsProbe } from './probes/iap-products.ts';
-import { iapCodeReferenceProbe } from './probes/iap-code-reference.ts';
+import { iapProductsProbe } from './probes/in-app-purchase-products.ts';
+import { iapCodeReferenceProbe } from './probes/in-app-purchase-code-reference.ts';
 import { storeKitConfigProbe } from './probes/store-kit-config.ts';
 import { subscriptionsProbe } from './probes/subscriptions.ts';
-import { iapPricingProbe } from './probes/iap-pricing.ts';
+import { iapPricingProbe } from './probes/in-app-purchase-pricing.ts';
 import { subscriptionOffersProbe } from './probes/subscription-offers.ts';
 import { sandboxTestersProbe } from './probes/sandbox-testers.ts';
 import { playAppProbe } from './probes/play-app.ts';

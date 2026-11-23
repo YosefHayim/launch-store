@@ -1,3 +1,5 @@
+// Reads and sets the territories where an app is for sale on App Store Connect.
+
 import type { AppAvailabilityResource } from '@/types/apple-catalog.js';
 import type { AscHost } from './host.ts';
 import type { TerritoryAvailabilityRow, TerritoryAvailabilityPage } from './shared.ts';

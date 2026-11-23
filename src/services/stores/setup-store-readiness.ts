@@ -1,3 +1,5 @@
+// Checks App Store Connect agreements and that the Google Play app exists before setup.
+
 import type { AscKey } from '@/types/credentials.js';
 import { AppleStoreClientService } from './apple-store-client.ts';
 import { GoogleStoreClientService, makeGoogleTransportFailure } from './google-store-client.ts';

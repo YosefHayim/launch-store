@@ -1,3 +1,5 @@
+// Parses, compares, and bumps the numeric marketing version a release will ship.
+
 type VersionBump = 'major' | 'minor' | 'patch';
 
 /** A user-facing version-bump choice */

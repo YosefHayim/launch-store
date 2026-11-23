@@ -1,3 +1,5 @@
+// Adds testers, including a list from a file, to one TestFlight group.
+
 import { readFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import { createLogger } from '../services/platform/logger.ts';

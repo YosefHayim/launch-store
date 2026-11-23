@@ -1,6 +1,8 @@
+// Holds a saved copy of App Store Connect or Google Play state and the reads that capture it.
+
 import type { ListingLocalization } from './apple-catalog.ts';
 import type { InAppProductResource, SubscriptionResource } from './google-play.ts';
-import type { AscCatalogApi } from '../store/apple/asc-sync.ts';
+import type { AscCatalogApi } from '../store/apple/app-store-sync.ts';
 import type { PlannedAction } from './reconcile.ts';
 import type { AppDescriptor } from './app.ts';
 import type { LaunchConfig } from './config.ts';

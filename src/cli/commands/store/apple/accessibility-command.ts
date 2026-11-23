@@ -1,4 +1,6 @@
-import { selectApp } from '@/build/pipeline-env.js';
+// Syncs accessibility nutrition labels for one app to App Store Connect.
+
+import { selectApp } from '@/build/pipeline-environment.js';
 import { loadConfig } from '@/config/config.js';
 import { loadActiveAscKey } from '@/credentials/accounts.js';
 import { AppleStoreClientService } from '@/services/stores/apple-store-client.js';

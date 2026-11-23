@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { listingPlanner } from './listing.ts';
 import { makeAscApiFake } from '@/testkit/asc-api-fake-testkit.js';
-import type { AscCatalogApi } from '@/store/apple/asc-sync.js';
+import type { AscCatalogApi } from '@/store/apple/app-store-sync.js';
 import type { AppDescriptor } from '@/types/app.js';
 import type { LaunchConfig } from '@/types/config.js';
 import type { PlanContext } from '@/types/plan.js';

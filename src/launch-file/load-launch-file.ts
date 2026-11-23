@@ -1,3 +1,5 @@
+// Finds launch.config.ts by walking up from the working directory and loads it.
+
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { LaunchConfig } from '../types/config.ts';

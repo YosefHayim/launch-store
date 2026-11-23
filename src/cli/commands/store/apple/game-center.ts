@@ -1,3 +1,5 @@
+// Registers the command that syncs Game Center achievements and leaderboards from a config file.
+
 import type { Command } from '@/cli/command.js';
 import { type GameCenterCommandInput, gameCenterCommandProgram } from './game-center-command.ts';
 import { runCliProgram } from '@/cli/run-cli-program.js';

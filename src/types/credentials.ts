@@ -1,3 +1,5 @@
+// Holds App Store Connect keys, Apple signing assets, and Google Play service accounts.
+
 export type AscKey = Readonly<{
   keyId: string;
   issuerId: string;

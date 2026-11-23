@@ -1,3 +1,5 @@
+// Drafts App Store Connect and Google Play listing copy, then writes the chosen text.
+
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadConfig, readResolvedConfig } from '../config/config.ts';

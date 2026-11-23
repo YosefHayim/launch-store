@@ -1,3 +1,5 @@
+// Lists and downloads files from the Google Play reports bucket.
+
 import { errorMessage } from '@/services/platform/error-message.js';
 import { readPlainObject } from '@/services/platform/plain-object.js';
 import { isFailureTag } from '@/services/platform/tagged-failure.js';

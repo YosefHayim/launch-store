@@ -1,3 +1,5 @@
+// Chooses the release type and the What's New text a store submission will write.
+
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';

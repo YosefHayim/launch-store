@@ -1,3 +1,5 @@
+// Lists App Store reviews and posts or deletes a developer reply on App Store Connect.
+
 import { readFile } from 'node:fs/promises';
 import { createLogger } from '@/services/platform/logger.js';
 import { LaunchPrompt } from '@/services/platform/prompt.js';

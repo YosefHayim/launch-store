@@ -1,3 +1,5 @@
+// Calls Google Play for tracks, listings, products, subscriptions, and reviews.
+
 import {
   androidpublisher,
   auth as androidPublisherAuth,

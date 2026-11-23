@@ -1,3 +1,5 @@
+// Syncs Apple Pay merchant ids and Wallet pass type ids on App Store Connect.
+
 import path from 'node:path';
 import { loadConfig } from '@/config/config.js';
 import { errorMessage } from '@/services/platform/error-message.js';

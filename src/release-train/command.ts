@@ -1,7 +1,9 @@
+// Starts or advances a release train that ships native and over-the-air updates together.
+
 import { randomUUID } from 'node:crypto';
-import { applyBuildEnvironment, resolveCommandEnv, selectApp } from '../build/pipeline-env.ts';
+import { applyBuildEnvironment, resolveCommandEnv, selectApp } from '../build/pipeline-environment.ts';
 import { loadConfig, type LoadedConfig } from '../config/config.ts';
-import { parseCliEnv, type ResolvedEnv } from '../config/env.ts';
+import { parseCliEnv, type ResolvedEnv } from '../config/environment-file.ts';
 import { resolveRuntimeVersion } from '../config/update-command.ts';
 import { isCloudStorage } from '../distribution/storage.ts';
 import { errorMessage } from '../services/platform/error-message.ts';

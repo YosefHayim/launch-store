@@ -1,3 +1,5 @@
+// Takes a credentials answer from a flag, or asks on the terminal when that is allowed.
+
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { CredentialsCommandOptions } from './credentials-command-options.ts';
 import { failCommand } from './credentials-failure.ts';

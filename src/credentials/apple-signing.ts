@@ -1,3 +1,5 @@
+// Reads the team id and distribution certificate name for the active Apple account.
+
 import { findActiveAccount, readSavedAccounts } from './keychain.ts';
 
 export interface AppleSigningIdentity {

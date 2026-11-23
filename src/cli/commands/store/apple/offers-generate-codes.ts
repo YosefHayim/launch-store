@@ -1,3 +1,5 @@
+// Generates redeemable subscription offer codes on App Store Connect.
+
 import { createLogger } from '@/services/platform/logger.js';
 import type { OffersGenerateCodesInput } from './offers-command.ts';
 import { findOfferCode, offersFailure, resolveSubscription } from './offers-subscription.ts';

@@ -1,3 +1,5 @@
+// Saves Google Play in-app products and can write those products back.
+
 import type {
   InAppPurchaseConfig,
   PlayProductOverride,

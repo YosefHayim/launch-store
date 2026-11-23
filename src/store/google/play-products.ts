@@ -1,3 +1,5 @@
+// Reconciles in-app products on Google Play with the products Launch declares.
+
 import type { InAppProductResource, PlayMoney } from '@/types/google-play.js';
 import type { InAppPurchaseConfig, PlayPriceConfig } from '@/types/catalog.js';
 import type { PlannedAction } from '@/types/reconcile.js';

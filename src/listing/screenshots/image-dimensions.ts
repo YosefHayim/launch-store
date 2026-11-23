@@ -1,3 +1,5 @@
+// Reads the pixel width and height of a PNG or JPEG screenshot.
+
 import { readFile } from 'node:fs/promises';
 
 type ImageDimensions = {

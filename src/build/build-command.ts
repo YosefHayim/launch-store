@@ -1,3 +1,5 @@
+// Registers the local build command and prints the signed binary path or a dry-run plan.
+
 import type { Command } from '../cli/command.ts';
 import { BuildPipeline, type ShipBuild } from './build-pipeline.ts';
 

@@ -1,3 +1,5 @@
+// Merges newly pulled daily stats over the days Launch already saved.
+
 import type { DailyStat } from '../types/stats.ts';
 import { readMonthOfDate } from './date-range.ts';
 

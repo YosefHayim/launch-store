@@ -1,3 +1,5 @@
+// Compares App Store Connect custom product pages with the local config.
+
 import { resolveSidecarConfig } from '@/config/config.js';
 import {
   loadCustomProductPagesConfig,

@@ -1,3 +1,5 @@
+// Writes a starter launch.config.ts for the init command when one is not there yet.
+
 import type { Command } from '../cli/command.ts';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';

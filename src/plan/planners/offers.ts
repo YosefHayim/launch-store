@@ -1,3 +1,5 @@
+// Compares App Store Connect subscription offers with the products in Launch config.
+
 import { appDeclaresOffers, reconcileOffers } from '@/store/apple/offers.js';
 import { planAppStoreSurface } from './app-store-surface.ts';
 import type { SurfacePlanner } from '@/types/plan.js';

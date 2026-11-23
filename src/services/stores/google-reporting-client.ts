@@ -1,3 +1,5 @@
+// Opens the Google Play Developer Reporting client from a service-account key.
+
 import { PlayReportingClient } from '@/google/play-reporting.js';
 import { readServiceAccount } from '@/google/play-client.js';
 

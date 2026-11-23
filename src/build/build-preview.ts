@@ -1,3 +1,5 @@
+// Shows the profile, store id, and track a build would use before any native work starts.
+
 import { isApplePlatform } from '../services/stores/platform.ts';
 import type { AppDescriptor, Platform, PlayTrack } from '../types/app.ts';
 import type { LaunchConfig } from '../types/config.ts';

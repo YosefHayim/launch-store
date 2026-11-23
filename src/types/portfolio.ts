@@ -1,3 +1,5 @@
+// Holds the apps Launch found on App Store Connect and Google Play, and who owns each.
+
 export type PortfolioPlatform = 'ios' | 'android';
 
 export type AppOwner = 'mine' | 'client';

@@ -1,3 +1,5 @@
+// Lists the App Store Connect, Google Play, and Google Analytics feeds Launch can sync.
+
 import type { StatsFeedPlugin } from '../types/stats.ts';
 import { appStoreFeed } from './feeds/app-store.ts';
 import { ga4Feed } from './feeds/ga4.ts';

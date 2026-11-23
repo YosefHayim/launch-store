@@ -9,7 +9,7 @@ import { resetLaunchDirectories, useLaunchDirectories } from '../services/platfo
 import { resetPrompts } from '../services/platform/prompt.ts';
 import { registerBuildEngine } from '../services/provider-support/registry.ts';
 import { prepareBuild, runBuild } from './pipeline.ts';
-import { runEasBuild } from './eas-pipeline.ts';
+import { runEasBuild } from './expo-application-services-pipeline.ts';
 // A dry-run must never shell out (no ssh/scp/rsync/aws) - make any spawn an immediate, obvious failure.
 vi.mock('node:child_process', function mockChildProcess() {
   return {

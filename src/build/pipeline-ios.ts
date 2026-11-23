@@ -1,3 +1,5 @@
+// Prebuilds, signs, versions, archives, stores, and submits one iOS binary to App Store Connect.
+
 import type { AccountRecord, AppleCredentials, BuildCredentials } from '../types/credentials.ts';
 import type { SizeReport } from '../types/artifacts.ts';
 import { makeProviderInputFailure } from '../types/providers.ts';

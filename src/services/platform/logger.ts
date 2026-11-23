@@ -1,3 +1,5 @@
+// Prints run, warning, and progress lines, or one JSON event per line, with secrets hidden.
+
 import { stdout } from 'node:process';
 import { explainTopic, type GlossaryTopic } from '@/terminal/glossary.js';
 import { formatElapsed } from './elapsed.ts';

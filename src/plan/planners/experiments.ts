@@ -1,3 +1,5 @@
+// Compares App Store Connect version experiments with the local config.
+
 import {
   discoverTreatmentScreenshots,
   parseVersionExperimentsConfig,

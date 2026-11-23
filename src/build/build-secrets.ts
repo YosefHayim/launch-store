@@ -1,3 +1,5 @@
+// Stores build secrets in the keychain and fills them in before a build runs.
+
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';

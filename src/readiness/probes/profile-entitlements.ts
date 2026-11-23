@@ -1,3 +1,5 @@
+// Checks that App Store Connect capabilities cover the entitlements the app signs with.
+
 import type { AppDescriptor } from '@/types/app.js';
 import type {
   AppReadiness,

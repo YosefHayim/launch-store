@@ -1,3 +1,5 @@
+// Plans App Clip card changes and applies them on App Store Connect.
+
 import { createLogger } from '@/services/platform/logger.js';
 import { completeCommand } from '@/terminal/command-exit.js';
 import type { AppClipsConfig } from '@/types/store-surface.js';

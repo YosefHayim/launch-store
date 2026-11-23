@@ -1,3 +1,5 @@
+// Reads a document file and replaces it by renaming a finished temporary file into place.
+
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';

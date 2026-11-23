@@ -1,0 +1,38 @@
+// Registers the read-only check that in-app purchases and subscriptions are ready to submit.
+
+import type { Command } from '@/cli/command.js';
+import { readinessCommandProgram } from '@/readiness/command.js';
+import { runCliProgram } from '@/cli/run-cli-program.js';
+
+/** CLI options for `launch-store iap doctor`. */
+type IapDoctorOptions = {
+  app?: string;
+  json?: boolean;
+};
+
+/** Attach the in-app-purchase readiness command group. */
+export function registerIapCommand(program: Command): void {
+  const iapCommand = program.command('iap').description('in-app-purchase readiness and operations');
+
+  function runDoctor(commandOptions: IapDoctorOptions) {
+    const readinessProgram = readinessCommandProgram({
+      category: 'iap',
+      labels: {
+        summary: 'IAP readiness',
+        empty: 'No IAP checks ran - no apps declare in-app purchases or subscriptions.',
+      },
+      ...commandOptions,
+    });
+
+    return runCliProgram(readinessProgram);
+  }
+
+  iapCommand
+    .command('doctor')
+    .description(
+      'check in-app-purchase readiness: products & subscriptions exist and are submittable (read-only)',
+    )
+    .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
+    .option('--json', 'machine-readable output for CI/agents', false)
+    .action(runDoctor);
+}

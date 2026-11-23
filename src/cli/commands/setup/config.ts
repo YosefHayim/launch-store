@@ -1,3 +1,5 @@
+// Registers the commands that print, check, and explain the Launch config schema.
+
 import type { Command } from '@/cli/command.js';
 import { configCommandProgram } from '@/config/config-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

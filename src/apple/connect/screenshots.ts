@@ -1,3 +1,5 @@
+// Uploads screenshots, previews, and review images for an App Store Connect listing.
+
 import type { AscHost } from './host.ts';
 import type {
   PreviewResource,

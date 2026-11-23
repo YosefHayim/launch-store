@@ -1,3 +1,5 @@
+// Copies an existing App Store Connect app into local Launch configuration.
+
 import { join, relative, sep } from 'node:path';
 import { pathExists } from '../path-exists.ts';
 import { loadConfig } from '../config/config.ts';

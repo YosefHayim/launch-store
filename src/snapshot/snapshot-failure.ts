@@ -1,3 +1,5 @@
+// Shapes a snapshot command error into the tagged failure Launch commands throw.
+
 import { hasMessage } from '../services/platform/error-message.ts';
 
 export type SnapshotCommandFailure = {

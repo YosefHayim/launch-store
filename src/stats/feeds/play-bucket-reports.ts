@@ -1,3 +1,5 @@
+// Reads installs, ratings, crashes, and earnings from the Google Play reports bucket.
+
 import type { DailyStat, DateRange } from '@/types/stats.js';
 import { shiftDate } from '../date-range.ts';
 import { decodePlayCsvBytes, readPlayCsvTable, type PlayCsvTable } from './play-csv-table.ts';

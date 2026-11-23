@@ -1,3 +1,5 @@
+// Plans Game Center changes and applies them on App Store Connect.
+
 import { createLogger } from '@/services/platform/logger.js';
 import { completeCommand } from '@/terminal/command-exit.js';
 import type { GameCenterConfig } from '@/types/store-surface.js';

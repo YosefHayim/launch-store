@@ -1,3 +1,5 @@
+// Holds Google Play crash rates and application-not-responding rates for a day window.
+
 export type PlayVitalsMetric = 'crash' | 'anr';
 
 /** One normalized day of an Android quality vital */

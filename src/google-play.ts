@@ -1,3 +1,5 @@
+// Connects to Google Play, uploads a bundle, and reads tracks, listings, and products.
+
 import { createReadStream } from 'node:fs';
 import { androidpublisher, auth as googleAuth } from '@googleapis/androidpublisher';
 import type { androidpublisher_v3 } from '@googleapis/androidpublisher';

@@ -1,3 +1,5 @@
+// Chooses Xcode job limits, compiler cache settings, and archive and export arguments.
+
 import type { SigningAssets } from '../types/credentials.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
 

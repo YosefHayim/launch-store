@@ -1,3 +1,5 @@
+// Records, activates, republishes, and rolls back an over-the-air update.
+
 import type { CodeSigner } from '../credentials/code-sign.ts';
 import type { StorageProvider } from '../types/providers.ts';
 import {
@@ -10,7 +12,7 @@ import {
   type StoredRollbackDirective,
   type UpdateHistoryEntry,
   type UpdateManifest,
-} from './ota-manifest.ts';
+} from './over-the-air-manifest.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type UpdateHistoryFailure = Readonly<{

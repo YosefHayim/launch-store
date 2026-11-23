@@ -1,3 +1,5 @@
+// Checks that an App Store Connect version has a demo account when sign-in is required.
+
 import type {
   AppReadiness,
   AscReadinessApi,

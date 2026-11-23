@@ -1,3 +1,5 @@
+// Registers the commands that keep build secrets in the keychain instead of a plaintext file.
+
 import type { Command } from '@/cli/command.js';
 import { secretCommandProgram } from '@/build/secret-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

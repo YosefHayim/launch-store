@@ -1,3 +1,5 @@
+// Reads App Store Connect and Google Play, then saves that copy under the chosen name.
+
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import type { CaptureReport } from '../types/snapshot.ts';

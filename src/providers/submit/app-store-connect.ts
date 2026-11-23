@@ -1,3 +1,5 @@
+// Uploads a finished Apple build to App Store Connect and waits until processing finishes.
+
 import { basename } from 'node:path';
 import type { BuildUploadProblem } from '@/types/apple-catalog.js';
 import type { ResolvedBuildContext } from '@/types/config.js';
@@ -13,7 +15,7 @@ import {
   appRecordMissingMessage,
 } from '@/services/stores/apple-store-client.js';
 import { readConnectPlatform } from '@/services/stores/platform.js';
-import type { AppStoreConnectClient } from '@/apple/asc-client.js';
+import type { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
 
 const PROVIDER = 'app-store-connect';
 const buildUploadWaitMilliseconds = 30 * 60 * 1000;

@@ -1,3 +1,5 @@
+// Returns the saved app list, or discovers App Store Connect and Google Play again.
+
 import type { PortfolioFile, PortfolioLoad, PortfolioLoadMode } from '../types/portfolio.ts';
 import { discoverApps } from './discover-apps.ts';
 import { joinTags, keepCachedAppsOfFailedAccounts } from './portfolio-logic.ts';

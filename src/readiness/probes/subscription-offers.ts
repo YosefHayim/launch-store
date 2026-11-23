@@ -1,3 +1,5 @@
+// Checks that declared subscription offer codes exist on App Store Connect.
+
 import type { SubscriptionConfig } from '@/types/catalog.js';
 import type {
   AppReadiness,

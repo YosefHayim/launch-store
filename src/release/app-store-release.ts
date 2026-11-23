@@ -1,3 +1,5 @@
+// Walks one App Store version to submitted for review and reads where that release stands.
+
 import { appRecordMissingMessage } from '../services/stores/apple-store-client.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import type {

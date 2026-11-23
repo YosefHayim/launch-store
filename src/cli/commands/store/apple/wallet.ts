@@ -1,3 +1,5 @@
+// Registers the commands that sync Apple Pay merchant ids and Wallet pass type ids.
+
 import type { Command } from '@/cli/command.js';
 import { walletCommandProgram } from './wallet-command.ts';
 import { runCliProgram } from '@/cli/run-cli-program.js';

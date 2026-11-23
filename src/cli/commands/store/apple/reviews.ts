@@ -1,3 +1,5 @@
+// Registers the commands that list App Store reviews and write or remove a developer reply.
+
 import type { Command } from '@/cli/command.js';
 import {
   reviewsCommandProgram,

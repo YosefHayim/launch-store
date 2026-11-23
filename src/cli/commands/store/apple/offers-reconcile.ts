@@ -1,5 +1,7 @@
+// Syncs subscription offers and promoted-purchase order to App Store Connect.
+
 import { loadConfig } from '@/config/config.js';
-import type { AppStoreConnectClient } from '@/apple/asc-client.js';
+import type { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
 import { createLogger } from '@/services/platform/logger.js';
 import { readLaunchDirectories } from '@/services/platform/paths.js';
 import { LaunchPrompt } from '@/services/platform/prompt.js';

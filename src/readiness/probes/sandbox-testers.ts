@@ -1,3 +1,5 @@
+// Checks that App Store Connect has sandbox testers for in-app purchase testing.
+
 import type {
   AppReadiness,
   AscReadinessApi,
@@ -6,7 +8,7 @@ import type {
   ReadinessProbe,
 } from '@/types/readiness.js';
 import { iosApps } from '../app-scopes.ts';
-import { sellsProducts } from './iap-readiness.ts';
+import { sellsProducts } from './in-app-purchase-readiness.ts';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';
 
 /** Synthetic subject for the account-wide finding (sandbox testers aren't scoped to a single app). */

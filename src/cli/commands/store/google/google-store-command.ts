@@ -1,3 +1,5 @@
+// Opens the Google Play client for the saved service account and confirms a write.
+
 import {
   loadServiceAccount,
   describeMissingPlayServiceAccount,

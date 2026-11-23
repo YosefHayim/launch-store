@@ -1,3 +1,5 @@
+// Finds or creates the certificate and profile an App Store or internal build needs.
+
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { pathExists } from '../path-exists.ts';

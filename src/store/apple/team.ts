@@ -1,3 +1,5 @@
+// Reads App Store Connect members and invites or removes them by email.
+
 import type {
   NewUserInvitation,
   UserInvitationResource,

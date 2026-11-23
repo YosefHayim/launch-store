@@ -1,3 +1,5 @@
+// Returns a failure message when one exists, and otherwise turns the failure into text.
+
 import { readPlainObject } from './plain-object.ts';
 
 function hasMessage(failure: unknown): failure is Readonly<{ message: string }> {

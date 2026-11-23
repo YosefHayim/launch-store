@@ -1,3 +1,5 @@
+// Registers the commands that list Google Play reviews and post a developer reply.
+
 import type { Command } from '@/cli/command.js';
 import {
   type PlayReviewsListInput,

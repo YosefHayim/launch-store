@@ -1,3 +1,5 @@
+// Registers the command that syncs Google Play in-app products from the Launch catalog.
+
 import type { Command } from '@/cli/command.js';
 import {
   type PlayProductsCommandInput,

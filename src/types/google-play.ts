@@ -1,3 +1,5 @@
+// Holds Google Play releases, listings, products, subscriptions, and reviews.
+
 import type { PlayMoneyUnits } from './play-pricing.ts';
 
 export type PlayRelease = Readonly<{

@@ -1,3 +1,5 @@
+// Runs snapshot create, list, diff, export, delete, prune, and restore.
+
 import { writeFile } from 'node:fs/promises';
 import { createLogger } from '../services/platform/logger.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';

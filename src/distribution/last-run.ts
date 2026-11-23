@@ -1,3 +1,5 @@
+// Remembers the last app Launch built and the version bump chosen for it.
+
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { resolveLastRunFilePath } from '../services/platform/paths.ts';

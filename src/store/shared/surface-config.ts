@@ -1,3 +1,5 @@
+// Reads and checks a JSON file that configures one store surface for Launch.
+
 import { readFile } from 'node:fs/promises';
 import { pathExists } from '@/path-exists.js';
 import { errorMessage } from '@/services/platform/error-message.js';

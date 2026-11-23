@@ -1,3 +1,5 @@
+// Shows which setup steps are still missing, and installs local build tools when allowed.
+
 import { writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { runBuild } from '../build/pipeline.ts';
@@ -10,13 +12,13 @@ import { loadServiceAccount } from '../credentials/android-keystore-assets.ts';
 import { pathExists } from '../path-exists.ts';
 import { Prompts } from '../prompts.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { captureCommandOutput, checkCommandExists } from '../services/platform/exec.ts';
+import { captureCommandOutput, checkCommandExists } from '../services/platform/execute-command.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import {
   checkIsMacOperatingSystem,
   readHostResources,
   resolveHostOperatingSystemLabel,
-} from '../services/platform/os.ts';
+} from '../services/platform/host-operating-system.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { isApplePlatform, platformLabel } from '../services/stores/platform.ts';
 import { SetupStoreReadiness } from '../services/stores/setup-store-readiness.ts';

@@ -1,10 +1,12 @@
+// Creates and installs the Apple Distribution certificate for one App Store Connect account.
+
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { captureCommandOutput } from '../services/platform/exec.ts';
+import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import { resolveAccountCredentialsDirectory } from '../services/platform/paths.ts';
 import type { AppleCredentialsClient } from '../services/stores/apple-credentials-client.ts';

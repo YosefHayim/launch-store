@@ -1,3 +1,5 @@
+// Registers shell tab completion for Launch commands, flags, apps, and snapshots.
+
 import type { Command } from '@/cli/command.js';
 import { COMPLETE_SUBCOMMAND, SHELLS } from '@/terminal/completion.js';
 import { completionCommandProgram } from '@/terminal/completion-command.js';

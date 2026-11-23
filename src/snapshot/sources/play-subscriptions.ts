@@ -1,3 +1,5 @@
+// Saves Google Play subscriptions and can write those subscriptions back.
+
 import type {
   PlayPriceConfig,
   PlaySubscriptionOverride,

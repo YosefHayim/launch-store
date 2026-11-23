@@ -1,3 +1,5 @@
+// Finds App Store Connect apps on saved accounts and known Google Play packages.
+
 import { loadConfig } from '../config/config.ts';
 import { listAccounts } from '../credentials/accounts.ts';
 import { listStoredAndroidPackages } from '../credentials/android-keystore-assets.ts';

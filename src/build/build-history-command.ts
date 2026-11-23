@@ -1,9 +1,11 @@
+// Lists, shows, and prunes binaries Launch has already stored for an app.
+
 import { loadConfig, type LoadedConfig } from '../config/config.ts';
 import { resolveStorageProvider } from '../distribution/storage.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
-import { executeCommand } from '../services/platform/exec.ts';
+import { executeCommand } from '../services/platform/execute-command.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
-import { detectHostOperatingSystem } from '../services/platform/os.ts';
+import { detectHostOperatingSystem } from '../services/platform/host-operating-system.ts';
 import { parsePlatform } from '../services/stores/platform.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { pathExists } from '../path-exists.ts';

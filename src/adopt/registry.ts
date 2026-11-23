@@ -1,6 +1,8 @@
+// Registers the adopters that copy App Store Connect state into local Launch config.
+
 import type { Adopter } from '../types/adopt.ts';
 import { capabilitiesAdopter } from './capabilities.ts';
-import { certsAdopter } from './certs.ts';
+import { certsAdopter } from './certificates.ts';
 import { listingAdopter } from './listing.ts';
 import { productsAdopter } from './products.ts';
 

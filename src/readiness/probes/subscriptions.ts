@@ -1,3 +1,5 @@
+// Checks that declared subscriptions exist on App Store Connect and can ship.
+
 import type {
   AppReadiness,
   AscReadinessApi,
@@ -6,7 +8,7 @@ import type {
   ReadinessProbe,
 } from '@/types/readiness.js';
 import { iosApps } from '../app-scopes.ts';
-import { declaredSubscriptionIds, gradeDeclaredProduct } from './iap-readiness.ts';
+import { declaredSubscriptionIds, gradeDeclaredProduct } from './in-app-purchase-readiness.ts';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';
 
 function isAppleAccountMissing(api: AscReadinessApi | null): api is null {

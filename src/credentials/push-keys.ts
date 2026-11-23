@@ -1,3 +1,5 @@
+// Imports, lists, and exports Apple push notification keys for the credentials command.
+
 import { readFile, writeFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import { createLogger } from '../services/platform/logger.ts';

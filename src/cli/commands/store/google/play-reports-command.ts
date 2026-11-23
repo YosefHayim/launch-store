@@ -1,3 +1,5 @@
+// Reads crash and ANR trends from the Google Play Developer Reporting API.
+
 import {
   loadServiceAccount,
   describeMissingPlayServiceAccount,

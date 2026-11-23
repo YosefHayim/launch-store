@@ -1,3 +1,5 @@
+// Holds one planned store change and whether Launch applied, skipped, or failed it.
+
 export type ActionStatus = 'planned' | 'applied' | 'skipped' | 'failed';
 
 /** One unit of store-reconcile work shown in plans and apply summaries. */

@@ -1,3 +1,5 @@
+// Reads one cell, a number, or a column sum from an App Store Connect report row.
+
 import type { ReportLine } from './app-store-feed-types.ts';
 
 const MONEY_ROUNDING_FACTOR = 100;

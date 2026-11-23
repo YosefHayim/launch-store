@@ -1,3 +1,5 @@
+// Writes migration files to disk and skips one that already exists unless forced.
+
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';

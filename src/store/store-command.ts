@@ -1,3 +1,5 @@
+// Registers Launch commands that plan, check, sync, and adopt the live store.
+
 import type { Command } from '../cli/command.ts';
 import { AppStoreConnect } from '../apple/app-store-connect.ts';
 import type { ExpoApp } from '../expo-app.ts';

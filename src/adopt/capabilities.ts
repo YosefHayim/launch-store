@@ -1,3 +1,5 @@
+// Plans entitlements still missing after reading enabled App Store Connect capabilities.
+
 import { entitlementForCapability, isCapabilityEntitlement } from '../credentials/capabilities.ts';
 import type { AdoptTarget, Adopter, EntitlementValue, PlannedWrite } from '../types/adopt.ts';
 import type { CapabilitySetting } from '../types/apple-catalog.ts';

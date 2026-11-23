@@ -1,3 +1,5 @@
+// Checks that each iOS bundle id is registered in App Store Connect.
+
 import type {
   AppReadiness,
   AscReadinessApi,

@@ -1,3 +1,5 @@
+// Checks that the Google Play internal testing track is ready.
+
 import type {
   AppReadiness,
   PlayReadinessApi,

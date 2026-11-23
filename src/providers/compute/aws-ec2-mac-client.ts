@@ -1,3 +1,5 @@
+// Opens an Amazon EC2 client and turns a failed Mac-host call into a named failure.
+
 import { errorMessage } from '@/services/platform/error-message.js';
 import { requireOptional } from '@/services/platform/optional-dep.js';
 import type { AllocateRequest, AwsConfig } from '@/types/remote.js';

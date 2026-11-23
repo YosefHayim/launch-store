@@ -1,3 +1,5 @@
+// Mints a Google Play access token from a service account key.
+
 import { auth as googleAuthentication } from '@googleapis/playdeveloperreporting';
 import type { ServiceAccount } from '../types/credentials.ts';
 import { serviceAccountJwtOptions } from './play-client.ts';

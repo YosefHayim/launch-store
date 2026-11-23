@@ -1,3 +1,5 @@
+// Loads the Apple signing identity and Android keystore a build will use.
+
 import { join } from 'node:path';
 import type { AppDescriptor, Distribution, Platform } from '../types/app.ts';
 import type {

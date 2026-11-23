@@ -1,3 +1,5 @@
+// Registers the read-only scan of app permissions against the declared privacy answers.
+
 import type { Command } from '@/cli/command.js';
 import { privacyCommandProgram } from '@/privacy/command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

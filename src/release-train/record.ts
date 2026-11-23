@@ -1,3 +1,5 @@
+// Reads and writes the on-disk record of each release train Launch is running.
+
 import { readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';

@@ -9,7 +9,7 @@ import {
   rollbackDirectiveKey,
   type UpdateHistoryEntry,
   type UpdateManifest,
-} from './ota-manifest.ts';
+} from './over-the-air-manifest.ts';
 import {
   activateUpdate,
   clearRollbackDirective,

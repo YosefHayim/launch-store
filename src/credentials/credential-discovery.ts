@@ -1,3 +1,5 @@
+// Looks in common folders for a store key file and can delete the copy it found.
+
 import { rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { createLogger } from '../services/platform/logger.ts';

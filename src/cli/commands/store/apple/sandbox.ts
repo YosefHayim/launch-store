@@ -1,3 +1,5 @@
+// Registers the commands that list StoreKit sandbox testers and clear their purchases.
+
 import type { Command } from '@/cli/command.js';
 import { sandboxCommandProgram } from './sandbox-command.ts';
 import { runCliProgram } from '@/cli/run-cli-program.js';

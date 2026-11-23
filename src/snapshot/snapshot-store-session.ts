@@ -1,3 +1,5 @@
+// Opens App Store Connect and Google Play for the apps a snapshot command selected.
+
 import { loadConfig } from '../config/config.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
 import {

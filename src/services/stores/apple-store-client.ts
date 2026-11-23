@@ -1,4 +1,6 @@
-import { AppStoreConnectClient } from '@/apple/asc-client.js';
+// Opens an App Store Connect client and turns a transport failure into a named error.
+
+import { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
 import type { AscKey } from '@/types/credentials.js';
 import { hasMessage } from '../platform/error-message.ts';
 

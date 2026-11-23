@@ -1,3 +1,5 @@
+// Registers the commands that authorize European Union alternative distribution domains.
+
 import type { Command } from '@/cli/command.js';
 import { euDistributionCommandProgram } from './eu-distribution-command.ts';
 import { runCliProgram } from '@/cli/run-cli-program.js';

@@ -1,3 +1,5 @@
+// Creates in-app purchases, subscriptions, and their offers on App Store Connect.
+
 import type { AscHost } from './host.ts';
 import type {
   InAppPurchaseResource,

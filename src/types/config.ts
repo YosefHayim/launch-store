@@ -1,3 +1,5 @@
+// Holds the launch.config.ts object and the settings assembled for one build.
+
 import type {
   AndroidReleaseOptions,
   AppDescriptor,

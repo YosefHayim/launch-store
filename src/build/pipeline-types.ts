@@ -1,3 +1,5 @@
+// Holds the options, prepared context, and upload receipt shapes shared by one build run.
+
 import type { AppDescriptor, Distribution, Platform, PlayTrack } from '../types/app.ts';
 import type { SizeReport } from '../types/artifacts.ts';
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';

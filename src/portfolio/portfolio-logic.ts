@@ -1,3 +1,5 @@
+// Decides how Launch merges, filters, and tags apps from App Store Connect and Google Play.
+
 import type {
   AppOwner,
   AppTag,

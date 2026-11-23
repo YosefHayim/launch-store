@@ -1,3 +1,5 @@
+// Writes a saved copy back onto App Store Connect and Google Play.
+
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import type { ActionStatus, PlannedAction } from '../types/reconcile.ts';

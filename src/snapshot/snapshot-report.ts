@@ -1,3 +1,5 @@
+// Names App Store or Google Play in snapshot text and reports a missing saved copy.
+
 import type { Logger } from '../services/platform/logger.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import type { SnapshotStore } from '../types/snapshot.ts';

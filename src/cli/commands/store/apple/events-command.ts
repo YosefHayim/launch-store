@@ -1,3 +1,5 @@
+// Lists, creates, localizes, and deletes in-app events on App Store Connect.
+
 import { createLogger } from '@/services/platform/logger.js';
 import { LaunchPrompt } from '@/services/platform/prompt.js';
 import { checkTerminalIsInteractive } from '@/services/platform/progress.js';

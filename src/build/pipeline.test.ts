@@ -10,7 +10,7 @@ import { resetPrompts } from '../services/platform/prompt.ts';
 import { registerBuildEngine, registerSubmitter } from '../services/provider-support/registry.ts';
 import { runBuild } from './pipeline.ts';
 import { sizeSummary, uploadSizeReadout, worstDownloadBytes } from './pipeline-artifact.ts';
-import { selectApp } from './pipeline-env.ts';
+import { selectApp } from './pipeline-environment.ts';
 import {
   androidReleaseNotesFromLocaleMap,
   resolveAndroidSubmitReleaseNotes,

@@ -1,3 +1,5 @@
+// Writes a starter Launch config, an environment example, and an ignore rule for artifacts.
+
 import { writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { Prompts } from '../prompts.ts';

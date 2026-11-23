@@ -1,3 +1,5 @@
+// Signs an iOS archive or Android bundle locally and uploads it to the testing track.
+
 import type { LaunchConfig } from '../types/config.ts';
 import type { ExpoApp } from '../expo-app.ts';
 import { readExpoApp } from '../expo-app.ts';

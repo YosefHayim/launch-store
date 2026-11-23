@@ -1,3 +1,5 @@
+// Writes the lines for one app's downloads, proceeds, crashes, and rating.
+
 import type { StatsMetric } from '../types/stats.ts';
 import type { AppStatsReport, MetricTotal } from '../types/stats-report.ts';
 import { listProceedsTotals, pickHeadlineTotals, readHeadlineTotal } from './stats-report-logic.ts';

@@ -1,7 +1,9 @@
+// Builds App Store Connect and Google Play page links and opens one in the browser.
+
 import { loadConfig, type LoadedConfig } from '../config/config.ts';
-import { executeCommand } from '../services/platform/exec.ts';
+import { executeCommand } from '../services/platform/execute-command.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
-import { detectHostOperatingSystem } from '../services/platform/os.ts';
+import { detectHostOperatingSystem } from '../services/platform/host-operating-system.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { isApplePlatform, parsePlatform } from '../services/stores/platform.ts';
 import { createAscClientResolver } from '../store/shared/store-clients.ts';

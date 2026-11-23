@@ -1,3 +1,5 @@
+// Reads and writes an App Clip and its default experience on App Store Connect.
+
 import type {
   AppClipActionValue,
   AppClipDefaultExperienceResource,

@@ -1,3 +1,5 @@
+// Registers alternative distribution, Apple Pay, and Wallet ids on App Store Connect.
+
 import type {
   AlternativeDistributionDomainResource,
   AlternativeDistributionKeyResource,

@@ -1,3 +1,5 @@
+// Reconciles Game Center achievements and leaderboards on App Store Connect.
+
 import {
   LEADERBOARD_FORMATTERS,
   LEADERBOARD_SORT_TYPES,

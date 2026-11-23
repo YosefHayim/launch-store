@@ -1,3 +1,5 @@
+// Finds where Launch keeps build files and whether testers can download them.
+
 import { isAbsolute, join, resolve } from 'node:path';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { pathExists } from '../path-exists.ts';

@@ -1,3 +1,5 @@
+// Prints the native iOS fingerprint and whether the next build can reuse the last archive.
+
 import path from 'node:path';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';

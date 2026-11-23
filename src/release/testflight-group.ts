@@ -1,3 +1,5 @@
+// Loads the selected app, picks a TestFlight group, and confirms a tester change.
+
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { EffectAppStoreConnectClient } from '../services/stores/apple-store-client.ts';
 import { selectStoreApp } from '../store/shared/select-store-app.ts';

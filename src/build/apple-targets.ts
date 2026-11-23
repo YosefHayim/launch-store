@@ -1,3 +1,5 @@
+// Finds Xcode app and extension targets and writes manual signing into the project file.
+
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';

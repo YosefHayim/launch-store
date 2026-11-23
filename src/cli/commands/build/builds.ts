@@ -1,3 +1,5 @@
+// Registers the commands that list, show, and delete entries in the local build history.
+
 import type { Command } from '@/cli/command.js';
 import {
   buildHistoryCommandProgram,

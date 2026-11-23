@@ -1,3 +1,5 @@
+// Fills Launch config defaults and returns a starter config file.
+
 import type { LaunchConfig, LaunchConfigInput } from './types/config.ts';
 import {
   DEFAULT_BUILD_ENGINE,

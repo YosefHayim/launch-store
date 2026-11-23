@@ -1,3 +1,5 @@
+// Holds the swappable backends that sign, build, store, submit, and host a Launch run.
+
 import type {
   BuildArtifact,
   PruneOptions,

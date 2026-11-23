@@ -1,3 +1,5 @@
+// Compares App Store Connect App Clip cards with the local config.
+
 import { resolveSidecarConfig } from '@/config/config.js';
 import { loadAppClipsConfig, reconcileAppClips } from '@/store/apple/app-clips.js';
 import { planAppStoreSurface } from './app-store-surface.ts';

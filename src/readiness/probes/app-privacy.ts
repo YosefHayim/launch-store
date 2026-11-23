@@ -1,3 +1,5 @@
+// Checks that App Privacy is published in App Store Connect before the first submission.
+
 import type {
   AppReadiness,
   AscReadinessApi,

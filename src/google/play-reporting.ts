@@ -1,3 +1,5 @@
+// Reads Google Play crash and application not responding rates for an app.
+
 import {
   auth as playReportingAuth,
   playdeveloperreporting,

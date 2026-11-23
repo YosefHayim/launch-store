@@ -1,3 +1,5 @@
+// Lists discovered apps and records an owner or analytics property on them.
+
 import { createLogger } from '../services/platform/logger.ts';
 import { makeCommandExit } from '../terminal/command-exit.ts';
 import { makeUsageFailure, type UsageFailure } from '../terminal/usage-failure.ts';

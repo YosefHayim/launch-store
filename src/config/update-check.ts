@@ -1,9 +1,11 @@
+// Checks for a newer Launch release and upgrades the global install when that is allowed.
+
 import { spawn } from 'node:child_process';
 import { realpath } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
-import { captureCommandOutput, type CommandFailed } from '../services/platform/exec.ts';
+import { captureCommandOutput, type CommandFailed } from '../services/platform/execute-command.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import {
   ensureDirectoryExists,

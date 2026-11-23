@@ -1,3 +1,5 @@
+// Shows how a saved store copy differs from another copy or from the live stores.
+
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import type { Snapshot } from '../types/snapshot.ts';
 import { diffSnapshots, type DiffChange, type SnapshotDiff } from './diff.ts';

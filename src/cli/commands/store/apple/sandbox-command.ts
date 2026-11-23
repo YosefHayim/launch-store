@@ -1,3 +1,5 @@
+// Lists StoreKit sandbox testers and clears their purchase history on App Store Connect.
+
 import { createLogger } from '@/services/platform/logger.js';
 import { LaunchPrompt } from '@/services/platform/prompt.js';
 import { checkTerminalIsInteractive } from '@/services/platform/progress.js';

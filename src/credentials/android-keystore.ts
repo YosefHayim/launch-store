@@ -1,3 +1,5 @@
+// Reads the Google Play service-account file saved for one Android package.
+
 import { Keychain, LEGACY_PLAY_SERVICE_ACCOUNT, playServiceAccount } from './keychain.ts';
 
 export class AndroidKeystore {

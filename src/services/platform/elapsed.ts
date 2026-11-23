@@ -1,3 +1,5 @@
+// Turns a duration in milliseconds into a short minutes-and-seconds label for the log.
+
 export function formatElapsed(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);

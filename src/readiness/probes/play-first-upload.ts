@@ -1,3 +1,5 @@
+// Checks that a first build has already been uploaded to Google Play.
+
 import type {
   AppReadiness,
   PlayReadinessApi,

@@ -1,3 +1,5 @@
+// Finds the Google Analytics app stream for an iOS bundle id or Android package name.
+
 import type { PortfolioApp } from '@/types/portfolio.js';
 import {
   ANALYTICS_ADMIN_URL,

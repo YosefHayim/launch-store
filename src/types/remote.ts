@@ -1,3 +1,5 @@
+// Holds the local host, shell names, and a remote Mac that Launch can build on.
+
 /** The operating-system family Launch is running on. */
 export type HostOs = 'macos' | 'windows' | 'linux';
 

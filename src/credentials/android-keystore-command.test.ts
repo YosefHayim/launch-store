@@ -5,9 +5,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
-import { captureCommandOutput } from '../services/platform/exec.ts';
+import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import { ensureUploadKeystore } from './android-keystore-assets.ts';
-vi.mock('../services/platform/exec.ts', function mockExec() {
+vi.mock('../services/platform/execute-command.ts', function mockExec() {
   return {
     captureCommandOutput: vi.fn(function writeDummyKeystore(
       _executable: string,

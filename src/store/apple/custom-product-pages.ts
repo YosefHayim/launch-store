@@ -1,3 +1,5 @@
+// Reconciles custom product pages and their locales on App Store Connect.
+
 import type {
   CustomProductPageLocalizationResource,
   CustomProductPageResource,

@@ -1,3 +1,5 @@
+// Authorizes European Union alternative distribution domains on App Store Connect.
+
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { loadConfig } from '@/config/config.js';

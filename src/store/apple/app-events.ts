@@ -1,3 +1,5 @@
+// Lists, creates, localizes, and deletes in-app events on App Store Connect.
+
 import type { MutableDeep } from '@/types/mutable.js';
 import type {
   AppEventLocalizationInput,

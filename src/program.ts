@@ -1,3 +1,5 @@
+// Builds the Launch commands and parses the arguments the user passed.
+
 import { buildProgram } from './cli/program.ts';
 
 export class Program {

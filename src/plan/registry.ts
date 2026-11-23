@@ -1,3 +1,5 @@
+// Registers every comparison Launch can run between local config and the stores.
+
 import type { SurfacePlanner } from '../types/plan.ts';
 import { accessibilityPlanner } from './planners/accessibility.ts';
 import { appClipsPlanner } from './planners/app-clips.ts';

@@ -1,3 +1,5 @@
+// Creates the App Store signing certificate and profiles for one configured app.
+
 import { loadConfig } from '../config/config.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import { createLogger } from '../services/platform/logger.ts';

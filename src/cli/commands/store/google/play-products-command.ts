@@ -1,3 +1,5 @@
+// Syncs Google Play in-app products from the Launch product catalog.
+
 import { hasMessage } from '@/services/platform/error-message.js';
 import { createLogger } from '@/services/platform/logger.js';
 import { completeCommand } from '@/terminal/command-exit.js';

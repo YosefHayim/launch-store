@@ -1,3 +1,5 @@
+// Supplies the skip and omit results used when App Store Connect or Google Play access is missing.
+
 import type { ProbeResult } from '@/types/readiness.js';
 
 /** No apps in scope for this store - drop the probe from the report. */

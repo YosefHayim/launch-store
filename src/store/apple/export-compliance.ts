@@ -1,3 +1,5 @@
+// Checks and records export compliance for a build on App Store Connect.
+
 import type { EncryptionDeclarationResource } from '@/types/apple-catalog.js';
 
 /** The slice of {@link AppStoreConnectClient} that {@link reconcileExportCompliance} needs. */

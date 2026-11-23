@@ -1,3 +1,5 @@
+// Adds the flags that override the environment for one build, release, or update.
+
 import type { Command } from './command.ts';
 
 /** Environment flags shared by build, release, and update. They change one run. */

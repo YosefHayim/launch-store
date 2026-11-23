@@ -1,3 +1,5 @@
+// Shows a planned App Store Connect change and asks before writing it.
+
 import { readFile } from 'node:fs/promises';
 import { LaunchPrompt } from '@/services/platform/prompt.js';
 import { checkTerminalIsInteractive } from '@/services/platform/progress.js';

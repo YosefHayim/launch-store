@@ -1,3 +1,5 @@
+// Reads every registered store surface and assembles one saved copy of the stores.
+
 import type {
   CaptureOutcome,
   CaptureReport,

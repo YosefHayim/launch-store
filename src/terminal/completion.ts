@@ -1,3 +1,5 @@
+// Builds bash, zsh, and fish completion scripts and the candidate list for a tab press.
+
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { Command, CommandOption } from '../cli/command.ts';

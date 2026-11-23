@@ -1,3 +1,5 @@
+// Runs TestFlight group, tester, feedback, and beta-release commands for one app.
+
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';

@@ -1,3 +1,5 @@
+// Registers the commands that show, ship, and set testers on Google Play release tracks.
+
 import type { Command } from '@/cli/command.js';
 import {
   type PlayTracksPromoteInput,

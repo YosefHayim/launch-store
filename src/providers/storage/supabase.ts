@@ -1,3 +1,5 @@
+// Stores build artifacts in Supabase and reads them back for a later release.
+
 import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { readLaunchEnvironment } from '@/services/platform/environment.js';

@@ -1,3 +1,5 @@
+// Maps an App Store Connect product type identifier to a sales report kind.
+
 import type { SalesReportKind } from './app-store-feed-types.ts';
 
 // https://developer.apple.com/help/app-store-connect/reference/product-type-identifiers

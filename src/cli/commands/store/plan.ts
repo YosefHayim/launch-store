@@ -1,3 +1,5 @@
+// Registers the read-only comparison of Launch config with live App Store and Google Play state.
+
 import type { Command } from '@/cli/command.js';
 import { type PlanCommandInput, planCommandProgram } from '@/plan/command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

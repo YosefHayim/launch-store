@@ -1,3 +1,5 @@
+// Registers the command that installs a built app on a connected phone or emulator.
+
 import type { Command } from '@/cli/command.js';
 import { runCommandProgram } from '@/build/run-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

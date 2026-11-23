@@ -1,3 +1,5 @@
+// Loads and saves which days each App Store Connect, Google Play, and Analytics feed covers.
+
 import { join } from 'node:path';
 import {
   readDocumentFile,

@@ -1,3 +1,5 @@
+// Decides which days of a stats feed still need a pull and records a skip or a failure.
+
 import type { AppCoverage, DateRange, FeedCoverage, StatsFeed } from '../types/stats.ts';
 import {
   isSyncedAtStale,

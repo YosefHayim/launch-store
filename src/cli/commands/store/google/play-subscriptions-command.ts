@@ -1,3 +1,5 @@
+// Syncs Google Play subscription base plans and offers from the Launch catalog.
+
 import { hasMessage } from '@/services/platform/error-message.js';
 import { createLogger } from '@/services/platform/logger.js';
 import { completeCommand } from '@/terminal/command-exit.js';

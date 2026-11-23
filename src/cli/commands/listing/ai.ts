@@ -1,3 +1,5 @@
+// Adds the shared command group for AI help writing the store listing.
+
 import type { Command } from '@/cli/command.js';
 
 /** Find-or-create the shared `ai` parent command. */

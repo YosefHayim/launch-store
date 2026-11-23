@@ -1,3 +1,5 @@
+// Assembles store submit and over-the-air publish calls for one release train.
+
 import { join } from 'node:path';
 import { resolveAndroidSubmitReleaseNotes, submitToStores } from '../build/pipeline-providers.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
@@ -6,7 +8,7 @@ import {
   loadServiceAccount,
 } from '../credentials/android-keystore-assets.ts';
 import { ensureCodeSigner, type CodeSigner } from '../credentials/code-sign.ts';
-import { publishOtaPlatform, readExportMetadata } from '../distribution/ota-publish.ts';
+import { publishOtaPlatform, readExportMetadata } from '../distribution/over-the-air-publish.ts';
 import {
   ensureArtifactPresent,
   isCloudStorage,
@@ -22,7 +24,7 @@ import {
 } from '../release/app-store-release.ts';
 import { resolveReleaseType, resolveWhatsNew } from '../release/release-inputs.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { executeCommand, type CommandExecutionOptions } from '../services/platform/exec.ts';
+import { executeCommand, type CommandExecutionOptions } from '../services/platform/execute-command.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import { getCredentialsProvider } from '../services/provider-support/registry.ts';
 import {

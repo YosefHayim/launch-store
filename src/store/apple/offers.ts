@@ -1,3 +1,5 @@
+// Reconciles subscription offers and promoted purchases on App Store Connect.
+
 import type {
   InAppPurchaseResource,
   IntroductoryOfferCreate,

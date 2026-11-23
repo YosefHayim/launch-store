@@ -1,3 +1,5 @@
+// Writes the starter Launch config and environment example for a newly detected app folder.
+
 import { relative } from 'node:path';
 import type { AppDescriptor } from '../types/app.ts';
 

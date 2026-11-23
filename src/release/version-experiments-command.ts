@@ -1,3 +1,5 @@
+// Plans and applies App Store product-page experiments, including their screenshots.
+
 import type { LocalScreenshot } from '../listing/screenshots/assets.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';

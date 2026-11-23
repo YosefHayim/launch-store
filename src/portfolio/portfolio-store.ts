@@ -1,3 +1,5 @@
+// Reads and writes the file that remembers discovered apps and their tags.
+
 import {
   readDocumentFile,
   writeDocumentFileAtomically,

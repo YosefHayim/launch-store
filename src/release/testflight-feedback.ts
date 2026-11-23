@@ -1,3 +1,5 @@
+// Lists TestFlight crash and screenshot feedback and downloads the screenshot files.
+
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {

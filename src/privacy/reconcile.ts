@@ -1,3 +1,5 @@
+// Compares privacy manifests with usage strings and Android permissions and grades each gap.
+
 import { READINESS_EXIT } from '../readiness/orchestrator.ts';
 import type { PrivacyFinding, PrivacySurface } from '../types/privacy.ts';
 

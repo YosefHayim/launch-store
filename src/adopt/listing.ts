@@ -1,3 +1,5 @@
+// Plans the listing pull that copies one App Store Connect app into store config.
+
 import { join } from 'node:path';
 import type { Adopter } from '../types/adopt.ts';
 

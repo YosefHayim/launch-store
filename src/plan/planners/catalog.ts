@@ -1,4 +1,6 @@
-import { reconcileApp, type AscCatalogApi } from '@/store/apple/asc-sync.js';
+// Compares App Store Connect capabilities and catalog products with Launch config.
+
+import { reconcileApp, type AscCatalogApi } from '@/store/apple/app-store-sync.js';
 import { buildJobs, type SyncJob } from '@/store/shared/sync-jobs.js';
 import { errorMessage } from '@/services/platform/error-message.js';
 import type { AppPlan, PlanContext, SurfacePlanner } from '@/types/plan.js';

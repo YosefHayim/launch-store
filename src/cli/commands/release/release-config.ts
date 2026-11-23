@@ -1,3 +1,5 @@
+// Registers the command that syncs App Store age rating, categories, price, and review info.
+
 import type { Command } from '@/cli/command.js';
 import { releaseConfigCommandProgram } from '@/release/release-config-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

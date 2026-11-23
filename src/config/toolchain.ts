@@ -1,6 +1,8 @@
-import { checkCommandExists, executeCommand } from '../services/platform/exec.ts';
+// Names the iOS and Android tools a local build needs and installs the ones that are missing.
+
+import { checkCommandExists, executeCommand } from '../services/platform/execute-command.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
-import { checkIsMacOperatingSystem } from '../services/platform/os.ts';
+import { checkIsMacOperatingSystem } from '../services/platform/host-operating-system.ts';
 import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.ts';
 
 /** A tool a local iOS build needs, and how to install it on macOS. */

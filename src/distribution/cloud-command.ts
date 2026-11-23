@@ -1,3 +1,5 @@
+// Shows, checks, and removes the remote machine Launch uses for a cloud build.
+
 import { stdin } from 'node:process';
 import { costBanner, formatAge, isReleasable, releasableAt, usd } from '../build/cost.ts';
 import { loadConfig } from '../config/config.ts';

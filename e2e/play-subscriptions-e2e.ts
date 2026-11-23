@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { captureCommandOutput } from '../src/services/platform/exec.ts';
+import { captureCommandOutput } from '../src/services/platform/execute-command.ts';
 
 const fileUrltoPath = fileURLToPath(import.meta.url);
 const parentDirectory = dirname(fileUrltoPath);

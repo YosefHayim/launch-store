@@ -1,3 +1,5 @@
+// Prints TestFlight crash and screenshot feedback and can save the screenshots.
+
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import type { EffectAppStoreConnectClient } from '../services/stores/apple-store-client.ts';
 import { loadActiveAppleStore } from '../cli/commands/store/apple/apple-store-command.ts';

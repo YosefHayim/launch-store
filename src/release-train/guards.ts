@@ -1,3 +1,5 @@
+// Tells a native store car from an over-the-air car and whether that car has finished.
+
 import type {
   Car,
   NativeCar,

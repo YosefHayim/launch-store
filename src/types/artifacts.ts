@@ -1,3 +1,5 @@
+// Holds built binaries, their download sizes, and what artifact cleanup removes.
+
 import type { Platform } from './app.ts';
 
 /** One row in a {@link SizeReport}: a device variant's estimated store download/install size. */

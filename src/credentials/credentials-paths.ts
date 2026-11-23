@@ -1,3 +1,5 @@
+// Expands a home shortcut in a path and shows a home-relative path in prompts.
+
 import { join } from 'node:path';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 

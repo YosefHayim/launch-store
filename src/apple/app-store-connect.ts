@@ -1,3 +1,5 @@
+// Lists App Store Connect apps, versions, and in-app purchases, and opens a build upload.
+
 import type { components } from '../apple-api-types.ts';
 import { AppStoreToken } from './app-store-token.ts';
 import {

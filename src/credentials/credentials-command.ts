@@ -1,3 +1,5 @@
+// Registers the command that reports whether an App Store Connect key is in the keychain.
+
 import type { Command } from '../cli/command.ts';
 import {
   Keychain,

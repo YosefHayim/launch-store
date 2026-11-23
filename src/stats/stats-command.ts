@@ -1,3 +1,5 @@
+// Prints saved App Store Connect and Google Play numbers for the chosen apps.
+
 import type { AppOwner, PortfolioPlatform } from '../types/portfolio.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { makeCommandExit } from '../terminal/command-exit.ts';

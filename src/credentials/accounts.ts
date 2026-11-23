@@ -1,3 +1,5 @@
+// Saves App Store Connect accounts and loads the private key a build should use.
+
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';

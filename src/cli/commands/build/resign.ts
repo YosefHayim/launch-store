@@ -1,3 +1,5 @@
+// Registers the command that signs a stored build again with different credentials.
+
 import type { Command } from '@/cli/command.js';
 import { resignCommandProgram, type ResignCommandInput } from '@/build/resign-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

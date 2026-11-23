@@ -1,3 +1,5 @@
+// Holds the app, platform, profile, and Google Play track shapes the rest of Launch shares.
+
 export const PLATFORMS = ['ios', 'android', 'tvos', 'macos', 'visionos'] as const;
 
 /** Target build platform - one of {@link PLATFORMS}. */

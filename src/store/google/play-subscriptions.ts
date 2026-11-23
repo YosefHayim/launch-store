@@ -1,3 +1,5 @@
+// Reconciles subscriptions, base plans, and offers on Google Play.
+
 import type {
   BasePlan,
   SubscriptionListing,

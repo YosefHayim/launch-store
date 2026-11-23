@@ -1,3 +1,5 @@
+// Runs doctor, prints each check, and can repair the iOS toolchain and export compliance.
+
 import { ensureToolchain } from '../config/toolchain.ts';
 import { hasMessage, errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';

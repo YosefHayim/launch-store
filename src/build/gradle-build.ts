@@ -1,5 +1,7 @@
+// Runs the Gradle release bundle task and returns the Android App Bundle path.
+
 import { join } from 'node:path';
-import { executeCommand } from '../services/platform/exec.ts';
+import { executeCommand } from '../services/platform/execute-command.ts';
 
 export class GradleBuild {
   async bundle(directory: string): Promise<string> {

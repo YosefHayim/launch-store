@@ -1,3 +1,5 @@
+// Finds local screenshots and app previews and records each file's size and checksum.
+
 import { createHash } from 'node:crypto';
 import type { Stats } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';

@@ -1,3 +1,5 @@
+// Prints the live store and writes a starter launch.config.ts when adopting an app.
+
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';

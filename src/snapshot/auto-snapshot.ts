@@ -1,3 +1,5 @@
+// Saves a copy of the stores before Launch syncs, and drops old automatic copies.
+
 import type { SnapshotContext } from '../types/snapshot.ts';
 import { captureSnapshot } from './orchestrator.ts';
 import { listSnapshotSources, registerBuiltinSources } from './registry.ts';

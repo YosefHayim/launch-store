@@ -1,3 +1,5 @@
+// Stops a failed Launch command and carries the exit code the process should use.
+
 import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 export type CommandExit = Readonly<{

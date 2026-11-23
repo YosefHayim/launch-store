@@ -1,6 +1,8 @@
-import { captureCommandOutput } from '../platform/exec.ts';
+// Saves, reads, and deletes Launch secrets in the operating system keychain.
+
+import { captureCommandOutput } from '../platform/execute-command.ts';
 import { requireOptional } from '../platform/optional-dep.ts';
-import { detectHostOperatingSystem } from '../platform/os.ts';
+import { detectHostOperatingSystem } from '../platform/host-operating-system.ts';
 
 const KEYCHAIN_SERVICE_NAME = 'launch';
 const macosItemNotFoundExitCode = 44;

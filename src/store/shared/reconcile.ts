@@ -1,3 +1,5 @@
+// Records planned store changes and tallies applied, failed, and skipped actions.
+
 import { errorMessage } from '@/services/platform/error-message.js';
 import type { PlannedAction } from '@/types/reconcile.js';
 import type { MutableDeep } from '@/types/mutable.js';

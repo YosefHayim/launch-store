@@ -1,3 +1,5 @@
+// Registers the command that builds an app and uploads it to the testing track.
+
 import type { Command } from '@/cli/command.js';
 import { buildCommandProgram } from '@/build/build-command-program.js';
 import type { BuildCommandOptions } from '@/build/build-command-input.js';

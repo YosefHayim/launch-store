@@ -1,3 +1,5 @@
+// Collects and parses App Store Connect analytics reports for one app.
+
 import { gunzipSync } from 'node:zlib';
 import type {
   AnalyticsReportInstanceResource,

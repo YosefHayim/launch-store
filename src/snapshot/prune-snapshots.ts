@@ -1,3 +1,5 @@
+// Deletes user-saved store copies past the count or age they asked to keep.
+
 import { createLogger } from '../services/platform/logger.ts';
 import type { Snapshot } from '../types/snapshot.ts';
 import { AUTO_SNAPSHOT_PREFIX } from './auto-snapshot.ts';

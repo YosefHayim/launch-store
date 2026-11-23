@@ -1,3 +1,5 @@
+// Checks a screenshot's pixels against App Store Connect and Google Play size rules.
+
 import { isApplePlatform } from '@/services/stores/platform.js';
 import type { Platform } from '@/types/app.js';
 import { readScreenshotDimensions } from './image-dimensions.ts';

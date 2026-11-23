@@ -1,3 +1,5 @@
+// Lists, invites, and removes members of the App Store Connect team.
+
 import { createLogger } from '@/services/platform/logger.js';
 import { LaunchPrompt } from '@/services/platform/prompt.js';
 import { checkTerminalIsInteractive } from '@/services/platform/progress.js';

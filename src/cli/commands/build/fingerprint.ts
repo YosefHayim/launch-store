@@ -1,3 +1,5 @@
+// Registers the command that shows whether the next iOS build can reuse the last compile.
+
 import type { Command } from '@/cli/command.js';
 import { fingerprintCommandProgram } from '@/build/fingerprint-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

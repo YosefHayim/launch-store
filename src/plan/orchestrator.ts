@@ -1,3 +1,5 @@
+// Runs the surface comparisons and picks the exit code for a Launch plan.
+
 import type { PlanContext, SurfacePlan, SurfacePlanner } from '../types/plan.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 

@@ -1,3 +1,5 @@
+// Finds an App Store Connect app and edits its listing, categories, and age rating.
+
 import type {
   AgeRatingDeclarationResource,
   AgeRatingValue,

@@ -1,3 +1,5 @@
+// Treats a developer-owned Mac, reached by secure shell, as a build machine Launch leaves running.
+
 import { makeProviderInputFailure, type ComputeHost } from '@/types/providers.js';
 import type { AllocateRequest, HostHandle, HostStatus, SshTarget } from '@/types/remote.js';
 

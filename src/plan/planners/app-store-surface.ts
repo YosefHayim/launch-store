@@ -1,3 +1,5 @@
+// Compares one App Store Connect surface, for each app or the team, with local config.
+
 import { errorMessage } from '@/services/platform/error-message.js';
 import type { PlannedAction } from '@/types/reconcile.js';
 import type {

@@ -1,3 +1,5 @@
+// Holds Google Play money amounts and the regional prices converted from one base price.
+
 export type PlayMoneyUnits = Readonly<{
   readonly currencyCode: string;
   readonly units: string;

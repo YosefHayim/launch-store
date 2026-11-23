@@ -1,5 +1,7 @@
+// Hides home paths, tokens, and secret-looking text before Launch prints a line.
+
 import { homedir } from 'node:os';
-import { isSecretLookingName } from '@/config/env.js';
+import { isSecretLookingName } from '@/config/environment-file.js';
 /** The user's home directory, collapsed to `~` so absolute paths don't leak the account name. */
 const HOME = homedir();
 /** The masked placeholder substituted for any redacted value. */

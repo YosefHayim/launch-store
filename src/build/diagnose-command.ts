@@ -1,3 +1,5 @@
+// Reads a saved native build log and prints the failures Launch already knows how to name.
+
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { errorMessage } from '../services/platform/error-message.ts';

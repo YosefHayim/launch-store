@@ -1,3 +1,5 @@
+// Registers the command that syncs App Store custom product pages from a config file.
+
 import type { Command } from '@/cli/command.js';
 import {
   type CustomProductPagesCommandInput,

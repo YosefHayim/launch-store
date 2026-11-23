@@ -1,3 +1,5 @@
+// Registers the command that syncs App Store accessibility nutrition labels from a config file.
+
 import type { Command } from '@/cli/command.js';
 import { accessibilityCommandProgram } from './accessibility-command.ts';
 import { runCliProgram } from '@/cli/run-cli-program.js';

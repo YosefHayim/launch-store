@@ -1,3 +1,5 @@
+// Holds the shapes for copying a live App Store Connect setup back into launch.config.ts.
+
 import type {
   BundleIdCapabilityResource,
   BundleIdResource,

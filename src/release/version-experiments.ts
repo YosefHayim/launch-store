@@ -1,3 +1,5 @@
+// Creates product-page experiment treatments and submits them for App Review.
+
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { discoverScreenshotsAt, type LocalScreenshot } from '../listing/screenshots/assets.ts';
@@ -8,8 +10,8 @@ import {
   reconcileOwnerScreenshots,
   type ScreenshotSetApi,
   type ScreenshotSetOwner,
-} from '../store/apple/asc-screenshots.ts';
-import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from '../store/apple/asc-sync.ts';
+} from '../store/apple/app-store-screenshots.ts';
+import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from '../store/apple/app-store-sync.ts';
 import { appRecordMissing, plan } from '../store/shared/reconcile.ts';
 import type {
   ExperimentTreatmentLocalizationResource,

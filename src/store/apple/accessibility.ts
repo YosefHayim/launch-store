@@ -1,3 +1,5 @@
+// Reconciles declared accessibility support with App Store Connect.
+
 import {
   ACCESSIBILITY_SUPPORT_KEYS,
   type AccessibilityDeclarationResource,

@@ -1,3 +1,5 @@
+// Loads the Apple and Google signing material Launch keeps on this machine for a build.
+
 import { LocalCredentialsStore } from '@/services/credentials/local-credentials-store.js';
 import { isApplePlatform } from '@/services/stores/platform.js';
 import type { ResolvedBuildContext } from '@/types/config.js';

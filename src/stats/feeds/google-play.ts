@@ -1,3 +1,5 @@
+// Pulls Google Play installs, ratings, crashes, and earnings for one Android app.
+
 import { errorMessage } from '@/services/platform/error-message.js';
 import type { PortfolioApp } from '@/types/portfolio.js';
 import type { PlayVitalsMetric, VitalsTimeline } from '@/types/vitals.js';

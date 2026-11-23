@@ -1,3 +1,5 @@
+// Saves, reads, and deletes one named secret in the operating system secret store.
+
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
 
 /** Store (or overwrite) a secret for `account` in the host's native secret store. */

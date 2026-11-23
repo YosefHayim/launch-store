@@ -1,3 +1,5 @@
+// Runs a credentials action such as status, key import, account changes, or signing setup.
+
 import { readFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import { loadConfig } from '../config/config.ts';

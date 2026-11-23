@@ -1,3 +1,5 @@
+// Registers the commands that download and upload the store listing through a config file.
+
 import type { Command } from '@/cli/command.js';
 import {
   type MetadataCommandInput,

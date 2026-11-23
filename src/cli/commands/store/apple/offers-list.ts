@@ -1,3 +1,5 @@
+// Lists the offer-code campaigns for one subscription on App Store Connect.
+
 import { createLogger } from '@/services/platform/logger.js';
 import type { OfferCodeResource } from '@/types/apple-catalog.js';
 import type { OffersListInput } from './offers-command.ts';

@@ -1,3 +1,5 @@
+// Shows a planned Google Play catalog change and asks before writing it.
+
 import { hasMessage } from '@/services/platform/error-message.js';
 import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
 import { LaunchPrompt } from '@/services/platform/prompt.js';

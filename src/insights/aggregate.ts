@@ -1,3 +1,5 @@
+// Turns App Store Connect and Google Play reviews into ratings, sentiment, and a monthly trend.
+
 import type {
   AppInsights,
   InsightsReport,

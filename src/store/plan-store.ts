@@ -1,3 +1,5 @@
+// Compares in-app purchase product ids in launch.config.ts with a live store snapshot.
+
 import type { LaunchConfig } from '../types/config.ts';
 
 export interface StoreProduct {

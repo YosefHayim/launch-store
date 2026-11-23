@@ -1,3 +1,5 @@
+// Lists the steps to publish the App Privacy nutrition label in App Store Connect.
+
 export const APP_PRIVACY_HELP_URL =
   'https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy/';
 /** The ordered manual steps to complete the App Privacy "nutrition label" in App Store Connect. */

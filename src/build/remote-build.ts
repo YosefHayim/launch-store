@@ -1,3 +1,5 @@
+// Copies the project to a remote Mac, runs the build there, and pulls the binary back.
+
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

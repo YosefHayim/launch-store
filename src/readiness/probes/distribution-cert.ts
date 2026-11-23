@@ -1,3 +1,5 @@
+// Checks that the team's Apple distribution certificate is still valid.
+
 import type {
   AppReadiness,
   AscReadinessApi,

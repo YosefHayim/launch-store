@@ -1,3 +1,5 @@
+// Runs one subscription-offer action against App Store Connect.
+
 import { createLogger } from '@/services/platform/logger.js';
 import { readPlainObject } from '@/services/platform/plain-object.js';
 import { completeCommand } from '@/terminal/command-exit.js';

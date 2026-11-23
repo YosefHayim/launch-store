@@ -1,3 +1,5 @@
+// Reads and writes the local index of signing certificates and profiles, with no secrets in it.
+
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';

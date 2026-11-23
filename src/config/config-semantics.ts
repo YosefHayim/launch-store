@@ -1,3 +1,5 @@
+// Checks Launch config rules that JSON Schema cannot express, such as rollout size.
+
 import type { LaunchConfig } from '../types/config.ts';
 
 /** One semantic finding: the dotted config path it concerns (matching the schema validator's */

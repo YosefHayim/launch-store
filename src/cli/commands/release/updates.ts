@@ -1,3 +1,5 @@
+// Registers the commands that list over-the-air updates and roll one back.
+
 import type { Command } from '@/cli/command.js';
 import { updatesCommandProgram } from '@/config/updates-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

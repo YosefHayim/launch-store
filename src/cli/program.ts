@@ -1,3 +1,5 @@
+// Builds the full launch-store command tree before any arguments are parsed.
+
 import { Command } from './command.ts';
 import { SetupCommand } from '../launch-file/setup-command.ts';
 import { StoreCommand } from '../store/store-command.ts';
@@ -41,7 +43,7 @@ import { registerDoctorCommand } from './commands/setup/doctor.ts';
 import { registerStoreCommand } from './commands/readiness/store-doctor.ts';
 import { registerAuditCommand } from './commands/readiness/audit.ts';
 import { registerPrivacyCommand } from './commands/readiness/privacy.ts';
-import { registerIapCommand } from './commands/readiness/iap-doctor.ts';
+import { registerIapCommand } from './commands/readiness/in-app-purchase-doctor.ts';
 import { registerSnapshotCommand } from './commands/store/snapshot.ts';
 import { registerExplainCommand } from './commands/terminal/explain.ts';
 import { registerCompletionCommand } from './commands/terminal/completion.ts';
@@ -49,7 +51,7 @@ import { registerUpdateCommand } from './commands/release/update.ts';
 import { registerUpdatesCommand } from './commands/release/updates.ts';
 import { registerCloudCommand } from './commands/build/cloud.ts';
 import { registerBuildsCommand } from './commands/build/builds.ts';
-import { registerCiCommand } from './commands/setup/ci.ts';
+import { registerCiCommand } from './commands/setup/continuous-integration.ts';
 import { registerRunCommand } from './commands/build/run.ts';
 import { registerFingerprintCommand } from './commands/build/fingerprint.ts';
 import { registerDiagnoseCommand } from './commands/build/diagnose.ts';

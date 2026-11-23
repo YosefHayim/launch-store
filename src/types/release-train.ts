@@ -1,3 +1,5 @@
+// Holds one app's iOS, Android, and over-the-air release as a single record.
+
 export type TrainPlatform = 'ios' | 'android';
 
 /** A native (iOS / Android) car's lifecycle. */

@@ -1,3 +1,5 @@
+// Confirms a planned store diff and checks the in-app products on Google Play.
+
 import { AppStoreConnect } from '../apple/app-store-connect.ts';
 import { GooglePlay } from '../google-play.ts';
 import { Prompts } from '../prompts.ts';

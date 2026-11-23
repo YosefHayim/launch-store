@@ -1,3 +1,5 @@
+// Prints saved App Store Connect accounts, signing files, and Google Play credentials.
+
 import { loadConfig } from '../config/config.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';

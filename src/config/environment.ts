@@ -1,3 +1,5 @@
+// Reads Launch settings from the process environment, including store keys and passwords.
+
 export interface LaunchEnvironmentValues {
   editorCommand?: string;
   appleApiKeyPath?: string;

@@ -1,3 +1,5 @@
+// Prints where each iOS app's current App Store version stands, including review and rollout.
+
 import { loadConfig } from '../config/config.ts';
 import { loadAscKeyForAccount } from '../credentials/accounts.ts';
 import { errorMessage } from '../services/platform/error-message.ts';

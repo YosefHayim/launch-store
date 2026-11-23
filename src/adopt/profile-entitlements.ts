@@ -1,8 +1,10 @@
+// Reads entitlement values from an Apple provisioning profile on macOS.
+
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { captureCommandOutput } from '../services/platform/exec.ts';
-import { checkIsMacOperatingSystem } from '../services/platform/os.ts';
+import { captureCommandOutput } from '../services/platform/execute-command.ts';
+import { checkIsMacOperatingSystem } from '../services/platform/host-operating-system.ts';
 import type { EntitlementValue } from '../types/adopt.ts';
 
 function isEntitlementValue(candidate: unknown): candidate is EntitlementValue {

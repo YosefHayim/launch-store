@@ -1,3 +1,5 @@
+// Loads an optional package and names the install step when that package is missing.
+
 import { hasMessage } from './error-message.ts';
 import { isFailureTag } from './tagged-failure.ts';
 

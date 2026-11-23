@@ -1,3 +1,5 @@
+// Writes the over-the-air Apple install document and the page testers open.
+
 import { isApplePlatform } from '../services/stores/platform.ts';
 import type { Platform } from '../types/app.ts';
 

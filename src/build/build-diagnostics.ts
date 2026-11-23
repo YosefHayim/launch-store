@@ -1,3 +1,5 @@
+// Matches a native build log against known failures and names a cause and a fix for each.
+
 type BuildDiagnosis = {
   title: string;
   cause: string;

@@ -1,3 +1,5 @@
+// Creates bundle identifiers, certificates, devices, and profiles in App Store Connect.
+
 import type {
   BundleIdCapabilityResource as AscBundleIdCapabilityResource,
   BundleIdResource as AscBundleIdResource,

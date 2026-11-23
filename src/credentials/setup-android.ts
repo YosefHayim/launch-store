@@ -1,3 +1,5 @@
+// Creates or imports the Google Play upload keystore and service account for one app.
+
 import { pathExists } from '../path-exists.ts';
 import { loadConfig } from '../config/config.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';

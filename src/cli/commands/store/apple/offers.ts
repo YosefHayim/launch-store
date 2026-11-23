@@ -1,3 +1,5 @@
+// Registers the commands that sync App Store subscription offers and generate offer codes.
+
 import type { Command } from '@/cli/command.js';
 import {
   type OffersDeactivateInput,

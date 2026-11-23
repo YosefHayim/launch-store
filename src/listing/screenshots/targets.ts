@@ -1,3 +1,5 @@
+// Lists the App Store Connect screenshot and preview sizes accepted for each device.
+
 type ScreenshotOrientation = 'both' | 'fixed';
 
 /** Pixel dimensions accepted by one App Store screenshot display type. */

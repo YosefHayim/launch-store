@@ -1,3 +1,5 @@
+// Holds privacy findings and the privacy surface Launch compares for one app.
+
 type PrivacySeverity = 'blocker' | 'warning' | 'info';
 
 /** One reconciled finding, tagged with the app and platform it concerns. */

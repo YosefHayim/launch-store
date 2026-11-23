@@ -1,3 +1,5 @@
+// Registers the command that publishes an over-the-air JavaScript update to your own bucket.
+
 import type { Command } from '@/cli/command.js';
 import { updateCommandProgram } from '@/config/update-command.js';
 import { addEnvironmentFlags, type EnvironmentFlags } from '@/cli/environment-flags.js';

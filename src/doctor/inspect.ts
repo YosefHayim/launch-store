@@ -1,3 +1,5 @@
+// Runs the read-only doctor checks and returns one report for iOS or Android.
+
 import { checkApp, formatFinding } from '../config/config-check.ts';
 import { inspectPackageSetup, packageManagerWarnings } from '../config/package-manager.ts';
 import { ANDROID_TOOLS, fixHint, REQUIRED_TOOLS, type Tool } from '../config/toolchain.ts';
@@ -9,7 +11,7 @@ import {
 } from '../credentials/signing-preflight.ts';
 import { appPrivacyChecklist } from '../privacy/privacy-nutrition-label.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { formatPermissionLine, probeKeyPermissions } from '../store/apple/asc-permissions.ts';
+import { formatPermissionLine, probeKeyPermissions } from '../store/apple/app-store-connect-permissions.ts';
 import { describeExportComplianceConfig } from '../store/apple/export-compliance.ts';
 import { buildConsoleUrl } from '../terminal/console-links.ts';
 import { shellLocaleDoctorCheck, type ShellLocaleEnv } from '../terminal/locale.ts';

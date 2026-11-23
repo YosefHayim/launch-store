@@ -1,3 +1,5 @@
+// Lists and writes in-app events shown on an App Store Connect product page.
+
 import type {
   AppEventAttributes,
   AppEventLocalizationAttributes,

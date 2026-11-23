@@ -1,3 +1,5 @@
+// Sets the App Store countries an app is sold in from a config file.
+
 import { errorMessage } from '@/services/platform/error-message.js';
 import { createLogger } from '@/services/platform/logger.js';
 import { LaunchPrompt } from '@/services/platform/prompt.js';

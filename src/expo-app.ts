@@ -1,3 +1,5 @@
+// Reads an Expo app name, bundle id, package name, and version for Launch.
+
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 

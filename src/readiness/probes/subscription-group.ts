@@ -1,3 +1,5 @@
+// Checks that each declared subscription group exists on App Store Connect.
+
 import type {
   AppReadiness,
   AscReadinessApi,

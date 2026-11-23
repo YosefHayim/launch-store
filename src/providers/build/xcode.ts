@@ -1,3 +1,5 @@
+// Archives an Apple app with Xcode and exports the signed package for the store.
+
 import { mkdtemp, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -16,8 +18,8 @@ import {
   xcodeProgressStep,
   type ProgressRunOptions,
 } from '@/services/platform/progress.js';
-import { checkCommandExists } from '@/services/platform/exec.js';
-import { readHostResources } from '@/services/platform/os.js';
+import { checkCommandExists } from '@/services/platform/execute-command.js';
+import { readHostResources } from '@/services/platform/host-operating-system.js';
 import { pathExists } from '@/path-exists.js';
 import {
   assembleArchiveArguments,

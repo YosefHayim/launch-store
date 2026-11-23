@@ -1,3 +1,5 @@
+// Declares how Launch calls App Store Connect, from raw requests to store edits.
+
 import type {
   AccessibilityDeclarationResource,
   AccessibilitySupport,

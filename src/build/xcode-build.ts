@@ -1,7 +1,9 @@
+// Archives an iOS workspace with manual signing and exports the signed app.
+
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AppleSigningIdentity } from '../credentials/apple-signing.ts';
-import { executeCommand } from '../services/platform/exec.ts';
+import { executeCommand } from '../services/platform/execute-command.ts';
 
 interface ArchiveRequest {
   directory: string;

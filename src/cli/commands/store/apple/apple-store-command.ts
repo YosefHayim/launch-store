@@ -1,4 +1,6 @@
-import type { AppStoreConnectClient } from '@/apple/asc-client.js';
+// Opens an App Store Connect client for the active saved account.
+
+import type { AppStoreConnectClient } from '@/apple/app-store-connect-client.js';
 import { loadActiveAscKey } from '@/credentials/accounts.js';
 import { errorMessage } from '@/services/platform/error-message.js';
 import { AppleStoreClientService } from '@/services/stores/apple-store-client.js';

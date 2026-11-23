@@ -1,3 +1,5 @@
+// Holds star ratings and the report built from App Store Connect and Google Play reviews.
+
 export type StarRating = 1 | 2 | 3 | 4 | 5;
 
 /** Which store a normalized review came from. */

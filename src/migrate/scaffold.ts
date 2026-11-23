@@ -1,3 +1,5 @@
+// Adds a starter store config and the secret names a migration still needs filled in.
+
 import { join } from 'node:path';
 import { ENV_EXAMPLE_TEMPLATE } from '../config/config-scaffold.ts';
 import { pathExists } from '../path-exists.ts';

@@ -1,3 +1,5 @@
+// Registers the read-only check of App Store Connect app records and Google Play access.
+
 import type { Command } from '@/cli/command.js';
 import { readinessCommandProgram } from '@/readiness/command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

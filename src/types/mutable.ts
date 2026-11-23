@@ -1,3 +1,5 @@
+// Makes a readonly type writable again, including nested objects and arrays.
+
 export type MutableDeep<Type> = Type extends (...args: infer Args) => infer Return
   ? (...args: Args) => Return
   : Type extends readonly (infer Item)[]

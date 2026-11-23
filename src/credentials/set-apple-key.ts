@@ -1,3 +1,5 @@
+// Finds an App Store Connect private key and saves it as an account.
+
 import { readFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import { errorMessage } from '../services/platform/error-message.ts';

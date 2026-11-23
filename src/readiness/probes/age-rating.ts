@@ -1,3 +1,5 @@
+// Checks that each App Store Connect app has a completed age rating.
+
 import type {
   AppReadiness,
   AscReadinessApi,

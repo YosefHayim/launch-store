@@ -1,3 +1,5 @@
+// Stores Google Play service accounts and upload keystores, and creates a keystore a build needs.
+
 import {
   chmod,
   copyFile,
@@ -13,7 +15,7 @@ import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
 import { randomHexSecret } from './random-secret.ts';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
-import { captureCommandOutput } from '../services/platform/exec.ts';
+import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import {
   resolveAndroidCredentialsDirectory,

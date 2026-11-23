@@ -1,3 +1,5 @@
+// Stores build artifacts on this machine and prunes copies that are no longer needed.
+
 import { copyFile, mkdir, readFile, readlink, realpath, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';

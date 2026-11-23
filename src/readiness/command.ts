@@ -1,3 +1,5 @@
+// Runs the chosen readiness probes and prints the App Store Connect or Google Play report.
+
 import { loadConfig } from '../config/config.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';

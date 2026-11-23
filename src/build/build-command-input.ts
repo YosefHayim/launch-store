@@ -1,4 +1,6 @@
-import { parseCliEnv } from '../config/env.ts';
+// Turns launch-store build flags into the platform, profile, and submit choices one run uses.
+
+import { parseCliEnv } from '../config/environment-file.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 import { parsePlatform, PLATFORMS } from '../services/stores/platform.ts';
 import type { BuildRunOptions } from './pipeline-types.ts';

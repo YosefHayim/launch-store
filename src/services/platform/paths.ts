@@ -1,3 +1,5 @@
+// Resolves the folders Launch uses for accounts, credentials, artifacts, logs, and stats.
+
 import { createHash } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';

@@ -1,3 +1,5 @@
+// Edits an App Store Connect version, its notes, phased release, and review submission.
+
 import type {
   AppStoreReviewDetailResource,
   AppStoreVersionLocalizationResource,

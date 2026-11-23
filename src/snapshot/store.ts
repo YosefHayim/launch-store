@@ -1,3 +1,5 @@
+// Saves, loads, lists, and deletes the files that hold a copy of the stores.
+
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';

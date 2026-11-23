@@ -1,3 +1,5 @@
+// Sets a UTF-8 locale for child tools and grades the shell locale during doctor.
+
 import type { DoctorCheck } from '../types/doctor.ts';
 /** Locale variables xcodebuild and CocoaPods need to run with UTF-8. */
 export const UTF8_LOCALE = {

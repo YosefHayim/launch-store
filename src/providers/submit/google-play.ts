@@ -1,3 +1,5 @@
+// Uploads an Android app bundle and its release notes to a Google Play track.
+
 import { createReadStream } from 'node:fs';
 import type { AndroidReleaseNote, PlayTrack } from '@/types/app.js';
 import type { ResolvedBuildContext } from '@/types/config.js';

@@ -1,3 +1,5 @@
+// Checks that App Store Connect shows signed agreements plus banking and tax.
+
 import type {
   AppReadiness,
   AscReadinessApi,

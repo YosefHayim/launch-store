@@ -1,3 +1,5 @@
+// Folds saved daily stats into totals, a daily series, and notes about freshness.
+
 import type {
   AppCoverage,
   DailyStat,

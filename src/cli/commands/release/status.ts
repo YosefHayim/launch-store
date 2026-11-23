@@ -1,3 +1,5 @@
+// Registers the command that shows App Store version, review, and rollout for each app.
+
 import type { Command } from '@/cli/command.js';
 import { type StatusCommandFlags, statusCommandProgram } from '@/release/status-command.js';
 import { runCliProgram } from '@/cli/run-cli-program.js';

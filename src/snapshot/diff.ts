@@ -1,3 +1,5 @@
+// Lists what was added, removed, or changed between two saved store copies.
+
 import type { JsonValue, Snapshot, SnapshotEntity, SnapshotStore } from '../types/snapshot.ts';
 
 /** How one entity differs between the two snapshots. */

@@ -8,7 +8,7 @@ import {
   checkCommandExists,
   executeCommand,
   executeCommandQuietly,
-} from './exec.ts';
+} from './execute-command.ts';
 
 function describeCommandExecution() {
   async function passesTheUTF8LocaleToSpawnedChildren() {

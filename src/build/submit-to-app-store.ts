@@ -1,3 +1,5 @@
+// Finds the App Store Connect app for a signed binary and refuses an empty upload.
+
 import type { AppStoreConnect } from '../apple/app-store-connect.ts';
 
 interface SignedAppUpload {

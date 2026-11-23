@@ -1,3 +1,5 @@
+// Turns imported products and entitlements into launch.config.ts and app.json text.
+
 import { configTemplate } from '../config/config-scaffold.ts';
 import type { EntitlementValue, ProductPiece } from '../types/adopt.ts';
 import type {

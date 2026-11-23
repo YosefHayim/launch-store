@@ -1,3 +1,5 @@
+// Re-signs a stored iOS or Android binary with the account's current signing material.
+
 import { copyFile, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -8,7 +10,7 @@ import { loadCachedSigningAssets } from '../credentials/apple-signing-assets.ts'
 import { resolveStorageProvider } from '../distribution/storage.ts';
 import { pathExists } from '../path-exists.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { captureCommandOutput, executeCommand } from '../services/platform/exec.ts';
+import { captureCommandOutput, executeCommand } from '../services/platform/execute-command.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { isApplePlatform, platformLabel } from '../services/stores/platform.ts';

@@ -1,3 +1,5 @@
+// Saves App Store Connect App ID capabilities into a copy of the store.
+
 import type {
   SnapshotAscApi,
   SnapshotContext,

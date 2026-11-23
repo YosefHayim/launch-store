@@ -1,3 +1,5 @@
+// Installs a stored iOS or Android binary onto a connected phone.
+
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -5,7 +7,7 @@ import { loadConfig } from '../config/config.ts';
 import { resolveStorageProvider } from '../distribution/storage.ts';
 import { pathExists } from '../path-exists.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { executeCommand } from '../services/platform/exec.ts';
+import { executeCommand } from '../services/platform/execute-command.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';

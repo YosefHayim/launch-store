@@ -1,3 +1,5 @@
+// Holds the shared App Store Connect shapes, errors, tokens, and upload steps.
+
 import type { AscKey } from '@/types/credentials.js';
 import type { MutableDeep } from '@/types/mutable.js';
 import type { components } from '@/apple-api-types.js';

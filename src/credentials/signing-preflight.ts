@@ -1,3 +1,5 @@
+// Checks App Store Connect bundle registration and capabilities before signing a build.
+
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';

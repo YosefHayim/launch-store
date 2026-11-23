@@ -1,3 +1,5 @@
+// Prints the glossary text for one store or build term, or lists every term.
+
 import { createLogger } from '../services/platform/logger.ts';
 import { explainTopic, isGlossaryTopic, listTopics } from './glossary.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';

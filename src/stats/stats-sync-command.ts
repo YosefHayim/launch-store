@@ -1,3 +1,5 @@
+// Runs the stats sync and pulls a chosen number of recent days.
+
 import { createLogger } from '../services/platform/logger.ts';
 import { makeCommandExit } from '../terminal/command-exit.ts';
 import { makeUsageFailure, type UsageFailure } from '../terminal/usage-failure.ts';

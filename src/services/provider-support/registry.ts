@@ -1,3 +1,5 @@
+// Registers and looks up build, storage, credentials, submit, and compute providers by name.
+
 import type {
   BuildEngine,
   ComputeHost,

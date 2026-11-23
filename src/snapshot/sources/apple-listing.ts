@@ -1,3 +1,5 @@
+// Saves an App Store Connect listing and can write that listing back.
+
 import type {
   AppEntities,
   JsonValue,
@@ -10,7 +12,7 @@ import type {
 import type { PlannedAction } from '@/types/reconcile.js';
 import { readAppleLocaleFields, readLocaleInfo } from '@/store/apple/apple-listing-read.js';
 import type { AppleLocaleInfo, AppleStoreConfig } from '@/store/shared/store-config.js';
-import { reconcileAppListing } from '@/store/apple/asc-sync.js';
+import { reconcileAppListing } from '@/store/apple/app-store-sync.js';
 import { iosApps } from '@/readiness/app-scopes.js';
 import { readPlainObject } from '@/services/platform/plain-object.js';
 

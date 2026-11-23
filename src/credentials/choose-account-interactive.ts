@@ -1,3 +1,5 @@
+// Asks which App Store Connect account to use, and imports a key when none are saved.
+
 import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { AccountRecord } from '../types/credentials.ts';

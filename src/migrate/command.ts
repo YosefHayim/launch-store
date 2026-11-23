@@ -1,3 +1,5 @@
+// Imports an Expo Application Services or Fastlane project into Launch files.
+
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadConfig } from '../config/config.ts';
@@ -6,7 +8,7 @@ import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type { MigrationNote, MigrationNoteLevel, MigrationResult } from '../types/migrate.ts';
-import { migrateEas } from './eas.ts';
+import { migrateEas } from './expo-application-services.ts';
 import { migrateFastlane } from './fastlane.ts';
 import { renderReport } from './report.ts';
 import { writeArtifacts } from './write.ts';

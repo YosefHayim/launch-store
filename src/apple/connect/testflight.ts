@@ -1,3 +1,5 @@
+// Runs TestFlight groups, testers, feedback, and beta review on App Store Connect.
+
 import type { AscHost } from './host.ts';
 import type {
   BetaAppReviewSubmissionResource,

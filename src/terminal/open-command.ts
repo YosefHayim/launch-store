@@ -1,3 +1,5 @@
+// Opens an App Store Connect or Google Play page chosen by the open command.
+
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { openUrl, resolveOpenUrl } from './console-links.ts';

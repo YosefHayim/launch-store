@@ -1,3 +1,5 @@
+// Checks a device build, reads App Thinning sizes, and writes Apple export options.
+
 import type { Platform } from '@/types/app.js';
 import type { SizeReportEntry } from '@/types/artifacts.js';
 import type { SigningAssets } from '@/types/credentials.js';

@@ -1,3 +1,5 @@
+// Registers the commands that add and list iOS devices used for internal builds.
+
 import type { Command } from '@/cli/command.js';
 import { type DeviceAddInput, deviceCommandProgram } from '../store/apple/device-command.ts';
 import { runCliProgram } from '@/cli/run-cli-program.js';

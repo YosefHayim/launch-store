@@ -1,3 +1,5 @@
+// Lists team users and sends or cancels an invitation on App Store Connect.
+
 import type { AscHost } from './host.ts';
 import type {
   NewUserInvitation,

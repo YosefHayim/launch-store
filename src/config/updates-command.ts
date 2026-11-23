@@ -1,12 +1,14 @@
+// Lists published over-the-air updates and republishes an older one or rolls clients back.
+
 import { randomUUID } from 'node:crypto';
-import { selectApp } from '../build/pipeline-env.ts';
+import { selectApp } from '../build/pipeline-environment.ts';
 import { ensureCodeSigner, type CodeSigner } from '../credentials/code-sign.ts';
 import {
   historySnapshotKey,
   type ManifestAsset,
   type UpdateHistoryEntry,
   type UpdateManifest,
-} from '../distribution/ota-manifest.ts';
+} from '../distribution/over-the-air-manifest.ts';
 import { isCloudStorage, resolveStorageProvider } from '../distribution/storage.ts';
 import {
   findHistoryEntry,

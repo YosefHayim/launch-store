@@ -1,3 +1,5 @@
+// Chooses the configured app a credentials command should change.
+
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import { failCommand } from './credentials-failure.ts';

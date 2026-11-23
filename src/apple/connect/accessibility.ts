@@ -1,3 +1,5 @@
+// Reads and writes accessibility nutrition labels for an app on App Store Connect.
+
 import type { AccessibilityDeclarationAttributes } from './shared.ts';
 import type {
   AccessibilityDeclarationResource,

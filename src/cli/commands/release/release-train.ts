@@ -1,3 +1,5 @@
+// Registers the command that tracks one iOS, Android, and over-the-air release as one record.
+
 import type { Command } from '@/cli/command.js';
 import { releaseTrainCommandProgram } from '@/release-train/command.js';
 import { addEnvironmentFlags, type EnvironmentFlags } from '@/cli/environment-flags.js';
