@@ -113,12 +113,16 @@ export interface AscHost {
   ): Promise<void>;
   deleteResource(path: string): Promise<void>;
   getAppId(bundleId: string): Promise<string | null>;
-  getLatestBuildNumber(bundleId: string): Promise<number>;
+  getLatestBuildNumber(bundleId: string, listQuery?: AppleListQuery | null): Promise<number>;
   getLatestMarketingVersion(
     bundleId: string,
     listQuery?: AppleListQuery | null,
   ): Promise<string | null>;
-  getBuildProcessingState(bundleId: string, buildNumber: number): Promise<string | null>;
+  getBuildProcessingState(
+    bundleId: string,
+    buildNumber: number,
+    listQuery?: AppleListQuery | null,
+  ): Promise<string | null>;
   createBuildUpload(
     appId: string,
     version: string,
@@ -126,10 +130,14 @@ export interface AscHost {
     platform: components['schemas']['Platform'],
   ): Promise<string>;
   uploadBuildFile(buildUploadId: string, fileName: string, binaryPath: string): Promise<void>;
-  getBuildUploadStatus(buildUploadId: string): Promise<BuildUploadStatus>;
+  getBuildUploadStatus(
+    buildUploadId: string,
+    listQuery?: AppleListQuery | null,
+  ): Promise<BuildUploadStatus>;
   findBuild(
     bundleId: string,
     buildNumber: number,
+    listQuery?: AppleListQuery | null,
   ): Promise<{ id: string; usesNonExemptEncryption: boolean | null } | null>;
   setBuildUsesNonExemptEncryption(buildId: string, fieldValue: boolean): Promise<void>;
   getEditableAppInfoId(appId: string): Promise<string | null>;
@@ -202,7 +210,7 @@ export interface AscHost {
   ): Promise<void>;
   assertReady(): Promise<void>;
   checkRequiredAgreements(): Promise<boolean>;
-  resolveTeamId(): Promise<string | null>;
+  resolveTeamId(listQuery?: AppleListQuery | null): Promise<string | null>;
   listAppNames(listQuery?: AppleListQuery | null): Promise<string[]>;
   listApps(
     listQuery?: AppleListQuery | null,
@@ -236,7 +244,10 @@ export interface AscHost {
     deviceIds: readonly string[],
     profileType?: ProvisioningProfileType,
   ): Promise<ProfileResource>;
-  listBundleIdCapabilities(bundleIdResourceId: string): Promise<BundleIdCapabilityResource[]>;
+  listBundleIdCapabilities(
+    bundleIdResourceId: string,
+    listQuery?: AppleListQuery | null,
+  ): Promise<BundleIdCapabilityResource[]>;
   listProfilesForBundleId(
     bundleIdResourceId: string,
     listQuery?: AppleListQuery | null,
@@ -346,7 +357,10 @@ export interface AscHost {
     groupId: string,
     listQuery?: AppleListQuery | null,
   ): Promise<BetaTesterResource[]>;
-  findBetaTesterByEmail(email: string): Promise<BetaTesterResource | null>;
+  findBetaTesterByEmail(
+    email: string,
+    listQuery?: AppleListQuery | null,
+  ): Promise<BetaTesterResource | null>;
   createBetaTester(
     groupId: string,
     input: { email: string; firstName?: string; lastName?: string },
@@ -475,10 +489,12 @@ export interface AscHost {
   listBetaFeedbackCrashSubmissions(
     appId: string,
     query?: BetaFeedbackQuery,
+    listQuery?: AppleListQuery | null,
   ): Promise<BetaFeedbackCrashSubmissionResource[]>;
   listBetaFeedbackScreenshotSubmissions(
     appId: string,
     query?: BetaFeedbackQuery,
+    listQuery?: AppleListQuery | null,
   ): Promise<BetaFeedbackScreenshotSubmissionResource[]>;
   downloadBetaFeedbackScreenshot(url: string): Promise<Buffer>;
   listUsers(listQuery?: AppleListQuery | null): Promise<UserResource[]>;
@@ -521,6 +537,7 @@ export interface AscHost {
     appId: string,
     buildNumber: number,
     marketingVersion?: string,
+    listQuery?: AppleListQuery | null,
   ): Promise<BuildResource | null>;
   listBetaBuildLocalizations(
     buildId: string,
@@ -578,7 +595,10 @@ export interface AscHost {
   submitReviewSubmission(submissionId: string): Promise<void>;
   createAppStoreVersionReleaseRequest(versionId: string): Promise<void>;
   cancelReviewSubmission(submissionId: string): Promise<void>;
-  getReviewSubmission(submissionId: string): Promise<ReviewSubmissionResource>;
+  getReviewSubmission(
+    submissionId: string,
+    listQuery?: AppleListQuery | null,
+  ): Promise<ReviewSubmissionResource>;
   listAppEvents(appId: string, listQuery?: AppleListQuery | null): Promise<AppEventResource[]>;
   listAppEventLocalizations(
     eventId: string,
@@ -595,12 +615,18 @@ export interface AscHost {
     localizationId: string,
     attributes: AppEventLocalizationInput,
   ): Promise<AppEventLocalizationResource>;
-  listScreenshotSets(versionLocalizationId: string): Promise<ScreenshotSetResource[]>;
+  listScreenshotSets(
+    versionLocalizationId: string,
+    listQuery?: AppleListQuery | null,
+  ): Promise<ScreenshotSetResource[]>;
   createScreenshotSet(
     versionLocalizationId: string,
     displayType: string,
   ): Promise<ScreenshotSetResource>;
-  listTreatmentScreenshotSets(treatmentLocalizationId: string): Promise<ScreenshotSetResource[]>;
+  listTreatmentScreenshotSets(
+    treatmentLocalizationId: string,
+    listQuery?: AppleListQuery | null,
+  ): Promise<ScreenshotSetResource[]>;
   createTreatmentScreenshotSet(
     treatmentLocalizationId: string,
     displayType: string,
@@ -609,7 +635,10 @@ export interface AscHost {
   deleteScreenshot(screenshotId: string): Promise<void>;
   reorderScreenshots(setId: string, screenshotIds: readonly string[]): Promise<void>;
   uploadScreenshot(setId: string, fileName: string, filePath: string): Promise<string>;
-  getSubscriptionReviewScreenshot(subscriptionId: string): Promise<ReviewScreenshotResource | null>;
+  getSubscriptionReviewScreenshot(
+    subscriptionId: string,
+    listQuery?: AppleListQuery | null,
+  ): Promise<ReviewScreenshotResource | null>;
   uploadSubscriptionReviewScreenshot(
     subscriptionId: string,
     fileName: string,

@@ -65,9 +65,10 @@ export class ConnectGameCenter {
       vendorIdentifier?: string;
     }>(
       applyAppleListQuery(
-        `/gameCenterDetails/${detailId}/gameCenterAchievementsV2?fields[gameCenterAchievements]=vendorIdentifier`,
+        `/gameCenterDetails/${detailId}/gameCenterAchievementsV2`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        { 'fields[gameCenterAchievements]': 'vendorIdentifier' },
       ),
     );
 
@@ -177,9 +178,10 @@ export class ConnectGameCenter {
       vendorIdentifier?: string;
     }>(
       applyAppleListQuery(
-        `/gameCenterDetails/${detailId}/gameCenterLeaderboardsV2?fields[gameCenterLeaderboards]=vendorIdentifier`,
+        `/gameCenterDetails/${detailId}/gameCenterLeaderboardsV2`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        { 'fields[gameCenterLeaderboards]': 'vendorIdentifier' },
       ),
     );
 

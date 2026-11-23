@@ -21,11 +21,9 @@ export class ConnectTeam {
       lastName?: string;
       roles?: string[];
     }>(
-      applyAppleListQuery(
-        '/users?fields[users]=username,firstName,lastName,roles',
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery('/users', listQuery, APPLE_PAGE_LIMIT, {
+        'fields[users]': 'username,firstName,lastName,roles',
+      }),
     );
 
     function copyTeamUser(user: {
@@ -70,11 +68,9 @@ export class ConnectTeam {
       roles?: string[];
       expirationDate?: string;
     }>(
-      applyAppleListQuery(
-        '/userInvitations?fields[userInvitations]=email,firstName,lastName,roles,expirationDate',
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery('/userInvitations', listQuery, APPLE_PAGE_LIMIT, {
+        'fields[userInvitations]': 'email,firstName,lastName,roles,expirationDate',
+      }),
     );
 
     function copyUserInvitation(invitation: {

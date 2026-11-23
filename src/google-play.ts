@@ -4,6 +4,17 @@ import type { androidpublisher_v3 } from '@googleapis/androidpublisher';
 import { AndroidKeystore } from './credentials/android-keystore.ts';
 import { Keychain } from './credentials/keychain.ts';
 
+function withSelectedFields<PlayCall extends object>(
+  playCall: PlayCall,
+  fields: string | null,
+): PlayCall & { fields?: string } {
+  if (fields == null) {
+    return playCall;
+  }
+
+  return { ...playCall, fields };
+}
+
 export class GooglePlay {
   private readonly publishers = new Map<string, androidpublisher_v3.Androidpublisher>();
   private readonly keystore: AndroidKeystore;
@@ -41,11 +52,11 @@ export class GooglePlay {
   }
 
   /** Opens an edit. */
-  async openEdit(packageName: string): Promise<string> {
+  async openEdit(packageName: string, fields: string | null = null): Promise<string> {
     const publisher = await this.connect(packageName);
 
     try {
-      var opened = await publisher.edits.insert({ packageName });
+      var opened = await publisher.edits.insert(withSelectedFields({ packageName }, fields));
     } catch (error) {
       throw new Error(`Play did not open an edit for ${packageName}`, { cause: error });
     }
@@ -62,22 +73,30 @@ export class GooglePlay {
   }
 
   /** Drops an edit so a read does not stay open on the account. */
-  async deleteEdit(packageName: string, editId: string): Promise<void> {
+  async deleteEdit(
+    packageName: string,
+    editId: string,
+    fields: string | null = null,
+  ): Promise<void> {
     const publisher = await this.connect(packageName);
 
     try {
-      await publisher.edits.delete({ packageName, editId });
+      await publisher.edits.delete(withSelectedFields({ packageName, editId }, fields));
     } catch (error) {
       throw new Error(`Play did not delete the edit for ${packageName}`, { cause: error });
     }
   }
 
   /** Publishes the open edit. */
-  async commitEdit(packageName: string, editId: string): Promise<void> {
+  async commitEdit(
+    packageName: string,
+    editId: string,
+    fields: string | null = null,
+  ): Promise<void> {
     const publisher = await this.connect(packageName);
 
     try {
-      await publisher.edits.commit({ packageName, editId });
+      await publisher.edits.commit(withSelectedFields({ packageName, editId }, fields));
     } catch (error) {
       throw new Error(`Play did not commit the edit for ${packageName}`, { cause: error });
     }
@@ -115,21 +134,27 @@ export class GooglePlay {
     editId: string,
     track: string,
     versionCode: number,
+    fields: string | null = null,
   ): Promise<void> {
     const publisher = await this.connect(packageName);
 
     try {
       const asString = String(versionCode);
 
-      await publisher.edits.tracks.update({
-        packageName,
-        editId,
-        track,
-        requestBody: {
-          track,
-          releases: [{ status: 'completed', versionCodes: [asString] }],
-        },
-      });
+      await publisher.edits.tracks.update(
+        withSelectedFields(
+          {
+            packageName,
+            editId,
+            track,
+            requestBody: {
+              track,
+              releases: [{ status: 'completed', versionCodes: [asString] }],
+            },
+          },
+          fields,
+        ),
+      );
     } catch (error) {
       throw new Error(`Play did not update the ${track} track for ${packageName}`, {
         cause: error,
@@ -138,11 +163,14 @@ export class GooglePlay {
   }
 
   /** Lists in-app products for one app. */
-  async listInAppProducts(packageName: string): Promise<readonly string[]> {
+  async listInAppProducts(
+    packageName: string,
+    fields: string | null = null,
+  ): Promise<readonly string[]> {
     const publisher = await this.connect(packageName);
 
     try {
-      var listed = await publisher.inappproducts.list({ packageName });
+      var listed = await publisher.inappproducts.list(withSelectedFields({ packageName }, fields));
     } catch (error) {
       throw new Error(`Play did not list in-app products for ${packageName}`, { cause: error });
     }
@@ -173,11 +201,17 @@ export class GooglePlay {
   }
 
   /** Lists store listing languages inside an open edit. */
-  async listListings(packageName: string, editId: string): Promise<readonly string[]> {
+  async listListings(
+    packageName: string,
+    editId: string,
+    fields: string | null = null,
+  ): Promise<readonly string[]> {
     const publisher = await this.connect(packageName);
 
     try {
-      var listed = await publisher.edits.listings.list({ packageName, editId });
+      var listed = await publisher.edits.listings.list(
+        withSelectedFields({ packageName, editId }, fields),
+      );
     } catch (error) {
       throw new Error(`Play did not list store listings for ${packageName}`, { cause: error });
     }
@@ -208,11 +242,17 @@ export class GooglePlay {
   }
 
   /** Lists tracks inside an open edit. */
-  async listTracks(packageName: string, editId: string): Promise<readonly string[]> {
+  async listTracks(
+    packageName: string,
+    editId: string,
+    fields: string | null = null,
+  ): Promise<readonly string[]> {
     const publisher = await this.connect(packageName);
 
     try {
-      var listed = await publisher.edits.tracks.list({ packageName, editId });
+      var listed = await publisher.edits.tracks.list(
+        withSelectedFields({ packageName, editId }, fields),
+      );
     } catch (error) {
       throw new Error(`Play did not list tracks for ${packageName}`, { cause: error });
     }

@@ -4425,7 +4425,7 @@ function describeAppStoreConnectClientAppStoreReleaseLifecycle() {
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
 
     expect(arrayElement[0]).toContain(
-      'filter[version]=591&sort=-uploadedDate&limit=1&fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&include=preReleaseVersion',
+      'filter[version]=591&limit=1&sort=-uploadedDate&fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&include=preReleaseVersion',
     );
   }
 
@@ -4980,7 +4980,7 @@ describe('AppStoreConnectClient - app store versions', () => {
     const asString = String(requestUrl);
 
     expect(asString).toContain(
-      'filter[version]=9&filter[preReleaseVersion.version]=1.2.0&sort=-uploadedDate&limit=1',
+      'filter[version]=9&filter[preReleaseVersion.version]=1.2.0&limit=1&sort=-uploadedDate',
     );
     expect(storeBuild).toBeNull();
   }

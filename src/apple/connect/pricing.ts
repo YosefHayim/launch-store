@@ -63,9 +63,10 @@ export class ConnectPricing {
       this.client.request(
         'GET',
         applyAppleListQuery(
-          `/apps/${appId}/appPriceSchedule/manualPrices?include=appPricePoint`,
+          `/apps/${appId}/appPriceSchedule/manualPrices`,
           listQuery,
           APPLE_PAGE_LIMIT,
+          { include: 'appPricePoint' },
         ),
       ),
     );

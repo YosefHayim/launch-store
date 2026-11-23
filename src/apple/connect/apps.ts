@@ -17,7 +17,12 @@ import {
   EDITABLE_METADATA_STATES,
   summarizeAppleApp,
 } from './shared.ts';
-import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
+import {
+  APPLE_PAGE_LIMIT,
+  applyAppleListQuery,
+  applyAppleReadQuery,
+  type AppleListQuery,
+} from './list-query.ts';
 
 export class ConnectApps {
   constructor(private readonly client: AscHost) {}
@@ -67,11 +72,9 @@ export class ConnectApps {
   ): Promise<ResourceList<AppInfoStates>['data']> {
     const { data: appInfos } = await this.client.request<ResourceList<AppInfoStates>>(
       'GET',
-      applyAppleListQuery(
-        `/apps/${appId}/appInfos?fields[appInfos]=state,appStoreState`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`/apps/${appId}/appInfos`, listQuery, APPLE_PAGE_LIMIT, {
+        'fields[appInfos]': 'state,appStoreState',
+      }),
     );
 
     return appInfos;
@@ -133,9 +136,10 @@ export class ConnectApps {
       privacyChoicesUrl?: string | null;
     }>(
       applyAppleListQuery(
-        `/appInfos/${appInfoId}/appInfoLocalizations?fields[appInfoLocalizations]=locale,privacyChoicesUrl`,
+        `/appInfos/${appInfoId}/appInfoLocalizations`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        { 'fields[appInfoLocalizations]': 'locale,privacyChoicesUrl' },
       ),
     );
 
@@ -231,12 +235,15 @@ export class ConnectApps {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-bundleids
    */
-  async resolveTeamId(): Promise<string | null> {
+  async resolveTeamId(listQuery: AppleListQuery | null = null): Promise<string | null> {
     const { data: appleResources } = await this.client.request<
       ResourceList<{
         seedId?: string;
       }>
-    >('GET', '/bundleIds?limit=1&fields[bundleIds]=seedId');
+    >(
+      'GET',
+      applyAppleReadQuery('/bundleIds?limit=1', listQuery, { 'fields[bundleIds]': 'seedId' }),
+    );
     const bundleIdResource = appleResources[0];
 
     if (bundleIdResource == null) return null;
@@ -256,7 +263,7 @@ export class ConnectApps {
   async listAppNames(listQuery: AppleListQuery | null = null): Promise<string[]> {
     const appleResources = await this.client.requestAll<{
       name?: string;
-    }>(applyAppleListQuery('/apps?fields[apps]=name', listQuery, APPLE_PAGE_LIMIT));
+    }>(applyAppleListQuery('/apps', listQuery, APPLE_PAGE_LIMIT, { 'fields[apps]': 'name' }));
 
     function readName(entry: {
       id: string;
@@ -284,7 +291,11 @@ export class ConnectApps {
     const appleResources = await this.client.requestAll<{
       name?: string;
       bundleId?: string;
-    }>(applyAppleListQuery('/apps?fields[apps]=name,bundleId', listQuery, APPLE_PAGE_LIMIT));
+    }>(
+      applyAppleListQuery('/apps', listQuery, APPLE_PAGE_LIMIT, {
+        'fields[apps]': 'name,bundleId',
+      }),
+    );
 
     return appleResources.map(summarizeAppleApp);
   }
@@ -321,11 +332,9 @@ export class ConnectApps {
       }[];
     }>(
       'GET',
-      applyAppleListQuery(
-        `/apps/${appId}/appInfos?include=primaryCategory,secondaryCategory`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`/apps/${appId}/appInfos`, listQuery, APPLE_PAGE_LIMIT, {
+        include: 'primaryCategory,secondaryCategory',
+      }),
     );
 
     if (appleResources.length == 0) return null;

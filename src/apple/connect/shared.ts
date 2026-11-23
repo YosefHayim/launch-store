@@ -24,6 +24,7 @@ import {
 } from '@/types/apple-catalog.js';
 import { readPlainObject } from '@/services/platform/plain-object.js';
 import { isFailureTag } from '@/services/platform/tagged-failure.js';
+import type { AppleListQuery } from './list-query.ts';
 
 export const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
 export const BASE_URL = `${API_ORIGIN}/v1`;
@@ -473,8 +474,11 @@ export type BetaFeedbackPage = {
     next?: string;
   };
 };
-export const BUILD_PAGE_QUERY =
-  'fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&include=preReleaseVersion&fields[preReleaseVersions]=version';
+export const BUILD_PAGE_QUERY: AppleListQuery = {
+  'fields[builds]': 'version,processingState,uploadedDate,expired,preReleaseVersion',
+  include: 'preReleaseVersion',
+  'fields[preReleaseVersions]': 'version',
+};
 export function createMarketingVersionFilter(marketingVersion: string | undefined): string {
   const isMarketingVersionGiven = marketingVersion != null;
 

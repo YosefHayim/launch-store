@@ -15,7 +15,12 @@ import {
   putAssetFile,
   readBuildResources,
 } from './shared.ts';
-import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
+import {
+  APPLE_PAGE_LIMIT,
+  applyAppleListQuery,
+  applyAppleReadQuery,
+  type AppleListQuery,
+} from './list-query.ts';
 
 function withAskedPageLimit(askedLimit: number, listQuery: AppleListQuery | null): AppleListQuery {
   if (listQuery == null) return { limit: askedLimit };
@@ -36,7 +41,10 @@ export class ConnectBuilds {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-builds
    */
-  async getLatestBuildNumber(bundleId: string): Promise<number> {
+  async getLatestBuildNumber(
+    bundleId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<number> {
     const appId = await this.client.getAppId(bundleId);
 
     if (!appId) return 0;
@@ -45,7 +53,13 @@ export class ConnectBuilds {
       ResourceList<{
         version: string;
       }>
-    >('GET', `/builds?filter[app]=${appId}&sort=-version&limit=1&fields[builds]=version`);
+    >(
+      'GET',
+      applyAppleReadQuery(`/builds?filter[app]=${appId}&limit=1`, listQuery, {
+        sort: '-version',
+        'fields[builds]': 'version',
+      }),
+    );
     const latestBuild = appleResources[0];
 
     if (latestBuild == null) return 0;
@@ -75,20 +89,16 @@ export class ConnectBuilds {
       this.client.requestAll<{
         versionString: string;
       }>(
-        applyAppleListQuery(
-          `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=versionString`,
-          listQuery,
-          APPLE_PAGE_LIMIT,
-        ),
+        applyAppleListQuery(`/apps/${appId}/appStoreVersions`, listQuery, APPLE_PAGE_LIMIT, {
+          'fields[appStoreVersions]': 'versionString',
+        }),
       ),
       this.client.requestAll<{
         version: string;
       }>(
-        applyAppleListQuery(
-          `/apps/${appId}/preReleaseVersions?fields[preReleaseVersions]=version`,
-          listQuery,
-          APPLE_PAGE_LIMIT,
-        ),
+        applyAppleListQuery(`/apps/${appId}/preReleaseVersions`, listQuery, APPLE_PAGE_LIMIT, {
+          'fields[preReleaseVersions]': 'version',
+        }),
       ),
     ]);
 
@@ -119,7 +129,11 @@ export class ConnectBuilds {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-builds
    */
-  async getBuildProcessingState(bundleId: string, buildNumber: number): Promise<string | null> {
+  async getBuildProcessingState(
+    bundleId: string,
+    buildNumber: number,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<string | null> {
     const appId = await this.client.getAppId(bundleId);
 
     if (!appId) return null;
@@ -130,7 +144,11 @@ export class ConnectBuilds {
       }>
     >(
       'GET',
-      `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=processingState`,
+      applyAppleReadQuery(
+        `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1`,
+        listQuery,
+        { 'fields[builds]': 'processingState' },
+      ),
     );
     const matchingBuild = appleResources[0];
 
@@ -205,12 +223,19 @@ export class ConnectBuilds {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-builduploads-_id_
    */
-  async getBuildUploadStatus(buildUploadId: string): Promise<BuildUploadStatus> {
+  async getBuildUploadStatus(
+    buildUploadId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<BuildUploadStatus> {
     const { data: buildUpload, included } = await this.client.request<
       components['schemas']['BuildUploadResponse']
     >(
       'GET',
-      `/buildUploads/${buildUploadId}?include=assetFile&fields[buildUploads]=state,assetFile&fields[buildUploadFiles]=assetDeliveryState`,
+      applyAppleReadQuery(`/buildUploads/${buildUploadId}`, listQuery, {
+        include: 'assetFile',
+        'fields[buildUploads]': 'state,assetFile',
+        'fields[buildUploadFiles]': 'assetDeliveryState',
+      }),
     );
     let uploadState = buildUpload.attributes?.state;
 
@@ -251,6 +276,7 @@ export class ConnectBuilds {
   async findBuild(
     bundleId: string,
     buildNumber: number,
+    listQuery: AppleListQuery | null = null,
   ): Promise<{
     id: string;
     usesNonExemptEncryption: boolean | null;
@@ -265,7 +291,11 @@ export class ConnectBuilds {
       }>
     >(
       'GET',
-      `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=usesNonExemptEncryption`,
+      applyAppleReadQuery(
+        `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1`,
+        listQuery,
+        { 'fields[builds]': 'usesNonExemptEncryption' },
+      ),
     );
     const matchingBuild = appleResources[0];
 
@@ -307,11 +337,9 @@ export class ConnectBuilds {
     const appleResources = await this.client.requestAll<{
       appEncryptionDeclarationState: string;
     }>(
-      applyAppleListQuery(
-        `/apps/${appId}/appEncryptionDeclarations?fields[appEncryptionDeclarations]=appEncryptionDeclarationState`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`/apps/${appId}/appEncryptionDeclarations`, listQuery, APPLE_PAGE_LIMIT, {
+        'fields[appEncryptionDeclarations]': 'appEncryptionDeclarationState',
+      }),
     );
 
     function copyEncryptionDeclaration(entry: {
@@ -356,9 +384,10 @@ export class ConnectBuilds {
     const buildPage = await this.client.request<BuildPage>(
       'GET',
       applyAppleListQuery(
-        `/builds?filter[app]=${appId}&sort=-uploadedDate&${BUILD_PAGE_QUERY}`,
+        `/builds?filter[app]=${appId}`,
         withAskedPageLimit(limit, listQuery),
         APPLE_PAGE_LIMIT,
+        { sort: '-uploadedDate', ...BUILD_PAGE_QUERY },
       ),
     );
 
@@ -374,11 +403,16 @@ export class ConnectBuilds {
     appId: string,
     buildNumber: number,
     marketingVersion?: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<BuildResource | null> {
     const versionFilter = createMarketingVersionFilter(marketingVersion);
     const buildPage = await this.client.request<BuildPage>(
       'GET',
-      `/builds?filter[app]=${appId}&filter[version]=${buildNumber}${versionFilter}&sort=-uploadedDate&limit=1&${BUILD_PAGE_QUERY}`,
+      applyAppleReadQuery(
+        `/builds?filter[app]=${appId}&filter[version]=${buildNumber}${versionFilter}&limit=1`,
+        listQuery,
+        { sort: '-uploadedDate', ...BUILD_PAGE_QUERY },
+      ),
     );
     const [firstBuild] = readBuildResources(buildPage);
 

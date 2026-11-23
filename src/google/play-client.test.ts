@@ -356,6 +356,21 @@ function describeGooglePlayClientGeneratedReads() {
   }
 
   it('lists every track with normalized releases', listsEveryTrackWithNormalizedReleases);
+
+  async function sendsTheCallerFieldSelectorOnATrackList() {
+    openReadEdit();
+    listTracks.mockResolvedValue({ data: { tracks: [] } });
+
+    await client.listTracks('com.example.app', 'tracks(track)');
+
+    expect(listTracks).toHaveBeenCalledWith({
+      packageName: 'com.example.app',
+      editId: 'edit1',
+      fields: 'tracks(track)',
+    });
+  }
+
+  it('sends the caller field selector on a track list', sendsTheCallerFieldSelectorOnATrackList);
 }
 
 describe('GooglePlayClient generated reads', describeGooglePlayClientGeneratedReads);

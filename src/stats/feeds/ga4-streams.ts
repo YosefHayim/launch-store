@@ -18,6 +18,7 @@ interface PagedList {
   readonly url: string;
   readonly pageSize: number;
   readonly propertyId: string | null;
+  readonly fields: string | null;
 }
 
 function readIdAfterSegment(resourceName: string, segment: string): string | null {
@@ -96,7 +97,12 @@ function clampGa4PageSize(asked: number | null): number {
   return asked;
 }
 
-function createPageUrl(listUrl: string, pageSize: number, pageToken: string | null): string {
+function createPageUrl(
+  listUrl: string,
+  pageSize: number,
+  pageToken: string | null,
+  fields: string | null,
+): string {
   const pageUrl = new URL(listUrl);
   const asString = String(pageSize);
 
@@ -104,6 +110,10 @@ function createPageUrl(listUrl: string, pageSize: number, pageToken: string | nu
 
   if (pageToken != null) {
     pageUrl.searchParams.set('pageToken', pageToken);
+  }
+
+  if (fields != null) {
+    pageUrl.searchParams.set('fields', fields);
   }
 
   return pageUrl.toString();
@@ -261,7 +271,7 @@ async function listPages(
   pagedList: PagedList,
   pageToken: string | null,
 ): Promise<readonly unknown[]> {
-  const pageUrl = createPageUrl(pagedList.url, pagedList.pageSize, pageToken);
+  const pageUrl = createPageUrl(pagedList.url, pagedList.pageSize, pageToken, pagedList.fields);
   const pageDocument = await requestGa4Document(session, {
     url: pageUrl,
     requestDocument: null,
@@ -317,6 +327,7 @@ export async function listAppStreams(
   session: Ga4Session,
   propertyId: string,
   pageSize?: number,
+  fields: string | null = null,
 ): Promise<readonly Ga4AppStream[]> {
   let askedPageSize: number | null = null;
 
@@ -331,6 +342,7 @@ export async function listAppStreams(
       url: `${ANALYTICS_ADMIN_URL}/properties/${propertyId}/dataStreams`,
       pageSize: searchPageSize,
       propertyId,
+      fields,
     },
     null,
   );
@@ -354,13 +366,18 @@ export async function listAppStreams(
   return streams;
 }
 
-async function listPropertyIds(session: Ga4Session, pageSize: number): Promise<readonly string[]> {
+async function listPropertyIds(
+  session: Ga4Session,
+  pageSize: number,
+  fields: string | null,
+): Promise<readonly string[]> {
   const pages = await listPages(
     session,
     {
       url: `${ANALYTICS_ADMIN_URL}/accountSummaries`,
       pageSize,
       propertyId: null,
+      fields,
     },
     null,
   );
@@ -393,6 +410,7 @@ async function listPropertyIds(session: Ga4Session, pageSize: number): Promise<r
 export async function listAllAppStreams(
   session: Ga4Session,
   pageSize?: number,
+  fields: string | null = null,
 ): Promise<readonly Ga4AppStream[]> {
   let askedPageSize: number | null = null;
 
@@ -401,10 +419,10 @@ export async function listAllAppStreams(
   }
 
   const searchPageSize = clampGa4PageSize(askedPageSize);
-  const propertyIds = await listPropertyIds(session, searchPageSize);
+  const propertyIds = await listPropertyIds(session, searchPageSize, fields);
 
   async function listPropertyStreams(propertyId: string): Promise<readonly Ga4AppStream[]> {
-    return listAppStreams(session, propertyId, searchPageSize);
+    return listAppStreams(session, propertyId, searchPageSize, fields);
   }
 
   const streamsPerProperty = await Promise.all(propertyIds.map(listPropertyStreams));

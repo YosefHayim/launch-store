@@ -23,11 +23,10 @@ export class ConnectReviews {
     } = {},
     listQuery: AppleListQuery | null = null,
   ): Promise<CustomerReviewResource[]> {
-    let path = applyAppleListQuery(
-      `/apps/${appId}/customerReviews?include=response&sort=-createdDate`,
-      listQuery,
-      APPLE_PAGE_LIMIT,
-    );
+    let path = applyAppleListQuery(`/apps/${appId}/customerReviews`, listQuery, APPLE_PAGE_LIMIT, {
+      include: 'response',
+      sort: '-createdDate',
+    });
 
     if (filters.rating != null) path += `&filter[rating]=${filters.rating}`;
 

@@ -11,7 +11,12 @@ import type {
   VitalsWindow,
 } from '../types/vitals.ts';
 import type { MutableDeep } from '../types/mutable.ts';
-import { describePlayErrors, nonEmptyPageToken, serviceAccountJwtOptions } from './play-client.ts';
+import {
+  describePlayErrors,
+  nonEmptyPageToken,
+  serviceAccountJwtOptions,
+  withSelectedFields,
+} from './play-client.ts';
 /** The metric set behind each vital */
 const METRIC_SETS: Record<
   PlayVitalsMetric,
@@ -154,12 +159,16 @@ function clampPlayPageSize(asked: number | null): number {
 function createAppsSearchRequest(
   pageToken: string | undefined,
   pageSize: number,
+  fields: string | null,
 ): playdeveloperreporting_v1beta1.Params$Resource$Apps$Search {
-  const isFirstPage = pageToken == null;
+  const searchRequest: playdeveloperreporting_v1beta1.Params$Resource$Apps$Search =
+    withSelectedFields({ pageSize }, fields);
 
-  if (isFirstPage) return { pageSize };
+  if (pageToken != null) {
+    searchRequest.pageToken = pageToken;
+  }
 
-  return { pageSize, pageToken };
+  return searchRequest;
 }
 
 function readDisplayName(
@@ -259,7 +268,7 @@ export class PlayReportingClient {
    *
    * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/apps/search
    */
-  async listApps(pageSize?: number): Promise<PlayReportingApp[]> {
+  async listApps(pageSize?: number, fields: string | null = null): Promise<PlayReportingApp[]> {
     const apps: PlayReportingApp[] = [];
     let pageToken: string | undefined;
     let askedPageSize: number | null = null;
@@ -271,7 +280,7 @@ export class PlayReportingClient {
     const searchPageSize = clampPlayPageSize(askedPageSize);
 
     do {
-      const searchRequest = createAppsSearchRequest(pageToken, searchPageSize);
+      const searchRequest = createAppsSearchRequest(pageToken, searchPageSize, fields);
       const appsPage = await this.executeGeneratedRequest('search accessible apps', () =>
         this.reporting.apps.search(searchRequest),
       );
@@ -295,7 +304,11 @@ export class PlayReportingClient {
    * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/vitals.crashrate/get
    * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/vitals.anrrate/get
    */
-  async latestDailyDate(packageName: string, metric: PlayVitalsMetric): Promise<string | null> {
+  async latestDailyDate(
+    packageName: string,
+    metric: PlayVitalsMetric,
+    fields: string | null = null,
+  ): Promise<string | null> {
     const { resource } = METRIC_SETS[metric];
     const name = `apps/${packageName}/${resource}`;
     let metricSet:
@@ -305,12 +318,12 @@ export class PlayReportingClient {
     switch (metric) {
       case 'crash':
         metricSet = await this.executeGeneratedRequest('get crash-rate freshness', () =>
-          this.reporting.vitals.crashrate.get({ name }),
+          this.reporting.vitals.crashrate.get(withSelectedFields({ name }, fields)),
         );
         break;
       case 'anr':
         metricSet = await this.executeGeneratedRequest('get ANR-rate freshness', () =>
-          this.reporting.vitals.anrrate.get({ name }),
+          this.reporting.vitals.anrrate.get(withSelectedFields({ name }, fields)),
         );
         break;
     }
@@ -340,10 +353,12 @@ export class PlayReportingClient {
     packageName: string,
     metric: PlayVitalsMetric,
     days: number,
+    metrics: readonly string[] | null = null,
+    fields: string | null = null,
   ): Promise<VitalsTimeline> {
-    const latestDate = await this.latestDailyDate(packageName, metric);
+    const latestDate = await this.latestDailyDate(packageName, metric, fields);
     const window = vitalsWindowFromLatestDate(latestDate, days);
-    const rows = await this.queryVitals(metric, packageName, window);
+    const rows = await this.queryVitals(metric, packageName, window, metrics, fields);
     return { metric, window, rows };
   }
   /**
@@ -351,16 +366,26 @@ export class PlayReportingClient {
    *
    * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/vitals.crashrate/query
    */
-  async queryCrashRate(packageName: string, window: VitalsWindow): Promise<PlayVitalsRow[]> {
-    return this.queryVitals('crash', packageName, window);
+  async queryCrashRate(
+    packageName: string,
+    window: VitalsWindow,
+    metrics: readonly string[] | null = null,
+    fields: string | null = null,
+  ): Promise<PlayVitalsRow[]> {
+    return this.queryVitals('crash', packageName, window, metrics, fields);
   }
   /**
    * Query the ANR-rate metric set over a DAILY window, returning normalized rows.
    *
    * @see https://developers.google.com/play/developer/reporting/reference/rest/v1beta1/vitals.anrrate/query
    */
-  async queryAnrRate(packageName: string, window: VitalsWindow): Promise<PlayVitalsRow[]> {
-    return this.queryVitals('anr', packageName, window);
+  async queryAnrRate(
+    packageName: string,
+    window: VitalsWindow,
+    metrics: readonly string[] | null = null,
+    fields: string | null = null,
+  ): Promise<PlayVitalsRow[]> {
+    return this.queryVitals('anr', packageName, window, metrics, fields);
   }
   /**
    * Query one metric set over a DAILY window and normalize every row.
@@ -372,10 +397,17 @@ export class PlayReportingClient {
     metric: PlayVitalsMetric,
     packageName: string,
     window: VitalsWindow,
+    metrics: readonly string[] | null,
+    fields: string | null,
   ): Promise<PlayVitalsRow[]> {
     const metricSet = METRIC_SETS[metric];
     const entries: PlayVitalsRow[] = [];
     let pageToken: string | undefined;
+    let askedMetrics = [metricSet.rate, metricSet.userPerceivedRate, metricSet.distinctUsers];
+
+    if (metrics != null) {
+      askedMetrics = [...metrics];
+    }
 
     do {
       const queryRequest: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1QueryCrashRateMetricSetRequest =
@@ -385,7 +417,7 @@ export class PlayReportingClient {
             startTime: isoToDateParts(window.startDate),
             endTime: isoToDateParts(window.endDate),
           },
-          metrics: [metricSet.rate, metricSet.userPerceivedRate, metricSet.distinctUsers],
+          metrics: askedMetrics,
         };
 
       if (pageToken != null) {
@@ -400,12 +432,16 @@ export class PlayReportingClient {
       switch (metric) {
         case 'crash':
           metricPage = await this.executeGeneratedRequest('query crash-rate timeline', () =>
-            this.reporting.vitals.crashrate.query({ name, requestBody: queryRequest }),
+            this.reporting.vitals.crashrate.query(
+              withSelectedFields({ name, requestBody: queryRequest }, fields),
+            ),
           );
           break;
         case 'anr':
           metricPage = await this.executeGeneratedRequest('query ANR-rate timeline', () =>
-            this.reporting.vitals.anrrate.query({ name, requestBody: queryRequest }),
+            this.reporting.vitals.anrrate.query(
+              withSelectedFields({ name, requestBody: queryRequest }, fields),
+            ),
           );
           break;
       }

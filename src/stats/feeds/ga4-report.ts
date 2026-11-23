@@ -9,7 +9,7 @@ import { readPlainObject } from '@/services/platform/plain-object.js';
 
 const GA4_METRICS: readonly Ga4Metric[] = ['activeUsers', 'newUsers', 'sessions'];
 
-type Ga4Metric = 'activeUsers' | 'newUsers' | 'sessions';
+export type Ga4Metric = 'activeUsers' | 'newUsers' | 'sessions';
 
 interface Ga4Report {
   readonly propertyId: string;
@@ -99,11 +99,15 @@ function metricQuery(metricName: Ga4Metric): { name: string } {
   return { name: metricName };
 }
 
-function createReportQuery(report: Ga4Report, offset: number): unknown {
+function createReportQuery(
+  report: Ga4Report,
+  offset: number,
+  metrics: readonly Ga4Metric[],
+): unknown {
   const reportPageSize = 10000;
   const reportQuery = {
     dimensions: [{ name: 'date' }],
-    metrics: GA4_METRICS.map(metricQuery),
+    metrics: metrics.map(metricQuery),
     dateRanges: [{ startDate: report.range.from, endDate: report.range.to }],
     orderBys: [{ dimension: { dimensionName: 'date' } }],
     limit: String(reportPageSize),
@@ -142,7 +146,7 @@ function readMetricStat(date: string, metricValues: readonly ReportCell[]) {
   };
 }
 
-function readRowStats(reportRow: ReportRow): DailyStat[] {
+function readRowStats(reportRow: ReportRow, metrics: readonly Ga4Metric[]): DailyStat[] {
   const compactDate = reportRow.dimensionValues[0]?.value;
 
   if (compactDate == null) {
@@ -153,19 +157,29 @@ function readRowStats(reportRow: ReportRow): DailyStat[] {
 
   const metricStat = readMetricStat(date, reportRow.metricValues);
 
-  return GA4_METRICS.flatMap(metricStat);
+  return metrics.flatMap(metricStat);
 }
 
-export function createStatsFromReport(reportReply: Ga4ReportReply): readonly DailyStat[] {
-  return reportReply.rows.flatMap(readRowStats);
+export function createStatsFromReport(
+  reportReply: Ga4ReportReply,
+  metrics: readonly Ga4Metric[] | null = null,
+): readonly DailyStat[] {
+  const askedMetrics = metrics ?? GA4_METRICS;
+
+  function readStats(reportRow: ReportRow): DailyStat[] {
+    return readRowStats(reportRow, askedMetrics);
+  }
+
+  return reportReply.rows.flatMap(readStats);
 }
 
 async function loadReportPages(
   session: Ga4Session,
   report: Ga4Report,
   offset: number,
+  metrics: readonly Ga4Metric[],
 ): Promise<readonly DailyStat[]> {
-  const reportQuery = createReportQuery(report, offset);
+  const reportQuery = createReportQuery(report, offset, metrics);
   const reportDocument = await requestGa4Document(session, {
     url: `${ANALYTICS_DATA_URL}/properties/${report.propertyId}:runReport`,
     requestDocument: reportQuery,
@@ -180,7 +194,7 @@ async function loadReportPages(
     throw createGa4Failure(session, 'Unreadable GA4 report', cause);
   }
 
-  const pageStats = createStatsFromReport(reportReply);
+  const pageStats = createStatsFromReport(reportReply, metrics);
   const pageRowCount = reportReply.rows.length;
   const nextOffset = offset + pageRowCount;
   const isPageEmpty = pageRowCount == 0;
@@ -194,7 +208,7 @@ async function loadReportPages(
     return pageStats;
   }
 
-  const laterStats = await loadReportPages(session, report, nextOffset);
+  const laterStats = await loadReportPages(session, report, nextOffset, metrics);
 
   return [...pageStats, ...laterStats];
 }
@@ -203,6 +217,9 @@ async function loadReportPages(
 export async function loadGa4Report(
   session: Ga4Session,
   report: Ga4Report,
+  metrics: readonly Ga4Metric[] | null = null,
 ): Promise<readonly DailyStat[]> {
-  return loadReportPages(session, report, 0);
+  const askedMetrics = metrics ?? GA4_METRICS;
+
+  return loadReportPages(session, report, 0, askedMetrics);
 }

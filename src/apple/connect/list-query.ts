@@ -1,5 +1,6 @@
-// The path carries filters and fields. This writes `limit`, clamped to the documented range:
-// a collection limit is 0 to 200, and each `limit[resource]` is 50.
+// The path carries the resource filter. `fields[...]`, `include`, and `sort` come from
+// `defaultQuery` unless the caller sets the same key. A caller `null` drops that key.
+// A collection `limit` is clamped to 0..200, and each `limit[resource]` to 50.
 // https://developer.apple.com/documentation/appstoreconnectapi/paginginformation/paging-data.dictionary
 // https://developer.apple.com/documentation/appstoreconnectapi/get-v1-apps
 
@@ -18,7 +19,7 @@ const APPLE_INCLUDED_LIMIT: AppleLimitBounds = {
   max: 50,
 };
 
-export type AppleListQuery = Readonly<Record<string, string | number>>;
+export type AppleListQuery = Readonly<Record<string, string | number | null>>;
 
 interface QueryPair {
   name: string;
@@ -109,12 +110,49 @@ function withQueryPair(
   return nextPairs;
 }
 
-function applyCallerQuery(pairs: readonly QueryPair[], listQuery: AppleListQuery): QueryPair[] {
+function dropQueryPair(pairs: readonly QueryPair[], queryName: string): QueryPair[] {
+  function isOtherName(pair: QueryPair): boolean {
+    return pair.name != queryName;
+  }
+
+  return pairs.filter(isOtherName);
+}
+
+function applyOneQuery(
+  pairs: readonly QueryPair[],
+  queryName: string,
+  asked: string | number | null | undefined,
+  replaceExisting: boolean,
+): QueryPair[] {
+  if (asked == null) {
+    return dropQueryPair(pairs, queryName);
+  }
+
+  const written = String(asked);
+  const alreadySet = pairs.some(function sameName(pair: QueryPair): boolean {
+    return pair.name == queryName;
+  });
+
+  if (alreadySet == false) {
+    return withQueryPair(pairs, queryName, written);
+  }
+
+  if (replaceExisting == false) {
+    return pairs.slice();
+  }
+
+  return withQueryPair(pairs, queryName, written);
+}
+
+function applyNamedQuery(
+  pairs: readonly QueryPair[],
+  listQuery: AppleListQuery,
+  replaceExisting: boolean,
+): QueryPair[] {
   let nextPairs = pairs.slice();
 
   for (const queryName of Object.keys(listQuery)) {
-    const written = String(listQuery[queryName]);
-    nextPairs = withQueryPair(nextPairs, queryName, written);
+    nextPairs = applyOneQuery(nextPairs, queryName, listQuery[queryName], replaceExisting);
   }
 
   return nextPairs;
@@ -165,25 +203,51 @@ function joinQuery(pathname: string, pairs: readonly QueryPair[]): string {
   return `${pathname}?${search}`;
 }
 
-export function applyAppleListQuery(
+function joinAppleQuery(
   path: string,
   listQuery: AppleListQuery | null,
-  pageBounds: AppleLimitBounds,
+  defaultQuery: AppleListQuery | null,
+  pageBounds: AppleLimitBounds | null,
 ): string {
   const splitPath = splitApplePath(path);
   let pairs = splitPath.pairs;
 
-  if (listQuery != null) {
-    pairs = applyCallerQuery(pairs, listQuery);
+  if (defaultQuery != null) {
+    pairs = applyNamedQuery(pairs, defaultQuery, false);
   }
 
-  pairs = ensurePageLimit(pairs, pageBounds);
+  if (listQuery != null) {
+    pairs = applyNamedQuery(pairs, listQuery, true);
+  }
+
+  if (pageBounds != null) {
+    pairs = ensurePageLimit(pairs, pageBounds);
+  }
+
+  const bounds = pageBounds ?? APPLE_PAGE_LIMIT;
 
   function clampPair(pair: QueryPair): QueryPair {
-    return clampBoundedPair(pair, pageBounds);
+    return clampBoundedPair(pair, bounds);
   }
 
   const clampedPairs = pairs.map(clampPair);
 
   return joinQuery(splitPath.pathname, clampedPairs);
+}
+
+export function applyAppleListQuery(
+  path: string,
+  listQuery: AppleListQuery | null,
+  pageBounds: AppleLimitBounds,
+  defaultQuery: AppleListQuery | null = null,
+): string {
+  return joinAppleQuery(path, listQuery, defaultQuery, pageBounds);
+}
+
+export function applyAppleReadQuery(
+  path: string,
+  listQuery: AppleListQuery | null = null,
+  defaultQuery: AppleListQuery | null = null,
+): string {
+  return joinAppleQuery(path, listQuery, defaultQuery, null);
 }

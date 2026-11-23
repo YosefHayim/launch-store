@@ -26,11 +26,10 @@ export class ConnectEvents {
     listQuery: AppleListQuery | null = null,
   ): Promise<AppEventResource[]> {
     const appleResources = await this.client.requestAll<AppEventAttributes>(
-      applyAppleListQuery(
-        `/apps/${appId}/appEvents?fields[appEvents]=referenceName,badge,eventState,primaryLocale,deepLink,priority,purpose`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`/apps/${appId}/appEvents`, listQuery, APPLE_PAGE_LIMIT, {
+        'fields[appEvents]':
+          'referenceName,badge,eventState,primaryLocale,deepLink,priority,purpose',
+      }),
     );
 
     function copyAppEvent(appleEvent: {
@@ -54,11 +53,9 @@ export class ConnectEvents {
     listQuery: AppleListQuery | null = null,
   ): Promise<AppEventLocalizationResource[]> {
     const appleResources = await this.client.requestAll<AppEventLocalizationAttributes>(
-      applyAppleListQuery(
-        `/appEvents/${eventId}/localizations?fields[appEventLocalizations]=locale,name,shortDescription,longDescription`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`/appEvents/${eventId}/localizations`, listQuery, APPLE_PAGE_LIMIT, {
+        'fields[appEventLocalizations]': 'locale,name,shortDescription,longDescription',
+      }),
     );
 
     function copyAppEventLocalization(localization: {

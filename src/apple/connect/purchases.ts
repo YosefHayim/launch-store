@@ -54,11 +54,9 @@ export class ConnectPurchases {
       inAppPurchaseType?: string;
       state?: string;
     }>(
-      applyAppleListQuery(
-        `/apps/${appId}/inAppPurchasesV2?fields[inAppPurchases]=productId,name,inAppPurchaseType,state`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`/apps/${appId}/inAppPurchasesV2`, listQuery, APPLE_PAGE_LIMIT, {
+        'fields[inAppPurchases]': 'productId,name,inAppPurchaseType,state',
+      }),
     );
 
     function copyInAppPurchase(purchase: {
@@ -164,11 +162,9 @@ export class ConnectPurchases {
     const appleResources = await this.client.requestAll<{
       referenceName?: string;
     }>(
-      applyAppleListQuery(
-        `/apps/${appId}/subscriptionGroups?fields[subscriptionGroups]=referenceName`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`/apps/${appId}/subscriptionGroups`, listQuery, APPLE_PAGE_LIMIT, {
+        'fields[subscriptionGroups]': 'referenceName',
+      }),
     );
 
     function readSubscriptionGroup(group: {
@@ -236,9 +232,12 @@ export class ConnectPurchases {
       state?: string;
     }>(
       applyAppleListQuery(
-        `/subscriptionGroups/${groupId}/subscriptions?fields[subscriptions]=productId,name,subscriptionPeriod,state`,
+        `/subscriptionGroups/${groupId}/subscriptions`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        {
+          'fields[subscriptions]': 'productId,name,subscriptionPeriod,state',
+        },
       ),
     );
 
@@ -698,9 +697,10 @@ export class ConnectPurchases {
     }>(
       'GET',
       applyAppleListQuery(
-        `/subscriptions/${subscriptionId}/introductoryOffers?include=territory`,
+        `/subscriptions/${subscriptionId}/introductoryOffers`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        { include: 'territory' },
       ),
     );
 

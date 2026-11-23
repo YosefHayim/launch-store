@@ -170,6 +170,32 @@ describe('PlayReportingClient generated metrics', () => {
     'queries and normalizes crash-rate entries in date order',
     queriesAndNormalizesCrashRateEntriesInDateOrder,
   );
+
+  async function sendsTheCallerMetricsAndFieldSelector() {
+    queryCrashRate.mockResolvedValue({ data: { rows: [] } });
+
+    await client.queryCrashRate(
+      'com.example.app',
+      { startDate: '2026-06-01', endDate: '2026-06-02' },
+      ['crashRate'],
+      'rows(metrics)',
+    );
+
+    expect(queryCrashRate).toHaveBeenCalledWith({
+      name: 'apps/com.example.app/crashRateMetricSet',
+      requestBody: {
+        timelineSpec: {
+          aggregationPeriod: 'DAILY',
+          startTime: { year: 2026, month: 6, day: 1 },
+          endTime: { year: 2026, month: 6, day: 2 },
+        },
+        metrics: ['crashRate'],
+      },
+      fields: 'rows(metrics)',
+    });
+  }
+
+  it('sends the caller metrics and field selector', sendsTheCallerMetricsAndFieldSelector);
   it('pages through the generated nextPageToken', async () => {
     const crashMetric = crashMetricEntry('2026-06-01', '0.02', '0.01', '10');
 

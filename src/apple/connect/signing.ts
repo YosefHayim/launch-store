@@ -15,7 +15,12 @@ import {
   AD_HOC_PROFILE_TYPE,
   IOS_DEVICE_PLATFORM,
 } from './shared.ts';
-import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
+import {
+  APPLE_PAGE_LIMIT,
+  applyAppleListQuery,
+  applyAppleReadQuery,
+  type AppleListQuery,
+} from './list-query.ts';
 
 export class ConnectSigning {
   constructor(private readonly client: AscHost) {}
@@ -329,6 +334,7 @@ export class ConnectSigning {
    */
   async listBundleIdCapabilities(
     bundleIdResourceId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<BundleIdCapabilityResource[]> {
     const appleResources = await this.client.requestAll<{
       capabilityType?: string;
@@ -336,7 +342,9 @@ export class ConnectSigning {
     }>(
       // Apple's bundleIdCapabilities related endpoint rejects `limit` (400 "does not support this
       // parameter") unlike most collections; pagination still works through links.next in requestAll.
-      `/bundleIds/${bundleIdResourceId}/bundleIdCapabilities?fields[bundleIdCapabilities]=capabilityType,settings`,
+      applyAppleReadQuery(`/bundleIds/${bundleIdResourceId}/bundleIdCapabilities`, listQuery, {
+        'fields[bundleIdCapabilities]': 'capabilityType,settings',
+      }),
     );
 
     function readBundleCapability(capability: {
@@ -377,9 +385,10 @@ export class ConnectSigning {
       profileContent?: string;
     }>(
       applyAppleListQuery(
-        `/bundleIds/${bundleIdResourceId}/profiles?fields[profiles]=name,uuid,profileContent`,
+        `/bundleIds/${bundleIdResourceId}/profiles`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        { 'fields[profiles]': 'name,uuid,profileContent' },
       ),
     );
 

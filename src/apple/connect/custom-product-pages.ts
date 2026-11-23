@@ -21,11 +21,9 @@ export class ConnectCustomProductPages {
     const appleResources = await this.client.requestAll<{
       name?: string;
     }>(
-      applyAppleListQuery(
-        `/apps/${appId}/appCustomProductPages?fields[appCustomProductPages]=name`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`/apps/${appId}/appCustomProductPages`, listQuery, APPLE_PAGE_LIMIT, {
+        'fields[appCustomProductPages]': 'name',
+      }),
     );
 
     function readCustomProductPage(customPage: {
@@ -74,9 +72,10 @@ export class ConnectCustomProductPages {
       state?: string;
     }>(
       applyAppleListQuery(
-        `/appCustomProductPages/${pageId}/appCustomProductPageVersions?fields[appCustomProductPageVersions]=state`,
+        `/appCustomProductPages/${pageId}/appCustomProductPageVersions`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        { 'fields[appCustomProductPageVersions]': 'state' },
       ),
     );
 
@@ -109,9 +108,12 @@ export class ConnectCustomProductPages {
       promotionalText?: string | null;
     }>(
       applyAppleListQuery(
-        `/appCustomProductPageVersions/${versionId}/appCustomProductPageLocalizations?fields[appCustomProductPageLocalizations]=locale,promotionalText`,
+        `/appCustomProductPageVersions/${versionId}/appCustomProductPageLocalizations`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        {
+          'fields[appCustomProductPageLocalizations]': 'locale,promotionalText',
+        },
       ),
     );
 

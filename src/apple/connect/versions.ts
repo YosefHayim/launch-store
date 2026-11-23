@@ -18,7 +18,12 @@ import {
   readVersionResource,
   readPhasedRelease,
 } from './shared.ts';
-import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
+import {
+  APPLE_PAGE_LIMIT,
+  applyAppleListQuery,
+  applyAppleReadQuery,
+  type AppleListQuery,
+} from './list-query.ts';
 
 export class ConnectVersions {
   constructor(private readonly client: AscHost) {}
@@ -48,11 +53,9 @@ export class ConnectVersions {
   ): Promise<ResourceList<VersionStates>['data']> {
     const { data: versions } = await this.client.request<ResourceList<VersionStates>>(
       'GET',
-      applyAppleListQuery(
-        `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=appStoreState`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`/apps/${appId}/appStoreVersions`, listQuery, APPLE_PAGE_LIMIT, {
+        'fields[appStoreVersions]': 'appStoreState',
+      }),
     );
 
     return versions;
@@ -147,9 +150,12 @@ export class ConnectVersions {
       copyright?: string | null;
     }>(
       applyAppleListQuery(
-        `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&fields[appStoreVersions]=appVersionState,appStoreState,copyright`,
+        `/apps/${appId}/appStoreVersions?filter[platform]=${platform}`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        {
+          'fields[appStoreVersions]': 'appVersionState,appStoreState,copyright',
+        },
       ),
     );
 
@@ -252,9 +258,14 @@ export class ConnectVersions {
   ): Promise<AppStoreVersionResource[]> {
     const versionPages = await this.client.requestPages<AppStoreVersionPage>(
       applyAppleListQuery(
-        `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&fields[appStoreVersions]=versionString,appStoreState,releaseType,build&include=build&fields[builds]=version,processingState`,
+        `/apps/${appId}/appStoreVersions?filter[platform]=${platform}`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        {
+          'fields[appStoreVersions]': 'versionString,appStoreState,releaseType,build',
+          include: 'build',
+          'fields[builds]': 'version,processingState',
+        },
       ),
     );
 
@@ -362,9 +373,10 @@ export class ConnectVersions {
       whatsNew?: string;
     }>(
       applyAppleListQuery(
-        `/appStoreVersions/${versionId}/appStoreVersionLocalizations?fields[appStoreVersionLocalizations]=locale,whatsNew`,
+        `/appStoreVersions/${versionId}/appStoreVersionLocalizations`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        { 'fields[appStoreVersionLocalizations]': 'locale,whatsNew' },
       ),
     );
 
@@ -516,9 +528,10 @@ export class ConnectVersions {
       state?: string;
     }>(
       applyAppleListQuery(
-        `/apps/${appId}/reviewSubmissions?filter[platform]=${platform}&fields[reviewSubmissions]=state`,
+        `/apps/${appId}/reviewSubmissions?filter[platform]=${platform}`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        { 'fields[reviewSubmissions]': 'state' },
       ),
     );
 
@@ -635,12 +648,20 @@ export class ConnectVersions {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-reviewsubmissions-_id_
    */
-  async getReviewSubmission(submissionId: string): Promise<ReviewSubmissionResource> {
+  async getReviewSubmission(
+    submissionId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ReviewSubmissionResource> {
     const { data: appleResources } = await this.client.request<
       ResourceSingle<{
         state?: string;
       }>
-    >('GET', `/reviewSubmissions/${submissionId}?fields[reviewSubmissions]=state`);
+    >(
+      'GET',
+      applyAppleReadQuery(`/reviewSubmissions/${submissionId}`, listQuery, {
+        'fields[reviewSubmissions]': 'state',
+      }),
+    );
     let state = appleResources.attributes.state;
 
     if (state == null) state = '';

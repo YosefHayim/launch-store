@@ -49,11 +49,10 @@ export class ConnectAppClips {
     const all: AppClipDefaultExperienceResource[] = [];
     let next: string | undefined =
       `/appClips/${appClipId}/appClipDefaultExperiences` +
-      applyAppleListQuery(
-        `?include=releaseWithAppStoreVersion&fields[appClipDefaultExperiences]=action,releaseWithAppStoreVersion`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      );
+      applyAppleListQuery('', listQuery, APPLE_PAGE_LIMIT, {
+        include: 'releaseWithAppStoreVersion',
+        'fields[appClipDefaultExperiences]': 'action,releaseWithAppStoreVersion',
+      });
 
     while (next) {
       // biome-ignore lint/performance/noAwaitInLoops: cursor pagination - each page’s `next` link comes from the prior response, so the reads are inherently sequential

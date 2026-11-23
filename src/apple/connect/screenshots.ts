@@ -7,13 +7,25 @@ import type {
   ScreenshotSetResource,
 } from '@/types/apple-catalog.js';
 import { readTransportFile, putAssetFile } from './shared.ts';
-import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
+import {
+  APPLE_PAGE_LIMIT,
+  applyAppleListQuery,
+  applyAppleReadQuery,
+  type AppleListQuery,
+} from './list-query.ts';
 
 export class ConnectScreenshots {
   constructor(private readonly client: AscHost) {}
 
-  async listScreenshotSets(versionLocalizationId: string): Promise<ScreenshotSetResource[]> {
-    return this.listScreenshotSetsOf('appStoreVersionLocalizations', versionLocalizationId);
+  async listScreenshotSets(
+    versionLocalizationId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ScreenshotSetResource[]> {
+    return this.listScreenshotSetsOf(
+      'appStoreVersionLocalizations',
+      versionLocalizationId,
+      listQuery,
+    );
   }
 
   async createScreenshotSet(
@@ -30,10 +42,12 @@ export class ConnectScreenshots {
 
   async listTreatmentScreenshotSets(
     treatmentLocalizationId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<ScreenshotSetResource[]> {
     return this.listScreenshotSetsOf(
       'appStoreVersionExperimentTreatmentLocalizations',
       treatmentLocalizationId,
+      listQuery,
     );
   }
 
@@ -58,9 +72,10 @@ export class ConnectScreenshots {
       screenshotDisplayType?: string;
     }>(
       applyAppleListQuery(
-        `/${ownerType}/${ownerId}/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType`,
+        `/${ownerType}/${ownerId}/appScreenshotSets`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        { 'fields[appScreenshotSets]': 'screenshotDisplayType' },
       ),
     );
 
@@ -122,9 +137,12 @@ export class ConnectScreenshots {
       };
     }>(
       applyAppleListQuery(
-        `/appScreenshotSets/${setId}/appScreenshots?fields[appScreenshots]=fileName,sourceFileChecksum,assetDeliveryState`,
+        `/appScreenshotSets/${setId}/appScreenshots`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        {
+          'fields[appScreenshots]': 'fileName,sourceFileChecksum,assetDeliveryState',
+        },
       ),
     );
 
@@ -211,6 +229,7 @@ export class ConnectScreenshots {
    */
   async getSubscriptionReviewScreenshot(
     subscriptionId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<ReviewScreenshotResource | null> {
     const { data: appleResources } = await this.client.request<{
       data: {
@@ -224,7 +243,9 @@ export class ConnectScreenshots {
       } | null;
     }>(
       'GET',
-      `/subscriptions/${subscriptionId}/appStoreReviewScreenshot?fields[subscriptionAppStoreReviewScreenshots]=sourceFileChecksum,assetDeliveryState`,
+      applyAppleReadQuery(`/subscriptions/${subscriptionId}/appStoreReviewScreenshot`, listQuery, {
+        'fields[subscriptionAppStoreReviewScreenshots]': 'sourceFileChecksum,assetDeliveryState',
+      }),
     );
 
     if (!appleResources) return null;
@@ -274,9 +295,10 @@ export class ConnectScreenshots {
       previewType?: string;
     }>(
       applyAppleListQuery(
-        `/appStoreVersionLocalizations/${versionLocalizationId}/appPreviewSets?fields[appPreviewSets]=previewType`,
+        `/appStoreVersionLocalizations/${versionLocalizationId}/appPreviewSets`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        { 'fields[appPreviewSets]': 'previewType' },
       ),
     );
 
@@ -339,11 +361,9 @@ export class ConnectScreenshots {
         state?: string;
       };
     }>(
-      applyAppleListQuery(
-        `/appPreviewSets/${setId}/appPreviews?fields[appPreviews]=fileName,sourceFileChecksum,assetDeliveryState`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`/appPreviewSets/${setId}/appPreviews`, listQuery, APPLE_PAGE_LIMIT, {
+        'fields[appPreviews]': 'fileName,sourceFileChecksum,assetDeliveryState',
+      }),
     );
 
     function copyPreview(preview: {

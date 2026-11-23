@@ -442,8 +442,8 @@ export class AppStoreConnectClient implements AscHost {
     return this.apps.checkRequiredAgreements();
   }
 
-  async resolveTeamId(): Promise<string | null> {
-    return this.apps.resolveTeamId();
+  async resolveTeamId(listQuery: AppleListQuery | null = null): Promise<string | null> {
+    return this.apps.resolveTeamId(listQuery);
   }
 
   async listAppNames(listQuery: AppleListQuery | null = null): Promise<string[]> {
@@ -484,8 +484,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.apps.updateAgeRatingDeclaration(declarationId, attributes);
   }
 
-  async getLatestBuildNumber(bundleId: string): Promise<number> {
-    return this.builds.getLatestBuildNumber(bundleId);
+  async getLatestBuildNumber(
+    bundleId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<number> {
+    return this.builds.getLatestBuildNumber(bundleId, listQuery);
   }
 
   async getLatestMarketingVersion(
@@ -495,8 +498,12 @@ export class AppStoreConnectClient implements AscHost {
     return this.builds.getLatestMarketingVersion(bundleId, listQuery);
   }
 
-  async getBuildProcessingState(bundleId: string, buildNumber: number): Promise<string | null> {
-    return this.builds.getBuildProcessingState(bundleId, buildNumber);
+  async getBuildProcessingState(
+    bundleId: string,
+    buildNumber: number,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<string | null> {
+    return this.builds.getBuildProcessingState(bundleId, buildNumber, listQuery);
   }
 
   async createBuildUpload(
@@ -516,18 +523,22 @@ export class AppStoreConnectClient implements AscHost {
     return this.builds.uploadBuildFile(buildUploadId, fileName, binaryPath);
   }
 
-  async getBuildUploadStatus(buildUploadId: string): Promise<BuildUploadStatus> {
-    return this.builds.getBuildUploadStatus(buildUploadId);
+  async getBuildUploadStatus(
+    buildUploadId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<BuildUploadStatus> {
+    return this.builds.getBuildUploadStatus(buildUploadId, listQuery);
   }
 
   async findBuild(
     bundleId: string,
     buildNumber: number,
+    listQuery: AppleListQuery | null = null,
   ): Promise<{
     id: string;
     usesNonExemptEncryption: boolean | null;
   } | null> {
-    return this.builds.findBuild(bundleId, buildNumber);
+    return this.builds.findBuild(bundleId, buildNumber, listQuery);
   }
 
   async setBuildUsesNonExemptEncryption(buildId: string, fieldValue: boolean): Promise<void> {
@@ -557,8 +568,9 @@ export class AppStoreConnectClient implements AscHost {
     appId: string,
     buildNumber: number,
     marketingVersion?: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<BuildResource | null> {
-    return this.builds.findBuildByVersion(appId, buildNumber, marketingVersion);
+    return this.builds.findBuildByVersion(appId, buildNumber, marketingVersion, listQuery);
   }
 
   async getEditableVersionId(appId: string): Promise<string | null> {
@@ -737,8 +749,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.versions.cancelReviewSubmission(submissionId);
   }
 
-  async getReviewSubmission(submissionId: string): Promise<ReviewSubmissionResource> {
-    return this.versions.getReviewSubmission(submissionId);
+  async getReviewSubmission(
+    submissionId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ReviewSubmissionResource> {
+    return this.versions.getReviewSubmission(submissionId, listQuery);
   }
 
   async listAppClips(
@@ -866,8 +881,9 @@ export class AppStoreConnectClient implements AscHost {
 
   async listBundleIdCapabilities(
     bundleIdResourceId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<BundleIdCapabilityResource[]> {
-    return this.signing.listBundleIdCapabilities(bundleIdResourceId);
+    return this.signing.listBundleIdCapabilities(bundleIdResourceId, listQuery);
   }
 
   async listProfilesForBundleId(
@@ -1136,8 +1152,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.testflight.listBetaTestersInGroup(groupId, listQuery);
   }
 
-  async findBetaTesterByEmail(email: string): Promise<BetaTesterResource | null> {
-    return this.testflight.findBetaTesterByEmail(email);
+  async findBetaTesterByEmail(
+    email: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<BetaTesterResource | null> {
+    return this.testflight.findBetaTesterByEmail(email, listQuery);
   }
 
   async createBetaTester(
@@ -1162,15 +1181,17 @@ export class AppStoreConnectClient implements AscHost {
   async listBetaFeedbackCrashSubmissions(
     appId: string,
     query: BetaFeedbackQuery = {},
+    listQuery: AppleListQuery | null = null,
   ): Promise<BetaFeedbackCrashSubmissionResource[]> {
-    return this.testflight.listBetaFeedbackCrashSubmissions(appId, query);
+    return this.testflight.listBetaFeedbackCrashSubmissions(appId, query, listQuery);
   }
 
   async listBetaFeedbackScreenshotSubmissions(
     appId: string,
     query: BetaFeedbackQuery = {},
+    listQuery: AppleListQuery | null = null,
   ): Promise<BetaFeedbackScreenshotSubmissionResource[]> {
-    return this.testflight.listBetaFeedbackScreenshotSubmissions(appId, query);
+    return this.testflight.listBetaFeedbackScreenshotSubmissions(appId, query, listQuery);
   }
 
   async downloadBetaFeedbackScreenshot(url: string): Promise<Buffer> {
@@ -1522,8 +1543,11 @@ export class AppStoreConnectClient implements AscHost {
     return this.events.updateAppEventLocalization(localizationId, attributes);
   }
 
-  async listScreenshotSets(versionLocalizationId: string): Promise<ScreenshotSetResource[]> {
-    return this.screenshots.listScreenshotSets(versionLocalizationId);
+  async listScreenshotSets(
+    versionLocalizationId: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<ScreenshotSetResource[]> {
+    return this.screenshots.listScreenshotSets(versionLocalizationId, listQuery);
   }
 
   async createScreenshotSet(
@@ -1535,8 +1559,9 @@ export class AppStoreConnectClient implements AscHost {
 
   async listTreatmentScreenshotSets(
     treatmentLocalizationId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<ScreenshotSetResource[]> {
-    return this.screenshots.listTreatmentScreenshotSets(treatmentLocalizationId);
+    return this.screenshots.listTreatmentScreenshotSets(treatmentLocalizationId, listQuery);
   }
 
   async createTreatmentScreenshotSet(
@@ -1567,8 +1592,9 @@ export class AppStoreConnectClient implements AscHost {
 
   async getSubscriptionReviewScreenshot(
     subscriptionId: string,
+    listQuery: AppleListQuery | null = null,
   ): Promise<ReviewScreenshotResource | null> {
-    return this.screenshots.getSubscriptionReviewScreenshot(subscriptionId);
+    return this.screenshots.getSubscriptionReviewScreenshot(subscriptionId, listQuery);
   }
 
   async uploadSubscriptionReviewScreenshot(

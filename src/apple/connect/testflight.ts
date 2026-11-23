@@ -17,7 +17,12 @@ import {
   readFeedbackScreenshots,
 } from './shared.ts';
 import { retryAppleTransportRequest } from '../transport-helpers.ts';
-import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
+import {
+  APPLE_PAGE_LIMIT,
+  applyAppleListQuery,
+  applyAppleReadQuery,
+  type AppleListQuery,
+} from './list-query.ts';
 
 export class ConnectTestflight {
   constructor(private readonly client: AscHost) {}
@@ -36,11 +41,9 @@ export class ConnectTestflight {
       isInternalGroup?: boolean;
       publicLink?: string | null;
     }>(
-      applyAppleListQuery(
-        `/apps/${appId}/betaGroups?fields[betaGroups]=name,isInternalGroup,publicLink`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`/apps/${appId}/betaGroups`, listQuery, APPLE_PAGE_LIMIT, {
+        'fields[betaGroups]': 'name,isInternalGroup,publicLink',
+      }),
     );
 
     function readBetaGroup(group: {
@@ -110,20 +113,24 @@ export class ConnectTestflight {
     listQuery: AppleListQuery | null = null,
   ): Promise<BetaTesterResource[]> {
     return this.betaTestersFrom(
-      applyAppleListQuery(
-        `/betaGroups/${groupId}/betaTesters?fields[betaTesters]=email,firstName,lastName,state`,
-        listQuery,
-        APPLE_PAGE_LIMIT,
-      ),
+      applyAppleListQuery(`/betaGroups/${groupId}/betaTesters`, listQuery, APPLE_PAGE_LIMIT, {
+        'fields[betaTesters]': 'email,firstName,lastName,state',
+      }),
     );
   }
 
-  async findBetaTesterByEmail(email: string): Promise<BetaTesterResource | null> {
+  async findBetaTesterByEmail(
+    email: string,
+    listQuery: AppleListQuery | null = null,
+  ): Promise<BetaTesterResource | null> {
     const wanted = email.toLowerCase();
     const uRIComponent = encodeURIComponent(email);
-    const appleResources = await this.betaTestersFrom(
-      `/betaTesters?filter[email]=${uRIComponent}&limit=1&fields[betaTesters]=email,firstName,lastName,state`,
+    const testerPath = applyAppleReadQuery(
+      `/betaTesters?filter[email]=${uRIComponent}&limit=1`,
+      listQuery,
+      { 'fields[betaTesters]': 'email,firstName,lastName,state' },
     );
+    const appleResources = await this.betaTestersFrom(testerPath);
 
     function hasSameTesterEmail(tester: {
       readonly id: string;
@@ -274,10 +281,13 @@ export class ConnectTestflight {
   async listBetaFeedbackCrashSubmissions(
     appId: string,
     query: BetaFeedbackQuery = {},
+    listQuery: AppleListQuery | null = null,
   ): Promise<BetaFeedbackCrashSubmissionResource[]> {
     const submissions = await this.listBetaFeedback(
       `/apps/${appId}/betaFeedbackCrashSubmissions`,
       query,
+      false,
+      listQuery,
     );
 
     function readBase(submission: {
@@ -293,11 +303,13 @@ export class ConnectTestflight {
   async listBetaFeedbackScreenshotSubmissions(
     appId: string,
     query: BetaFeedbackQuery = {},
+    listQuery: AppleListQuery | null = null,
   ): Promise<BetaFeedbackScreenshotSubmissionResource[]> {
     const submissions = await this.listBetaFeedback(
       `/apps/${appId}/betaFeedbackScreenshotSubmissions`,
       query,
       true,
+      listQuery,
     );
 
     function copyScreenshotSubmission(submission: {
@@ -319,11 +331,10 @@ export class ConnectTestflight {
     withScreenshots = false,
     listQuery: AppleListQuery | null = null,
   ): Promise<BetaFeedbackRow[]> {
-    let path = applyAppleListQuery(
-      `${relatedPath}?include=build&sort=-createdDate`,
-      listQuery,
-      APPLE_PAGE_LIMIT,
-    );
+    let path = applyAppleListQuery(`${relatedPath}`, listQuery, APPLE_PAGE_LIMIT, {
+      include: 'build',
+      sort: '-createdDate',
+    });
 
     if (query.buildId) path += `&filter[build]=${encodeURIComponent(query.buildId)}`;
 
@@ -413,9 +424,10 @@ export class ConnectTestflight {
       whatsNew?: string | null;
     }>(
       applyAppleListQuery(
-        `/builds/${buildId}/betaBuildLocalizations?fields[betaBuildLocalizations]=locale,whatsNew`,
+        `/builds/${buildId}/betaBuildLocalizations`,
         listQuery,
         APPLE_PAGE_LIMIT,
+        { 'fields[betaBuildLocalizations]': 'locale,whatsNew' },
       ),
     );
 
