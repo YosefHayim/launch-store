@@ -9,7 +9,7 @@ import type {
   BetaGroupResource,
   BetaReviewState,
   BetaTesterResource,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 import type { BetaFeedbackPage, BetaFeedbackRow } from './shared.ts';
 import {
   AscRequestError,

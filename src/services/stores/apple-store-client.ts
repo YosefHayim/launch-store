@@ -1,5 +1,5 @@
-import { AppStoreConnectClient } from '../../apple/asc-client.ts';
-import type { AscKey } from '../../types/credentials.ts';
+import { AppStoreConnectClient } from '@/apple/asc-client.js';
+import type { AscKey } from '@/types/credentials.js';
 import { hasMessage } from '../platform/error-message.ts';
 
 export type AppleTransportFailure = Readonly<{

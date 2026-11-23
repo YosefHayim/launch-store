@@ -1,4 +1,4 @@
-import type { AscKey } from '../../types/credentials.ts';
+import type { AscKey } from '@/types/credentials.js';
 import { AppleStoreClientService } from './apple-store-client.ts';
 
 export type AppStoreIdentity = Readonly<{

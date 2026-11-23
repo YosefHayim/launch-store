@@ -1,6 +1,6 @@
-import { consentMessage, costForDurationUsd, releasableAt } from '../../build/cost.ts';
-import { REQUIRED_TOOLS } from '../../config/toolchain.ts';
-import { getAmiId, setAmiId } from '../../distribution/cloud-state.ts';
+import { consentMessage, costForDurationUsd, releasableAt } from '@/build/cost.js';
+import { REQUIRED_TOOLS } from '@/config/toolchain.js';
+import { getAmiId, setAmiId } from '@/distribution/cloud-state.js';
 
 /** Provider-facing AWS allocation consent copy. */
 export const awsAllocationConsentMessage = consentMessage;

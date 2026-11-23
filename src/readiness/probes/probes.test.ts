@@ -26,15 +26,15 @@ import { profileEntitlementsProbe } from './profile-entitlements.ts';
 import { screenshotsProbe } from './screenshots.ts';
 import { versionCopyrightProbe } from './version-copyright.ts';
 import { appPrivacyProbe } from './app-privacy.ts';
-import type { AppDescriptor } from '../../types/app.ts';
-import type { LaunchConfig } from '../../types/config.ts';
+import type { AppDescriptor } from '@/types/app.js';
+import type { LaunchConfig } from '@/types/config.js';
 import type {
   AscReadinessApi,
   PlayReadinessApi,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '../../types/readiness.ts';
+} from '@/types/readiness.js';
 /** A minimal valid config; pass `products` to exercise the subscription-group scope. */
 function config(products?: LaunchConfig['products']): LaunchConfig {
   const launchConfig: LaunchConfig = {

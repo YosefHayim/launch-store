@@ -6,7 +6,7 @@ import type { NotifyEvent } from '../services/platform/notify.ts';
 import { notify } from '../services/platform/notify.ts';
 import { loadConfig } from '../config/config.ts';
 import { checkApp, formatFinding } from '../config/config-check.ts';
-import { ENV_SOURCE, envInjectionRows } from '../config/env.ts';
+import { ENV_SOURCE } from '../config/env.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { resolveStorageProvider } from '../distribution/storage.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
@@ -17,7 +17,7 @@ import {
   resolveAndroidSubmitReleaseNotes,
   resolveBuildTransport,
 } from './pipeline-providers.ts';
-import { previewEnv, resolveCommandEnv, selectApp, validateResolvedEnv } from './pipeline-env.ts';
+import { resolveCommandEnv, selectApp, validateResolvedEnv } from './pipeline-env.ts';
 import { receiptDestination, worstDownloadBytes } from './pipeline-artifact.ts';
 import { runIosBuild } from './pipeline-ios.ts';
 import { runAndroidBuild } from './pipeline-android.ts';
@@ -253,22 +253,13 @@ export async function prepareBuild(buildOptions: BuildRunOptions): Promise<Prepa
     keychainNote = ` (${secretCount} from keychain)`;
   }
 
-  let injectionNote = '';
+  log.step('env', `${varCount} vars validated${keychainNote}`, 'env-vars');
 
-  if (varCount > 0) {
-    injectionNote = ' -> injecting into bundle:';
-  }
-
-  log.step('env', `${varCount} vars validated${keychainNote}${injectionNote}`, 'env-vars');
-
-  for (const environmentSourceLine of envInjectionRows(resolved)) {
-    log.note(environmentSourceLine);
-  }
-
-  const hasExclusions = resolved.excluded.length > 0;
+  const excludedCount = resolved.excluded.length;
+  const hasExclusions = excludedCount > 0;
 
   if (hasExclusions) {
-    log.tip(`excluded (envExclude, not injected): ${resolved.excluded.join(', ')}`);
+    log.tip(`excluded ${excludedCount} names (envExclude, not injected)`);
   }
 
   const findings: ConfigFinding[] = await checkApp(app, platform);
@@ -561,13 +552,6 @@ async function dispatchBuild(
 
 /** Run a build, then notify success. */
 export async function runBuild(buildOptions: BuildRunOptions): Promise<void> {
-  const shouldPrintEnvironment = buildOptions.printEnv == true;
-
-  if (shouldPrintEnvironment) {
-    await previewEnv(buildOptions);
-    return;
-  }
-
   const prepared = await prepareBuild(buildOptions);
   let exclusions: readonly string[] = [];
   const configuredExclusions = prepared.config.envExclude;

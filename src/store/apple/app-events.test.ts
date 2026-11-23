@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AppEventLocalizationInput, NewAppEvent } from '../../types/apple-catalog.ts';
+import type { AppEventLocalizationInput, NewAppEvent } from '@/types/apple-catalog.js';
 import {
   createEvent,
   deleteEvent,

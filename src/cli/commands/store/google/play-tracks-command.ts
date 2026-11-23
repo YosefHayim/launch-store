@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import { hasMessage } from '../../../../services/platform/error-message.ts';
-import { createLogger } from '../../../../services/platform/logger.ts';
-import type { PlayCountryAvailability, PlayRelease } from '../../../../types/google-play.ts';
+import { hasMessage } from '@/services/platform/error-message.js';
+import { createLogger } from '@/services/platform/logger.js';
+import type { PlayCountryAvailability, PlayRelease } from '@/types/google-play.js';
 import {
   confirmGoogleStoreWrite,
   loadActiveGoogleStore,
@@ -16,8 +16,8 @@ import {
   RELEASE_STATUSES,
   type ReleaseInput,
   type ReleaseNote,
-} from '../../../../store/google/play-tracks.ts';
-import { readPlainObject } from '../../../../services/platform/plain-object.ts';
+} from '@/store/google/play-tracks.js';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 
 export type PlayTracksStatusInput = {
   operation: 'status';

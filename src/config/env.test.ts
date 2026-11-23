@@ -4,8 +4,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   ENV_SOURCE,
-  envInjectionRows,
-  formatEnvTable,
   isEnvExcluded,
   loadDotenvFile,
   missingKeys,
@@ -443,89 +441,3 @@ function describeParseCliPieceRepeatedPieceKEYVAL() {
 }
 
 describe('parseCliEnv - repeated --env KEY=VAL', describeParseCliPieceRepeatedPieceKEYVAL);
-function describeFormatPieceTableMaskedProvenanceForPrintPiece() {
-  function masksSecretLookingNamesAndKeychainValuesShowsTheRestLabelsSources() {
-    const table = formatEnvTable({
-      values: {
-        API_URL: 'https://example.test',
-        API_TOKEN: 'tok_distinct',
-        FEATURE: 'kc_distinct',
-      },
-      sources: { API_URL: '.env', API_TOKEN: ENV_SOURCE.flag, FEATURE: ENV_SOURCE.secret },
-      excluded: [],
-    });
-
-    expect(table).toContain('https://example.test'); // non-secret value shown in full
-    expect(table).not.toContain('tok_distinct'); // secret-looking name masked even though it's a flag
-    expect(table).not.toContain('kc_distinct'); // keychain-sourced value masked even with an innocuous name
-    expect(table).toContain('------');
-    expect(table).toContain('.env');
-  }
-
-  it(
-    'masks secret-looking names and keychain values, shows the rest, labels sources',
-    masksSecretLookingNamesAndKeychainValuesShowsTheRestLabelsSources,
-  );
-
-  function reportsWhenNothingResolved() {
-    const formatTable = formatEnvTable({ values: {}, sources: {}, excluded: [] });
-    expect(formatTable).toBe('(no env vars resolved)');
-  }
-
-  it('reports when nothing resolved', reportsWhenNothingResolved);
-}
-
-describe(
-  'formatEnvTable - masked provenance for --print-env',
-  describeFormatPieceTableMaskedProvenanceForPrintPiece,
-);
-function describePieceInjectionRowsKeyPieceProvenanceForTheInBuildLogNoValues() {
-  function returnsOneSortedKEYPiecePiecePerVarAndNeverThePiece() {
-    const rows = envInjectionRows({
-      values: { EXPO_PUBLIC_CDN: 'https://real.cdn', API_KEY: 'tok_distinct', APP_NAME: 'Acme' },
-      sources: { EXPO_PUBLIC_CDN: ENV_SOURCE.flag, API_KEY: ENV_SOURCE.secret, APP_NAME: '.env' },
-      excluded: [],
-    });
-
-    expect(rows).toHaveLength(3);
-    expect(rows[0]).toMatch(/^API_KEY\s+keychain secret$/); // sorted by key, source labelled
-    expect(rows[1]).toMatch(/^APP_NAME\s+\.env$/);
-    expect(rows[2]).toMatch(/^EXPO_PUBLIC_CDN\s+--env \(flag\)$/);
-
-    // The build log proves WHICH vars + source - never a value, so there's nothing to leak.
-    const joined = rows.join('\n');
-
-    expect(joined).not.toContain('tok_distinct');
-    expect(joined).not.toContain('https://real.cdn');
-    expect(joined).not.toContain('Acme');
-  }
-
-  it(
-    'returns one sorted KEY -> source row per var and never the value',
-    returnsOneSortedKEYPiecePiecePerVarAndNeverThePiece,
-  );
-
-  function padsKeysSoThePieceColumnAligns() {
-    const rows = envInjectionRows({
-      values: { A: '1', LONGER_KEY: '2' },
-      sources: { A: '.env', LONGER_KEY: '.env' },
-      excluded: [],
-    });
-
-    expect(rows[0]?.indexOf('.env')).toBe(rows[1]?.indexOf('.env'));
-  }
-
-  it('pads keys so the source column aligns', padsKeysSoThePieceColumnAligns);
-
-  function isEmptyWhenNoPieceResolved() {
-    const injectionRows = envInjectionRows({ values: {}, sources: {}, excluded: [] });
-    expect(injectionRows).toEqual([]);
-  }
-
-  it('is empty when no env resolved', isEmptyWhenNoPieceResolved);
-}
-
-describe(
-  'envInjectionRows - key->source provenance for the in-build log (no values)',
-  describePieceInjectionRowsKeyPieceProvenanceForTheInBuildLogNoValues,
-);

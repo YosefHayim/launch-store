@@ -3,7 +3,7 @@ import {
   assembleExportArguments as assembleCoreExportArguments,
   computeParallelJobLimit as computeCoreParallelJobLimit,
   resolveCcacheEnvironment as resolveCoreCcacheEnvironment,
-} from '../../build/build-flags.ts';
+} from '@/build/build-flags.js';
 import {
   estimateFor as estimateForCoreBuild,
   gatherIosFingerprint as gatherCoreIosFingerprint,
@@ -11,8 +11,8 @@ import {
   resolveClean as resolveCoreClean,
   updateEstimate as updateCoreEstimate,
   writeBuildState as writeCoreBuildState,
-} from '../../build/build-fingerprint.ts';
-import { writeManualSigningToProject as writeCoreManualSigning } from '../../build/apple-targets.ts';
+} from '@/build/build-fingerprint.js';
+import { writeManualSigningToProject as writeCoreManualSigning } from '@/build/apple-targets.js';
 
 /** Provider-facing xcodebuild archive argument builder owned by the core build policy. */
 export const assembleArchiveArguments = assembleCoreArchiveArguments;

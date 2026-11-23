@@ -3,7 +3,7 @@ import type {
   AccessibilityDeclarationResource,
   AccessibilitySupport,
   DeviceFamily,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 import {
   type AccessibilityConfig,
   type AscAccessibilityApi,
@@ -11,7 +11,7 @@ import {
   reconcileAccessibility,
   summarizeAccessibility,
 } from './accessibility.ts';
-import type { ActionStatus } from '../../types/reconcile.ts';
+import type { ActionStatus } from '@/types/reconcile.js';
 
 /** Records every write the reconciler makes, so a test can assert what was (and wasn't) sent. */
 type Calls = {

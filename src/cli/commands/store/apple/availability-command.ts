@@ -1,17 +1,14 @@
-import { errorMessage } from '../../../../services/platform/error-message.ts';
-import { createLogger } from '../../../../services/platform/logger.ts';
-import { LaunchPrompt } from '../../../../services/platform/prompt.ts';
-import { checkTerminalIsInteractive } from '../../../../services/platform/progress.ts';
-import { completeCommand, isCommandExit } from '../../../../terminal/command-exit.ts';
-import type { PlannedAction } from '../../../../types/reconcile.ts';
+import { errorMessage } from '@/services/platform/error-message.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
+import { completeCommand, isCommandExit } from '@/terminal/command-exit.js';
+import type { PlannedAction } from '@/types/reconcile.js';
 import { loadActiveAppleStore } from './apple-store-command.ts';
-import {
-  readAvailabilityConfig,
-  reconcileAvailability,
-} from '../../../../store/apple/availability.ts';
-import { resolveStoreBundleId } from '../../../../store/shared/select-store-app.ts';
-import { readPlainObject } from '../../../../services/platform/plain-object.ts';
-import { isFailureTag } from '../../../../services/platform/tagged-failure.ts';
+import { readAvailabilityConfig, reconcileAvailability } from '@/store/apple/availability.js';
+import { resolveStoreBundleId } from '@/store/shared/select-store-app.js';
+import { readPlainObject } from '@/services/platform/plain-object.js';
+import { isFailureTag } from '@/services/platform/tagged-failure.js';
 
 export type AvailabilityCommandInput = {
   app?: string;

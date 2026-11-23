@@ -1,11 +1,11 @@
 import { relative } from 'node:path';
-import type { AppDescriptor } from '../../types/app.ts';
+import type { AppDescriptor } from '@/types/app.js';
 import type {
   AppReadiness,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '../../types/readiness.ts';
+} from '@/types/readiness.js';
 import { walkAppSource } from '../source-scan.ts';
 import { declaredAppleProductIds } from './iap-readiness.ts';
 import { OMITTED_PROBE } from './credentials-skip.ts';

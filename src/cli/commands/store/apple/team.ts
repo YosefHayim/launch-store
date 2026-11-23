@@ -1,11 +1,11 @@
-import type { Command } from '../../../command.ts';
+import type { Command } from '@/cli/command.js';
 import {
   type TeamInviteInput,
   type TeamListInput,
   teamCommandProgram,
   type TeamRemoveInput,
 } from './team-command.ts';
-import { runCliProgram } from '../../../run-cli-program.ts';
+import { runCliProgram } from '@/cli/run-cli-program.js';
 
 type InviteOptions = Readonly<{
   readonly first: string;

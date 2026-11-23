@@ -3,10 +3,10 @@ import type {
   AlternativeDistributionKeyResource,
   MerchantIdResource,
   PassTypeIdResource,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 import type { AscHost } from './host.ts';
 import type { ResourceSingle } from './shared.ts';
-import type { components } from '../../apple-api-types.ts';
+import type { components } from '@/apple-api-types.js';
 
 export class ConnectDistribution {
   constructor(private readonly client: AscHost) {}

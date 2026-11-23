@@ -4,7 +4,7 @@ import { resolveCommandEnv, selectApp } from '../build/pipeline-env.ts';
 import { mb, submitToStores } from '../build/pipeline-providers.ts';
 import { resolveIosAccount } from '../build/pipeline-signing.ts';
 import { loadConfig } from '../config/config.ts';
-import { formatEnvTable, parseCliEnv } from '../config/env.ts';
+import { parseCliEnv } from '../config/env.ts';
 import { loadAscKeyById } from '../credentials/accounts.ts';
 import { ensureArtifactPresent, resolveStorageProvider } from '../distribution/storage.ts';
 import { errorMessage, hasMessage } from '../services/platform/error-message.ts';
@@ -43,7 +43,6 @@ import { resolveReleaseType, resolveWhatsNew } from './release-inputs.ts';
 export type ReleaseCommandOptions = Readonly<{
   env: string[];
   includeLocal: boolean;
-  printEnv: boolean;
   app?: string;
   profile: string;
   explain: boolean;
@@ -1420,15 +1419,6 @@ export async function releaseCommandProgram(
     commandOptions,
     loadedConfiguration.config.envExclude,
   );
-
-  if (commandOptions.printEnv) {
-    const logger = createLogger(false);
-    const formatTable = formatEnvTable(resolvedEnvironment);
-
-    logger.line(formatTable);
-
-    return;
-  }
 
   if (isApplePlatform(platform)) {
     await releaseAppleBuild(

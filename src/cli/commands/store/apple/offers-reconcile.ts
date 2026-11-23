@@ -1,15 +1,15 @@
-import { loadConfig } from '../../../../config/config.ts';
-import type { AppStoreConnectClient } from '../../../../apple/asc-client.ts';
-import { createLogger } from '../../../../services/platform/logger.ts';
-import { readLaunchDirectories } from '../../../../services/platform/paths.ts';
-import { LaunchPrompt } from '../../../../services/platform/prompt.ts';
-import { checkTerminalIsInteractive } from '../../../../services/platform/progress.ts';
-import type { AppDescriptor } from '../../../../types/app.ts';
-import type { AppProducts } from '../../../../types/catalog.ts';
-import type { PlannedAction, ReconcileReport } from '../../../../types/reconcile.ts';
+import { loadConfig } from '@/config/config.js';
+import type { AppStoreConnectClient } from '@/apple/asc-client.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { readLaunchDirectories } from '@/services/platform/paths.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { AppProducts } from '@/types/catalog.js';
+import type { PlannedAction, ReconcileReport } from '@/types/reconcile.js';
 import { loadActiveAppleStore } from './apple-store-command.ts';
-import { appDeclaresOffers, reconcileOffers } from '../../../../store/apple/offers.ts';
-import { summarize } from '../../../../store/shared/reconcile.ts';
+import { appDeclaresOffers, reconcileOffers } from '@/store/apple/offers.js';
+import { summarize } from '@/store/shared/reconcile.js';
 import type { OffersReconcileInput } from './offers-command.ts';
 import { offersFailure } from './offers-subscription.ts';
 

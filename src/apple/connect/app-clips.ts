@@ -3,11 +3,11 @@ import type {
   AppClipDefaultExperienceResource,
   AppClipLocalizationResource,
   AppClipResource,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 import type { AscHost } from './host.ts';
-import type { MutableDeep } from '../../types/mutable.ts';
+import type { MutableDeep } from '@/types/mutable.js';
 import type { ResourceSingle, AppClipExperiencePage } from './shared.ts';
-import type { components } from '../../apple-api-types.ts';
+import type { components } from '@/apple-api-types.js';
 
 export class ConnectAppClips {
   constructor(private readonly client: AscHost) {}

@@ -1,9 +1,9 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { stdout } from 'node:process';
-import { diagnoseBuildLog, formatDiagnoses } from '../../build/build-diagnostics.ts';
-import { currentBuildLog } from '../../build/build-log.ts';
-import type { BuildEstimate } from '../../build/build-fingerprint.ts';
+import { diagnoseBuildLog, formatDiagnoses } from '@/build/build-diagnostics.js';
+import { currentBuildLog } from '@/build/build-log.js';
+import type { BuildEstimate } from '@/build/build-fingerprint.js';
 import { formatElapsed } from './elapsed.ts';
 import { executeCommand, executeCommandQuietly } from './exec.ts';
 import { readLaunchEnvironment } from './environment.ts';

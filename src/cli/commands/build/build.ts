@@ -1,8 +1,8 @@
-import type { Command } from '../../command.ts';
-import { buildCommandProgram } from '../../../build/build-command-program.ts';
-import type { BuildCommandOptions } from '../../../build/build-command-input.ts';
-import { addEnvironmentFlags } from '../../environment-flags.ts';
-import { runCliProgram, runJsonCliProgram } from '../../run-cli-program.ts';
+import type { Command } from '@/cli/command.js';
+import { buildCommandProgram } from '@/build/build-command-program.js';
+import type { BuildCommandOptions } from '@/build/build-command-input.js';
+import { addEnvironmentFlags } from '@/cli/environment-flags.js';
+import { runCliProgram, runJsonCliProgram } from '@/cli/run-cli-program.js';
 function addAppleBuildOptions(command: Command): Command {
   return command
     .option(

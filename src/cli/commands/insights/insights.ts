@@ -1,6 +1,6 @@
-import type { Command } from '../../command.ts';
-import { insightsCommandProgram } from '../../../insights/command.ts';
-import { runCliProgram } from '../../run-cli-program.ts';
+import type { Command } from '@/cli/command.js';
+import { insightsCommandProgram } from '@/insights/command.js';
+import { runCliProgram } from '@/cli/run-cli-program.js';
 
 /** CLI options for `launch-store insights`. */
 type InsightsOptions = {

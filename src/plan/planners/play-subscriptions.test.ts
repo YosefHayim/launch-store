@@ -1,11 +1,11 @@
 import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { playSubscriptionsPlanner } from './play-subscriptions.ts';
-import type { AppDescriptor } from '../../types/app.ts';
-import type { AppProducts, SubscriptionConfig } from '../../types/catalog.ts';
-import type { LaunchConfig } from '../../types/config.ts';
-import type { PlanContext, PlayCatalogApi } from '../../types/plan.ts';
-import type { ActionStatus } from '../../types/reconcile.ts';
+import type { AppDescriptor } from '@/types/app.js';
+import type { AppProducts, SubscriptionConfig } from '@/types/catalog.js';
+import type { LaunchConfig } from '@/types/config.js';
+import type { PlanContext, PlayCatalogApi } from '@/types/plan.js';
+import type { ActionStatus } from '@/types/reconcile.js';
 
 /** A fully-stubbed {@link PlayCatalogApi}: reads default to "nothing exists yet", writes resolve to void. */
 function makePlayApi(overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi {

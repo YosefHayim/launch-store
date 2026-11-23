@@ -4,8 +4,8 @@ import type {
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '../../types/readiness.ts';
-import { hasReleasedVersion } from '../../release/app-store-release.ts';
+} from '@/types/readiness.js';
+import { hasReleasedVersion } from '@/release/app-store-release.js';
 import { iosApps } from '../app-scopes.ts';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';
 

@@ -1,6 +1,6 @@
-import { createLogger } from '../../../../services/platform/logger.ts';
-import { readPlainObject } from '../../../../services/platform/plain-object.ts';
-import { completeCommand } from '../../../../terminal/command-exit.ts';
+import { createLogger } from '@/services/platform/logger.js';
+import { readPlainObject } from '@/services/platform/plain-object.js';
+import { completeCommand } from '@/terminal/command-exit.js';
 import { executeGenerateCodes } from './offers-generate-codes.ts';
 import { executeListOfferCodes } from './offers-list.ts';
 import { executeOffersReconcile } from './offers-reconcile.ts';

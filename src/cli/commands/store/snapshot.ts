@@ -1,6 +1,6 @@
-import type { Command } from '../../command.ts';
-import { snapshotCommandProgram } from '../../../snapshot/snapshot-command.ts';
-import { runCliProgram } from '../../run-cli-program.ts';
+import type { Command } from '@/cli/command.js';
+import { snapshotCommandProgram } from '@/snapshot/snapshot-command.js';
+import { runCliProgram } from '@/cli/run-cli-program.js';
 
 type CaptureOptions = Readonly<{ app?: string; json?: boolean }>;
 type PruneOptions = Readonly<{

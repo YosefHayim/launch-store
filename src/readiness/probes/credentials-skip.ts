@@ -1,4 +1,4 @@
-import type { ProbeResult } from '../../types/readiness.ts';
+import type { ProbeResult } from '@/types/readiness.js';
 
 /** No apps in scope for this store - drop the probe from the report. */
 export const OMITTED_PROBE = { state: 'omitted' } as const satisfies ProbeResult;

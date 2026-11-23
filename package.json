@@ -52,7 +52,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/cli/index.js",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && node scripts/rewrite-alias-imports.mjs && chmod +x dist/cli/index.js",
     "dev": "tsx src/cli/index.ts",
     "gen:asc": "tsx scripts/generate-apple-types.ts",
     "typecheck": "tsc --noEmit",

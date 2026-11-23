@@ -1,4 +1,4 @@
-import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 type SyncCommandInput = {
   app?: string;
   dryRun: boolean;

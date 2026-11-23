@@ -1,9 +1,9 @@
-import type { Command } from '../../../command.ts';
+import type { Command } from '@/cli/command.js';
 import {
   type AvailabilityCommandInput,
   availabilityCommandProgram,
 } from './availability-command.ts';
-import { runCliProgram } from '../../../run-cli-program.ts';
+import { runCliProgram } from '@/cli/run-cli-program.js';
 
 type AvailabilityOptions = Readonly<{
   readonly app?: string;

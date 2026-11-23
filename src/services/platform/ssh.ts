@@ -1,5 +1,5 @@
 import { captureCommandOutput, type CommandExecutionOptions, executeCommand } from './exec.ts';
-import type { SshTarget } from '../../types/remote.ts';
+import type { SshTarget } from '@/types/remote.js';
 /** `user@host` for ssh/scp/rsync destinations. */
 function userHost(target: SshTarget): string {
   return `${target.user}@${target.host}`;

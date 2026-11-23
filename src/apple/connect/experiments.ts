@@ -3,7 +3,7 @@ import type {
   ExperimentTreatmentLocalizationResource,
   ExperimentTreatmentResource,
   VersionExperimentResource,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 
 export class ConnectExperiments {
   constructor(private readonly client: AscHost) {}

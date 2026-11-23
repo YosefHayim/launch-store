@@ -1,4 +1,4 @@
-import { Prompts } from '../../prompts.ts';
+import { Prompts } from '@/prompts.js';
 import { createLogger } from './logger.ts';
 
 const prompts = new Prompts();

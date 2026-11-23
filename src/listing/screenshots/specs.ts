@@ -1,5 +1,5 @@
-import { isApplePlatform } from '../../services/stores/platform.ts';
-import type { Platform } from '../../types/app.ts';
+import { isApplePlatform } from '@/services/stores/platform.js';
+import type { Platform } from '@/types/app.js';
 import { readScreenshotDimensions } from './image-dimensions.ts';
 import { APPLE_ASSET_TARGETS, findAppleScreenshotTarget } from './targets.ts';
 

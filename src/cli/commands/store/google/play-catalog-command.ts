@@ -1,7 +1,7 @@
-import { hasMessage } from '../../../../services/platform/error-message.ts';
-import { checkTerminalIsInteractive } from '../../../../services/platform/progress.ts';
-import { LaunchPrompt } from '../../../../services/platform/prompt.ts';
-import type { PlannedAction } from '../../../../types/reconcile.ts';
+import { hasMessage } from '@/services/platform/error-message.js';
+import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
+import type { PlannedAction } from '@/types/reconcile.js';
 
 /** Confirmation for a Google Play catalog write failed or was unavailable. */
 type PlayCatalogConfirmationFailure = Readonly<{

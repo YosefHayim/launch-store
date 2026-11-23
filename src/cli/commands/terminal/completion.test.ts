@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Command, type CommandOption, type CommandArgument } from '../../command.ts';
+import { Command, type CommandOption, type CommandArgument } from '@/cli/command.js';
 import { registerCompletionCommand } from './completion.ts';
 /** The `completion` group from a fresh program, asserting it registered. */
 function completionGroup(): Command {

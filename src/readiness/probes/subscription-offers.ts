@@ -1,11 +1,11 @@
-import type { SubscriptionConfig } from '../../types/catalog.ts';
+import type { SubscriptionConfig } from '@/types/catalog.js';
 import type {
   AppReadiness,
   AscReadinessApi,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '../../types/readiness.ts';
+} from '@/types/readiness.js';
 import { iosApps } from '../app-scopes.ts';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';
 

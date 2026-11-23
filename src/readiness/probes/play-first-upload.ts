@@ -4,8 +4,8 @@ import type {
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '../../types/readiness.ts';
-import { errorMessage } from '../../services/platform/error-message.ts';
+} from '@/types/readiness.js';
+import { errorMessage } from '@/services/platform/error-message.js';
 import { androidApps } from '../app-scopes.ts';
 import { OMITTED_PROBE, SKIPPED_NO_PLAY_ACCOUNT } from './credentials-skip.ts';
 

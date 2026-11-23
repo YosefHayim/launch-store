@@ -1,5 +1,5 @@
 import { reconcileApp, type AscCatalogApi, type ReconcileInput } from '../apple/asc-sync.ts';
-import type { PlannedAction, ReconcileReport } from '../../types/reconcile.ts';
+import type { PlannedAction, ReconcileReport } from '@/types/reconcile.js';
 import {
   reconcilePreviews,
   reconcileScreenshots,
@@ -7,7 +7,7 @@ import {
   type ScreenshotsApi,
   type SubscriptionReviewScreenshot,
 } from '../apple/asc-screenshots.ts';
-import { fingerprintAsset } from '../../listing/screenshots/assets.ts';
+import { fingerprintAsset } from '@/listing/screenshots/assets.js';
 import type { SyncJob } from './sync-jobs.ts';
 
 /** How many apps reconcile concurrently. Bounded so the single ASC key stays under Apple's rate ceiling. */

@@ -1,5 +1,5 @@
 import type { AscHost } from './host.ts';
-import type { SandboxTesterResource } from '../../types/apple-catalog.ts';
+import type { SandboxTesterResource } from '@/types/apple-catalog.js';
 
 export class ConnectSandbox {
   constructor(private readonly client: AscHost) {}

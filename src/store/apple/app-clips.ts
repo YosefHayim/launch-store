@@ -4,17 +4,17 @@ import {
   type AppClipDefaultExperienceResource,
   type AppClipLocalizationResource,
   type AppClipResource,
-} from '../../types/apple-catalog.ts';
-import type { PlannedAction, ReconcileReport } from '../../types/reconcile.ts';
+} from '@/types/apple-catalog.js';
+import type { PlannedAction, ReconcileReport } from '@/types/reconcile.js';
 import { appRecordMissing, plan, skip, type ReconcileContext } from '../shared/reconcile.ts';
-import { errorMessage } from '../../services/platform/error-message.ts';
+import { errorMessage } from '@/services/platform/error-message.js';
 import type {
   AppClipConfig,
   AppClipLocalizationConfig,
   AppClipsConfig,
-} from '../../types/store-surface.ts';
+} from '@/types/store-surface.js';
 import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surface-config.ts';
-import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 
 const APP_CLIPS_DOCUMENT_NAME = 'appclips.config.json';
 

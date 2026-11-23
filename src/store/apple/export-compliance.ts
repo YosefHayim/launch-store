@@ -1,4 +1,4 @@
-import type { EncryptionDeclarationResource } from '../../types/apple-catalog.ts';
+import type { EncryptionDeclarationResource } from '@/types/apple-catalog.js';
 /** The slice of {@link AppStoreConnectClient} that {@link reconcileExportCompliance} needs. */
 export type ExportComplianceApi = {
   findBuild(

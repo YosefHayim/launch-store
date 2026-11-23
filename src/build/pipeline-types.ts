@@ -26,7 +26,6 @@ export type BuildRunOptions = {
   distribution?: Distribution;
   envOverrides?: Record<string, string>;
   includeLocal?: boolean;
-  printEnv?: boolean;
   bump?: BumpKind | 'ask';
 };
 /** The shared front half of every build path: config + app + profile + validated env + a logger. */

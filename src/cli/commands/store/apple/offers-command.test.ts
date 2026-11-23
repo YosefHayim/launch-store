@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AppProducts } from '../../../../types/catalog.ts';
+import type { AppProducts } from '@/types/catalog.js';
 import { OffersCommandInputSchema } from './offers-command.ts';
 import { renderOfferCodeState } from './offers-list.ts';
 import { hasOffersWork, renderOfferAction } from './offers-reconcile.ts';

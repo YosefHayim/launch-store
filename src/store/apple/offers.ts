@@ -14,8 +14,8 @@ import type {
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '../../types/apple-catalog.ts';
-import type { PlannedAction, ReconcileReport } from '../../types/reconcile.ts';
+} from '@/types/apple-catalog.js';
+import type { PlannedAction, ReconcileReport } from '@/types/reconcile.js';
 import type {
   AppProducts,
   IntroductoryOfferConfig,
@@ -24,9 +24,9 @@ import type {
   PromotionalOfferConfig,
   SubscriptionConfig,
   WinBackOfferConfig,
-} from '../../types/catalog.ts';
-import type { MutableDeep } from '../../types/mutable.ts';
-import { errorMessage } from '../../services/platform/error-message.ts';
+} from '@/types/catalog.js';
+import type { MutableDeep } from '@/types/mutable.js';
+import { errorMessage } from '@/services/platform/error-message.js';
 import {
   act,
   makeAppRecordFailure,

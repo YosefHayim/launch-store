@@ -1,6 +1,6 @@
-import type { Command } from '../../command.ts';
-import { explainCommandProgram } from '../../../terminal/explain-command.ts';
-import { runCliProgram } from '../../run-cli-program.ts';
+import type { Command } from '@/cli/command.js';
+import { explainCommandProgram } from '@/terminal/explain-command.js';
+import { runCliProgram } from '@/cli/run-cli-program.js';
 
 /** Attach the `explain` command to the program. */
 export function registerExplainCommand(program: Command): void {

@@ -1,4 +1,4 @@
-import type { Command } from '../../command.ts';
+import type { Command } from '@/cli/command.js';
 /** Find-or-create the shared `ai` parent command. */
 export function aiGroup(program: Command): Command {
   function findCommand(command: Command) {

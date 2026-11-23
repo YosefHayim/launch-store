@@ -1,4 +1,4 @@
-import type { Command } from '../../../command.ts';
+import type { Command } from '@/cli/command.js';
 import {
   type OffersDeactivateInput,
   type OffersGenerateCodesInput,
@@ -6,7 +6,7 @@ import {
   type OffersReconcileInput,
   offersCommandProgram,
 } from './offers-command.ts';
-import { runCliProgram } from '../../../run-cli-program.ts';
+import { runCliProgram } from '@/cli/run-cli-program.js';
 
 type OffersOptions = Readonly<{
   readonly app?: string;

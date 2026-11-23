@@ -1,4 +1,4 @@
-import type { GooglePlay } from '../../google-play.ts';
+import type { GooglePlay } from '@/google-play.js';
 
 export class PlayProducts {
   constructor(private readonly play: GooglePlay) {}

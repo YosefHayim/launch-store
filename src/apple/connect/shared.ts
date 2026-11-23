@@ -1,10 +1,10 @@
-import type { AscKey } from '../../types/credentials.ts';
-import type { MutableDeep } from '../../types/mutable.ts';
-import type { components } from '../../apple-api-types.ts';
+import type { AscKey } from '@/types/credentials.js';
+import type { MutableDeep } from '@/types/mutable.js';
+import type { components } from '@/apple-api-types.js';
 import { createHash } from 'node:crypto';
 import { signAppStoreConnectToken } from '../app-store-token.ts';
 import { open, readFile, stat, type FileHandle } from 'node:fs/promises';
-import { makeStoreUploadFailure, type StoreUploadFailure } from '../../types/providers.ts';
+import { makeStoreUploadFailure, type StoreUploadFailure } from '@/types/providers.js';
 import { retryAppleTransportRequest } from '../transport-helpers.ts';
 import {
   type AccessibilityDeclarationResource,
@@ -21,9 +21,9 @@ import {
   type PhasedReleaseResource,
   type PricePointResource,
   ACCESSIBILITY_SUPPORT_KEYS,
-} from '../../types/apple-catalog.ts';
-import { readPlainObject } from '../../services/platform/plain-object.ts';
-import { isFailureTag } from '../../services/platform/tagged-failure.ts';
+} from '@/types/apple-catalog.js';
+import { readPlainObject } from '@/services/platform/plain-object.js';
+import { isFailureTag } from '@/services/platform/tagged-failure.js';
 
 export const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
 export const BASE_URL = `${API_ORIGIN}/v1`;

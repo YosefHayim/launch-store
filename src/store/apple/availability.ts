@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
-import type { AppAvailabilityResource } from '../../types/apple-catalog.ts';
-import type { MutableDeep } from '../../types/mutable.ts';
-import type { PlannedAction } from '../../types/reconcile.ts';
-import { pathExists } from '../../path-exists.ts';
+import type { AppAvailabilityResource } from '@/types/apple-catalog.js';
+import type { MutableDeep } from '@/types/mutable.js';
+import type { PlannedAction } from '@/types/reconcile.js';
+import { pathExists } from '@/path-exists.js';
 import { appRecordMissing } from '../shared/reconcile.ts';
-import { errorMessage } from '../../services/platform/error-message.ts';
-import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { errorMessage } from '@/services/platform/error-message.js';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 
 /** How many territory codes to show inline before truncating the plan line. */
 const PREVIEW_LIMIT = 8;

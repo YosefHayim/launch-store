@@ -1,9 +1,9 @@
 import path from 'node:path';
-import { loadConfig } from '../../../../config/config.ts';
-import { errorMessage } from '../../../../services/platform/error-message.ts';
-import { createLogger } from '../../../../services/platform/logger.ts';
-import { readLaunchDirectories } from '../../../../services/platform/paths.ts';
-import { completeCommand, isCommandExit } from '../../../../terminal/command-exit.ts';
+import { loadConfig } from '@/config/config.js';
+import { errorMessage } from '@/services/platform/error-message.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { readLaunchDirectories } from '@/services/platform/paths.js';
+import { completeCommand, isCommandExit } from '@/terminal/command-exit.js';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import {
   confirmStoreSurfaceWrite,
@@ -11,9 +11,9 @@ import {
   renderStoreSurfaceAction,
   resolveStoreSurfaceSection,
 } from './app-store-surface-command.ts';
-import { parseWalletConfig, reconcileWalletIds } from '../../../../store/apple/wallet-ids.ts';
-import type { PlannedAction } from '../../../../types/reconcile.ts';
-import { readPlainObject } from '../../../../services/platform/plain-object.ts';
+import { parseWalletConfig, reconcileWalletIds } from '@/store/apple/wallet-ids.js';
+import type { PlannedAction } from '@/types/reconcile.js';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 
 type WalletCommandInput =
   | Readonly<{

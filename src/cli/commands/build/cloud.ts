@@ -1,6 +1,6 @@
-import type { Command } from '../../command.ts';
-import { cloudCommandProgram } from '../../../distribution/cloud-command.ts';
-import { runCliProgram } from '../../run-cli-program.ts';
+import type { Command } from '@/cli/command.js';
+import { cloudCommandProgram } from '@/distribution/cloud-command.js';
+import { runCliProgram } from '@/cli/run-cli-program.js';
 
 type CloudOptions = Readonly<{ yes: boolean }>;
 

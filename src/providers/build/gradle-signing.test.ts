@@ -2,14 +2,14 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { runWithProgress } from '../../services/platform/progress.ts';
+import { runWithProgress } from '@/services/platform/progress.js';
 import { makeGradleBuildEngine } from './gradle.ts';
 
 vi.mock(
-  '../../services/platform/progress.ts',
+  '@/services/platform/progress.js',
   async function mockProgress(importOriginal: <T = unknown>() => Promise<T>) {
     return {
-      ...(await importOriginal<typeof import('../../services/platform/progress.ts')>()),
+      ...(await importOriginal<typeof import('@/services/platform/progress.js')>()),
       runWithProgress: vi.fn(() => Promise.reject(new Error('stop after invocation'))),
     };
   },

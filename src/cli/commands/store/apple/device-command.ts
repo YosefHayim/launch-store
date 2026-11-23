@@ -1,8 +1,8 @@
-import { createLogger } from '../../../../services/platform/logger.ts';
-import type { DeviceResource } from '../../../../types/apple-catalog.ts';
+import { createLogger } from '@/services/platform/logger.js';
+import type { DeviceResource } from '@/types/apple-catalog.js';
 import { loadActiveAppleStore } from './apple-store-command.ts';
-import { hasMessage } from '../../../../services/platform/error-message.ts';
-import { readPlainObject } from '../../../../services/platform/plain-object.ts';
+import { hasMessage } from '@/services/platform/error-message.js';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 
 type DeviceAddInput = Readonly<{
   operation: 'add';

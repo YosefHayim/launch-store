@@ -3,14 +3,14 @@ import type {
   BundleIdResource as AscBundleIdResource,
   CertificateResource as AscCertificateResource,
   DeviceResource as AscDeviceResource,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 import type {
   BundleIdCapabilityResource,
   BundleIdResource,
   CertificateResource,
   ProfileResource,
-} from '../../types/apple-catalog.ts';
-import type { AscKey } from '../../types/credentials.ts';
+} from '@/types/apple-catalog.js';
+import type { AscKey } from '@/types/credentials.js';
 import { AppleStoreClientService } from './apple-store-client.ts';
 
 type AppleDeviceResource = Readonly<{

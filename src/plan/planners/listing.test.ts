@@ -4,13 +4,13 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { listingPlanner } from './listing.ts';
-import { makeAscApiFake } from '../../testkit/asc-api-fake-testkit.ts';
-import type { AscCatalogApi } from '../../store/apple/asc-sync.ts';
-import type { AppDescriptor } from '../../types/app.ts';
-import type { LaunchConfig } from '../../types/config.ts';
-import type { PlanContext } from '../../types/plan.ts';
-import type { AppleLocaleInfo } from '../../store/shared/store-config.ts';
-import type { ActionStatus } from '../../types/reconcile.ts';
+import { makeAscApiFake } from '@/testkit/asc-api-fake-testkit.js';
+import type { AscCatalogApi } from '@/store/apple/asc-sync.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { LaunchConfig } from '@/types/config.js';
+import type { PlanContext } from '@/types/plan.js';
+import type { AppleLocaleInfo } from '@/store/shared/store-config.js';
+import type { ActionStatus } from '@/types/reconcile.js';
 
 /** A fully-stubbed {@link AscCatalogApi}: reads default to "nothing exists yet", writes resolve to a created resource. */
 function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {

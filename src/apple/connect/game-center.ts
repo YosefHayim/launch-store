@@ -6,9 +6,9 @@ import type {
   GameCenterLeaderboardCreate,
   GameCenterLeaderboardResource,
   LeaderboardFormatter,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 import type { ResourceSingle } from './shared.ts';
-import type { components } from '../../apple-api-types.ts';
+import type { components } from '@/apple-api-types.js';
 
 export class ConnectGameCenter {
   constructor(private readonly client: AscHost) {}

@@ -8,12 +8,8 @@ import {
   type ScreenshotsApi,
   type SubscriptionReviewScreenshot,
 } from './asc-screenshots.ts';
-import type {
-  LocalAsset,
-  LocalPreview,
-  LocalScreenshot,
-} from '../../listing/screenshots/assets.ts';
-import type { ActionStatus } from '../../types/reconcile.ts';
+import type { LocalAsset, LocalPreview, LocalScreenshot } from '@/listing/screenshots/assets.js';
+import type { ActionStatus } from '@/types/reconcile.js';
 
 function effectMethods<Api extends object>(api: Api): Api {
   return api;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { findAppSkus, summarizeSalesLines } from './app-store-sales-report.ts';
-import type { DailyStat } from '../../types/stats.ts';
+import type { DailyStat } from '@/types/stats.js';
 
 const APP_ID = '6802289557';
 

@@ -1,4 +1,4 @@
-import type { Platform } from '../../types/app.ts';
+import type { Platform } from '@/types/app.js';
 
 type PlatformMappingFailure = Readonly<{
   readonly _tag: 'PlatformMappingFailure';

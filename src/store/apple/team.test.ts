@@ -3,7 +3,7 @@ import type {
   NewUserInvitation,
   UserInvitationResource,
   UserResource,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 import { getTeam, inviteTeamMember, removeTeamMember, type AscTeamApi } from './team.ts';
 
 /** Build an empty Effect-native team client with optional method replacements. */

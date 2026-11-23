@@ -2,16 +2,13 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  resetLaunchEnvironment,
-  useLaunchEnvironment,
-} from '../../services/platform/environment.ts';
-import { resetLaunchDirectories, useLaunchDirectories } from '../../services/platform/paths.ts';
-import { resetSecretStore, useSecretStore } from '../../services/credentials/secret-store.ts';
-import type { AppleCredentialAccountStatus } from '../../services/credentials/local-credentials-store.ts';
-import type { ResolvedBuildContext } from '../../types/config.ts';
-import type { AscKey } from '../../types/credentials.ts';
-import type { MutableDeep } from '../../types/mutable.ts';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '@/services/platform/environment.js';
+import { resetLaunchDirectories, useLaunchDirectories } from '@/services/platform/paths.js';
+import { resetSecretStore, useSecretStore } from '@/services/credentials/secret-store.js';
+import type { AppleCredentialAccountStatus } from '@/services/credentials/local-credentials-store.js';
+import type { ResolvedBuildContext } from '@/types/config.js';
+import type { AscKey } from '@/types/credentials.js';
+import type { MutableDeep } from '@/types/mutable.js';
 import { makeLocalCredentialsProvider, useCredentialsReader } from './local.ts';
 
 type LocalCredentialsTestState = {

@@ -1,10 +1,7 @@
-import { resolveSidecarConfig } from '../../config/config.ts';
-import {
-  loadAccessibilityConfig,
-  reconcileAccessibility,
-} from '../../store/apple/accessibility.ts';
+import { resolveSidecarConfig } from '@/config/config.js';
+import { loadAccessibilityConfig, reconcileAccessibility } from '@/store/apple/accessibility.js';
 import { planAppStoreSurface } from './app-store-surface.ts';
-import type { SurfacePlanner } from '../../types/plan.ts';
+import type { SurfacePlanner } from '@/types/plan.js';
 /** Surface id - also the value users pass as `launch-store plan accessibility`. */
 const SURFACE = 'accessibility';
 export const accessibilityPlanner: SurfacePlanner = {

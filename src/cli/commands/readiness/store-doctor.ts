@@ -1,6 +1,6 @@
-import type { Command } from '../../command.ts';
-import { readinessCommandProgram } from '../../../readiness/command.ts';
-import { runCliProgram } from '../../run-cli-program.ts';
+import type { Command } from '@/cli/command.js';
+import { readinessCommandProgram } from '@/readiness/command.js';
+import { runCliProgram } from '@/cli/run-cli-program.js';
 
 /** CLI options for `launch-store store doctor`. */
 type StoreDoctorOptions = {

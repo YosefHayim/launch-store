@@ -6,13 +6,13 @@ import type {
   SnapshotContext,
   SnapshotEntity,
   SnapshotSource,
-} from '../../types/snapshot.ts';
-import type { PlannedAction } from '../../types/reconcile.ts';
-import { readAppleLocaleFields, readLocaleInfo } from '../../store/apple/apple-listing-read.ts';
-import type { AppleLocaleInfo, AppleStoreConfig } from '../../store/shared/store-config.ts';
-import { reconcileAppListing } from '../../store/apple/asc-sync.ts';
-import { iosApps } from '../../readiness/app-scopes.ts';
-import { readPlainObject } from '../../services/platform/plain-object.ts';
+} from '@/types/snapshot.js';
+import type { PlannedAction } from '@/types/reconcile.js';
+import { readAppleLocaleFields, readLocaleInfo } from '@/store/apple/apple-listing-read.js';
+import type { AppleLocaleInfo, AppleStoreConfig } from '@/store/shared/store-config.js';
+import { reconcileAppListing } from '@/store/apple/asc-sync.js';
+import { iosApps } from '@/readiness/app-scopes.js';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 /** One locale's merged listing fields -> a snapshot entity keyed by the locale (its natural, stable id). */
 function readSnapshotEntity(locale: string, fields: Record<string, string>): SnapshotEntity {
   return {

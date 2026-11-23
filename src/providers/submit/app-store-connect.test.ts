@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { BuildUploadStatus } from '../../types/apple-catalog.ts';
-import type { ResolvedBuildContext } from '../../types/config.ts';
-import type { BuildCredentials } from '../../types/credentials.ts';
+import type { BuildUploadStatus } from '@/types/apple-catalog.js';
+import type { ResolvedBuildContext } from '@/types/config.js';
+import type { BuildCredentials } from '@/types/credentials.js';
 
 const ascFake = vi.hoisted(function hoistAscFake() {
   return {
@@ -17,7 +17,7 @@ const ascFake = vi.hoisted(function hoistAscFake() {
   };
 });
 
-vi.mock('../../apple/asc-client.ts', function mockAscClient() {
+vi.mock('@/apple/asc-client.js', function mockAscClient() {
   return {
     AppStoreConnectClient: class {
       getAppId = ascFake.getAppId;

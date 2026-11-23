@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 const packageEntry = fileURLToPath(new URL('./src/index.ts', import.meta.url));
+const sourceRoot = fileURLToPath(new URL('./src/', import.meta.url));
 const endToEndTimeoutMilliseconds = 30_000;
 
 export default defineConfig({
@@ -9,6 +10,7 @@ export default defineConfig({
     alias: [
       // Vitest loads a user's launch.config.ts itself, so Node's resolve hook never sees `launch-store`.
       { find: /^launch-store$/, replacement: packageEntry },
+      { find: /^@\//, replacement: sourceRoot },
     ],
   },
   test: {

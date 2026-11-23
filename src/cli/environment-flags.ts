@@ -3,7 +3,6 @@ import type { Command } from './command.ts';
 export type EnvironmentFlags = {
   env: string[];
   includeLocal: boolean;
-  printEnv: boolean;
 };
 
 function collectEnvironmentFlag(
@@ -13,7 +12,7 @@ function collectEnvironmentFlag(
   return [...previousFlags, environmentFlag];
 }
 
-/** Attach `--env`, `--include-local`, and `--print-env`. These do not write launch.config.ts. */
+/** Attach `--env` and `--include-local`. These do not write launch.config.ts or print it. */
 export function addEnvironmentFlags(command: Command): Command {
   return command
     .option(
@@ -25,11 +24,6 @@ export function addEnvironmentFlags(command: Command): Command {
     .option(
       '--include-local',
       'also load .env.local (off by default to avoid surprise local env)',
-      false,
-    )
-    .option(
-      '--print-env',
-      'print the resolved env (masked) with its sources, then exit without running',
       false,
     );
 }

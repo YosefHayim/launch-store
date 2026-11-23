@@ -1,10 +1,10 @@
-import type { AppDescriptor } from '../../types/app.ts';
+import type { AppDescriptor } from '@/types/app.js';
 import type {
   AppReadiness,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '../../types/readiness.ts';
+} from '@/types/readiness.js';
 import { OMITTED_PROBE } from './credentials-skip.ts';
 
 type ComplianceApp = {

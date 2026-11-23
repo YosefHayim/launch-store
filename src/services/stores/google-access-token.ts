@@ -1,6 +1,6 @@
-import { createServiceAccountAccessToken } from '../../google/service-account-token.ts';
-import { readServiceAccount } from '../../google/play-client.ts';
-import type { ServiceAccount } from '../../types/credentials.ts';
+import { createServiceAccountAccessToken } from '@/google/service-account-token.js';
+import { readServiceAccount } from '@/google/play-client.js';
+import type { ServiceAccount } from '@/types/credentials.js';
 import { errorMessage } from '../platform/error-message.ts';
 
 export type GoogleAccessTokenFailure = Readonly<{

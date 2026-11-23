@@ -4,11 +4,11 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { customPagesPlanner } from './custom-pages.ts';
-import { makeAscApiFake } from '../../testkit/asc-api-fake-testkit.ts';
-import type { AppDescriptor } from '../../types/app.ts';
-import type { LaunchConfig } from '../../types/config.ts';
-import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
-import type { ActionStatus } from '../../types/reconcile.ts';
+import { makeAscApiFake } from '@/testkit/asc-api-fake-testkit.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { LaunchConfig } from '@/types/config.js';
+import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';
+import type { ActionStatus } from '@/types/reconcile.js';
 
 const alpha: AppDescriptor = {
   name: 'alpha',

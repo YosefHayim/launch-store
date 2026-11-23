@@ -1,6 +1,6 @@
-import { errorMessage } from '../../services/platform/error-message.ts';
-import { readPlainObject } from '../../services/platform/plain-object.ts';
-import { isFailureTag } from '../../services/platform/tagged-failure.ts';
+import { errorMessage } from '@/services/platform/error-message.js';
+import { readPlainObject } from '@/services/platform/plain-object.js';
+import { isFailureTag } from '@/services/platform/tagged-failure.js';
 
 export const STORAGE_READ_ONLY_SCOPE = 'https://www.googleapis.com/auth/devstorage.read_only';
 

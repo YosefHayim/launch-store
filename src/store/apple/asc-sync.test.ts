@@ -7,13 +7,9 @@ import {
   type ReconcileInput,
 } from './asc-sync.ts';
 import type { AppleStoreConfig } from '../shared/store-config.ts';
-import type {
-  AppProducts,
-  InAppPurchaseConfig,
-  SubscriptionGroupConfig,
-} from '../../types/catalog.ts';
-import { expectArrayElement } from '../../testkit/assertions-testkit.ts';
-import type { ActionStatus } from '../../types/reconcile.ts';
+import type { AppProducts, InAppPurchaseConfig, SubscriptionGroupConfig } from '@/types/catalog.js';
+import { expectArrayElement } from '@/testkit/assertions-testkit.js';
+import type { ActionStatus } from '@/types/reconcile.js';
 
 /** Promise fake of {@link AscCatalogApi}. Reads default to "nothing exists yet"; writes resolve to a created resource. */
 function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {

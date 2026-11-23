@@ -1,4 +1,4 @@
-import type { DailyStat, DateRange } from '../../types/stats.ts';
+import type { DailyStat, DateRange } from '@/types/stats.js';
 import { shiftDate } from '../date-range.ts';
 import { decodePlayCsvBytes, readPlayCsvTable, type PlayCsvTable } from './play-csv-table.ts';
 import { readZipEntries } from './zip-archive.ts';

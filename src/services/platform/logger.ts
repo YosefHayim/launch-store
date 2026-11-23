@@ -1,5 +1,5 @@
 import { stdout } from 'node:process';
-import { explainTopic, type GlossaryTopic } from '../../terminal/glossary.ts';
+import { explainTopic, type GlossaryTopic } from '@/terminal/glossary.js';
 import { formatElapsed } from './elapsed.ts';
 
 type LogWrite = (text: string) => void;

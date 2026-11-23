@@ -1,10 +1,10 @@
-import { loadConfig } from '../../config/config.ts';
-import { errorMessage } from '../../services/platform/error-message.ts';
-import { readLaunchDirectories } from '../../services/platform/paths.ts';
-import { LaunchPrompt } from '../../services/platform/prompt.ts';
-import { checkTerminalIsInteractive } from '../../services/platform/progress.ts';
-import type { AppDescriptor } from '../../types/app.ts';
-import type { LaunchConfig } from '../../types/config.ts';
+import { loadConfig } from '@/config/config.js';
+import { errorMessage } from '@/services/platform/error-message.js';
+import { readLaunchDirectories } from '@/services/platform/paths.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { LaunchConfig } from '@/types/config.js';
 
 /** Selecting an app for a store command failed. */
 type StoreAppSelectionFailure = Readonly<{

@@ -1,12 +1,12 @@
-import type { AppDescriptor } from '../../types/app.ts';
+import type { AppDescriptor } from '@/types/app.js';
 import type {
   AppReadiness,
   AscReadinessApi,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '../../types/readiness.ts';
-import { mapEntitlementsToCapabilities } from '../../credentials/capabilities.ts';
+} from '@/types/readiness.js';
+import { mapEntitlementsToCapabilities } from '@/credentials/capabilities.js';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';
 
 /** An in-scope app: declares a bundle id and at least one entitlement that maps to a portal capability. */

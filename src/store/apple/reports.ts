@@ -4,7 +4,7 @@ import type {
   AnalyticsReportRequestResource,
   AnalyticsReportResource,
   AnalyticsReportSegmentResource,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 import { appRecordNotFound } from '../shared/reconcile.ts';
 /** Decompress an Apple report to UTF-8 text. */
 export function decompressReport(bytes: Buffer): string {

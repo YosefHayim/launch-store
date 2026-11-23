@@ -3,9 +3,9 @@ import type {
   BuildResource,
   BuildUploadStatus,
   EncryptionDeclarationResource,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 import type { ResourceList, BuildPage } from './shared.ts';
-import type { components } from '../../apple-api-types.ts';
+import type { components } from '@/apple-api-types.js';
 import { highestAppleMarketingVersion } from '../transport-helpers.ts';
 import {
   readTransportSize,

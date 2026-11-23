@@ -1,16 +1,12 @@
 import { readFile } from 'node:fs/promises';
-import { createLogger } from '../../../../services/platform/logger.ts';
-import { LaunchPrompt } from '../../../../services/platform/prompt.ts';
-import { checkTerminalIsInteractive } from '../../../../services/platform/progress.ts';
-import type { CustomerReviewResource } from '../../../../types/apple-catalog.ts';
+import { createLogger } from '@/services/platform/logger.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
+import type { CustomerReviewResource } from '@/types/apple-catalog.js';
 import { loadActiveAppleStore } from './apple-store-command.ts';
-import {
-  deleteReviewResponse,
-  listReviews,
-  replyToReview,
-} from '../../../../store/apple/reviews.ts';
-import { resolveStoreBundleId } from '../../../../store/shared/select-store-app.ts';
-import { hasMessage } from '../../../../services/platform/error-message.ts';
+import { deleteReviewResponse, listReviews, replyToReview } from '@/store/apple/reviews.js';
+import { resolveStoreBundleId } from '@/store/shared/select-store-app.js';
+import { hasMessage } from '@/services/platform/error-message.js';
 
 /** Options for listing App Store customer reviews. */
 export type ReviewsListCommandInput = Readonly<{

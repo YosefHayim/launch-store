@@ -1,4 +1,4 @@
-import type { PlanContext, SurfacePlan, SurfacePlanner } from '../../types/plan.ts';
+import type { PlanContext, SurfacePlan, SurfacePlanner } from '@/types/plan.js';
 
 /** Execute one planner at the test boundary. */
 export async function runPlanner(

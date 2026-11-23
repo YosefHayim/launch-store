@@ -1,9 +1,9 @@
-import type { Command } from '../../command.ts';
+import type { Command } from '@/cli/command.js';
 import {
   type VersionExperimentsCommandInput,
   versionExperimentsCommandProgram,
-} from '../../../release/version-experiments-command.ts';
-import { runCliProgram } from '../../run-cli-program.ts';
+} from '@/release/version-experiments-command.js';
+import { runCliProgram } from '@/cli/run-cli-program.js';
 
 type ExperimentsOptions = Readonly<{
   readonly app?: string;

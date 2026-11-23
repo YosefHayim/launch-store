@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { Stats } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { basename, extname, isAbsolute, join } from 'node:path';
-import { pathExists } from '../../path-exists.ts';
+import { pathExists } from '@/path-exists.js';
 
 export const SCREENSHOTS_DIRNAME = 'screenshots';
 export const MAX_SCREENSHOTS_PER_SET = 10;

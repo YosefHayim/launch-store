@@ -57,7 +57,7 @@
         "noInnerDeclarations": "off",
         "noNodejsModules": "off",
         "noUnresolvedImports": "off",
-        "useImportExtensions": "error",
+        "useImportExtensions": "off",
         "useQwikValidLexicalScope": "off",
         "useHookAtTopLevel": "off"
       },

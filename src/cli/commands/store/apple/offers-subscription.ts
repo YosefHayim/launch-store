@@ -1,9 +1,9 @@
-import { loadConfig } from '../../../../config/config.ts';
-import type { AppStoreConnectClient } from '../../../../apple/asc-client.ts';
-import { errorMessage } from '../../../../services/platform/error-message.ts';
-import { readLaunchDirectories } from '../../../../services/platform/paths.ts';
-import type { AppDescriptor } from '../../../../types/app.ts';
-import type { OfferCodeResource } from '../../../../types/apple-catalog.ts';
+import { loadConfig } from '@/config/config.js';
+import type { AppStoreConnectClient } from '@/apple/asc-client.js';
+import { errorMessage } from '@/services/platform/error-message.js';
+import { readLaunchDirectories } from '@/services/platform/paths.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { OfferCodeResource } from '@/types/apple-catalog.js';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 
 /** An offers command step failed. */

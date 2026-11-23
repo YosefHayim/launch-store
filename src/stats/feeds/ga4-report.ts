@@ -1,11 +1,11 @@
-import type { DailyStat, DateRange } from '../../types/stats.ts';
+import type { DailyStat, DateRange } from '@/types/stats.js';
 import {
   ANALYTICS_DATA_URL,
   createGa4Failure,
   requestGa4Document,
   type Ga4Session,
 } from './ga4-client.ts';
-import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 
 const GA4_METRICS: readonly Ga4Metric[] = ['activeUsers', 'newUsers', 'sessions'];
 

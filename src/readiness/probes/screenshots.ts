@@ -4,8 +4,8 @@ import type {
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '../../types/readiness.ts';
-import { REQUIRED_APPLE_SCREENSHOT_DISPLAY_TYPES } from '../../listing/screenshots/specs.ts';
+} from '@/types/readiness.js';
+import { REQUIRED_APPLE_SCREENSHOT_DISPLAY_TYPES } from '@/listing/screenshots/specs.js';
 import { iosApps } from '../app-scopes.ts';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';
 

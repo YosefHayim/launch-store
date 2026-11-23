@@ -1,11 +1,11 @@
-import { hasMessage } from '../../services/platform/error-message.ts';
-import { createLogger } from '../../services/platform/logger.ts';
-import type { ConvertedPrices, PlayMoneyUnits } from '../../types/play-pricing.ts';
+import { hasMessage } from '@/services/platform/error-message.js';
+import { createLogger } from '@/services/platform/logger.js';
+import type { ConvertedPrices, PlayMoneyUnits } from '@/types/play-pricing.js';
 import {
   loadActiveGoogleStore,
   resolveGoogleStoreApp,
-} from '../../cli/commands/store/google/google-store-command.ts';
-import { readPlainObject } from '../../services/platform/plain-object.ts';
+} from '@/cli/commands/store/google/google-store-command.js';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 
 export type PlayPricingCommandInput = {
   amount: string;

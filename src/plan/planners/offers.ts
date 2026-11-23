@@ -1,6 +1,6 @@
-import { appDeclaresOffers, reconcileOffers } from '../../store/apple/offers.ts';
+import { appDeclaresOffers, reconcileOffers } from '@/store/apple/offers.js';
 import { planAppStoreSurface } from './app-store-surface.ts';
-import type { SurfacePlanner } from '../../types/plan.ts';
+import type { SurfacePlanner } from '@/types/plan.js';
 /** Surface id - also the value users pass as `launch-store plan offers`. */
 const SURFACE = 'offers';
 export const offersPlanner: SurfacePlanner = {

@@ -1,6 +1,6 @@
-import type { Command } from '../../command.ts';
-import { runCommandProgram } from '../../../build/run-command.ts';
-import { runCliProgram } from '../../run-cli-program.ts';
+import type { Command } from '@/cli/command.js';
+import { runCommandProgram } from '@/build/run-command.js';
+import { runCliProgram } from '@/cli/run-cli-program.js';
 
 type RunOptions = Readonly<{ device?: string }>;
 

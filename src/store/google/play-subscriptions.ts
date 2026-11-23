@@ -4,23 +4,23 @@ import type {
   SubscriptionOfferPhase,
   SubscriptionOfferResource,
   SubscriptionResource,
-} from '../../types/google-play.ts';
-import type { PlayMoneyUnits } from '../../types/play-pricing.ts';
+} from '@/types/google-play.js';
+import type { PlayMoneyUnits } from '@/types/play-pricing.js';
 import type {
   PlaySubscriptionOfferConfig,
   PlayPriceConfig,
   ProductLocalization,
   SubscriptionConfig,
   SubscriptionPeriod,
-} from '../../types/catalog.ts';
-import type { MutableDeep } from '../../types/mutable.ts';
-import type { PlannedAction } from '../../types/reconcile.ts';
+} from '@/types/catalog.js';
+import type { MutableDeep } from '@/types/mutable.js';
+import type { PlannedAction } from '@/types/reconcile.js';
 import { plan, type ReconcileContext } from '../shared/reconcile.ts';
-import { errorMessage } from '../../services/platform/error-message.ts';
+import { errorMessage } from '@/services/platform/error-message.js';
 import {
   buildPlayPaymentsProfileUrl,
   buildPlayUsersAndPermissionsUrl,
-} from '../../terminal/play-console-urls.ts';
+} from '@/terminal/play-console-urls.js';
 
 /** Apple billing period -> ISO-8601 duration, the form Play's base plans and offer phases want. */
 const PERIOD_ISO: Record<SubscriptionPeriod, string> = {

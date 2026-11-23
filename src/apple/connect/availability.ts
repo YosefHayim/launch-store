@@ -1,7 +1,7 @@
-import type { AppAvailabilityResource } from '../../types/apple-catalog.ts';
+import type { AppAvailabilityResource } from '@/types/apple-catalog.js';
 import type { AscHost } from './host.ts';
 import type { TerritoryAvailabilityRow, TerritoryAvailabilityPage } from './shared.ts';
-import type { components } from '../../apple-api-types.ts';
+import type { components } from '@/apple-api-types.js';
 import { AscAvailabilityUpdateError, TERRITORY_AVAILABILITY_UPDATE_CONCURRENCY } from './shared.ts';
 
 export class ConnectAvailability {

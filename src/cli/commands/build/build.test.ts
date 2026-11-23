@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { Command, type CommandOption } from '../../command.ts';
+import { Command, type CommandOption } from '@/cli/command.js';
 import {
   type BuildCommandOptions,
   parseBuildCommandInput,
   parseSizeBudget,
-} from '../../../build/build-command-input.ts';
+} from '@/build/build-command-input.js';
 import { registerBuildCommand } from './build.ts';
 const BASE_OPTIONS: BuildCommandOptions = {
   profile: 'production',
@@ -17,7 +17,6 @@ const BASE_OPTIONS: BuildCommandOptions = {
   clean: false,
   env: [],
   includeLocal: false,
-  printEnv: false,
   ccache: true,
 };
 const GREATER_THAN_ZERO_ERROR = /greater than 0/;
@@ -105,7 +104,6 @@ function describeParseBuildCommandPiecePieceCommanderValuesToPipelinePiece() {
       sizeBudget: '250',
       env: ['API_URL=https://example.com'],
       includeLocal: true,
-      printEnv: true,
     });
 
     expect(buildInput).toMatchObject({
@@ -118,7 +116,6 @@ function describeParseBuildCommandPiecePieceCommanderValuesToPipelinePiece() {
       sizeBudgetMB: 250,
       envOverrides: { API_URL: 'https://example.com' },
       includeLocal: true,
-      printEnv: true,
       account: 'team-a',
     });
   }

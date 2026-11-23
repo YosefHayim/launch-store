@@ -1,7 +1,7 @@
-import { reconcileApp, type AscCatalogApi } from '../../store/apple/asc-sync.ts';
-import { buildJobs, type SyncJob } from '../../store/shared/sync-jobs.ts';
-import { errorMessage } from '../../services/platform/error-message.ts';
-import type { AppPlan, PlanContext, SurfacePlanner } from '../../types/plan.ts';
+import { reconcileApp, type AscCatalogApi } from '@/store/apple/asc-sync.js';
+import { buildJobs, type SyncJob } from '@/store/shared/sync-jobs.js';
+import { errorMessage } from '@/services/platform/error-message.js';
+import type { AppPlan, PlanContext, SurfacePlanner } from '@/types/plan.js';
 
 const SURFACE = 'catalog';
 

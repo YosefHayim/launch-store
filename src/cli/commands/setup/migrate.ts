@@ -1,6 +1,6 @@
-import type { Command } from '../../command.ts';
-import { migrateCommandProgram } from '../../../migrate/command.ts';
-import { runCliProgram } from '../../run-cli-program.ts';
+import type { Command } from '@/cli/command.js';
+import { migrateCommandProgram } from '@/migrate/command.js';
+import { runCliProgram } from '@/cli/run-cli-program.js';
 
 type MigrateOptions = Readonly<{
   force: boolean;

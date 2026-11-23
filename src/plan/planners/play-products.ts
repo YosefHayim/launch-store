@@ -1,9 +1,9 @@
-import { errorMessage } from '../../services/platform/error-message.ts';
-import { reconcilePlayProducts, type PlayProductsApi } from '../../store/google/play-products.ts';
-import type { AppDescriptor } from '../../types/app.ts';
-import type { InAppPurchaseConfig } from '../../types/catalog.ts';
-import type { LaunchConfig } from '../../types/config.ts';
-import type { AppPlan, PlanContext, PlayCatalogApi, SurfacePlanner } from '../../types/plan.ts';
+import { errorMessage } from '@/services/platform/error-message.js';
+import { reconcilePlayProducts, type PlayProductsApi } from '@/store/google/play-products.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { InAppPurchaseConfig } from '@/types/catalog.js';
+import type { LaunchConfig } from '@/types/config.js';
+import type { AppPlan, PlanContext, PlayCatalogApi, SurfacePlanner } from '@/types/plan.js';
 
 const SURFACE = 'play-products';
 

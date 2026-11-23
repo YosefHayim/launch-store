@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderAction } from '../../../release/release-config-command.ts';
+import { renderAction } from '@/release/release-config-command.js';
 function describeRenderAction() {
   function marksAChangeWithAndASkippedAreaWith() {
     const action = renderAction({

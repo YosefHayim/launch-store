@@ -8,12 +8,12 @@ import {
   awsHostReleasableAt,
   getAwsGoldenAmiId,
   setAwsGoldenAmiId,
-} from '../../services/provider-support/aws-compute-support.ts';
-import { errorMessage } from '../../services/platform/error-message.ts';
-import { LAUNCH_HOME } from '../../services/platform/paths.ts';
-import { sshCapture, sshReachable } from '../../services/platform/ssh.ts';
-import { pathExists } from '../../path-exists.ts';
-import type { ComputeHost } from '../../types/providers.ts';
+} from '@/services/provider-support/aws-compute-support.js';
+import { errorMessage } from '@/services/platform/error-message.js';
+import { LAUNCH_HOME } from '@/services/platform/paths.js';
+import { sshCapture, sshReachable } from '@/services/platform/ssh.js';
+import { pathExists } from '@/path-exists.js';
+import type { ComputeHost } from '@/types/providers.js';
 import type {
   AllocateRequest,
   AwsConfig,
@@ -21,7 +21,7 @@ import type {
   CloudDoctorReport,
   HostHandle,
   SshTarget,
-} from '../../types/remote.ts';
+} from '@/types/remote.js';
 import {
   type Ec2Client,
   type Ec2Module,

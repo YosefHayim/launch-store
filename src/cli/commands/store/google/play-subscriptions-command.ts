@@ -1,8 +1,8 @@
-import { hasMessage } from '../../../../services/platform/error-message.ts';
-import { createLogger } from '../../../../services/platform/logger.ts';
-import { completeCommand } from '../../../../terminal/command-exit.ts';
-import type { SubscriptionConfig } from '../../../../types/catalog.ts';
-import { loadStoreAppContext } from '../../../../store/shared/select-store-app.ts';
+import { hasMessage } from '@/services/platform/error-message.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { completeCommand } from '@/terminal/command-exit.js';
+import type { SubscriptionConfig } from '@/types/catalog.js';
+import { loadStoreAppContext } from '@/store/shared/select-store-app.js';
 import { loadActiveGoogleStore } from './google-store-command.ts';
 import {
   confirmPlayCatalogWrite,
@@ -12,8 +12,8 @@ import {
 import {
   reconcilePlaySubscriptions,
   summarizePlaySubscriptions,
-} from '../../../../store/google/play-subscriptions.ts';
-import { readPlainObject } from '../../../../services/platform/plain-object.ts';
+} from '@/store/google/play-subscriptions.js';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 
 export type PlaySubscriptionsCommandInput = {
   app?: string;

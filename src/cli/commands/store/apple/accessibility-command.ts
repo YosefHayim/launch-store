@@ -1,18 +1,18 @@
-import { selectApp } from '../../../../build/pipeline-env.ts';
-import { loadConfig } from '../../../../config/config.ts';
-import { loadActiveAscKey } from '../../../../credentials/accounts.ts';
-import { AppleStoreClientService } from '../../../../services/stores/apple-store-client.ts';
-import { createLogger } from '../../../../services/platform/logger.ts';
-import { LaunchPrompt } from '../../../../services/platform/prompt.ts';
-import { checkTerminalIsInteractive } from '../../../../services/platform/progress.ts';
-import { completeCommand } from '../../../../terminal/command-exit.ts';
-import type { PlannedAction } from '../../../../types/reconcile.ts';
+import { selectApp } from '@/build/pipeline-env.js';
+import { loadConfig } from '@/config/config.js';
+import { loadActiveAscKey } from '@/credentials/accounts.js';
+import { AppleStoreClientService } from '@/services/stores/apple-store-client.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
+import { completeCommand } from '@/terminal/command-exit.js';
+import type { PlannedAction } from '@/types/reconcile.js';
 import {
   loadAccessibilityConfig,
   reconcileAccessibility,
   summarizeAccessibility,
-} from '../../../../store/apple/accessibility.ts';
-import { hasMessage } from '../../../../services/platform/error-message.ts';
+} from '@/store/apple/accessibility.js';
+import { hasMessage } from '@/services/platform/error-message.js';
 
 /** Inputs accepted by the accessibility command. */
 type AccessibilityCommandInput = Readonly<{

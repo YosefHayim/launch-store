@@ -1,5 +1,5 @@
-import { errorMessage } from '../../services/platform/error-message.ts';
-import { summarizeRatings } from '../../insights/aggregate.ts';
+import { errorMessage } from '@/services/platform/error-message.js';
+import { summarizeRatings } from '@/insights/aggregate.js';
 import {
   collectAnalyticsSegments,
   decompressReport,
@@ -7,10 +7,10 @@ import {
   parseTsv,
   type AscReportsApi,
   type ParsedReport,
-} from '../../store/apple/reports.ts';
-import type { PortfolioApp } from '../../types/portfolio.ts';
-import type { ReviewDatum, StarRating } from '../../types/insights.ts';
-import type { DailyStat, DateRange, FeedFetchReply, StatsFeedFailure } from '../../types/stats.ts';
+} from '@/store/apple/reports.js';
+import type { PortfolioApp } from '@/types/portfolio.js';
+import type { ReviewDatum, StarRating } from '@/types/insights.js';
+import type { DailyStat, DateRange, FeedFetchReply, StatsFeedFailure } from '@/types/stats.js';
 import { shiftDate } from '../date-range.ts';
 import type { AppStoreStatsClient, StatsCredentialsApi } from '../stats-credentials.ts';
 import {

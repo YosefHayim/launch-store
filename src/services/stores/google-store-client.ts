@@ -1,4 +1,4 @@
-import { GooglePlayClient, readServiceAccount } from '../../google/play-client.ts';
+import { GooglePlayClient, readServiceAccount } from '@/google/play-client.js';
 import { hasMessage } from '../platform/error-message.ts';
 
 export type GoogleTransportFailure = Readonly<{

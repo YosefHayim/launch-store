@@ -1,4 +1,4 @@
-import type { DailyStat, DateRange } from '../../types/stats.ts';
+import type { DailyStat, DateRange } from '@/types/stats.js';
 import type {
   AnalyticsAccessType,
   AnalyticsReportBatch,

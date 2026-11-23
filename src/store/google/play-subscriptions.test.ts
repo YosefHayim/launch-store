@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { SubscriptionOfferResource, SubscriptionResource } from '../../types/google-play.ts';
-import type { SubscriptionConfig } from '../../types/catalog.ts';
-import { expectArrayElement } from '../../testkit/assertions-testkit.ts';
+import type { SubscriptionOfferResource, SubscriptionResource } from '@/types/google-play.js';
+import type { SubscriptionConfig } from '@/types/catalog.js';
+import { expectArrayElement } from '@/testkit/assertions-testkit.js';
 import {
   type PlaySubscriptionsApi,
   microsToMoney,
@@ -11,7 +11,7 @@ import {
   summarizePlaySubscriptions,
   unitsToMicros,
 } from './play-subscriptions.ts';
-import type { ActionStatus } from '../../types/reconcile.ts';
+import type { ActionStatus } from '@/types/reconcile.js';
 
 /** Records every write the reconciler makes, so a test can assert exactly what was sent to Play. */
 type Calls = {

@@ -1,13 +1,13 @@
 import {
   loadServiceAccount,
   describeMissingPlayServiceAccount,
-} from '../../../../credentials/android-keystore-assets.ts';
-import { errorMessage } from '../../../../services/platform/error-message.ts';
-import { createLogger } from '../../../../services/platform/logger.ts';
-import { GoogleReportingClientService } from '../../../../services/stores/google-reporting-client.ts';
-import type { PlayVitalsMetric, VitalsTimeline } from '../../../../types/vitals.ts';
-import { selectStoreApp } from '../../../../store/shared/select-store-app.ts';
-import { readPlainObject } from '../../../../services/platform/plain-object.ts';
+} from '@/credentials/android-keystore-assets.js';
+import { errorMessage } from '@/services/platform/error-message.js';
+import { createLogger } from '@/services/platform/logger.js';
+import { GoogleReportingClientService } from '@/services/stores/google-reporting-client.js';
+import type { PlayVitalsMetric, VitalsTimeline } from '@/types/vitals.js';
+import { selectStoreApp } from '@/store/shared/select-store-app.js';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 
 /** Default Play vitals history window shown by the command. */
 export const DEFAULT_VITALS_DAYS = 28;

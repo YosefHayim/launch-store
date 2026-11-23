@@ -1,11 +1,8 @@
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  resetLaunchEnvironment,
-  useLaunchEnvironment,
-} from '../../services/platform/environment.ts';
-import { resetSecretStore, useSecretStore } from '../../services/credentials/secret-store.ts';
+import { resetLaunchEnvironment, useLaunchEnvironment } from '@/services/platform/environment.js';
+import { resetSecretStore, useSecretStore } from '@/services/credentials/secret-store.js';
 import { makeS3StorageProvider } from './s3.ts';
 import { makeSupabaseStorageProvider } from './supabase.ts';
 

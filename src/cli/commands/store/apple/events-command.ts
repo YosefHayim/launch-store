@@ -1,16 +1,16 @@
-import { createLogger } from '../../../../services/platform/logger.ts';
-import { LaunchPrompt } from '../../../../services/platform/prompt.ts';
-import { checkTerminalIsInteractive } from '../../../../services/platform/progress.ts';
+import { createLogger } from '@/services/platform/logger.js';
+import { LaunchPrompt } from '@/services/platform/prompt.js';
+import { checkTerminalIsInteractive } from '@/services/platform/progress.js';
 import {
   createEvent,
   deleteEvent,
   listEvents,
   localizeEvent,
   type AppEventWithLocalizations,
-} from '../../../../store/apple/app-events.ts';
+} from '@/store/apple/app-events.js';
 import { loadActiveAppleStore } from './apple-store-command.ts';
-import { resolveStoreBundleId } from '../../../../store/shared/select-store-app.ts';
-import { hasMessage } from '../../../../services/platform/error-message.ts';
+import { resolveStoreBundleId } from '@/store/shared/select-store-app.js';
+import { hasMessage } from '@/services/platform/error-message.js';
 
 /** Options for creating a draft in-app event. */
 export type CreateEventCommandInput = Readonly<{

@@ -486,8 +486,8 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   'env-precedence': [
     'Env precedence: build, release, and update resolve env through ONE ladder, so a var never differs',
     'between them. Highest wins: --env flags > keychain secrets > profile env: > .env.local (only with',
-    '--include-local) > .env.<profile> > .env. `--print-env` prints the resolved values (secrets masked)',
-    'and which layer each came from. .env.local is never loaded unless you opt in.',
+    '--include-local) > .env.<profile> > .env. Resolved names and values stay off the terminal.',
+    '.env.local is never loaded unless you opt in.',
   ].join('\n'),
   //  Build speed / cache
   ccache: [

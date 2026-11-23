@@ -1,7 +1,7 @@
-import { parseReleaseConfig, reconcileReleasePlan } from '../../release/release-attrs.ts';
-import { resolveStoreSurfaceSection } from '../../cli/commands/store/apple/app-store-surface-command.ts';
+import { parseReleaseConfig, reconcileReleasePlan } from '@/release/release-attrs.js';
+import { resolveStoreSurfaceSection } from '@/cli/commands/store/apple/app-store-surface-command.js';
 import { planAppStoreSurface } from './app-store-surface.ts';
-import type { SurfacePlanner } from '../../types/plan.ts';
+import type { SurfacePlanner } from '@/types/plan.js';
 /** Surface id - also the value users pass as `launch-store plan release-config`. */
 const SURFACE = 'release-config';
 export const releaseConfigPlanner: SurfacePlanner = {

@@ -1,23 +1,23 @@
 import { mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { SizeReportEntry } from '../../types/artifacts.ts';
-import type { KeystoreAssets } from '../../types/credentials.ts';
-import { makeProviderInputFailure, type BuildEngine } from '../../types/providers.ts';
-import { captureCommandOutput, executeCommand } from '../../services/platform/exec.ts';
+import type { SizeReportEntry } from '@/types/artifacts.js';
+import type { KeystoreAssets } from '@/types/credentials.js';
+import { makeProviderInputFailure, type BuildEngine } from '@/types/providers.js';
+import { captureCommandOutput, executeCommand } from '@/services/platform/exec.js';
 import {
   runWithProgress,
   gradleProgressStep,
   type ProgressRunOptions,
-} from '../../services/platform/progress.ts';
-import { detectHostOperatingSystem } from '../../services/platform/os.ts';
-import { pathExists } from '../../path-exists.ts';
+} from '@/services/platform/progress.js';
+import { detectHostOperatingSystem } from '@/services/platform/os.js';
+import { pathExists } from '@/path-exists.js';
 import {
   estimateFor,
   readBuildState,
   updateEstimate,
   writeBuildState,
-} from '../../services/provider-support/build-engine-support.ts';
+} from '@/services/provider-support/build-engine-support.js';
 
 const ANDROID_ESTIMATE_KIND = 'default';
 

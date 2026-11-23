@@ -1,5 +1,5 @@
-import { makeProviderInputFailure, type ComputeHost } from '../../types/providers.ts';
-import type { AllocateRequest, HostHandle, HostStatus, SshTarget } from '../../types/remote.ts';
+import { makeProviderInputFailure, type ComputeHost } from '@/types/providers.js';
+import type { AllocateRequest, HostHandle, HostStatus, SshTarget } from '@/types/remote.js';
 
 export function parseSshTarget(spec: string): SshTarget {
   const trimmed = spec.trim();

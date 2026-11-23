@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Command } from '../../command.ts';
+import { Command } from '@/cli/command.js';
 import { registerStatsCommand } from './stats.ts';
 
 const programCalls = vi.hoisted(function hoistProgramCalls() {
@@ -9,13 +9,13 @@ const programCalls = vi.hoisted(function hoistProgramCalls() {
   };
 });
 
-vi.mock('../../../stats/stats-command.ts', function mockStatsCommand() {
+vi.mock('@/stats/stats-command.js', function mockStatsCommand() {
   return { statsReportProgram: programCalls.report };
 });
-vi.mock('../../../stats/stats-sync-command.ts', function mockStatsSyncCommand() {
+vi.mock('@/stats/stats-sync-command.js', function mockStatsSyncCommand() {
   return { statsSyncProgram: programCalls.sync };
 });
-vi.mock('../../run-cli-program.ts', function mockRunCliProgram() {
+vi.mock('@/cli/run-cli-program.js', function mockRunCliProgram() {
   return { runCliProgram: vi.fn(async () => undefined) };
 });
 

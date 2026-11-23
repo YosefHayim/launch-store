@@ -1,10 +1,10 @@
-import type { MerchantIdResource, PassTypeIdResource } from '../../types/apple-catalog.ts';
+import type { MerchantIdResource, PassTypeIdResource } from '@/types/apple-catalog.js';
 import { plan, type ReconcileContext } from '../shared/reconcile.ts';
-import { errorMessage } from '../../services/platform/error-message.ts';
-import type { PlannedAction } from '../../types/reconcile.ts';
-import type { WalletConfig, WalletIdConfig } from '../../types/store-surface.ts';
+import { errorMessage } from '@/services/platform/error-message.js';
+import type { PlannedAction } from '@/types/reconcile.js';
+import type { WalletConfig, WalletIdConfig } from '@/types/store-surface.js';
 import { decodeStoreSurfaceConfig, loadStoreSurfaceConfig } from '../shared/surface-config.ts';
-import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 
 const WALLET_DOCUMENT_NAME = 'wallet.config.json';
 

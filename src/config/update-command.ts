@@ -10,7 +10,7 @@ import { executeCommand, type CommandExecutionOptions } from '../services/platfo
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import { loadConfig } from './config.ts';
-import { formatEnvTable, parseCliEnv } from './env.ts';
+import { parseCliEnv } from './env.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type UpdateCommandInput = Readonly<{
@@ -23,7 +23,6 @@ type UpdateCommandInput = Readonly<{
   dryRun: boolean;
   env: readonly string[];
   includeLocal: boolean;
-  printEnv: boolean;
 }>;
 
 type UpdateCommandFailure = Readonly<{
@@ -251,13 +250,6 @@ export async function updateCommandProgram(commandInput: UpdateCommandInput): Pr
     });
   } catch (cause) {
     throw updateFailure('resolve update environment', cause);
-  }
-
-  if (commandInput.printEnv) {
-    const formatTable = formatEnvTable(resolvedEnvironment);
-    logger.line(formatTable);
-
-    return;
   }
 
   try {

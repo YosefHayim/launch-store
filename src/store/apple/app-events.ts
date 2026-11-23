@@ -1,11 +1,11 @@
-import type { MutableDeep } from '../../types/mutable.ts';
+import type { MutableDeep } from '@/types/mutable.js';
 import type {
   AppEventLocalizationInput,
   AppEventLocalizationResource,
   AppEventResource,
   NewAppEvent,
-} from '../../types/apple-catalog.ts';
-import { hasMessage } from '../../services/platform/error-message.ts';
+} from '@/types/apple-catalog.js';
+import { hasMessage } from '@/services/platform/error-message.js';
 
 /** The App Store transport operations required by the in-app-events domain. */
 export type AscAppEventsApi = Readonly<{

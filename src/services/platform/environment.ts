@@ -1,4 +1,4 @@
-import { decodeLaunchEnvironment, type LaunchEnvironmentValues } from '../../config/environment.ts';
+import { decodeLaunchEnvironment, type LaunchEnvironmentValues } from '@/config/environment.js';
 
 type LaunchEnvironmentService = Readonly<{
   values: LaunchEnvironmentValues;

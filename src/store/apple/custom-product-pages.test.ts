@@ -3,7 +3,7 @@ import type {
   CustomProductPageLocalizationResource,
   CustomProductPageResource,
   CustomProductPageVersionResource,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 import {
   type AscCustomPagesApi,
   type CustomProductPagesConfig,
@@ -11,7 +11,7 @@ import {
   reconcileCustomProductPages,
   summarizeCustomPages,
 } from './custom-product-pages.ts';
-import type { ActionStatus } from '../../types/reconcile.ts';
+import type { ActionStatus } from '@/types/reconcile.js';
 
 /** Records every write the reconciler makes. */
 type Calls = {

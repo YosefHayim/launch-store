@@ -1,7 +1,7 @@
-import { loadActiveAscKey } from '../../credentials/accounts.ts';
-import { loadServiceAccount } from '../../credentials/android-keystore-assets.ts';
-import { AppleStoreClientService } from '../../services/stores/apple-store-client.ts';
-import { GoogleStoreClientService } from '../../services/stores/google-store-client.ts';
+import { loadActiveAscKey } from '@/credentials/accounts.js';
+import { loadServiceAccount } from '@/credentials/android-keystore-assets.js';
+import { AppleStoreClientService } from '@/services/stores/apple-store-client.js';
+import { GoogleStoreClientService } from '@/services/stores/google-store-client.js';
 
 type AppStoreClient = ReturnType<typeof AppleStoreClientService.createEffectClient>;
 type PlayStoreClient = ReturnType<typeof GoogleStoreClientService.createEffectClient>;

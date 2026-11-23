@@ -5,7 +5,7 @@ import type {
   AnalyticsReportRequestResource,
   AnalyticsReportResource,
   AnalyticsReportSegmentResource,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 import {
   collectAnalyticsSegments,
   decompressReport,

@@ -5,7 +5,7 @@ import type {
   ReviewScreenshotResource,
   ScreenshotResource,
   ScreenshotSetResource,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 import { readTransportFile, putAssetFile } from './shared.ts';
 
 export class ConnectScreenshots {

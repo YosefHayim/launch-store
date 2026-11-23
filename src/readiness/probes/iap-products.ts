@@ -4,8 +4,8 @@ import type {
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '../../types/readiness.ts';
-import type { InAppPurchaseConfig } from '../../types/catalog.ts';
+} from '@/types/readiness.js';
+import type { InAppPurchaseConfig } from '@/types/catalog.js';
 import { iosApps } from '../app-scopes.ts';
 import { gradeDeclaredProduct } from './iap-readiness.ts';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { readPlainObject } from '../../services/platform/plain-object.ts';
-import type { PortfolioApp } from '../../types/portfolio.ts';
-import type { FeedFetchReply } from '../../types/stats.ts';
+import { readPlainObject } from '@/services/platform/plain-object.js';
+import type { PortfolioApp } from '@/types/portfolio.js';
+import type { FeedFetchReply } from '@/types/stats.js';
 import type { StatsCredentialsApi } from '../stats-credentials.ts';
 import { makeStatsCredentialsTest, useStatsCredentials } from '../stats-credentials.ts';
 import { ga4Feed } from './ga4.ts';

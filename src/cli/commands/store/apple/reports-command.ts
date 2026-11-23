@@ -1,20 +1,20 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { errorMessage } from '../../../../services/platform/error-message.ts';
-import { readPlainObject } from '../../../../services/platform/plain-object.ts';
-import { readLaunchEnvironment } from '../../../../services/platform/environment.ts';
-import { createLogger, type Logger } from '../../../../services/platform/logger.ts';
-import { readLaunchDirectories } from '../../../../services/platform/paths.ts';
-import type { FinanceReportQuery, SalesReportQuery } from '../../../../types/apple-catalog.ts';
+import { errorMessage } from '@/services/platform/error-message.js';
+import { readPlainObject } from '@/services/platform/plain-object.js';
+import { readLaunchEnvironment } from '@/services/platform/environment.js';
+import { createLogger, type Logger } from '@/services/platform/logger.js';
+import { readLaunchDirectories } from '@/services/platform/paths.js';
+import type { FinanceReportQuery, SalesReportQuery } from '@/types/apple-catalog.js';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import {
   collectAnalyticsSegments,
   decompressReport,
   eachDate,
   parseTsv,
-} from '../../../../store/apple/reports.ts';
-import { resolveStoreBundleId } from '../../../../store/shared/select-store-app.ts';
-import type { MutableDeep } from '../../../../types/mutable.ts';
+} from '@/store/apple/reports.js';
+import { resolveStoreBundleId } from '@/store/shared/select-store-app.js';
+import type { MutableDeep } from '@/types/mutable.js';
 
 type SalesReportsCommandInput = {
   operation: 'sales';

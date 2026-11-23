@@ -1,8 +1,8 @@
-import { resolveSidecarConfig } from '../../config/config.ts';
-import { loadWalletConfig, reconcileWalletIds } from '../../store/apple/wallet-ids.ts';
+import { resolveSidecarConfig } from '@/config/config.js';
+import { loadWalletConfig, reconcileWalletIds } from '@/store/apple/wallet-ids.js';
 import { planTeamSurface } from './app-store-surface.ts';
-import type { SurfacePlanner } from '../../types/plan.ts';
-import type { WalletConfig } from '../../types/store-surface.ts';
+import type { SurfacePlanner } from '@/types/plan.js';
+import type { WalletConfig } from '@/types/store-surface.js';
 /** Surface id - also the value users pass as `launch-store plan wallet`. */
 const SURFACE = 'wallet';
 export const walletPlanner: SurfacePlanner = {

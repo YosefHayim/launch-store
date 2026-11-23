@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { makeAppleTransportFailure } from '../../services/stores/apple-store-client.ts';
+import { makeAppleTransportFailure } from '@/services/stores/apple-store-client.js';
 import {
   formatPermissionLine,
   probeKeyPermissions,

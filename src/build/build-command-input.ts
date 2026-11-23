@@ -28,7 +28,6 @@ export type BuildCommandOptions = {
   readonly budget?: string;
   readonly env: readonly string[];
   readonly includeLocal: boolean;
-  readonly printEnv: boolean;
   readonly ccache: boolean;
 };
 
@@ -279,7 +278,6 @@ export function parseBuildCommandInput(
     distribution,
     envOverrides: environmentOverrides,
     includeLocal: commandOptions.includeLocal,
-    printEnv: commandOptions.printEnv,
   };
 
   const hasRemote = remote != null;

@@ -1,9 +1,9 @@
-import type { Command } from '../../../command.ts';
+import type { Command } from '@/cli/command.js';
 import {
   type PlayPricingCommandInput,
   playPricingCommandProgram,
-} from '../../../../store/google/play-pricing.ts';
-import { runCliProgram } from '../../../run-cli-program.ts';
+} from '@/store/google/play-pricing.js';
+import { runCliProgram } from '@/cli/run-cli-program.js';
 
 type PlayPricingOptions = Readonly<{
   readonly app?: string;

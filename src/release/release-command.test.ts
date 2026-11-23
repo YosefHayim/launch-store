@@ -339,7 +339,6 @@ function commandOptionsFor(overrides: Partial<ReleaseCommandOptions> = {}): Rele
   return {
     env: [],
     includeLocal: false,
-    printEnv: false,
     profile: 'production',
     explain: false,
     wait: false,

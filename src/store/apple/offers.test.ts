@@ -13,10 +13,10 @@ import type {
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '../../types/apple-catalog.ts';
-import type { AppProducts, SubscriptionConfig } from '../../types/catalog.ts';
+} from '@/types/apple-catalog.js';
+import type { AppProducts, SubscriptionConfig } from '@/types/catalog.js';
 import { appDeclaresOffers, reconcileOffers, type AscOffersApi } from './offers.ts';
-import type { ActionStatus } from '../../types/reconcile.ts';
+import type { ActionStatus } from '@/types/reconcile.js';
 
 /** Hand-rolled {@link AscOffersApi} fake */
 class FakeOffersApi implements AscOffersApi {

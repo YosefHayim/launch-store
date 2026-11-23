@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Command, type CommandOption } from '../../../command.ts';
+import { Command, type CommandOption } from '@/cli/command.js';
 import { registerGameCenterCommand } from './game-center.ts';
 function describeRegisterGameCenterCommand() {
   function attachesAGameCenterCommandWithAppPieceDryRunAndYesPiece() {

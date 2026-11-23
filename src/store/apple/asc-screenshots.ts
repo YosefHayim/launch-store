@@ -7,17 +7,17 @@ import type {
   ScreenshotSetResource,
   SubscriptionGroupResource,
   SubscriptionResource,
-} from '../../types/apple-catalog.ts';
+} from '@/types/apple-catalog.js';
 import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from './asc-sync.ts';
-import type { PlannedAction } from '../../types/reconcile.ts';
+import type { PlannedAction } from '@/types/reconcile.js';
 import {
   MAX_PREVIEWS_PER_SET,
   MAX_SCREENSHOTS_PER_SET,
   type LocalAsset,
   type LocalPreview,
   type LocalScreenshot,
-} from '../../listing/screenshots/assets.ts';
-import { appleDisplayTypeLabel, applePreviewTypeLabel } from '../../listing/screenshots/targets.ts';
+} from '@/listing/screenshots/assets.js';
+import { appleDisplayTypeLabel, applePreviewTypeLabel } from '@/listing/screenshots/targets.js';
 /** The slice of {@link AppStoreConnectClient} the screenshot reconciler depends on. */
 export type ScreenshotsApi = {
   getAppId(bundleId: string): Promise<string | null>;

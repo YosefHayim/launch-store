@@ -1,5 +1,5 @@
 import { cpus, platform as readNodePlatform, totalmem } from 'node:os';
-import type { HostOs } from '../../types/remote.ts';
+import type { HostOs } from '@/types/remote.js';
 
 type HostResources = Readonly<{
   cores: number;

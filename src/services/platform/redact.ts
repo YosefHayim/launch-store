@@ -1,5 +1,5 @@
 import { homedir } from 'node:os';
-import { isSecretLookingName } from '../../config/env.ts';
+import { isSecretLookingName } from '@/config/env.js';
 /** The user's home directory, collapsed to `~` so absolute paths don't leak the account name. */
 const HOME = homedir();
 /** The masked placeholder substituted for any redacted value. */

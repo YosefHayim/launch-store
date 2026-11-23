@@ -1,6 +1,6 @@
-import { errorMessage } from '../../services/platform/error-message.ts';
-import type { PortfolioApp } from '../../types/portfolio.ts';
-import type { DateRange, FeedFetchReply, StatsFeedFailure } from '../../types/stats.ts';
+import { errorMessage } from '@/services/platform/error-message.js';
+import type { PortfolioApp } from '@/types/portfolio.js';
+import type { DateRange, FeedFetchReply, StatsFeedFailure } from '@/types/stats.js';
 import type { StatsCredentialsApi } from '../stats-credentials.ts';
 import { isGa4SkipSignal, readProjectIdFromClientEmail, type Ga4Session } from './ga4-client.ts';
 import { loadGa4Report } from './ga4-report.ts';

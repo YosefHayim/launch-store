@@ -1,12 +1,12 @@
-import { errorMessage } from '../../services/platform/error-message.ts';
-import type { PlannedAction } from '../../types/reconcile.ts';
+import { errorMessage } from '@/services/platform/error-message.js';
+import type { PlannedAction } from '@/types/reconcile.js';
 import type {
   AppPlan,
   AscSurfacesApi,
   PlanContext,
   PlanDirection,
   SurfacePlan,
-} from '../../types/plan.ts';
+} from '@/types/plan.js';
 
 type MaybePromise<Value> = Value | Promise<Value>;
 

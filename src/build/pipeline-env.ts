@@ -4,17 +4,14 @@ import { readLastApp } from '../distribution/last-run.ts';
 import { resolveBuildSecrets } from './build-secrets.ts';
 import {
   ENV_SOURCE,
-  formatEnvTable,
   missingKeys,
   resolveEnv,
   secretLookingKeys,
   type ResolvedEnv,
 } from '../config/env.ts';
-import { loadConfig } from '../config/config.ts';
-import { createLogger, type Logger } from '../services/platform/logger.ts';
+import type { Logger } from '../services/platform/logger.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
-import type { BuildRunOptions } from './pipeline-types.ts';
 
 /** App selection failed before a build could start. */
 export type AppSelectionFailure = Readonly<{
@@ -267,28 +264,4 @@ export async function validateResolvedEnv(
       `"${environmentName}" looks like a backend secret (from ${environmentSource}) - it would be bundled into the app. If the app needs it at build time, store it with \`launch-store secret set ${environmentName}\`; if it's backend-only, add it to \`envExclude\` in launch.config.ts.`,
     );
   }
-}
-
-/** Print the masked env table a build would inject, without preflight or a build. */
-export async function previewEnv(buildOptions: BuildRunOptions): Promise<void> {
-  const loaded = await loadConfig();
-  const app = await selectApp(loaded.apps, buildOptions.appName);
-  let profile = loaded.config.profiles[buildOptions.profileName];
-
-  if (profile == null) {
-    profile = { name: buildOptions.profileName, sizeBudgetMB: 200 };
-  }
-
-  const resolved = await resolveCommandEnv({
-    app,
-    profile,
-    cliEnv: buildOptions.envOverrides,
-    includeLocal: buildOptions.includeLocal,
-    envExclude: loaded.config.envExclude,
-  });
-  const logger = createLogger(false);
-
-  const formatTable = formatEnvTable(resolved);
-
-  logger.line(formatTable);
 }

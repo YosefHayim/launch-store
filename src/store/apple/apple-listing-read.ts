@@ -1,5 +1,5 @@
-import type { ListingLocalization } from '../../types/apple-catalog.ts';
-import type { JsonValue } from '../../types/snapshot.ts';
+import type { ListingLocalization } from '@/types/apple-catalog.js';
+import type { JsonValue } from '@/types/snapshot.js';
 import type { AppleLocaleInfo, AppleStoreConfig } from '../shared/store-config.ts';
 
 /** The App Store Connect reads needed to assemble one app's live listing. */

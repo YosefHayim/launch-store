@@ -1,8 +1,8 @@
-import { reconcileAppListing, type AscCatalogApi } from '../../store/apple/asc-sync.ts';
-import { buildJobs, hasListing, type SyncJob } from '../../store/shared/sync-jobs.ts';
-import type { AppleStoreConfig } from '../../store/shared/store-config.ts';
-import { errorMessage } from '../../services/platform/error-message.ts';
-import type { AppPlan, PlanContext, SurfacePlanner } from '../../types/plan.ts';
+import { reconcileAppListing, type AscCatalogApi } from '@/store/apple/asc-sync.js';
+import { buildJobs, hasListing, type SyncJob } from '@/store/shared/sync-jobs.js';
+import type { AppleStoreConfig } from '@/store/shared/store-config.js';
+import { errorMessage } from '@/services/platform/error-message.js';
+import type { AppPlan, PlanContext, SurfacePlanner } from '@/types/plan.js';
 
 const SURFACE = 'listing';
 

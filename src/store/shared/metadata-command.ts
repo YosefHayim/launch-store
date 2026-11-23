@@ -1,25 +1,25 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadActiveAscKey } from '../../credentials/accounts.ts';
+import { loadActiveAscKey } from '@/credentials/accounts.js';
 import {
   describeMissingPlayServiceAccount,
   loadServiceAccount,
-} from '../../credentials/android-keystore-assets.ts';
-import { pathExists } from '../../path-exists.ts';
-import { errorMessage } from '../../services/platform/error-message.ts';
-import { createLogger } from '../../services/platform/logger.ts';
+} from '@/credentials/android-keystore-assets.js';
+import { pathExists } from '@/path-exists.js';
+import { errorMessage } from '@/services/platform/error-message.js';
+import { createLogger } from '@/services/platform/logger.js';
 import {
   AppleStoreClientService,
   type EffectAppStoreConnectClient,
-} from '../../services/stores/apple-store-client.ts';
+} from '@/services/stores/apple-store-client.js';
 import {
   type EffectGooglePlayClient,
   GoogleStoreClientService,
-} from '../../services/stores/google-store-client.ts';
-import { isApplePlatform, parsePlatform, platformLabel } from '../../services/stores/platform.ts';
-import type { AppDescriptor, Platform } from '../../types/app.ts';
-import type { AscKey } from '../../types/credentials.ts';
-import type { PlayListing } from '../../types/google-play.ts';
+} from '@/services/stores/google-store-client.js';
+import { isApplePlatform, parsePlatform, platformLabel } from '@/services/stores/platform.js';
+import type { AppDescriptor, Platform } from '@/types/app.js';
+import type { AscKey } from '@/types/credentials.js';
+import type { PlayListing } from '@/types/google-play.js';
 import { readAppleListing } from '../apple/apple-listing-read.ts';
 import { reconcileAppListing } from '../apple/asc-sync.ts';
 import { loadStoreAppContext } from './select-store-app.ts';
@@ -32,7 +32,7 @@ import {
   type StoreConfig,
 } from './store-config.ts';
 import type { StoreSurfaceConfigFailure } from './surface-config.ts';
-import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 
 export type MetadataCommandInput = {
   operation: 'pull' | 'push';

@@ -1,5 +1,5 @@
-import { createLogger } from '../../../../services/platform/logger.ts';
-import type { OfferCodeResource } from '../../../../types/apple-catalog.ts';
+import { createLogger } from '@/services/platform/logger.js';
+import type { OfferCodeResource } from '@/types/apple-catalog.js';
 import type { OffersListInput } from './offers-command.ts';
 import { offersFailure, resolveSubscription } from './offers-subscription.ts';
 

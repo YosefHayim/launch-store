@@ -1,10 +1,10 @@
-import type { Command } from '../../command.ts';
+import type { Command } from '@/cli/command.js';
 import {
   buildHistoryCommandProgram,
   type BuildHistoryCommandInput,
   type PruneCommandOptions,
-} from '../../../build/build-history-command.ts';
-import { runCliProgram } from '../../run-cli-program.ts';
+} from '@/build/build-history-command.js';
+import { runCliProgram } from '@/cli/run-cli-program.js';
 
 function provideBuildHistoryCommand(commandInput: BuildHistoryCommandInput): Promise<void> {
   return buildHistoryCommandProgram(commandInput);

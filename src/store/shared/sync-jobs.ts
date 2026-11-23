@@ -1,19 +1,16 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '../../path-exists.ts';
-import type { AppDescriptor } from '../../types/app.ts';
-import type { AppProducts } from '../../types/catalog.ts';
-import type { LaunchConfig } from '../../types/config.ts';
-import {
-  mapEntitlementsToCapabilities,
-  type CapabilityType,
-} from '../../credentials/capabilities.ts';
+import { pathExists } from '@/path-exists.js';
+import type { AppDescriptor } from '@/types/app.js';
+import type { AppProducts } from '@/types/catalog.js';
+import type { LaunchConfig } from '@/types/config.js';
+import { mapEntitlementsToCapabilities, type CapabilityType } from '@/credentials/capabilities.js';
 import {
   discoverPreviews,
   discoverScreenshots,
   type LocalPreview,
   type LocalScreenshot,
-} from '../../listing/screenshots/assets.ts';
+} from '@/listing/screenshots/assets.js';
 import { parseStoreConfig, type AppleStoreConfig, type AppleLocaleInfo } from './store-config.ts';
 
 /** One app's reconcile work: the resolved capabilities + products plus any entitlements we couldn't map. */

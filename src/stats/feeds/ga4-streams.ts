@@ -1,11 +1,11 @@
-import type { PortfolioApp } from '../../types/portfolio.ts';
+import type { PortfolioApp } from '@/types/portfolio.js';
 import {
   ANALYTICS_ADMIN_URL,
   createGa4Failure,
   requestGa4Document,
   type Ga4Session,
 } from './ga4-client.ts';
-import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { readPlainObject } from '@/services/platform/plain-object.js';
 
 interface Ga4AppStream {
   readonly propertyId: string;

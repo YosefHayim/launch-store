@@ -4,18 +4,18 @@ import {
   listAccounts,
   loadActiveAscKey,
   loadAscKeyById,
-} from '../../credentials/accounts.ts';
+} from '@/credentials/accounts.js';
 import {
   describeMissingPlayServiceAccount,
   describeStoredAndroidCredentials,
   loadCachedKeystore,
   loadServiceAccount,
-} from '../../credentials/android-keystore-assets.ts';
+} from '@/credentials/android-keystore-assets.js';
 import {
   describeStoredCredentials,
   loadCachedSigningAssets,
-} from '../../credentials/apple-signing-assets.ts';
-import type { AscKey, KeystoreAssets, SigningAssets } from '../../types/credentials.ts';
+} from '@/credentials/apple-signing-assets.js';
+import type { AscKey, KeystoreAssets, SigningAssets } from '@/types/credentials.js';
 
 export type AppleCredentialAccountStatus = Readonly<{
   readonly keyId: string;

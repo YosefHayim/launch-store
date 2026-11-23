@@ -1,4 +1,4 @@
-import type { AscKey } from '../../types/credentials.ts';
+import type { AscKey } from '@/types/credentials.js';
 import { AppleStoreClientService } from './apple-store-client.ts';
 import { GoogleStoreClientService, makeGoogleTransportFailure } from './google-store-client.ts';
 
