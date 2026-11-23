@@ -1,8 +1,8 @@
 // Registers the commands that list store apps and tag each one as yours or a client.
 
-import type { Command } from '@/cli/command.js';
-import { appsListProgram, appsTagProgram } from '@/portfolio/apps-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { appsListProgram, appsTagProgram } from '../../../portfolio/apps-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 export function registerAppsCommand(program: Command): void {
   const apps = program

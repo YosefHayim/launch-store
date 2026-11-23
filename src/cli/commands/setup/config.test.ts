@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Command, type CommandOption } from '@/cli/command.js';
+import { Command, type CommandOption } from '../../command.ts';
 import { registerConfigCommand } from './config.ts';
 
 /** Find the `config` group's named subcommand, asserting the group exists. */

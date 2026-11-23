@@ -1,10 +1,10 @@
 // Compares the App Store Connect listing text with the local store config.
 
-import { reconcileAppListing, type AscCatalogApi } from '@/apple/store/app-store-sync.js';
-import { buildJobs, hasListing, type SyncJob } from '@/store/shared/sync-jobs.js';
-import type { AppleStoreConfig } from '@/store/shared/store-config.js';
-import { errorMessage } from '@/services/platform/error-message.js';
-import type { AppPlan, PlanContext, SurfacePlanner } from '@/types/plan.js';
+import { reconcileAppListing, type AscCatalogApi } from '../../apple/app-store-sync.ts';
+import { buildJobs, hasListing, type SyncJob } from '../../store/shared/sync-jobs.ts';
+import type { AppleStoreConfig } from '../../store/shared/store-config.ts';
+import { errorMessage } from '../../services/platform/error-message.ts';
+import type { AppPlan, PlanContext, SurfacePlanner } from '../../types/plan.ts';
 
 const SURFACE = 'listing';
 

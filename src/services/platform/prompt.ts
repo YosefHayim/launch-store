@@ -1,6 +1,6 @@
 // Asks the developer to confirm, type, or choose, and skips those questions in JSON mode.
 
-import { Prompts } from '@/prompts.js';
+import { Prompts } from '../../prompts.ts';
 import { createLogger } from './logger.ts';
 
 const prompts = new Prompts();

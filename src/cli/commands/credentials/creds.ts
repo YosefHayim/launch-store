@@ -1,9 +1,9 @@
 // Registers the command that inspects and sets up App Store Connect and Google Play credentials.
 
-import type { Command } from '@/cli/command.js';
-import { credentialsCommandProgram } from '@/credentials/command.js';
-import type { CredentialsCommandOptions } from '@/credentials/credentials-command-options.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { credentialsCommandProgram } from '../../../credentials/command.ts';
+import type { CredentialsCommandOptions } from '../../../credentials/credentials-command-options.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type CredsOptions = CredentialsCommandOptions;
 

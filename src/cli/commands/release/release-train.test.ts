@@ -1,4 +1,4 @@
-import { Command, type CommandOption, type CommandArgument } from '@/cli/command.js';
+import { Command, type CommandOption, type CommandArgument } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
 import { registerReleaseTrainCommand } from './release-train.ts';
 

@@ -4,19 +4,19 @@ import type {
   InAppPurchaseConfig,
   PlayProductOverride,
   ProductLocalization,
-} from '@/types/catalog.js';
+} from '../../types/catalog.ts';
 import type {
   JsonValue,
   RestoreInput,
   SnapshotContext,
   SnapshotEntity,
   SnapshotSource,
-} from '@/types/snapshot.js';
-import type { InAppProductResource, PlayMoney } from '@/types/google-play.js';
-import type { PlannedAction } from '@/types/reconcile.js';
-import { reconcilePlayProducts } from '@/google/store/play-products.js';
-import { androidApps } from '@/readiness/app-scopes.js';
-import type { MutableDeep } from '@/types/mutable.js';
+} from '../../types/snapshot.ts';
+import type { InAppProductResource, PlayMoney } from '../../types/google-play.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
+import { reconcilePlayProducts } from '../../google/play-products.ts';
+import { androidApps } from '../../readiness/app-scopes.ts';
+import type { MutableDeep } from '../../types/mutable.ts';
 import {
   jsonRecord,
   restoreErrorMessage,

@@ -1,8 +1,8 @@
 // Registers the command that syncs App Store age rating, categories, price, and review info.
 
-import type { Command } from '@/cli/command.js';
-import { releaseConfigCommandProgram } from '@/release/release-config-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { releaseConfigCommandProgram } from '../../../release/release-config-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type ReleaseConfigOptions = Readonly<{
   app?: string;

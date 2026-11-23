@@ -1,6 +1,6 @@
 // Opens a Google Play client and turns a transport failure into a named error.
 
-import { GooglePlayClient, readServiceAccount } from '@/google/play-client.js';
+import { GooglePlayClient, readServiceAccount } from '../../google/play-client.ts';
 import { hasMessage } from '../platform/error-message.ts';
 
 export type GoogleTransportFailure = Readonly<{

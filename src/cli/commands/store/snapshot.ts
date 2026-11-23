@@ -1,8 +1,8 @@
 // Registers commands that save, compare, and restore live App Store and Google Play state.
 
-import type { Command } from '@/cli/command.js';
-import { snapshotCommandProgram } from '@/snapshot/snapshot-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { snapshotCommandProgram } from '../../../snapshot/snapshot-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type CaptureOptions = Readonly<{ app?: string; json?: boolean }>;
 

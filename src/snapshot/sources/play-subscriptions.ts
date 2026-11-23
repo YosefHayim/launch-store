@@ -5,27 +5,27 @@ import type {
   PlaySubscriptionOverride,
   ProductLocalization,
   SubscriptionConfig,
-} from '@/types/catalog.js';
+} from '../../types/catalog.ts';
 import type {
   JsonValue,
   RestoreInput,
   SnapshotContext,
   SnapshotEntity,
   SnapshotSource,
-} from '@/types/snapshot.js';
+} from '../../types/snapshot.ts';
 import type {
   BasePlan,
   RegionalBasePlanConfig,
   SubscriptionListing,
   SubscriptionResource,
-} from '@/types/google-play.js';
-import type { PlannedAction } from '@/types/reconcile.js';
+} from '../../types/google-play.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
 import {
   periodFromIso,
   reconcilePlaySubscriptions,
   unitsToMicros,
-} from '@/google/store/play-subscriptions.js';
-import { androidApps } from '@/readiness/app-scopes.js';
+} from '../../google/play-subscriptions.ts';
+import { androidApps } from '../../readiness/app-scopes.ts';
 import {
   jsonRecord,
   restoreErrorMessage,
@@ -33,7 +33,7 @@ import {
   stringField,
   readPriceConfig,
 } from './play-restore.ts';
-import type { PlayMoneyUnits } from '@/types/play-pricing.js';
+import type { PlayMoneyUnits } from '../../types/play-pricing.ts';
 
 /** A base plan's per-region prices -> the snapshot's `{ priceMicros */
 function regionalPrices(configs: readonly RegionalBasePlanConfig[]): Record<string, JsonValue> {

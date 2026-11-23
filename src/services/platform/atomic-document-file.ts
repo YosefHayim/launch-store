@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { pathExists } from '@/path-exists.js';
+import { pathExists } from '../../path-exists.ts';
 import { errorMessage } from './error-message.ts';
 import { isFailureTag } from './tagged-failure.ts';
 

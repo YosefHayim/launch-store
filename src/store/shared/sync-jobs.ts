@@ -1,19 +1,19 @@
 // Selects apps and gathers the App Store Connect work each one should sync.
 
-import { launchConfigForApp } from '@/config/config.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { AppProducts } from '@/types/catalog.js';
-import type { LaunchConfig } from '@/types/config.js';
+import { launchConfigForApp } from '../../config/config.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { AppProducts } from '../../types/catalog.ts';
+import type { LaunchConfig } from '../../types/config.ts';
 import {
   readCapabilitiesFromEntitlements,
   type CapabilityType,
-} from '@/credentials/capabilities.js';
+} from '../../credentials/capabilities.ts';
 import {
   discoverPreviews,
   discoverScreenshots,
   type LocalPreview,
   type LocalScreenshot,
-} from '@/listing/screenshots/assets.js';
+} from '../../listing/screenshots/assets.ts';
 import type { AppleStoreConfig, AppleLocaleInfo } from './store-config.ts';
 
 /** One app's reconcile work: the resolved capabilities + products plus any entitlements we couldn't map. */

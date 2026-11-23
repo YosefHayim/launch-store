@@ -1,8 +1,8 @@
 // Registers the read-only check of App Store Connect app records and Google Play access.
 
-import type { Command } from '@/cli/command.js';
-import { readinessCommandProgram } from '@/readiness/command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { readinessCommandProgram } from '../../../readiness/command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 /** CLI options for `launch-store store doctor`. */
 type StoreDoctorOptions = {

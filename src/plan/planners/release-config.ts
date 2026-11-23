@@ -1,11 +1,11 @@
 // Compares App Store Connect release settings with the local release config.
 
-import { launchConfigForApp } from '@/config/config.js';
-import { reconcileReleasePlan } from '@/release/release-attributes.js';
+import { launchConfigForApp } from '../../config/config.ts';
+import { reconcileReleasePlan } from '../../release/release-attributes.ts';
 import { planAppStoreSurface } from './app-store-surface.ts';
-import type { AppDescriptor } from '@/types/app.js';
-import type { AscSurfacesApi, SurfacePlanner } from '@/types/plan.js';
-import type { ReleaseAttributesConfig } from '@/types/store-surface.js';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { AscSurfacesApi, SurfacePlanner } from '../../types/plan.ts';
+import type { ReleaseAttributesConfig } from '../../types/store-surface.ts';
 
 /** Surface id - also the value users pass as `launch-store plan release-config`. */
 const SURFACE = 'release-config';

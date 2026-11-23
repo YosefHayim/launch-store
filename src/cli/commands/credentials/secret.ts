@@ -1,8 +1,8 @@
 // Registers the commands that keep build secrets in the keychain instead of a plaintext file.
 
-import type { Command } from '@/cli/command.js';
-import { secretCommandProgram } from '@/build/secret-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { secretCommandProgram } from '../../../build/secret-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type SecretOptions = Readonly<{
   app?: string;

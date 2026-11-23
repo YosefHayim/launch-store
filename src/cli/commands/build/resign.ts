@@ -1,8 +1,8 @@
 // Registers the command that signs a stored build again with different credentials.
 
-import type { Command } from '@/cli/command.js';
-import { resignCommandProgram, type ResignCommandInput } from '@/build/resign-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { resignCommandProgram, type ResignCommandInput } from '../../../build/resign-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the stored-build re-sign command to Commander. */
 export function registerResignCommand(program: Command): void {

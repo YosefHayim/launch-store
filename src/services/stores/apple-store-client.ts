@@ -1,7 +1,7 @@
 // Opens an App Store Connect client and turns a transport failure into a named error.
 
-import { AppStoreConnect } from '@/apple/app-store-connect.js';
-import type { AscKey } from '@/types/credentials.js';
+import { AppStoreConnect } from '../../apple/app-store-connect.ts';
+import type { AscKey } from '../../types/credentials.ts';
 import { hasMessage } from '../platform/error-message.ts';
 
 export type AppleTransportFailure = Readonly<{

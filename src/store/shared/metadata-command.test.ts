@@ -2,14 +2,14 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadActiveAscKey } from '@/credentials/accounts.js';
-import { loadServiceAccount } from '@/credentials/android-keystore-assets.js';
-import { resetLogger, useLoggerSink } from '@/services/platform/logger.js';
-import { AppleStoreClientService } from '@/services/stores/apple-store-client.js';
-import { GoogleStoreClientService } from '@/services/stores/google-store-client.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { PlayListing } from '@/types/google-play.js';
+import { loadActiveAscKey } from '../../credentials/accounts.ts';
+import { loadServiceAccount } from '../../credentials/android-keystore-assets.ts';
+import { resetLogger, useLoggerSink } from '../../services/platform/logger.ts';
+import { AppleStoreClientService } from '../../services/stores/apple-store-client.ts';
+import { GoogleStoreClientService } from '../../services/stores/google-store-client.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { PlayListing } from '../../types/google-play.ts';
 import type { StoreConfig } from './store-config.ts';
 import {
   assertListingPlatform,
@@ -22,10 +22,10 @@ import { loadStoreAppContext } from './select-store-app.ts';
 vi.mock('./select-store-app.ts', function mockSelectStoreApp() {
   return { loadStoreAppContext: vi.fn() };
 });
-vi.mock('@/credentials/accounts.js', function mockAccounts() {
+vi.mock('../../credentials/accounts.ts', function mockAccounts() {
   return { loadActiveAscKey: vi.fn() };
 });
-vi.mock('@/credentials/android-keystore-assets.js', function mockAndroidKeystoreAssets() {
+vi.mock('../../credentials/android-keystore-assets.ts', function mockAndroidKeystoreAssets() {
   return {
     loadServiceAccount: vi.fn(),
     describeMissingPlayServiceAccount: vi.fn(async () => 'No Play service account.'),

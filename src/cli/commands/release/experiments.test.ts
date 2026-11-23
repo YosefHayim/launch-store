@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderStoreSurfaceAction } from '@/apple/commands/app-store-surface-command.js';
+import { renderStoreSurfaceAction } from '../../../apple/app-store-surface-command.ts';
 
 function describeRenderAction() {
   function marksAChangeWithASkipWith() {

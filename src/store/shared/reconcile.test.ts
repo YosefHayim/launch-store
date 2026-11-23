@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { PlannedAction } from '@/types/reconcile.js';
+import type { PlannedAction } from '../../types/reconcile.ts';
 import {
   act,
   appRecordMissing,

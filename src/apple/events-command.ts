@@ -1,0 +1,293 @@
+// Lists, creates, localizes, and deletes in-app events on App Store Connect.
+
+import { createLogger } from '../services/platform/logger.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
+import {
+  createEvent,
+  deleteEvent,
+  listEvents,
+  localizeEvent,
+  type AppEventWithLocalizations,
+} from './app-events.ts';
+import { loadActiveAppleStore } from './apple-store-command.ts';
+import { resolveStoreBundleId } from '../store/shared/select-store-app.ts';
+import { hasMessage } from '../services/platform/error-message.ts';
+
+/** Options for creating a draft in-app event. */
+export type CreateEventCommandInput = Readonly<{
+  operation: 'create';
+  referenceName: string;
+  app?: string | undefined;
+  badge?: string | undefined;
+  locale?: string | undefined;
+  deepLink?: string | undefined;
+  priority?: string | undefined;
+  purpose?: string | undefined;
+}>;
+
+/** Options for creating or updating one event localization. */
+export type LocalizeEventCommandInput = Readonly<{
+  operation: 'localize';
+  eventId: string;
+  locale: string;
+  name?: string | undefined;
+  short?: string | undefined;
+  long?: string | undefined;
+}>;
+
+/** One in-app-events operation selected by Commander. */
+type EventsCommandInput =
+  | Readonly<{ operation: 'list'; app?: string | undefined; json: boolean }>
+  | CreateEventCommandInput
+  | LocalizeEventCommandInput
+  | Readonly<{ operation: 'delete'; eventId: string; yes: boolean }>;
+
+/** An in-app-events command failed before it could complete. */
+type EventsCommandFailure = Readonly<{
+  readonly _tag: 'EventsCommandFailure';
+  readonly operation: EventsCommandInput['operation'];
+  readonly message: string;
+  readonly cause: unknown;
+}>;
+
+function makeEventsCommandFailure(fields: {
+  operation: EventsCommandInput['operation'];
+  message: string;
+  cause: unknown;
+}): EventsCommandFailure {
+  return { _tag: 'EventsCommandFailure', ...fields };
+}
+
+/** Convert any dependency failure into the in-app-events command channel. */
+function eventsFailure(
+  operation: EventsCommandInput['operation'],
+  cause: unknown,
+): EventsCommandFailure {
+  if (hasMessage(cause)) {
+    return makeEventsCommandFailure({ operation, message: cause.message, cause });
+  }
+
+  return makeEventsCommandFailure({
+    operation,
+    message: `Events ${operation} failed.`,
+    cause,
+  });
+}
+
+function isPresentDetail(eventDetail: string | undefined): eventDetail is string {
+  return eventDetail != null;
+}
+
+/** Render one event and its localizations as a readable text block. */
+function renderAppEvent(appEvent: AppEventWithLocalizations): string {
+  const event = appEvent.event;
+  const localizations = appEvent.localizations;
+  const eventDetails = [event.badge, event.eventState].filter(isPresentDetail);
+
+  const hasPrimaryLocale = event.primaryLocale != null;
+
+  if (hasPrimaryLocale) {
+    eventDetails.push(`primary ${event.primaryLocale}`);
+  }
+
+  const eventLines = [`${event.id}  ${event.referenceName}`];
+
+  const hasDetails = eventDetails.length > 0;
+
+  if (hasDetails) {
+    eventLines.push(`  ${eventDetails.join('  ')}`);
+  }
+
+  const hasDeepLink = event.deepLink != null;
+
+  if (hasDeepLink) {
+    eventLines.push(`  -> ${event.deepLink}`);
+  }
+
+  for (const localization of localizations) {
+    let localizedName = '(no name)';
+
+    const hasName = localization.name != null;
+
+    if (hasName) {
+      localizedName = localization.name;
+    }
+
+    eventLines.push(`  [${localization.locale}] ${localizedName}`);
+  }
+
+  return eventLines.join('\n');
+}
+
+function eventBlock(appEvent: AppEventWithLocalizations): string {
+  return renderAppEvent(appEvent);
+}
+
+/** List the selected app's in-app events. */
+async function listEventsProgram(
+  commandInput: Extract<EventsCommandInput, { operation: 'list' }>,
+): Promise<void> {
+  try {
+    const bundleId = await resolveStoreBundleId(commandInput.app);
+    const appleStore = await loadActiveAppleStore();
+    const appEvents = await listEvents(appleStore, bundleId);
+    const logger = createLogger(false);
+
+    const wantsJson = commandInput.json == true;
+
+    if (wantsJson) {
+      const serialized = JSON.stringify(appEvents, null, 2);
+      logger.line(serialized);
+      return;
+    }
+
+    const isEmpty = appEvents.length == 0;
+
+    if (isEmpty) {
+      logger.line(
+        'No in-app events yet. Create one with `launch-store events create <referenceName> --badge ...`.',
+      );
+      return;
+    }
+
+    logger.line(appEvents.map(eventBlock).join('\n\n'));
+
+    let eventSuffix = 's';
+
+    const isSingleEvent = appEvents.length == 1;
+
+    if (isSingleEvent) {
+      eventSuffix = '';
+    }
+
+    logger.line(`\n${appEvents.length} event${eventSuffix}.`);
+  } catch (cause) {
+    throw eventsFailure('list', cause);
+  }
+}
+
+/** Create one validated draft in-app event. */
+async function createEventProgram(commandInput: CreateEventCommandInput): Promise<void> {
+  try {
+    const bundleId = await resolveStoreBundleId(commandInput.app);
+    const appleStore = await loadActiveAppleStore();
+    const createdEvent = await createEvent(appleStore, bundleId, {
+      referenceName: commandInput.referenceName,
+      badge: commandInput.badge,
+      primaryLocale: commandInput.locale,
+      deepLink: commandInput.deepLink,
+      priority: commandInput.priority,
+      purpose: commandInput.purpose,
+    });
+    let eventState = 'DRAFT';
+
+    const hasEventState = createdEvent.eventState != null;
+
+    if (hasEventState) {
+      eventState = createdEvent.eventState;
+    }
+
+    const logger = createLogger(false);
+
+    logger.step(
+      'event created',
+      `${createdEvent.id} - ${createdEvent.referenceName} (${eventState})`,
+    );
+  } catch (cause) {
+    throw eventsFailure('create', cause);
+  }
+}
+
+/** Create or update one event localization. */
+async function localizeEventProgram(commandInput: LocalizeEventCommandInput): Promise<void> {
+  try {
+    const appleStore = await loadActiveAppleStore();
+    const localizationOutcome = await localizeEvent(appleStore, commandInput.eventId, {
+      locale: commandInput.locale,
+      name: commandInput.name,
+      shortDescription: commandInput.short,
+      longDescription: commandInput.long,
+    });
+    let operationLabel = 'localization created';
+
+    const replacedExisting = localizationOutcome.replaced == true;
+
+    if (replacedExisting) {
+      operationLabel = 'localization updated';
+    }
+
+    const logger = createLogger(false);
+
+    logger.step(
+      operationLabel,
+      `[${localizationOutcome.localization.locale}] ${commandInput.eventId}`,
+    );
+  } catch (cause) {
+    throw eventsFailure('localize', cause);
+  }
+}
+
+/** Confirm and delete one draft in-app event. */
+async function deleteEventProgram(
+  commandInput: Extract<EventsCommandInput, { operation: 'delete' }>,
+): Promise<void> {
+  try {
+    const skipConfirmation = commandInput.yes == true;
+
+    if (skipConfirmation == false) {
+      const terminalIsInteractive = checkTerminalIsInteractive();
+
+      const needsATerminal = terminalIsInteractive == false;
+
+      if (needsATerminal) {
+        throw makeEventsCommandFailure({
+          operation: 'delete',
+          message: 'Refusing to delete without confirmation. Re-run with --yes (non-interactive).',
+          cause: 'confirmation-required',
+        });
+      }
+
+      const confirmed = await new LaunchPrompt().confirm(
+        `Delete in-app event ${commandInput.eventId}?`,
+      );
+
+      const declined = confirmed == false;
+
+      if (declined) {
+        new LaunchPrompt().cancel('Aborted - nothing deleted.');
+        return;
+      }
+    }
+
+    const appleStore = await loadActiveAppleStore();
+
+    await deleteEvent(appleStore, commandInput.eventId);
+
+    const logger = createLogger(false);
+
+    logger.step('event deleted', commandInput.eventId);
+  } catch (cause) {
+    throw eventsFailure('delete', cause);
+  }
+}
+
+/** Run one in-app-events operation. */
+export async function eventsCommandProgram(commandInput: EventsCommandInput): Promise<void> {
+  if (commandInput.operation == 'list') {
+    await listEventsProgram(commandInput);
+    return;
+  }
+
+  if (commandInput.operation == 'create') {
+    await createEventProgram(commandInput);
+    return;
+  }
+
+  if (commandInput.operation == 'localize') {
+    await localizeEventProgram(commandInput);
+    return;
+  }
+
+  await deleteEventProgram(commandInput);
+}

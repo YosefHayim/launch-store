@@ -1,11 +1,11 @@
 // Compares Google Play in-app products with the products declared in Launch config.
 
-import { errorMessage } from '@/services/platform/error-message.js';
-import { reconcilePlayProducts, type PlayProductsApi } from '@/google/store/play-products.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { InAppPurchaseConfig } from '@/types/catalog.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { AppPlan, PlanContext, PlayCatalogApi, SurfacePlanner } from '@/types/plan.js';
+import { errorMessage } from '../../services/platform/error-message.ts';
+import { reconcilePlayProducts, type PlayProductsApi } from '../../google/play-products.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { InAppPurchaseConfig } from '../../types/catalog.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { AppPlan, PlanContext, PlayCatalogApi, SurfacePlanner } from '../../types/plan.ts';
 
 const SURFACE = 'play-products';
 

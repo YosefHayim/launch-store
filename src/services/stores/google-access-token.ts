@@ -1,8 +1,8 @@
 // Creates a short-lived token Google Play accepts from a service-account key.
 
-import { createServiceAccountAccessToken } from '@/google/service-account-token.js';
-import { readServiceAccount } from '@/google/play-client.js';
-import type { ServiceAccount } from '@/types/credentials.js';
+import { createServiceAccountAccessToken } from '../../google/service-account-token.ts';
+import { readServiceAccount } from '../../google/play-client.ts';
+import type { ServiceAccount } from '../../types/credentials.ts';
 import { errorMessage } from '../platform/error-message.ts';
 
 export type GoogleAccessTokenFailure = Readonly<{

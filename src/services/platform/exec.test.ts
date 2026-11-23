@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { UTF8_LOCALE } from '@/terminal/locale.js';
+import { UTF8_LOCALE } from '../../terminal/locale.ts';
 import {
   captureCommandOutput,
   checkCommandExists,

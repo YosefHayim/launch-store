@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AppStoreConnect } from '@/apple/app-store-connect.js';
+import { AppStoreConnect } from '../../apple/app-store-connect.ts';
 import { makeAppleTransportFailure, setAppleStoreClient } from './apple-store-client.ts';
 import { AppStoreIdentityService } from './app-store-identity.ts';
 

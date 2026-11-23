@@ -2,8 +2,8 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
-import { isEnvExcluded, isSecretLookingName } from '@/config/environment-file.js';
-import { mergeChildEnv } from '@/terminal/locale.js';
+import { isEnvExcluded, isSecretLookingName } from '../../config/environment-file.ts';
+import { mergeChildEnv } from '../../terminal/locale.ts';
 import { readLaunchEnvironment } from './environment.ts';
 import { isJsonOutput } from './json-output-mode.ts';
 import { makeLogRedactor, redactText } from './redact.ts';

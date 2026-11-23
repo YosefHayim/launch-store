@@ -1,17 +1,17 @@
 // Compares App Store Connect version experiments with the local config.
 
 import { join } from 'node:path';
-import { launchConfigForApp } from '@/config/config.js';
+import { launchConfigForApp } from '../../config/config.ts';
 import {
   discoverTreatmentScreenshots,
   reconcileVersionExperiments,
   type VersionExperimentsConfig,
-} from '@/release/version-experiments.js';
+} from '../../release/version-experiments.ts';
 import { planAppStoreSurface } from './app-store-surface.ts';
-import type { LocalScreenshot } from '@/listing/screenshots/assets.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { AscSurfacesApi, SurfacePlanner } from '@/types/plan.js';
+import type { LocalScreenshot } from '../../listing/screenshots/assets.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { AscSurfacesApi, SurfacePlanner } from '../../types/plan.ts';
 
 const SURFACE = 'experiments';
 

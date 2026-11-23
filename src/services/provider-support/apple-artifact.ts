@@ -1,9 +1,9 @@
 // Checks a device build, reads App Thinning sizes, and writes Apple export options.
 
-import type { Platform } from '@/types/app.js';
-import type { SizeReportEntry } from '@/types/artifacts.js';
-import type { SigningAssets } from '@/types/credentials.js';
-import { makeProviderInputFailure } from '@/types/providers.js';
+import type { Platform } from '../../types/app.ts';
+import type { SizeReportEntry } from '../../types/artifacts.ts';
+import type { SigningAssets } from '../../types/credentials.ts';
+import { makeProviderInputFailure } from '../../types/providers.ts';
 import { appleArtifactExtension, platformLabel } from '../stores/platform.ts';
 
 /** Convert an App Thinning size and unit into bytes. */

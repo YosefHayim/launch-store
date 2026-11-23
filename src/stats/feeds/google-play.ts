@@ -1,15 +1,15 @@
 // Pulls Google Play installs, ratings, crashes, and earnings for one Android app.
 
-import { errorMessage } from '@/services/platform/error-message.js';
-import type { PortfolioApp } from '@/types/portfolio.js';
-import type { PlayVitalsMetric, VitalsTimeline } from '@/types/vitals.js';
+import { errorMessage } from '../../services/platform/error-message.ts';
+import type { PortfolioApp } from '../../types/portfolio.ts';
+import type { PlayVitalsMetric, VitalsTimeline } from '../../types/vitals.ts';
 import type {
   DailyStat,
   DateRange,
   FeedFetchReply,
   StatsFeedFailure,
   StatsMetric,
-} from '@/types/stats.js';
+} from '../../types/stats.ts';
 import { pickEarlierDate } from '../date-range.ts';
 import type { PlayVitalsReader, StatsCredentialsApi } from '../stats-credentials.ts';
 import { readBucketReports } from './play-bucket-reports.ts';

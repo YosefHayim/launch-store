@@ -5,8 +5,8 @@ import type {
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
-import type { AscReadinessApi } from '@/types/readiness.js';
+} from '../../types/readiness.ts';
+import type { AscReadinessApi } from '../../types/readiness.ts';
 import { iosApps } from '../app-scopes.ts';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';
 

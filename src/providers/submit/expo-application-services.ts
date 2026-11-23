@@ -1,8 +1,8 @@
 // Submits a finished Apple package through Expo Application Services.
 
-import type { ResolvedBuildContext } from '@/types/config.js';
-import type { BuildCredentials } from '@/types/credentials.js';
-import type { SubmitArtifact, Submitter } from '@/types/providers.js';
+import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildCredentials } from '../../types/credentials.ts';
+import type { SubmitArtifact, Submitter } from '../../types/providers.ts';
 import { easSubmit } from '../build/expo-application-services.ts';
 
 export const easSubmitter: Submitter = {

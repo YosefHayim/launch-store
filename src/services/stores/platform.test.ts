@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Platform } from '@/types/app.js';
+import type { Platform } from '../../types/app.ts';
 import {
   adHocProfileType,
   appleArtifactExtension,

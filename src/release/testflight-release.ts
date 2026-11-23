@@ -2,7 +2,7 @@
 
 import { createLogger } from '../services/platform/logger.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
-import { loadActiveAppleStore } from '@/apple/commands/apple-store-command.js';
+import { loadActiveAppleStore } from '../apple/apple-store-command.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import {

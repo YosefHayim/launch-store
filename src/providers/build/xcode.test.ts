@@ -1,11 +1,11 @@
 import { isAbsolute } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { SigningAssets } from '@/types/credentials.js';
+import type { SigningAssets } from '../../types/credentials.ts';
 import {
   assertDeviceArtifact,
   exportOptionsPlist,
   parseThinningReport,
-} from '@/services/provider-support/apple-artifact.js';
+} from '../../services/provider-support/apple-artifact.ts';
 import { xcodebuildEnv, resolveNativeDir } from './xcode.ts';
 
 const MB = 1024 ** 2;

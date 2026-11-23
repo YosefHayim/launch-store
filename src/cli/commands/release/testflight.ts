@@ -1,8 +1,8 @@
 // Registers the commands that manage TestFlight groups, testers, releases, and feedback.
 
-import type { Command } from '@/cli/command.js';
-import { testflightCommandProgram } from '@/release/testflight-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { testflightCommandProgram } from '../../../release/testflight-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type AppOption = Readonly<{ app?: string }>;
 

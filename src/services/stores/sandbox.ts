@@ -1,6 +1,6 @@
 // Lists App Store Connect sandbox testers and clears their purchase history.
 
-import type { SandboxTesterResource } from '@/types/apple-catalog.js';
+import type { SandboxTesterResource } from '../../types/apple-catalog.ts';
 
 /** The exact slice of App Store Connect the sandbox domain depends on. */
 export type AscSandboxApi = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Command, type CommandOption } from '@/cli/command.js';
+import { Command, type CommandOption } from '../../command.ts';
 import { registerMigrateCommand } from './migrate.ts';
 
 /** Find the `migrate` group's named subcommand, asserting the group exists. */

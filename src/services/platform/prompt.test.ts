@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { fuzzyMatch } from '@/prompts.js';
+import { fuzzyMatch } from '../../prompts.ts';
 import { resetLogger, useLoggerSink } from './logger.ts';
 import { LaunchPrompt, pickOne, resetPrompts, usePromptAnswers } from './prompt.ts';
 

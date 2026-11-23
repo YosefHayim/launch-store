@@ -1,8 +1,8 @@
 // Registers the commands that list over-the-air updates and roll one back.
 
-import type { Command } from '@/cli/command.js';
-import { updatesCommandProgram } from '@/config/updates-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { updatesCommandProgram } from '../../../config/updates-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type ListOptions = Readonly<{
   channel: string;

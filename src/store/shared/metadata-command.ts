@@ -1,23 +1,23 @@
 // Pulls and pushes listing text for App Store Connect and Google Play.
 
-import { loadActiveAscKey } from '@/credentials/accounts.js';
+import { loadActiveAscKey } from '../../credentials/accounts.ts';
 import {
   describeMissingPlayServiceAccount,
   loadServiceAccount,
-} from '@/credentials/android-keystore-assets.js';
-import { errorMessage } from '@/services/platform/error-message.js';
-import { createLogger } from '@/services/platform/logger.js';
-import type { AppStoreConnect } from '@/apple/app-store-connect.js';
-import type { GooglePlayClient } from '@/google/play-client.js';
-import { AppleStoreClientService } from '@/services/stores/apple-store-client.js';
-import { GoogleStoreClientService } from '@/services/stores/google-store-client.js';
-import { isApplePlatform, parsePlatform, platformLabel } from '@/services/stores/platform.js';
-import type { AppDescriptor, Platform } from '@/types/app.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { AscKey } from '@/types/credentials.js';
-import type { PlayListing } from '@/types/google-play.js';
-import { readAppleListing } from '@/apple/store/apple-listing-read.js';
-import { reconcileAppListing } from '@/apple/store/app-store-sync.js';
+} from '../../credentials/android-keystore-assets.ts';
+import { errorMessage } from '../../services/platform/error-message.ts';
+import { createLogger } from '../../services/platform/logger.ts';
+import type { AppStoreConnect } from '../../apple/app-store-connect.ts';
+import type { GooglePlayClient } from '../../google/play-client.ts';
+import { AppleStoreClientService } from '../../services/stores/apple-store-client.ts';
+import { GoogleStoreClientService } from '../../services/stores/google-store-client.ts';
+import { isApplePlatform, parsePlatform, platformLabel } from '../../services/stores/platform.ts';
+import type { AppDescriptor, Platform } from '../../types/app.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { AscKey } from '../../types/credentials.ts';
+import type { PlayListing } from '../../types/google-play.ts';
+import { readAppleListing } from '../../apple/apple-listing-read.ts';
+import { reconcileAppListing } from '../../apple/app-store-sync.ts';
 import { loadStoreAppContext } from './select-store-app.ts';
 import type {
   AndroidLocaleInfo,
@@ -25,7 +25,7 @@ import type {
   AppleStoreConfig,
   StoreConfig,
 } from './store-config.ts';
-import { readPlainObject } from '@/services/platform/plain-object.js';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 export type MetadataCommandInput = {
   operation: 'pull' | 'push';

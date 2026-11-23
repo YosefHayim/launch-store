@@ -1,7 +1,7 @@
 // Opens the Google Play Developer Reporting client from a service-account key.
 
-import { PlayReportingClient } from '@/google/play-reporting.js';
-import { readServiceAccount } from '@/google/play-client.js';
+import { PlayReportingClient } from '../../google/play-reporting.ts';
+import { readServiceAccount } from '../../google/play-client.ts';
 
 type GoogleReportingClientFailure = Readonly<{
   _tag: 'GoogleReportingClientFailure';

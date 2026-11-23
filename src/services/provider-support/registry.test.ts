@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { StorageProvider } from '@/types/providers.js';
+import type { StorageProvider } from '../../types/providers.ts';
 import {
   getBuildEngine,
   getStorageProvider,

@@ -1,9 +1,9 @@
 // Compares App Store Connect European Union distribution domains with local config.
 
-import { reconcileEuDistributionDomains } from '@/apple/store/eu-distribution.js';
+import { reconcileEuDistributionDomains } from '../../apple/eu-distribution.ts';
 import { planTeamSurface } from './app-store-surface.ts';
-import type { EuDistributionConfig } from '@/types/store-surface.js';
-import type { AscSurfacesApi, SurfacePlanner } from '@/types/plan.js';
+import type { EuDistributionConfig } from '../../types/store-surface.ts';
+import type { AscSurfacesApi, SurfacePlanner } from '../../types/plan.ts';
 
 /** Surface id - also the value users pass as `launch-store plan eu-distribution`. */
 const SURFACE = 'eu-distribution';

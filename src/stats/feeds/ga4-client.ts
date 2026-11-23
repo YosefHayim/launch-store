@@ -1,9 +1,9 @@
 // Calls Google Analytics Admin and Data while a stats sync is reading one app.
 
-import { errorMessage } from '@/services/platform/error-message.js';
-import type { StatsFeedFailure } from '@/types/stats.js';
-import { readPlainObject } from '@/services/platform/plain-object.js';
-import { isFailureTag } from '@/services/platform/tagged-failure.js';
+import { errorMessage } from '../../services/platform/error-message.ts';
+import type { StatsFeedFailure } from '../../types/stats.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { isFailureTag } from '../../services/platform/tagged-failure.ts';
 
 export const ANALYTICS_ADMIN_URL = 'https://analyticsadmin.googleapis.com/v1beta';
 export const ANALYTICS_DATA_URL = 'https://analyticsdata.googleapis.com/v1beta';

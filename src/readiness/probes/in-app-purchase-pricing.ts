@@ -1,13 +1,13 @@
 // Checks in-app purchase and subscription prices against App Store Connect price points.
 
-import type { ProductPrice } from '@/types/catalog.js';
+import type { ProductPrice } from '../../types/catalog.ts';
 import type {
   AppReadiness,
   AscReadinessApi,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
+} from '../../types/readiness.ts';
 import { iosApps } from '../app-scopes.ts';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';
 

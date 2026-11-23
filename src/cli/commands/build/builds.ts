@@ -1,12 +1,12 @@
 // Registers the commands that list, show, and delete entries in the local build history.
 
-import type { Command } from '@/cli/command.js';
+import type { Command } from '../../command.ts';
 import {
   buildHistoryCommandProgram,
   type BuildHistoryCommandInput,
   type PruneCommandOptions,
-} from '@/build/build-history-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+} from '../../../build/build-history-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 function provideBuildHistoryCommand(commandInput: BuildHistoryCommandInput): Promise<void> {
   return buildHistoryCommandProgram(commandInput);

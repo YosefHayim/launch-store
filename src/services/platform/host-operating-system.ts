@@ -1,7 +1,7 @@
 // Reports this computer's operating system, processor count, and installed memory.
 
 import { cpus, platform as readNodePlatform, totalmem } from 'node:os';
-import type { HostOs } from '@/types/remote.js';
+import type { HostOs } from '../../types/remote.ts';
 
 type HostResources = Readonly<{
   cores: number;

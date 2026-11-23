@@ -92,15 +92,11 @@ import {
   APP_STORE_PROFILE_TYPE,
   type LocaleCopy,
   type ProvisioningProfileType,
-} from './connect/shared.ts';
+} from './shared.ts';
 import type { AscKey } from '../types/credentials.ts';
 import { AppStoreConnectClient } from './app-store-connect-client.ts';
 import { AppStoreToken, signAppStoreConnectToken } from './app-store-token.ts';
-import {
-  APPLE_PAGE_LIMIT,
-  applyAppleListQuery,
-  type AppleListQuery,
-} from './connect/list-query.ts';
+import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 type AppList = components['schemas']['AppsResponse'];
 

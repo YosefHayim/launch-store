@@ -1,13 +1,13 @@
 // Checks that declared subscription offer codes exist on App Store Connect.
 
-import type { SubscriptionConfig } from '@/types/catalog.js';
+import type { SubscriptionConfig } from '../../types/catalog.ts';
 import type {
   AppReadiness,
   AscReadinessApi,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
+} from '../../types/readiness.ts';
 import { iosApps } from '../app-scopes.ts';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';
 

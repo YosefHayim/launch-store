@@ -3,15 +3,15 @@
 import { mkdtemp, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { SizeReport } from '@/types/artifacts.js';
-import type { ResolvedBuildContext } from '@/types/config.js';
-import { makeProviderInputFailure, type HostedBuildProvider } from '@/types/providers.js';
+import type { SizeReport } from '../../types/artifacts.ts';
+import type { ResolvedBuildContext } from '../../types/config.ts';
+import { makeProviderInputFailure, type HostedBuildProvider } from '../../types/providers.ts';
 import {
   captureCommandOutput,
   checkCommandExists,
   executeCommand,
-} from '@/services/platform/execute-command.js';
-import { readPlainObject } from '@/services/platform/plain-object.js';
+} from '../../services/platform/execute-command.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 type EasInvocation = {
   command: string;

@@ -1,8 +1,8 @@
 // Lists and downloads files from the Google Play reports bucket.
 
-import { errorMessage } from '@/services/platform/error-message.js';
-import { readPlainObject } from '@/services/platform/plain-object.js';
-import { isFailureTag } from '@/services/platform/tagged-failure.js';
+import { errorMessage } from '../../services/platform/error-message.ts';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { isFailureTag } from '../../services/platform/tagged-failure.ts';
 
 export const STORAGE_READ_ONLY_SCOPE = 'https://www.googleapis.com/auth/devstorage.read_only';
 

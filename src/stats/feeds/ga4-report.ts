@@ -1,13 +1,13 @@
 // Reads daily active users, new users, and sessions from a Google Analytics property.
 
-import type { DailyStat, DateRange } from '@/types/stats.js';
+import type { DailyStat, DateRange } from '../../types/stats.ts';
 import {
   ANALYTICS_DATA_URL,
   createGa4Failure,
   requestGa4Document,
   type Ga4Session,
 } from './ga4-client.ts';
-import { readPlainObject } from '@/services/platform/plain-object.js';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 const GA4_METRICS: readonly Ga4Metric[] = ['activeUsers', 'newUsers', 'sessions'];
 

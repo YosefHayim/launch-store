@@ -1,8 +1,8 @@
 // Registers the command that explains an App Store or iOS term in plain language.
 
-import type { Command } from '@/cli/command.js';
-import { explainCommandProgram } from '@/terminal/explain-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { explainCommandProgram } from '../../../terminal/explain-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the `explain` command to the program. */
 export function registerExplainCommand(program: Command): void {

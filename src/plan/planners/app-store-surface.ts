@@ -1,14 +1,14 @@
 // Compares one App Store Connect surface, for each app or the team, with local config.
 
-import { errorMessage } from '@/services/platform/error-message.js';
-import type { PlannedAction } from '@/types/reconcile.js';
+import { errorMessage } from '../../services/platform/error-message.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
 import type {
   AppPlan,
   AscSurfacesApi,
   PlanContext,
   PlanDirection,
   SurfacePlan,
-} from '@/types/plan.js';
+} from '../../types/plan.ts';
 
 type MaybePromise<Value> = Value | Promise<Value>;
 

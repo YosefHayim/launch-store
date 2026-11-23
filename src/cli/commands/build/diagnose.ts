@@ -1,8 +1,8 @@
 // Registers the command that reads a failed native build log and explains the cause.
 
-import type { Command } from '@/cli/command.js';
-import { diagnoseCommandProgram } from '@/build/diagnose-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { diagnoseCommandProgram } from '../../../build/diagnose-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the native-build log diagnosis command to Commander. */
 export function registerDiagnoseCommand(program: Command): void {

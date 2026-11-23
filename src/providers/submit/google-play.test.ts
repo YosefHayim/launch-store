@@ -3,9 +3,9 @@ import type { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ResolvedBuildContext } from '@/types/config.js';
-import type { BuildCredentials } from '@/types/credentials.js';
-import type { PlayRelease } from '@/types/google-play.js';
+import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildCredentials } from '../../types/credentials.ts';
+import type { PlayRelease } from '../../types/google-play.ts';
 
 const uploadBundleToTrack = vi.hoisted(function hoistUploadBundleToTrack() {
   return vi.fn<
@@ -23,10 +23,10 @@ const playUpload = vi.hoisted(function hoistPlayUpload() {
 });
 
 vi.mock(
-  '@/google/play-client.js',
+  '../../google/play-client.ts',
   async function mockPlayClient(importOriginal: <T = unknown>() => Promise<T>) {
     return {
-      ...(await importOriginal<typeof import('@/google/play-client.js')>()),
+      ...(await importOriginal<typeof import('../../google/play-client.ts')>()),
       readServiceAccount: () => ({
         client_email: 'robot@example.invalid',
         private_key: 'dummy',

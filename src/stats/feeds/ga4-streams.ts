@@ -1,13 +1,13 @@
 // Finds the Google Analytics app stream for an iOS bundle id or Android package name.
 
-import type { PortfolioApp } from '@/types/portfolio.js';
+import type { PortfolioApp } from '../../types/portfolio.ts';
 import {
   ANALYTICS_ADMIN_URL,
   createGa4Failure,
   requestGa4Document,
   type Ga4Session,
 } from './ga4-client.ts';
-import { readPlainObject } from '@/services/platform/plain-object.js';
+import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 interface Ga4AppStream {
   readonly propertyId: string;

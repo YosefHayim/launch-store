@@ -28,11 +28,7 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "declaration": true,
-    "sourceMap": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "sourceMap": true
   },
   "include": ["src", "e2e"]
 }

@@ -1,8 +1,8 @@
 // Registers the command that writes a GitHub Actions workflow for continuous integration.
 
-import type { Command } from '@/cli/command.js';
-import { ciCommandProgram } from '@/config/continuous-integration-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { ciCommandProgram } from '../../../config/continuous-integration-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type CiOptions = Readonly<{
   android: boolean;

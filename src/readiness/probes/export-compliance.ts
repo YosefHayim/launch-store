@@ -1,12 +1,12 @@
 // Checks that each iOS app declares export compliance before App Store Connect submission.
 
-import type { AppDescriptor } from '@/types/app.js';
+import type { AppDescriptor } from '../../types/app.ts';
 import type {
   AppReadiness,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
+} from '../../types/readiness.ts';
 import { OMITTED_PROBE } from './credentials-skip.ts';
 
 type ComplianceApp = {

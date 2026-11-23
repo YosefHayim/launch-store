@@ -1,6 +1,6 @@
 // Turns Google Play report rows into daily installs, ratings, crashes, and earnings.
 
-import type { DailyStat, DateRange, StatsMetric } from '@/types/stats.js';
+import type { DailyStat, DateRange, StatsMetric } from '../../types/stats.ts';
 import { pickLaterDate, readMonthOfDate } from '../date-range.ts';
 import type { PlayCsvTable } from './play-csv-table.ts';
 

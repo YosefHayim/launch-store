@@ -1,8 +1,8 @@
 // Registers the command that copies an existing App Store Connect app into the Launch config.
 
-import type { Command } from '@/cli/command.js';
-import { adoptCommandProgram, type AdoptCommandInput } from '@/adopt/command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { adoptCommandProgram, type AdoptCommandInput } from '../../../adopt/command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the `adopt` command to Commander. */
 export function registerAdoptCommand(program: Command): void {

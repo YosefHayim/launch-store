@@ -1,0 +1,143 @@
+import { describe, expect, it } from 'vitest';
+import type { AppProducts } from '../types/catalog.ts';
+import { OffersCommandInputSchema } from './offers-command.ts';
+import { renderOfferCodeState } from './offers-list.ts';
+import { hasOffersWork, renderOfferAction } from './offers-reconcile.ts';
+
+function describeOffersCommandPieceSchema() {
+  function decodesReconciliationWithAnOmittedAppSelector() {
+    const offersCommandSchema = OffersCommandInputSchema({
+      operation: 'reconcile',
+      dryRun: true,
+      yes: false,
+    });
+
+    expect(offersCommandSchema).toEqual({ operation: 'reconcile', dryRun: true, yes: false });
+  }
+
+  it(
+    'decodes reconciliation with an omitted app selector',
+    decodesReconciliationWithAnOmittedAppSelector,
+  );
+
+  function decodesCodeGenerationAndRejectsExplicitUndefinedOptionals() {
+    const offersCommandSchema = OffersCommandInputSchema({
+      operation: 'generate-codes',
+      productId: 'com.acme.pro',
+      offerName: 'LAUNCH',
+      count: '100',
+    });
+
+    expect(offersCommandSchema).toEqual({
+      operation: 'generate-codes',
+      productId: 'com.acme.pro',
+      offerName: 'LAUNCH',
+      count: '100',
+    });
+
+    function callOffersCommandPieceSchema() {
+      return OffersCommandInputSchema({
+        operation: 'list',
+        productId: 'com.acme.pro',
+        app: undefined,
+      });
+    }
+
+    expect(callOffersCommandPieceSchema).toThrow();
+  }
+
+  it(
+    'decodes code generation and rejects explicit undefined optionals',
+    decodesCodeGenerationAndRejectsExplicitUndefinedOptionals,
+  );
+}
+
+describe('OffersCommandInputSchema', describeOffersCommandPieceSchema);
+
+function describeOffersCommandRenderers() {
+  function usesASCIIActionAndCampaignMarkers() {
+    const offerAction = renderOfferAction({
+      description: 'create offer LAUNCH',
+      destructive: false,
+      status: 'failed',
+      error: 'Apple rejected it',
+    });
+
+    expect(offerAction).toBe('x create offer LAUNCH - Apple rejected it');
+    expect(
+      renderOfferAction({
+        description: 'create offer LAUNCH',
+        destructive: false,
+        status: 'failed',
+      }),
+    ).toBe('x create offer LAUNCH - failed');
+    expect(
+      renderOfferAction({
+        description: 'create offer LAUNCH',
+        destructive: false,
+        status: 'skipped',
+      }),
+    ).toBe('- create offer LAUNCH');
+    expect(
+      renderOfferAction({
+        description: 'create offer LAUNCH',
+        destructive: false,
+        status: 'applied',
+      }),
+    ).toBe('+ create offer LAUNCH');
+
+    const renderOfferCode = renderOfferCodeState({ name: 'LAUNCH', active: true });
+
+    expect(renderOfferCode).toBe('[active] LAUNCH');
+    expect(renderOfferCodeState({ name: 'OLD', active: false })).toBe('[inactive] OLD');
+  }
+
+  it('uses ASCII action and campaign markers', usesASCIIActionAndCampaignMarkers);
+}
+
+describe('offers command renderers', describeOffersCommandRenderers);
+
+function describeHasOffersWork() {
+  function delegatesToAppDeclaresOffersAndRejectsAnUndefinedCatalog() {
+    const offerCatalog: AppProducts = {
+      subscriptionGroups: [
+        {
+          referenceName: 'Main',
+          localizations: [],
+          subscriptions: [
+            {
+              productId: 'com.acme.pro',
+              referenceName: 'Pro',
+              subscriptionPeriod: 'ONE_MONTH',
+              localizations: [],
+              winBackOffers: [
+                {
+                  offerId: 'return',
+                  referenceName: 'Return',
+                  duration: 'ONE_MONTH',
+                  offerMode: 'FREE_TRIAL',
+                  numberOfPeriods: 1,
+                  eligiblePaidMonths: 1,
+                  monthsSinceLastSubscribed: { min: 1, max: 6 },
+                  startDate: '2026-08-03',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(hasOffersWork(offerCatalog)).toBe(true);
+    expect(hasOffersWork({ promotedPurchases: [{ productId: 'com.acme.pro' }] })).toBe(true);
+    expect(hasOffersWork({})).toBe(false);
+    expect(hasOffersWork(undefined)).toBe(false);
+  }
+
+  it(
+    'delegates to appDeclaresOffers and rejects an undefined catalog',
+    delegatesToAppDeclaresOffersAndRejectsAnUndefinedCatalog,
+  );
+}
+
+describe('hasOffersWork', describeHasOffersWork);

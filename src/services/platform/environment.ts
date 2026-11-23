@@ -1,6 +1,6 @@
 // Reads Launch settings from the process environment and returns a named secret when asked.
 
-import { decodeLaunchEnvironment, type LaunchEnvironmentValues } from '@/config/environment.js';
+import { decodeLaunchEnvironment, type LaunchEnvironmentValues } from '../../config/environment.ts';
 
 type LaunchEnvironmentService = Readonly<{
   values: LaunchEnvironmentValues;

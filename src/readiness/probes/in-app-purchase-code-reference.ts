@@ -2,14 +2,14 @@
 
 import type { Stats } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
-import { errorMessage } from '@/services/platform/error-message.js';
-import type { AppDescriptor } from '@/types/app.js';
+import { errorMessage } from '../../services/platform/error-message.ts';
+import type { AppDescriptor } from '../../types/app.ts';
 import type {
   AppReadiness,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
+} from '../../types/readiness.ts';
 import { walkAppSource } from '../source-scan.ts';
 import { declaredAppleProductIds } from './in-app-purchase-readiness.ts';
 import { OMITTED_PROBE } from './credentials-skip.ts';

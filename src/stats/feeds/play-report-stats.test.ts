@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import type { DailyStat, DateRange } from '@/types/stats.js';
+import type { DailyStat, DateRange } from '../../types/stats.ts';
 import { readPlayCsvTable } from './play-csv-table.ts';
 import {
   findLastDayOfReportMonth,

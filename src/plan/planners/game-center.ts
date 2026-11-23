@@ -1,11 +1,11 @@
 // Compares App Store Connect Game Center achievements and leaderboards with local config.
 
-import { launchConfigForApp } from '@/config/config.js';
-import { reconcileGameCenter } from '@/apple/store/game-center.js';
+import { launchConfigForApp } from '../../config/config.ts';
+import { reconcileGameCenter } from '../../apple/game-center.ts';
 import { planAppStoreSurface } from './app-store-surface.ts';
-import type { AppDescriptor } from '@/types/app.js';
-import type { AscSurfacesApi, SurfacePlanner } from '@/types/plan.js';
-import type { GameCenterConfig } from '@/types/store-surface.js';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { AscSurfacesApi, SurfacePlanner } from '../../types/plan.ts';
+import type { GameCenterConfig } from '../../types/store-surface.ts';
 
 /** Surface id - also the value users pass as `launch-store plan game-center`. */
 const SURFACE = 'game-center';

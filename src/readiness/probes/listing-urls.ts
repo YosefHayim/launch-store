@@ -1,15 +1,15 @@
 // Checks that declared App Store Connect listing URLs answer with a successful status.
 
-import { launchConfigForApp } from '@/config/config.js';
-import type { AppleStoreConfig } from '@/store/shared/store-config.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { LaunchConfig } from '@/types/config.js';
+import { launchConfigForApp } from '../../config/config.ts';
+import type { AppleStoreConfig } from '../../store/shared/store-config.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { LaunchConfig } from '../../types/config.ts';
 import type {
   AppReadiness,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
+} from '../../types/readiness.ts';
 import { OMITTED_PROBE } from './credentials-skip.ts';
 
 type ListingUrl = {

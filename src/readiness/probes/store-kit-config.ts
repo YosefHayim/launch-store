@@ -1,13 +1,13 @@
 // Checks that an app selling products includes a StoreKit configuration file.
 
 import { relative } from 'node:path';
-import type { AppDescriptor } from '@/types/app.js';
+import type { AppDescriptor } from '../../types/app.ts';
 import type {
   AppReadiness,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
+} from '../../types/readiness.ts';
 import { walkAppSource } from '../source-scan.ts';
 import { declaredAppleProductIds } from './in-app-purchase-readiness.ts';
 import { OMITTED_PROBE } from './credentials-skip.ts';

@@ -90,27 +90,27 @@ import type { AscKey } from '../types/credentials.ts';
 import type { components } from '../apple-api-types.ts';
 import { platform as detectOperatingSystem } from 'node:os';
 import { retryAppleTransportRequest } from './transport-helpers.ts';
-import type { AscHost } from './connect/host.ts';
-import { ConnectApps } from './connect/apps.ts';
-import { ConnectBuilds } from './connect/builds.ts';
-import { ConnectVersions } from './connect/versions.ts';
-import { ConnectAppClips } from './connect/app-clips.ts';
-import { ConnectSigning } from './connect/signing.ts';
-import { ConnectSandbox } from './connect/sandbox.ts';
-import { ConnectPurchases } from './connect/purchases.ts';
-import { ConnectTestflight } from './connect/testflight.ts';
-import { ConnectAccessibility } from './connect/accessibility.ts';
-import { ConnectAvailability } from './connect/availability.ts';
-import { ConnectCustomProductPages } from './connect/custom-product-pages.ts';
-import { ConnectExperiments } from './connect/experiments.ts';
-import { ConnectPricing } from './connect/pricing.ts';
-import { ConnectReviews } from './connect/reviews.ts';
-import { ConnectTeam } from './connect/team.ts';
-import { ConnectReports } from './connect/reports.ts';
-import { ConnectEvents } from './connect/events.ts';
-import { ConnectScreenshots } from './connect/screenshots.ts';
-import { ConnectDistribution } from './connect/distribution.ts';
-import { ConnectGameCenter } from './connect/game-center.ts';
+import type { AscHost } from './host.ts';
+import { ConnectApps } from './apps.ts';
+import { ConnectBuilds } from './builds.ts';
+import { ConnectVersions } from './versions.ts';
+import { ConnectAppClips } from './app-store-connect-app-clips.ts';
+import { ConnectSigning } from './signing.ts';
+import { ConnectSandbox } from './app-store-connect-sandbox.ts';
+import { ConnectPurchases } from './purchases.ts';
+import { ConnectTestflight } from './testflight.ts';
+import { ConnectAccessibility } from './app-store-connect-accessibility.ts';
+import { ConnectAvailability } from './app-store-connect-availability.ts';
+import { ConnectCustomProductPages } from './app-store-connect-custom-product-pages.ts';
+import { ConnectExperiments } from './experiments.ts';
+import { ConnectPricing } from './pricing.ts';
+import { ConnectReviews } from './app-store-connect-reviews.ts';
+import { ConnectTeam } from './app-store-connect-team.ts';
+import { ConnectReports } from './app-store-connect-reports.ts';
+import { ConnectEvents } from './app-store-connect-events.ts';
+import { ConnectScreenshots } from './screenshots.ts';
+import { ConnectDistribution } from './distribution.ts';
+import { ConnectGameCenter } from './app-store-connect-game-center.ts';
 import {
   API_ORIGIN,
   BASE_URL,
@@ -126,7 +126,7 @@ import {
   clockSkewHint,
   describeErrors,
   parseErrorCodes,
-} from './connect/shared.ts';
+} from './shared.ts';
 import type {
   ProvisioningProfileType,
   LocaleCopy,
@@ -138,8 +138,8 @@ import type {
   PagedList,
   UploadOperation,
   AssetReservation,
-} from './connect/shared.ts';
-import type { AppleListQuery } from './connect/list-query.ts';
+} from './shared.ts';
+import type { AppleListQuery } from './list-query.ts';
 
 export class AppStoreConnectClient implements AscHost {
   private readonly apps: ConnectApps;

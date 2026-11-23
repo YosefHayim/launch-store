@@ -1,7 +1,7 @@
 // Removes testers from one TestFlight group after the operator confirms.
 
 import { createLogger } from '../services/platform/logger.ts';
-import { loadActiveAppleStore } from '@/apple/commands/apple-store-command.js';
+import { loadActiveAppleStore } from '../apple/apple-store-command.ts';
 import type { BetaTesterResource } from '../types/apple-catalog.ts';
 import {
   confirmAction,

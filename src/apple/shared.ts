@@ -1,0 +1,1521 @@
+// Holds the shared App Store Connect shapes, errors, tokens, and upload steps.
+
+import type { AscKey } from '../types/credentials.ts';
+import type { MutableDeep } from '../types/mutable.ts';
+import type { components } from '../apple-api-types.ts';
+import { createHash } from 'node:crypto';
+import { signAppStoreConnectToken } from './app-store-token.ts';
+import { open, readFile, stat, type FileHandle } from 'node:fs/promises';
+import { makeStoreUploadFailure, type StoreUploadFailure } from '../types/providers.ts';
+import { retryAppleTransportRequest } from './transport-helpers.ts';
+import {
+  type AccessibilityDeclarationResource,
+  type AccessibilitySupport,
+  type AnalyticsReportRequestResource,
+  type AppEventLocalizationResource,
+  type AppEventResource,
+  type AppStoreVersionResource,
+  type BetaFeedbackSubmissionResource,
+  type BuildResource,
+  type BuildUploadProblem,
+  type CustomerReviewResponseResource,
+  type DeviceFamily,
+  type PhasedReleaseResource,
+  type PricePointResource,
+  ACCESSIBILITY_SUPPORT_KEYS,
+} from '../types/apple-catalog.ts';
+import { readPlainObject } from '../services/platform/plain-object.ts';
+import { isFailureTag } from '../services/platform/tagged-failure.ts';
+import type { AppleListQuery } from './list-query.ts';
+
+export const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
+export const BASE_URL = `${API_ORIGIN}/v1`;
+const tokenReuseSeconds = 15 * 60;
+const mintedTokens = new Map<string, Readonly<{ token: string; issuedAt: number }>>();
+const ASSET_UPLOAD_CONCURRENCY = 4;
+
+export const DISTRIBUTION_CERT_TYPE = 'DISTRIBUTION';
+
+export const APP_STORE_PROFILE_TYPE = 'IOS_APP_STORE';
+
+export const AD_HOC_PROFILE_TYPE = 'IOS_APP_ADHOC';
+
+export type ProvisioningProfileType = NonNullable<
+  NonNullable<components['schemas']['Profile']['attributes']>['profileType']
+>;
+
+export const REQUIRED_AGREEMENTS_ERROR_CODE = 'REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED';
+
+export const IOS_DEVICE_PLATFORM = 'IOS';
+
+export const EDITABLE_VERSION_STATES = new Set<string>([
+  'PREPARE_FOR_SUBMISSION',
+  'METADATA_REJECTED',
+  'DEVELOPER_REJECTED',
+  'REJECTED',
+  'INVALID_BINARY',
+]);
+
+export const EDITABLE_APPINFO_STATES = new Set<string>([
+  'PREPARE_FOR_SUBMISSION',
+  'DEVELOPER_REJECTED',
+  'REJECTED',
+]);
+
+export const LIVE_STATES = new Set<string>([
+  'READY_FOR_DISTRIBUTION',
+  'READY_FOR_SALE',
+  'PREORDER_READY_FOR_SALE',
+]);
+
+export const APP_INFO_LISTING_FIELDS = ['name', 'subtitle', 'privacyPolicyUrl'] as const;
+
+export const VERSION_LISTING_FIELDS = [
+  'description',
+  'keywords',
+  'whatsNew',
+  'promotionalText',
+  'supportUrl',
+  'marketingUrl',
+] as const;
+
+type AscError = {
+  status?: string;
+  code?: string;
+  title?: string;
+  detail?: string;
+  source?: {
+    pointer?: string;
+    parameter?: string;
+  };
+  meta?: {
+    associatedErrors?: Record<string, readonly AscError[]>;
+  };
+};
+
+export interface VersionedLocalizationResources {
+  versionsUrl: (parentId: string) => string;
+  versionType: string;
+  parentRelationship: string;
+  parentType: string;
+  localizationType: string;
+}
+
+export interface ProductVersion {
+  id: string;
+  attributes: { state?: string; version?: number };
+}
+
+export interface LocaleCopy {
+  locale: string;
+  name: string;
+  description?: string | undefined;
+}
+export const IN_APP_PURCHASE_VERSION_RESOURCES: VersionedLocalizationResources = {
+  versionsUrl(parentId) {
+    return `${API_ORIGIN}/v2/inAppPurchases/${parentId}/versions`;
+  },
+  versionType: 'inAppPurchaseVersions',
+  parentRelationship: 'inAppPurchase',
+  parentType: 'inAppPurchases',
+  localizationType: 'inAppPurchaseLocalizations',
+};
+export const SUBSCRIPTION_VERSION_RESOURCES: VersionedLocalizationResources = {
+  versionsUrl(parentId) {
+    return `${BASE_URL}/subscriptions/${parentId}/versions`;
+  },
+  versionType: 'subscriptionVersions',
+  parentRelationship: 'subscription',
+  parentType: 'subscriptions',
+  localizationType: 'subscriptionLocalizations',
+};
+export const SUBSCRIPTION_GROUP_VERSION_RESOURCES: VersionedLocalizationResources = {
+  versionsUrl(parentId) {
+    return `${BASE_URL}/subscriptionGroups/${parentId}/versions`;
+  },
+  versionType: 'subscriptionGroupVersions',
+  parentRelationship: 'subscriptionGroup',
+  parentType: 'subscriptionGroups',
+  localizationType: 'subscriptionGroupLocalizations',
+};
+
+function isDraftVersion(version: ProductVersion) {
+  return version.attributes.state == 'PREPARE_FOR_SUBMISSION';
+}
+
+export function pickDraftVersion(versions: ProductVersion[]): ProductVersion | null {
+  return versions.find(isDraftVersion) ?? null;
+}
+
+export function pickNewestVersion(versions: ProductVersion[]): ProductVersion | null {
+  function sortFirstVersion(firstVersion: ProductVersion, secondVersion: ProductVersion) {
+    return (secondVersion.attributes.version ?? 0) - (firstVersion.attributes.version ?? 0);
+  }
+
+  const versionsNewestFirst = [...versions].sort(sortFirstVersion);
+  const [newestVersion] = versionsNewestFirst;
+
+  const hasNoVersion = newestVersion == null;
+
+  if (hasNoVersion) return null;
+
+  return newestVersion;
+}
+
+export class AscRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly codes: readonly string[] = [],
+  ) {
+    super(message);
+    this.name = 'AscRequestError';
+  }
+}
+
+export class AscAvailabilityUpdateError {
+  readonly _tag = 'AscAvailabilityUpdateError' as const;
+  readonly message: string;
+  readonly missingTerritories: readonly string[];
+
+  constructor(fields: {
+    readonly message: string;
+    readonly missingTerritories: readonly string[];
+  }) {
+    this.message = fields.message;
+    this.missingTerritories = fields.missingTerritories;
+  }
+}
+
+export function isRetryableAscError(error: unknown): boolean {
+  if (!(error instanceof AscRequestError)) return false;
+
+  if (error.status == 429) return true;
+
+  return error.status >= 500;
+}
+
+export function isRejectedToken(requestFailure: unknown): boolean {
+  return requestFailure instanceof AscRequestError && requestFailure.status == 401;
+}
+
+export function isRetryableIdempotentFailure(requestFailure: unknown): boolean {
+  if (requestFailure instanceof TypeError) return true;
+
+  return isRetryableAscError(requestFailure);
+}
+
+export type AccessibilityDeclarationAttributes = AccessibilitySupport & {
+  deviceFamily?: DeviceFamily;
+  state?: AccessibilityDeclarationResource['state'];
+};
+
+export type AppEventAttributes = {
+  referenceName?: string;
+  badge?: string | null;
+  eventState?: string;
+  primaryLocale?: string | null;
+  deepLink?: string | null;
+  priority?: string | null;
+  purpose?: string | null;
+};
+
+export type AppEventLocalizationAttributes = {
+  locale?: string;
+  name?: string | null;
+  shortDescription?: string | null;
+  longDescription?: string | null;
+};
+
+export type ResourceList<A> = {
+  data: {
+    id: string;
+    attributes: A;
+  }[];
+};
+
+export type AppInfoStates = {
+  state?: string;
+  appStoreState?: string;
+};
+
+export type VersionStates = {
+  appStoreState: string;
+};
+
+export function findAppInfoId(
+  appInfos: ResourceList<AppInfoStates>['data'],
+  states: ReadonlySet<string>,
+): string | null {
+  function isListedAppInfo(candidate: { id: string; attributes: AppInfoStates }) {
+    let state = candidate.attributes.state;
+
+    if (state == null) state = candidate.attributes.appStoreState;
+
+    return state != null && states.has(state);
+  }
+
+  const appInformation = appInfos.find(isListedAppInfo);
+
+  if (appInformation == null) return null;
+
+  return appInformation.id;
+}
+
+export function findVersionId(
+  versions: ResourceList<VersionStates>['data'],
+  states: ReadonlySet<string>,
+): string | null {
+  function isListedVersion(candidate: { id: string; attributes: VersionStates }) {
+    return states.has(candidate.attributes.appStoreState);
+  }
+
+  const version = versions.find(isListedVersion);
+
+  if (version == null) return null;
+
+  return version.id;
+}
+
+export type ResourceSingle<A> = {
+  data: {
+    id: string;
+    attributes: A;
+  };
+};
+
+export type AppleResource<Attributes> = {
+  id: string;
+  attributes: Attributes;
+  relationships?: { build?: { data?: { id: string } | null } };
+};
+
+export type PagedList<A> = {
+  data: AppleResource<A>[];
+  links?: {
+    next?: string;
+  };
+};
+
+export type UploadOperation = {
+  method?: string;
+  url: string;
+  length?: number;
+  offset?: number;
+  requestHeaders?: {
+    name?: string;
+    value?: string;
+  }[];
+};
+
+export type AssetReservation = {
+  data: {
+    id: string;
+    attributes: {
+      uploadOperations?: UploadOperation[];
+    };
+  };
+};
+
+// Apple 409s an inline-created included resource (ENTITY_ERROR.INCLUDED.INVALID_ID) unless its id is
+// a local id written as ${local-id}; the relationship references the same string.
+export function inlinePriceId(index: number): string {
+  return `\${price-${index}}`;
+}
+
+export function md5Hex(bytes: Buffer): string {
+  return createHash('md5').update(bytes).digest('hex');
+}
+
+export async function readTransportFile(filePath: string): Promise<Buffer> {
+  try {
+    return await readFile(filePath);
+  } catch (error) {
+    throw new Error(`Could not read ${filePath}`, { cause: error });
+  }
+}
+
+export async function readTransportSize(filePath: string): Promise<number> {
+  try {
+    const fileStats = await stat(filePath);
+
+    return fileStats.size;
+  } catch (error) {
+    throw new Error(`Could not read ${filePath}`, { cause: error });
+  }
+}
+
+async function readTransportRange(
+  filePath: string,
+  offset: number,
+  byteCount: number,
+): Promise<Buffer> {
+  const fileHandle = await openTransportFile(filePath);
+
+  try {
+    const rangeBuffer = Buffer.alloc(byteCount);
+    const fileRead = await fileHandle.read(rangeBuffer, 0, byteCount, offset);
+
+    const isComplete = fileRead.bytesRead == byteCount;
+
+    if (isComplete) return rangeBuffer;
+
+    throw makeStoreUploadFailure({
+      provider: 'app-store-connect',
+      message: `Read ${fileRead.bytesRead} of ${byteCount} bytes at offset ${offset} from ${filePath}; the file changed during the upload.`,
+    });
+  } catch (error) {
+    const isUploadFailure = isStoreUploadFailure(error);
+
+    if (isUploadFailure) throw error;
+
+    throw new Error(`Could not read ${filePath}`, { cause: error });
+  } finally {
+    await closeTransportFile(fileHandle);
+  }
+}
+
+async function openTransportFile(filePath: string): Promise<FileHandle> {
+  try {
+    return await open(filePath, 'r');
+  } catch (error) {
+    throw new Error(`Could not read ${filePath}`, { cause: error });
+  }
+}
+
+async function closeTransportFile(fileHandle: FileHandle): Promise<void> {
+  try {
+    await fileHandle.close();
+  } catch (error) {
+    throw new Error('Could not close the upload file', { cause: error });
+  }
+}
+
+function isStoreUploadFailure(error: unknown): error is StoreUploadFailure {
+  return isFailureTag(error, 'StoreUploadFailure');
+}
+
+export function pickListingFields(
+  attributes: Record<string, unknown>,
+  keys: readonly string[],
+): Record<string, string> {
+  const fields: Record<string, string> = {};
+
+  for (const key of keys) {
+    const fieldValue = attributes[key];
+
+    if (typeof fieldValue == 'string' && fieldValue.length > 0) fields[key] = fieldValue;
+  }
+
+  return fields;
+}
+
+export function pickAccessibilitySupport(
+  attributes: Partial<AccessibilitySupport>,
+): AccessibilitySupport {
+  const support: MutableDeep<AccessibilitySupport> = {};
+
+  for (const key of ACCESSIBILITY_SUPPORT_KEYS) {
+    const fieldValue = attributes[key];
+
+    if (typeof fieldValue == 'boolean') support[key] = fieldValue;
+  }
+
+  return support;
+}
+
+export type CustomerReviewPage = {
+  data: {
+    id: string;
+    attributes: {
+      rating?: number;
+      title?: string;
+      body?: string;
+      reviewerNickname?: string;
+      territory?: string;
+      createdDate?: string;
+    };
+    relationships?: {
+      response?: {
+        data?: {
+          id: string;
+        } | null;
+      };
+    };
+  }[];
+  links?: {
+    next?: string;
+  };
+};
+
+export type BetaFeedbackPage = {
+  data: {
+    id: string;
+    attributes?: {
+      createdDate?: string;
+      comment?: string | null;
+      email?: string | null;
+      deviceModel?: string | null;
+      osVersion?: string | null;
+      screenshots?: {
+        url?: string;
+        width?: number;
+        height?: number;
+      }[];
+    };
+    relationships?: {
+      build?: {
+        data?: {
+          id: string;
+        } | null;
+      };
+    };
+  }[];
+  included?: {
+    type: string;
+    id: string;
+    attributes?: {
+      version?: string;
+    };
+  }[];
+  links?: {
+    next?: string;
+  };
+};
+export const BUILD_PAGE_QUERY: AppleListQuery = {
+  'fields[builds]': 'version,processingState,uploadedDate,expired,preReleaseVersion',
+  include: 'preReleaseVersion',
+  'fields[preReleaseVersions]': 'version',
+};
+
+export function createMarketingVersionFilter(marketingVersion: string | undefined): string {
+  const isMarketingVersionGiven = marketingVersion != null;
+
+  if (!isMarketingVersionGiven) return '';
+
+  return `&filter[preReleaseVersion.version]=${marketingVersion}`;
+}
+
+type BuildPageIncluded = {
+  type: string;
+  id: string;
+  attributes?: {
+    version?: string;
+    processingState?: string;
+  };
+};
+
+export type AppStoreVersionPage = PagedList<{
+  versionString?: string;
+  appStoreState?: string;
+  releaseType?: string;
+}> & {
+  included?: BuildPageIncluded[];
+};
+
+export type BuildPage = {
+  data: {
+    id: string;
+    attributes: {
+      version?: string;
+      processingState?: string;
+      uploadedDate?: string;
+      expired?: boolean;
+    };
+    relationships?: {
+      preReleaseVersion?: {
+        data?: {
+          id: string;
+        } | null;
+      };
+    };
+  }[];
+  included?: BuildPageIncluded[];
+};
+
+export type BetaFeedbackRow = {
+  base: BetaFeedbackSubmissionResource;
+  screenshots: {
+    url: string;
+    width?: number;
+    height?: number;
+  }[];
+};
+
+export type TerritoryAvailabilityRow = {
+  id: string;
+  attributes?: {
+    available?: boolean;
+  };
+  relationships?: {
+    territory?: {
+      data?: {
+        id: string;
+      } | null;
+    };
+  };
+};
+
+export type TerritoryAvailabilityPage = {
+  data: TerritoryAvailabilityRow[];
+  links?: {
+    next?: string;
+  };
+};
+
+export const TERRITORY_AVAILABILITY_UPDATE_CONCURRENCY = 8;
+
+export type PromotedPurchasePage = {
+  data: {
+    id: string;
+    attributes?: {
+      enabled?: boolean;
+      visibleForAllUsers?: boolean;
+    };
+    relationships?: {
+      inAppPurchaseV2?: {
+        data?: {
+          id: string;
+        } | null;
+      };
+      subscription?: {
+        data?: {
+          id: string;
+        } | null;
+      };
+    };
+  }[];
+  links?: {
+    next?: string;
+  };
+};
+
+export type AppClipExperiencePage = {
+  data: {
+    id: string;
+    attributes?: {
+      action?: string;
+    };
+    relationships?: {
+      releaseWithAppStoreVersion?: {
+        data?: {
+          id: string;
+        } | null;
+      };
+    };
+  }[];
+  links?: {
+    next?: string;
+  };
+};
+
+export const EDITABLE_METADATA_STATES = new Set<string>([
+  'PREPARE_FOR_SUBMISSION',
+  'DEVELOPER_REJECTED',
+  'REJECTED',
+  'METADATA_REJECTED',
+  'INVALID_BINARY',
+]);
+
+async function mintToken(key: AscKey, issuedAt: number): Promise<string> {
+  return signAppStoreConnectToken(key, issuedAt);
+}
+
+function tokenCacheKey(key: AscKey): string {
+  return `${key.issuerId}:${key.keyId}`;
+}
+
+export function forgetToken(key: AscKey): void {
+  const tokenKey = tokenCacheKey(key);
+  mintedTokens.delete(tokenKey);
+}
+
+export async function reusableToken(key: AscKey): Promise<string> {
+  const tokenKey = tokenCacheKey(key);
+  const currentSeconds = Math.floor(Date.now() / 1000);
+  const mintedToken = mintedTokens.get(tokenKey);
+
+  if (
+    mintedToken != null &&
+    currentSeconds >= mintedToken.issuedAt &&
+    currentSeconds - mintedToken.issuedAt < tokenReuseSeconds
+  ) {
+    return mintedToken.token;
+  }
+
+  const token = await mintToken(key, currentSeconds);
+
+  mintedTokens.set(tokenKey, { token, issuedAt: currentSeconds });
+
+  return token;
+}
+
+async function putAssetChunk(
+  operation: UploadOperation,
+  filePath: string,
+  fileByteLength: number,
+): Promise<void> {
+  let offset = operation.offset;
+
+  if (offset == null) offset = 0;
+
+  let operationLength = operation.length;
+
+  if (operationLength == null) operationLength = fileByteLength - offset;
+
+  const chunk = await readTransportRange(filePath, offset, operationLength);
+  const headers: Record<string, string> = {};
+  let requestHeaders = operation.requestHeaders;
+
+  if (requestHeaders == null) requestHeaders = [];
+
+  for (const header of requestHeaders) {
+    if (header.name && header.value != null) headers[header.name] = header.value;
+  }
+
+  let requestMethod = operation.method;
+
+  if (requestMethod == null) requestMethod = 'PUT';
+
+  const uploadMethod = requestMethod;
+
+  async function retryAppleTransportRequestPiece() {
+    const appleResponse = await fetch(operation.url, {
+      method: uploadMethod,
+      headers,
+      body: chunk as Uint8Array<ArrayBuffer>,
+    });
+
+    if (!appleResponse.ok) {
+      throw new AscRequestError(
+        `asset upload chunk failed (${appleResponse.status})`,
+        appleResponse.status,
+      );
+    }
+  }
+
+  await retryAppleTransportRequest(retryAppleTransportRequestPiece, {
+    isRetryableFailure: isRetryableIdempotentFailure,
+  });
+}
+
+export function buildUploadProblems(
+  stateDetails: readonly components['schemas']['StateDetail'][] | undefined,
+): BuildUploadProblem[] {
+  if (stateDetails == null) return [];
+
+  function copyUploadProblem(stateDetail: { code?: string; description?: string }) {
+    let code = stateDetail.code;
+
+    if (code == null) code = '';
+
+    let description = stateDetail.description;
+
+    if (description == null) description = '';
+
+    return { code, description };
+  }
+
+  return stateDetails.map(copyUploadProblem);
+}
+
+export async function putAssetFile(
+  operations: readonly UploadOperation[],
+  filePath: string,
+  fileByteLength: number,
+): Promise<void> {
+  for (let batchStart = 0; batchStart < operations.length; batchStart += ASSET_UPLOAD_CONCURRENCY) {
+    const operationBatch = operations.slice(batchStart, batchStart + ASSET_UPLOAD_CONCURRENCY);
+
+    function sendAssetChunk(operation: {
+      method?: string;
+      url: string;
+      length?: number;
+      offset?: number;
+      requestHeaders?: { name?: string; value?: string }[];
+    }) {
+      return putAssetChunk(operation, filePath, fileByteLength);
+    }
+
+    const chunkUploads = operationBatch.map(sendAssetChunk);
+    // biome-ignore lint/performance/noAwaitInLoops: bounded batches - each part is its own byte range, so a batch uploads in parallel without flooding Apple's CDN
+    const settledChunkUploads = await Promise.allSettled(chunkUploads);
+
+    function isRejectedChunkUpload(
+      chunkUpload: PromiseRejectedResult | PromiseFulfilledResult<void>,
+    ): chunkUpload is PromiseRejectedResult {
+      return chunkUpload.status == 'rejected';
+    }
+
+    const failedChunkUpload = settledChunkUploads.find(isRejectedChunkUpload);
+
+    if (failedChunkUpload != null) return Promise.reject(failedChunkUpload.reason);
+  }
+}
+
+interface AppleAppSummary {
+  id: string;
+  name: string;
+  bundleId: string | null;
+}
+
+function readNonEmptyAttribute(attribute: string | undefined): string | null {
+  const isAttributePresent = typeof attribute == 'string' && attribute.length > 0;
+
+  if (isAttributePresent) return attribute;
+
+  return null;
+}
+
+export function summarizeAppleApp(appleResource: {
+  id: string;
+  attributes: { name?: string; bundleId?: string };
+}): AppleAppSummary {
+  const name = readNonEmptyAttribute(appleResource.attributes.name);
+  const bundleId = readNonEmptyAttribute(appleResource.attributes.bundleId);
+
+  const isNameMissing = name == null;
+
+  if (isNameMissing) return { id: appleResource.id, name: appleResource.id, bundleId };
+
+  return { id: appleResource.id, name, bundleId };
+}
+
+function readBuildResource(
+  entry: BuildPage['data'][number],
+  preReleaseVersions: readonly BuildPageIncluded[],
+): BuildResource {
+  let version = entry.attributes.version;
+
+  if (version == null) version = '';
+
+  let processingState = entry.attributes.processingState;
+
+  if (processingState == null) processingState = '';
+
+  let expired = entry.attributes.expired;
+
+  if (expired == null) expired = false;
+
+  const buildResource: BuildResource = {
+    id: entry.id,
+    version,
+    processingState,
+    expired,
+  };
+
+  if (entry.attributes.uploadedDate != null)
+    Object.assign(buildResource, { uploadedDate: entry.attributes.uploadedDate });
+
+  const preReleaseVersionId = entry.relationships?.preReleaseVersion?.data?.id;
+
+  function isAttachedPreReleaseVersion(includedResource: {
+    type: string;
+    id: string;
+    attributes?: { version?: string; processingState?: string };
+  }) {
+    return (
+      includedResource.type == 'preReleaseVersions' && includedResource.id == preReleaseVersionId
+    );
+  }
+
+  const preReleaseVersion = preReleaseVersions.find(isAttachedPreReleaseVersion);
+  const marketingVersion = preReleaseVersion?.attributes?.version;
+
+  if (marketingVersion != null) Object.assign(buildResource, { marketingVersion });
+
+  return buildResource;
+}
+
+export function readBuildResources({ data: builds, included = [] }: BuildPage): BuildResource[] {
+  function copyBuildResource(entry: {
+    id: string;
+    attributes: {
+      version?: string;
+      processingState?: string;
+      uploadedDate?: string;
+      expired?: boolean;
+    };
+    relationships?: { preReleaseVersion?: { data?: { id: string } | null } };
+  }) {
+    return readBuildResource(entry, included);
+  }
+
+  return builds.map(copyBuildResource);
+}
+
+export function readVersionResource(
+  entry: AppleResource<{
+    versionString?: string;
+    appStoreState?: string;
+    releaseType?: string;
+  }>,
+  fallbackVersion: string = '',
+  includedBuilds: readonly BuildPageIncluded[] = [],
+): AppStoreVersionResource {
+  let versionString = entry.attributes.versionString;
+
+  if (versionString == null) versionString = fallbackVersion;
+
+  let appStoreState = entry.attributes.appStoreState;
+
+  if (appStoreState == null) appStoreState = '';
+
+  const releaseType = entry.attributes.releaseType;
+  const attachedBuildId = entry.relationships?.build?.data?.id;
+  const isBuildAttached = attachedBuildId != null;
+
+  function isAttachedBuild(includedBuild: {
+    type: string;
+    id: string;
+    attributes?: { version?: string; processingState?: string };
+  }) {
+    return includedBuild.type == 'builds' && includedBuild.id == attachedBuildId;
+  }
+
+  const attachedBuild = includedBuilds.find(isAttachedBuild);
+  const attachedBuildNumber = attachedBuild?.attributes?.version;
+  const attachedBuildProcessingState = attachedBuild?.attributes?.processingState;
+  const version: AppStoreVersionResource = {
+    id: entry.id,
+    versionString,
+    appStoreState,
+    ...(releaseType != null && { releaseType }),
+    ...(isBuildAttached && { attachedBuildId }),
+    ...(attachedBuildNumber != null && { attachedBuildNumber }),
+    ...(attachedBuildProcessingState != null && { attachedBuildProcessingState }),
+  };
+
+  return version;
+}
+
+export function readPhasedRelease(entry: {
+  id: string;
+  attributes: {
+    phasedReleaseState?: string;
+    currentDayNumber?: number;
+  };
+}): PhasedReleaseResource {
+  let phasedReleaseState = entry.attributes.phasedReleaseState;
+
+  if (phasedReleaseState == null) phasedReleaseState = '';
+
+  const phasedRelease: PhasedReleaseResource = {
+    id: entry.id,
+    phasedReleaseState,
+  };
+
+  if (entry.attributes.currentDayNumber != null)
+    Object.assign(phasedRelease, { currentDayNumber: entry.attributes.currentDayNumber });
+
+  return phasedRelease;
+}
+
+export function matchPricePoint(
+  points: {
+    id: string;
+    attributes: {
+      customerPrice?: string;
+      territory?: string;
+    };
+  }[],
+  territory: string,
+  customerPrice: number,
+): PricePointResource | null {
+  for (const point of points) {
+    const price = point.attributes.customerPrice;
+
+    if (price != null && Number.parseFloat(price) == customerPrice) {
+      let priceTerritory = point.attributes.territory;
+
+      if (priceTerritory == null) priceTerritory = territory;
+
+      return {
+        id: point.id,
+        customerPrice: price,
+        territory: priceTerritory,
+      };
+    }
+  }
+
+  return null;
+}
+
+export function readFeedbackScreenshots(
+  raw:
+    | {
+        url?: string;
+        width?: number;
+        height?: number;
+      }[]
+    | undefined,
+): {
+  url: string;
+  width?: number;
+  height?: number;
+}[] {
+  if (!raw) return [];
+
+  function readFeedbackScreenshot(screenshot: { url?: string; width?: number; height?: number }) {
+    const screenshotUrl = screenshot.url;
+
+    if (screenshotUrl == null) return [];
+
+    const feedbackScreenshot: { url: string; width?: number; height?: number } = {
+      url: screenshotUrl,
+    };
+
+    if (screenshot.width != null) Object.assign(feedbackScreenshot, { width: screenshot.width });
+
+    if (screenshot.height != null) Object.assign(feedbackScreenshot, { height: screenshot.height });
+
+    return [feedbackScreenshot];
+  }
+
+  return raw.flatMap(readFeedbackScreenshot);
+}
+
+export function readReviewResponse(appleResources: {
+  id: string;
+  attributes: {
+    responseBody?: string;
+    state?: string;
+    lastModifiedDate?: string;
+  };
+}): CustomerReviewResponseResource {
+  let responseBody = appleResources.attributes.responseBody;
+
+  if (responseBody == null) responseBody = '';
+
+  const reviewResponse: CustomerReviewResponseResource = {
+    id: appleResources.id,
+    responseBody,
+  };
+
+  if (appleResources.attributes.state != null)
+    Object.assign(reviewResponse, { state: appleResources.attributes.state });
+
+  if (appleResources.attributes.lastModifiedDate != null)
+    Object.assign(reviewResponse, { lastModifiedDate: appleResources.attributes.lastModifiedDate });
+
+  return reviewResponse;
+}
+
+export function readAppEvent(
+  appleEvent: {
+    id: string;
+    attributes: AppEventAttributes;
+  },
+  fallbackReferenceName: string,
+): AppEventResource {
+  let referenceName = appleEvent.attributes.referenceName;
+
+  if (referenceName == null) referenceName = fallbackReferenceName;
+
+  const appEvent: AppEventResource = { id: appleEvent.id, referenceName };
+
+  if (typeof appleEvent.attributes.badge == 'string')
+    Object.assign(appEvent, { badge: appleEvent.attributes.badge });
+
+  if (appleEvent.attributes.eventState != null)
+    Object.assign(appEvent, { eventState: appleEvent.attributes.eventState });
+
+  if (typeof appleEvent.attributes.primaryLocale == 'string')
+    Object.assign(appEvent, { primaryLocale: appleEvent.attributes.primaryLocale });
+
+  if (typeof appleEvent.attributes.deepLink == 'string')
+    Object.assign(appEvent, { deepLink: appleEvent.attributes.deepLink });
+
+  if (typeof appleEvent.attributes.priority == 'string')
+    Object.assign(appEvent, { priority: appleEvent.attributes.priority });
+
+  if (typeof appleEvent.attributes.purpose == 'string')
+    Object.assign(appEvent, { purpose: appleEvent.attributes.purpose });
+
+  return appEvent;
+}
+
+export function readAppEventLocalization(
+  appleResources: {
+    id: string;
+    attributes: AppEventLocalizationAttributes;
+  },
+  fallbackLocale: string,
+): AppEventLocalizationResource {
+  let locale = appleResources.attributes.locale;
+
+  if (locale == null) locale = fallbackLocale;
+
+  const eventLocalization: AppEventLocalizationResource = {
+    id: appleResources.id,
+    locale,
+  };
+
+  if (typeof appleResources.attributes.name == 'string')
+    Object.assign(eventLocalization, { name: appleResources.attributes.name });
+
+  if (typeof appleResources.attributes.shortDescription == 'string')
+    Object.assign(eventLocalization, {
+      shortDescription: appleResources.attributes.shortDescription,
+    });
+
+  if (typeof appleResources.attributes.longDescription == 'string')
+    Object.assign(eventLocalization, {
+      longDescription: appleResources.attributes.longDescription,
+    });
+
+  return eventLocalization;
+}
+
+export function readReportRequest(
+  entry: {
+    id: string;
+    attributes: {
+      accessType?: string;
+      stoppedDueToInactivity?: boolean;
+    };
+  },
+  fallbackAccessType: string,
+): AnalyticsReportRequestResource {
+  let accessType = entry.attributes.accessType;
+
+  if (accessType == null) accessType = fallbackAccessType;
+
+  const reportRequest: AnalyticsReportRequestResource = {
+    id: entry.id,
+    accessType,
+  };
+
+  if (entry.attributes.stoppedDueToInactivity != null)
+    Object.assign(reportRequest, {
+      stoppedDueToInactivity: entry.attributes.stoppedDueToInactivity,
+    });
+
+  return reportRequest;
+}
+
+export function clockSkewHint(args: {
+  appleDate: string | null;
+  nowMs: number;
+  platform: NodeJS.Platform;
+}): string {
+  if (args.platform != 'darwin') return '';
+
+  if (args.appleDate == null) return '';
+
+  const appleMs = Date.parse(args.appleDate);
+
+  if (Number.isNaN(appleMs)) return '';
+
+  const skewSeconds = Math.abs(args.nowMs - appleMs) / 1000;
+  const clockSkewToleranceSeconds = 60;
+
+  if (skewSeconds < clockSkewToleranceSeconds) return '';
+
+  let drift = `~${Math.round(skewSeconds)} seconds`;
+
+  if (skewSeconds >= 120) drift = `~${Math.round(skewSeconds / 60)} minutes`;
+
+  return ` Your Mac's clock is off by ${drift} from Apple's, which makes the signed token read as expired - run \`sudo sntp -sS time.apple.com\` to resync, then retry.`;
+}
+
+type TextField = {
+  readonly kind: 'missing' | 'present' | 'invalid';
+  readonly written: string | null;
+};
+
+type PointerGroup =
+  | { readonly kind: 'missing' }
+  | { readonly kind: 'invalid' }
+  | { readonly kind: 'present'; readonly pointerGroup: { pointer?: string; parameter?: string } };
+
+type MetaGroup =
+  | { readonly kind: 'missing' }
+  | { readonly kind: 'invalid' }
+  | {
+      readonly kind: 'present';
+      readonly metaGroup: { associatedErrors?: Record<string, readonly AscError[]> };
+    };
+
+interface AscErrorDraft {
+  readonly statusField: TextField;
+  readonly codeField: TextField;
+  readonly titleField: TextField;
+  readonly detailField: TextField;
+  readonly pointerGroup: PointerGroup;
+  readonly metaGroup: MetaGroup;
+}
+
+function readOptionalString(appleFields: Record<string, unknown>, key: string): TextField {
+  const hasKey = Object.hasOwn(appleFields, key);
+
+  if (hasKey == false) return { kind: 'missing', written: null };
+
+  const field = appleFields[key];
+
+  if (typeof field == 'string') return { kind: 'present', written: field };
+
+  return { kind: 'invalid', written: null };
+}
+
+function copyOptionalString(
+  appleError: AscError,
+  key: 'status' | 'code' | 'title' | 'detail',
+  field: TextField,
+): void {
+  const written = field.written;
+
+  if (written == null) return;
+
+  appleError[key] = written;
+}
+
+function writePointer(
+  pointerGroup: { pointer?: string; parameter?: string },
+  pointerField: TextField,
+): void {
+  const written = pointerField.written;
+
+  if (written == null) return;
+
+  pointerGroup.pointer = written;
+}
+
+function writeParameter(
+  pointerGroup: { pointer?: string; parameter?: string },
+  parameterField: TextField,
+): void {
+  const written = parameterField.written;
+
+  if (written == null) return;
+
+  pointerGroup.parameter = written;
+}
+
+function readOptionalPointerGroup(appleFields: Record<string, unknown>): PointerGroup {
+  const hasPointerGroup = Object.hasOwn(appleFields, 'source');
+
+  if (hasPointerGroup == false) return { kind: 'missing' };
+
+  const field = appleFields['source'];
+
+  const fieldObject = readPlainObject(field);
+
+  if (fieldObject != null) return readPointerGroup(fieldObject);
+
+  return { kind: 'invalid' };
+}
+
+function readPointerGroup(appleFields: Record<string, unknown>): PointerGroup {
+  const pointerField = readOptionalString(appleFields, 'pointer');
+
+  const isPointerInvalid = pointerField.kind == 'invalid';
+
+  if (isPointerInvalid) return { kind: 'invalid' };
+
+  const parameterField = readOptionalString(appleFields, 'parameter');
+
+  const isParameterInvalid = parameterField.kind == 'invalid';
+
+  if (isParameterInvalid) return { kind: 'invalid' };
+
+  const pointerGroup: { pointer?: string; parameter?: string } = {};
+
+  writePointer(pointerGroup, pointerField);
+  writeParameter(pointerGroup, parameterField);
+
+  return { kind: 'present', pointerGroup };
+}
+
+function readAscErrors(candidate: unknown): readonly AscError[] | null {
+  if (Array.isArray(candidate)) return readAscErrorList(candidate);
+
+  return null;
+}
+
+function readAscErrorList(listedErrors: readonly unknown[]): readonly AscError[] | null {
+  const errors: AscError[] = [];
+
+  for (const listedError of listedErrors) {
+    const appleError = readAscError(listedError);
+
+    const isInvalid = appleError == null;
+
+    if (isInvalid) return null;
+
+    errors.push(appleError);
+  }
+
+  return errors;
+}
+
+function readAssociatedErrors(candidate: unknown): Record<string, readonly AscError[]> | null {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject != null) return readAssociatedErrorObject(candidateObject);
+
+  return null;
+}
+
+function readAssociatedErrorObject(
+  appleFields: Record<string, unknown>,
+): Record<string, readonly AscError[]> | null {
+  const associated: Record<string, readonly AscError[]> = {};
+
+  for (const resourcePath of Object.keys(appleFields)) {
+    const errors = readAscErrors(appleFields[resourcePath]);
+
+    const isInvalid = errors == null;
+
+    if (isInvalid) return null;
+
+    associated[resourcePath] = errors;
+  }
+
+  return associated;
+}
+
+function readOptionalMetaGroup(appleFields: Record<string, unknown>): MetaGroup {
+  const hasMeta = Object.hasOwn(appleFields, 'meta');
+
+  if (hasMeta == false) return { kind: 'missing' };
+
+  const field = appleFields['meta'];
+
+  const fieldObject = readPlainObject(field);
+
+  if (fieldObject != null) return readMetaGroup(fieldObject);
+
+  return { kind: 'invalid' };
+}
+
+function readMetaGroup(appleFields: Record<string, unknown>): MetaGroup {
+  const hasAssociated = Object.hasOwn(appleFields, 'associatedErrors');
+
+  if (hasAssociated == false) return { kind: 'present', metaGroup: {} };
+
+  const associatedErrors = readAssociatedErrors(appleFields['associatedErrors']);
+
+  const isInvalid = associatedErrors == null;
+
+  if (isInvalid) return { kind: 'invalid' };
+
+  return { kind: 'present', metaGroup: { associatedErrors } };
+}
+
+function readAscError(candidate: unknown): AscError | null {
+  const candidateObject = readPlainObject(candidate);
+
+  if (candidateObject != null) return readAscErrorObject(candidateObject);
+
+  return null;
+}
+
+function readAscErrorObject(appleFields: Record<string, unknown>): AscError | null {
+  const statusField = readOptionalString(appleFields, 'status');
+
+  const isStatusInvalid = statusField.kind == 'invalid';
+
+  if (isStatusInvalid) return null;
+
+  const codeField = readOptionalString(appleFields, 'code');
+
+  const isCodeInvalid = codeField.kind == 'invalid';
+
+  if (isCodeInvalid) return null;
+
+  const titleField = readOptionalString(appleFields, 'title');
+
+  const isTitleInvalid = titleField.kind == 'invalid';
+
+  if (isTitleInvalid) return null;
+
+  const detailField = readOptionalString(appleFields, 'detail');
+
+  const isDetailInvalid = detailField.kind == 'invalid';
+
+  if (isDetailInvalid) return null;
+
+  const pointerGroup = readOptionalPointerGroup(appleFields);
+
+  const isPointerGroupInvalid = pointerGroup.kind == 'invalid';
+
+  if (isPointerGroupInvalid) return null;
+
+  const metaGroup = readOptionalMetaGroup(appleFields);
+
+  const isMetaInvalid = metaGroup.kind == 'invalid';
+
+  if (isMetaInvalid) return null;
+
+  return assembleAscError({
+    statusField,
+    codeField,
+    titleField,
+    detailField,
+    pointerGroup,
+    metaGroup,
+  });
+}
+
+function assembleAscError(draft: AscErrorDraft): AscError {
+  const appleError: AscError = {};
+
+  copyOptionalString(appleError, 'status', draft.statusField);
+  copyOptionalString(appleError, 'code', draft.codeField);
+  copyOptionalString(appleError, 'title', draft.titleField);
+  copyOptionalString(appleError, 'detail', draft.detailField);
+  copyPointerGroup(appleError, draft.pointerGroup);
+  copyMetaGroup(appleError, draft.metaGroup);
+
+  return appleError;
+}
+
+function copyPointerGroup(appleError: AscError, pointerGroup: PointerGroup): void {
+  if (pointerGroup.kind != 'present') return;
+
+  appleError.source = pointerGroup.pointerGroup;
+}
+
+function copyMetaGroup(appleError: AscError, metaGroup: MetaGroup): void {
+  if (metaGroup.kind != 'present') return;
+
+  appleError.meta = metaGroup.metaGroup;
+}
+
+function parseAppleBody(appleBody: string): unknown {
+  try {
+    return JSON.parse(appleBody);
+  } catch (error) {
+    const isSyntaxError = error instanceof SyntaxError;
+
+    if (isSyntaxError) return null;
+
+    throw error;
+  }
+}
+
+function readAppleErrorDocument(
+  appleBody: string,
+): { readonly errors?: readonly AscError[] } | null {
+  const parsed = parseAppleBody(appleBody);
+
+  const isUnparsed = parsed == null;
+
+  if (isUnparsed) return null;
+
+  const parsedObject = readPlainObject(parsed);
+
+  if (parsedObject != null) return readAppleErrorObject(parsedObject);
+
+  return null;
+}
+
+function readAppleErrorObject(
+  appleFields: Record<string, unknown>,
+): { readonly errors?: readonly AscError[] } | null {
+  const hasErrors = Object.hasOwn(appleFields, 'errors');
+
+  if (hasErrors == false) return {};
+
+  const errors = readAscErrors(appleFields['errors']);
+
+  const isInvalid = errors == null;
+
+  if (isInvalid) return null;
+
+  return { errors };
+}
+
+function describeUnparsedAppleBody(appleBody: string): string {
+  const isEmpty = appleBody.length == 0;
+
+  if (isEmpty) return 'no response body';
+
+  return appleBody;
+}
+
+function describeAscError(error: AscError): string {
+  let message = error.detail;
+
+  if (message == null) message = error.title;
+
+  if (message == null) message = error.code;
+
+  if (message == null) message = 'unknown App Store Connect error';
+
+  const associated = describeAssociatedErrors(error.meta?.associatedErrors);
+
+  if (associated.length > 0) return `${message}; ${associated.join('; ')}`;
+
+  return message;
+}
+
+function describeAssociatedErrors(
+  associatedErrors: Record<string, readonly AscError[]> | undefined,
+): string[] {
+  if (!associatedErrors) return [];
+
+  function readAssociatedErrors([resource, errors]: [string, readonly AscError[]]) {
+    function describeAssociatedError(error: {
+      status?: string;
+      code?: string;
+      title?: string;
+      detail?: string;
+      source?: { pointer?: string; parameter?: string };
+      meta?: { associatedErrors?: Record<string, readonly AscError[]> };
+    }) {
+      return `associated ${resource}: ${describeAscError(error)}`;
+    }
+
+    return errors.map(describeAssociatedError);
+  }
+
+  return Object.entries(associatedErrors).flatMap(readAssociatedErrors);
+}
+
+export function describeErrors(responseText: string): string {
+  const decodedDocument = readAppleErrorDocument(responseText);
+
+  const isMissingDocument = decodedDocument == null;
+
+  if (isMissingDocument) return describeUnparsedAppleBody(responseText);
+
+  const errors = decodedDocument.errors;
+
+  const isMissingErrors = errors == null;
+
+  if (isMissingErrors) return describeUnparsedAppleBody(responseText);
+
+  const hasNoErrors = errors.length == 0;
+
+  if (hasNoErrors) return describeUnparsedAppleBody(responseText);
+
+  return errors.map(describeAscError).join('; ');
+}
+
+function readErrorCode(appleError: AscError): string[] {
+  const code = appleError.code;
+
+  const isMissingCode = code == null;
+
+  if (isMissingCode) return [];
+
+  return [code];
+}
+
+export function parseErrorCodes(responseText: string): string[] {
+  const decodedDocument = readAppleErrorDocument(responseText);
+
+  const isMissingDocument = decodedDocument == null;
+
+  if (isMissingDocument) return [];
+
+  const errors = decodedDocument.errors;
+
+  const isMissingErrors = errors == null;
+
+  if (isMissingErrors) return [];
+
+  return errors.flatMap(readErrorCode);
+}

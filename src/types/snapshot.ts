@@ -2,7 +2,7 @@
 
 import type { ListingLocalization } from './apple-catalog.ts';
 import type { InAppProductResource, SubscriptionResource } from './google-play.ts';
-import type { AscCatalogApi } from '@/apple/store/app-store-sync.js';
+import type { AscCatalogApi } from '../apple/app-store-sync.ts';
 import type { PlannedAction } from './reconcile.ts';
 import type { AppDescriptor } from './app.ts';
 import type { LaunchConfig } from './config.ts';

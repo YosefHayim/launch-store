@@ -1,6 +1,6 @@
 // Checks an App Store Connect key, then reads the Apple team and app names it can see.
 
-import type { AscKey } from '@/types/credentials.js';
+import type { AscKey } from '../../types/credentials.ts';
 import { AppleStoreClientService } from './apple-store-client.ts';
 
 export type AppStoreIdentity = Readonly<{

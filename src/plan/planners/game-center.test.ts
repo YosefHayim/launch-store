@@ -1,12 +1,12 @@
 import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { gameCenterPlanner } from './game-center.ts';
-import { makeAscApiFake } from '@/testkit/app-store-connect-api-fake-testkit.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';
-import type { GameCenterConfig } from '@/types/store-surface.js';
-import type { ActionStatus } from '@/types/reconcile.js';
+import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
+import type { GameCenterConfig } from '../../types/store-surface.ts';
+import type { ActionStatus } from '../../types/reconcile.ts';
 
 const alpha: AppDescriptor = {
   name: 'alpha',

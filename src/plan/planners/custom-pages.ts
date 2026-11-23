@@ -1,13 +1,13 @@
 // Compares App Store Connect custom product pages with the local config.
 
-import { launchConfigForApp } from '@/config/config.js';
+import { launchConfigForApp } from '../../config/config.ts';
 import {
   reconcileCustomProductPages,
   type CustomProductPagesConfig,
-} from '@/apple/store/custom-product-pages.js';
+} from '../../apple/custom-product-pages.ts';
 import { planAppStoreSurface } from './app-store-surface.ts';
-import type { AppDescriptor } from '@/types/app.js';
-import type { AscSurfacesApi, SurfacePlanner } from '@/types/plan.js';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { AscSurfacesApi, SurfacePlanner } from '../../types/plan.ts';
 
 /** Surface id - also the value users pass as `launch-store plan custom-pages`. */
 const SURFACE = 'custom-pages';

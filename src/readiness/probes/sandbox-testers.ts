@@ -6,7 +6,7 @@ import type {
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
+} from '../../types/readiness.ts';
 import { iosApps } from '../app-scopes.ts';
 import { sellsProducts } from './in-app-purchase-readiness.ts';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';

@@ -1,8 +1,8 @@
 // Registers the commands that add and list iOS devices used for internal builds.
 
-import type { Command } from '@/cli/command.js';
-import { type DeviceAddInput, deviceCommandProgram } from '@/apple/commands/device-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { type DeviceAddInput, deviceCommandProgram } from '../../../apple/device-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Map the optional device name without passing an explicit undefined. */
 function readDeviceAdd(udid: string, name: string | undefined): DeviceAddInput {

@@ -1,14 +1,14 @@
 // Compares Google Play subscriptions with the groups declared in Launch config.
 
-import { errorMessage } from '@/services/platform/error-message.js';
+import { errorMessage } from '../../services/platform/error-message.ts';
 import {
   reconcilePlaySubscriptions,
   type PlaySubscriptionsApi,
-} from '@/google/store/play-subscriptions.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { SubscriptionConfig, SubscriptionGroupConfig } from '@/types/catalog.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { AppPlan, PlanContext, PlayCatalogApi, SurfacePlanner } from '@/types/plan.js';
+} from '../../google/play-subscriptions.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { SubscriptionConfig, SubscriptionGroupConfig } from '../../types/catalog.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { AppPlan, PlanContext, PlayCatalogApi, SurfacePlanner } from '../../types/plan.ts';
 
 const SURFACE = 'play-subscriptions';
 

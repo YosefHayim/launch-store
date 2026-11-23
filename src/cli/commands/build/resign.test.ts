@@ -1,4 +1,4 @@
-import { Command, type CommandOption } from '@/cli/command.js';
+import { Command, type CommandOption } from '../../command.ts';
 import { describe, expect, it } from 'vitest';
 import { registerResignCommand } from './resign.ts';
 

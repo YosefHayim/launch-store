@@ -5,7 +5,7 @@ import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import type { AppStoreConnect } from '../apple/app-store-connect.ts';
 import type { GooglePlayClient } from '../google/play-client.ts';
-import { listReviews } from '@/apple/store/reviews.js';
+import { listReviews } from '../apple/reviews.ts';
 import {
   createAscClientResolver,
   createPlayClientResolver,

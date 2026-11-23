@@ -1,11 +1,11 @@
 // Compares App Store Connect App Clip cards with the local config.
 
-import { launchConfigForApp } from '@/config/config.js';
-import { reconcileAppClips } from '@/apple/store/app-clips.js';
+import { launchConfigForApp } from '../../config/config.ts';
+import { reconcileAppClips } from '../../apple/app-clips.ts';
 import { planAppStoreSurface } from './app-store-surface.ts';
-import type { AppClipsConfig } from '@/types/store-surface.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { AscSurfacesApi, SurfacePlanner } from '@/types/plan.js';
+import type { AppClipsConfig } from '../../types/store-surface.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { AscSurfacesApi, SurfacePlanner } from '../../types/plan.ts';
 
 /** Surface id - also the value users pass as `launch-store plan app-clips`. */
 const SURFACE = 'app-clips';

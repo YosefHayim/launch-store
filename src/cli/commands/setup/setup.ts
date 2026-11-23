@@ -1,8 +1,8 @@
 // Registers the command that prepares Launch and reports whether iOS signing is ready.
 
-import type { Command } from '@/cli/command.js';
-import { setupCommandProgram } from '@/config/setup-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { setupCommandProgram } from '../../../config/setup-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type SetupOptions = Readonly<{
   platform?: string;

@@ -1,12 +1,12 @@
 import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { availabilityPlanner } from './availability.ts';
-import { makeAscApiFake } from '@/testkit/app-store-connect-api-fake-testkit.js';
-import type { AvailabilityConfig } from '@/apple/store/availability.js';
-import type { AppDescriptor } from '@/types/app.js';
-import type { LaunchConfig } from '@/types/config.js';
-import type { AscSurfacesApi, PlanContext } from '@/types/plan.js';
-import type { ActionStatus } from '@/types/reconcile.js';
+import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import type { AvailabilityConfig } from '../../apple/availability.ts';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { LaunchConfig } from '../../types/config.ts';
+import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
+import type { ActionStatus } from '../../types/reconcile.ts';
 
 const alpha: AppDescriptor = {
   name: 'alpha',

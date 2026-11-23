@@ -1,8 +1,8 @@
 // Registers the read-only scan of app permissions against the declared privacy answers.
 
-import type { Command } from '@/cli/command.js';
-import { privacyCommandProgram } from '@/privacy/command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { privacyCommandProgram } from '../../../privacy/command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 /** CLI options for `launch-store privacy scan`. */
 type PrivacyScanOptions = {

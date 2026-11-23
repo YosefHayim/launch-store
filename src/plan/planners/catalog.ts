@@ -1,9 +1,9 @@
 // Compares App Store Connect capabilities and catalog products with Launch config.
 
-import { reconcileApp, type AscCatalogApi } from '@/apple/store/app-store-sync.js';
-import { buildJobs, type SyncJob } from '@/store/shared/sync-jobs.js';
-import { errorMessage } from '@/services/platform/error-message.js';
-import type { AppPlan, PlanContext, SurfacePlanner } from '@/types/plan.js';
+import { reconcileApp, type AscCatalogApi } from '../../apple/app-store-sync.ts';
+import { buildJobs, type SyncJob } from '../../store/shared/sync-jobs.ts';
+import { errorMessage } from '../../services/platform/error-message.ts';
+import type { AppPlan, PlanContext, SurfacePlanner } from '../../types/plan.ts';
 
 const SURFACE = 'catalog';
 

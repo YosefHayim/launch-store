@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { PlannedAction, ReconcileReport } from '@/types/reconcile.js';
+import type { PlannedAction, ReconcileReport } from '../../types/reconcile.ts';
 import type { SyncJob } from './sync-jobs.ts';
 import { mergeOutcomes, summarizeRun, type JobOutcome } from './sync-run.ts';
 

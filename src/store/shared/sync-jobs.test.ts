@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildJobs, selectApps } from './sync-jobs.ts';
-import type { AppDescriptor } from '@/types/app.js';
-import type { AppProducts } from '@/types/catalog.js';
-import type { LaunchConfig } from '@/types/config.js';
+import type { AppDescriptor } from '../../types/app.ts';
+import type { AppProducts } from '../../types/catalog.ts';
+import type { LaunchConfig } from '../../types/config.ts';
 
 /** A discovered app pointing at a non-existent dir, so `buildJobs`' asset/listing reads return empty. */
 function app(name: string, overrides: Partial<AppDescriptor> = {}): AppDescriptor {

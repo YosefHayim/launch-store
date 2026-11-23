@@ -1,9 +1,9 @@
 // Creates reusable App Store Connect and Google Play clients for store commands.
 
-import { loadActiveAscKey } from '@/credentials/accounts.js';
-import { loadServiceAccount } from '@/credentials/android-keystore-assets.js';
-import { AppleStoreClientService } from '@/services/stores/apple-store-client.js';
-import { GoogleStoreClientService } from '@/services/stores/google-store-client.js';
+import { loadActiveAscKey } from '../../credentials/accounts.ts';
+import { loadServiceAccount } from '../../credentials/android-keystore-assets.ts';
+import { AppleStoreClientService } from '../../services/stores/apple-store-client.ts';
+import { GoogleStoreClientService } from '../../services/stores/google-store-client.ts';
 
 type AppStoreClient = ReturnType<AppleStoreClientService['createClient']>;
 

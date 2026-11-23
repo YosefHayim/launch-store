@@ -9,9 +9,9 @@ import type {
 } from './app.ts';
 import type { AppProducts } from './catalog.ts';
 import type { VersionExperimentsConfig } from '../release/version-experiments.ts';
-import type { AvailabilityConfig } from '@/apple/store/availability.js';
-import type { AccessibilityConfig } from '@/apple/store/accessibility.js';
-import type { CustomProductPagesConfig } from '@/apple/store/custom-product-pages.js';
+import type { AvailabilityConfig } from '../apple/availability.ts';
+import type { AccessibilityConfig } from '../apple/accessibility.ts';
+import type { CustomProductPagesConfig } from '../apple/custom-product-pages.ts';
 import type { StoreConfig } from '../store/shared/store-config.ts';
 import type {
   AppClipsConfig,

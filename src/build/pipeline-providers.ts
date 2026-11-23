@@ -13,7 +13,7 @@ import type { BuildCredentials } from '../types/credentials.ts';
 import type { SubmitArtifact } from '../types/providers.ts';
 import type { RemoteTarget } from '../types/remote.ts';
 import { resolveWhatsNew } from '../release/release-inputs.ts';
-import { parseReleaseNotesJson } from '@/google/store/play-tracks.js';
+import { parseReleaseNotesJson } from '../google/play-tracks.ts';
 import { getSubmitter } from '../services/provider-support/registry.ts';
 import { platformLabel } from '../services/stores/platform.ts';
 import {

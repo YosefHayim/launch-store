@@ -1,8 +1,8 @@
 // Records planned store changes and tallies applied, failed, and skipped actions.
 
-import { errorMessage } from '@/services/platform/error-message.js';
-import type { PlannedAction } from '@/types/reconcile.js';
-import type { MutableDeep } from '@/types/mutable.js';
+import { errorMessage } from '../../services/platform/error-message.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
+import type { MutableDeep } from '../../types/mutable.ts';
 
 /** Mutable state for one reconciliation pass. */
 export type ReconcileContext = {

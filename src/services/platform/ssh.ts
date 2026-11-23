@@ -5,7 +5,7 @@ import {
   type CommandExecutionOptions,
   executeCommand,
 } from './execute-command.ts';
-import type { SshTarget } from '@/types/remote.js';
+import type { SshTarget } from '../../types/remote.ts';
 
 /** `user@host` for ssh/scp/rsync destinations. */
 function userHost(target: SshTarget): string {

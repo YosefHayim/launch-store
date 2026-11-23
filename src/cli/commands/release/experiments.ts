@@ -1,11 +1,11 @@
 // Registers the command that syncs App Store product-page experiments from launch.config.ts.
 
-import type { Command } from '@/cli/command.js';
+import type { Command } from '../../command.ts';
 import {
   type VersionExperimentsCommandInput,
   versionExperimentsCommandProgram,
-} from '@/release/version-experiments-command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+} from '../../../release/version-experiments-command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type ExperimentsOptions = Readonly<{
   readonly app?: string;

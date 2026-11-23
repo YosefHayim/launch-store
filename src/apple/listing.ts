@@ -1,0 +1,26 @@
+// Lists the names of apps already registered on App Store Connect.
+
+import type { AppStoreConnect } from './app-store-connect.ts';
+
+export class AppleListing {
+  constructor(private readonly apple: AppStoreConnect) {}
+
+  async list(): Promise<readonly string[]> {
+    const apps = await this.apple.listApps();
+    const names: string[] = [];
+
+    for (const app of apps.data) {
+      const name = app.attributes?.name;
+
+      const isBlank = name == null;
+
+      if (isBlank) {
+        continue;
+      }
+
+      names.push(name);
+    }
+
+    return names;
+  }
+}

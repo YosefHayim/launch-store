@@ -3,20 +3,20 @@
 import { copyFile, mkdir, readFile, readlink, realpath, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { pathExists } from '@/path-exists.js';
+import { pathExists } from '../../path-exists.ts';
 import {
   readArtifactIndex,
   runArtifactPrune,
   writeArtifactIndex,
-} from '@/build/artifact-retention.js';
-import { resolveArtifactsDirectory } from '@/services/platform/paths.js';
-import type { BuildArtifact, PruneOptions } from '@/types/artifacts.js';
+} from '../../build/artifact-retention.ts';
+import { resolveArtifactsDirectory } from '../../services/platform/paths.ts';
+import type { BuildArtifact, PruneOptions } from '../../types/artifacts.ts';
 import {
   makeProviderInputFailure,
   type StorageProvider,
   type StorageProviderOptions,
   type StorageProviderResolver,
-} from '@/types/providers.js';
+} from '../../types/providers.ts';
 
 function storageRoot(directoryOverride?: string): string {
   if (directoryOverride != null) {

@@ -1,8 +1,8 @@
 // Turns captured Google Play fields into the prices and actions a write-back needs.
 
-import type { PlayPriceConfig } from '@/types/catalog.js';
-import type { JsonValue } from '@/types/snapshot.js';
-import type { PlannedAction } from '@/types/reconcile.js';
+import type { PlayPriceConfig } from '../../types/catalog.ts';
+import type { JsonValue } from '../../types/snapshot.ts';
+import type { PlannedAction } from '../../types/reconcile.ts';
 
 /** Narrow a captured {@link JsonValue} to a plain object (rejecting arrays and null), or `null` */
 function isJsonRecord(

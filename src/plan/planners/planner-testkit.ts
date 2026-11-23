@@ -1,6 +1,6 @@
 // Runs one store-surface comparison the way a Launch plan test calls it.
 
-import type { PlanContext, SurfacePlan, SurfacePlanner } from '@/types/plan.js';
+import type { PlanContext, SurfacePlan, SurfacePlanner } from '../../types/plan.ts';
 
 /** Execute one planner at the test boundary. */
 export async function runPlanner(

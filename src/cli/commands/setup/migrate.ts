@@ -1,8 +1,8 @@
 // Registers the commands that import an Expo or fastlane project into the Launch config.
 
-import type { Command } from '@/cli/command.js';
-import { migrateCommandProgram } from '@/migrate/command.js';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import type { Command } from '../../command.ts';
+import { migrateCommandProgram } from '../../../migrate/command.ts';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 type MigrateOptions = Readonly<{
   force: boolean;

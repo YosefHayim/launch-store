@@ -3,7 +3,7 @@
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { loadActiveAppleStore } from '@/apple/commands/apple-store-command.js';
+import { loadActiveAppleStore } from '../apple/apple-store-command.ts';
 import type { BetaGroupResource, BetaTesterResource } from '../types/apple-catalog.ts';
 import { addTesters, type AddCommandInput } from './testflight-add-testers.ts';
 import {

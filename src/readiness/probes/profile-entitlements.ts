@@ -1,14 +1,14 @@
 // Checks that App Store Connect capabilities cover the entitlements the app signs with.
 
-import type { AppDescriptor } from '@/types/app.js';
+import type { AppDescriptor } from '../../types/app.ts';
 import type {
   AppReadiness,
   AscReadinessApi,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '@/types/readiness.js';
-import { readCapabilitiesFromEntitlements } from '@/credentials/capabilities.js';
+} from '../../types/readiness.ts';
+import { readCapabilitiesFromEntitlements } from '../../credentials/capabilities.ts';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentials-skip.ts';
 
 /** An in-scope app: declares a bundle id and at least one entitlement that maps to a portal capability. */

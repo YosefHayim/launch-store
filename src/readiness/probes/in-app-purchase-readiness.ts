@@ -1,7 +1,7 @@
 // Grades declared in-app purchases and subscriptions against what App Store Connect has.
 
-import type { AppProducts } from '@/types/catalog.js';
-import type { ReadinessContext } from '@/types/readiness.js';
+import type { AppProducts } from '../../types/catalog.ts';
+import type { ReadinessContext } from '../../types/readiness.ts';
 
 function declaredIapIds(readinessContext: ReadinessContext, bundleId: string): string[] {
   let inAppPurchases = readinessContext.config.products?.[bundleId]?.inAppPurchases;

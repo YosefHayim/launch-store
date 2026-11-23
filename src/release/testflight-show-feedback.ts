@@ -2,7 +2,7 @@
 
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import type { AppStoreConnect } from '../apple/app-store-connect.ts';
-import { loadActiveAppleStore } from '@/apple/commands/apple-store-command.js';
+import { loadActiveAppleStore } from '../apple/apple-store-command.ts';
 import type { BetaFeedback, BetaFeedbackKind } from '../types/app.ts';
 import {
   downloadFeedbackAttachments,

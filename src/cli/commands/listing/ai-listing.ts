@@ -1,9 +1,12 @@
 // Registers the command that drafts App Store and Google Play listing text with AI.
 
-import type { Command } from '@/cli/command.js';
-import { aiListingCommandProgram, type AiListingInput } from '@/listing/ai-listing-command.js';
+import type { Command } from '../../command.ts';
+import {
+  aiListingCommandProgram,
+  type AiListingInput,
+} from '../../../listing/ai-listing-command.ts';
 import { aiGroup } from './ai.ts';
-import { runCliProgram } from '@/cli/run-cli-program.js';
+import { runCliProgram } from '../../run-cli-program.ts';
 
 /** Attach the `ai listing` subcommand. */
 export function registerAiListingCommand(program: Command): void {

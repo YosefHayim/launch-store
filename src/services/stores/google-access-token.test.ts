@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import type { ServiceAccount } from '@/types/credentials.js';
+import type { ServiceAccount } from '../../types/credentials.ts';
 import {
   GoogleAccessToken,
   resetGoogleAccessToken,
