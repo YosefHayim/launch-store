@@ -29,6 +29,11 @@ function optionalString(record: Record<string, unknown>, fieldName: string): str
   }
 
   const field = record[fieldName];
+  const isMissing = field == null;
+
+  if (isMissing) {
+    return undefined;
+  }
 
   if (typeof field != 'string') {
     throw new Error(`config command ${fieldName} must be a string`);

@@ -11,10 +11,9 @@ const PLAY_SUBSCRIPTIONS = join(
   dirname(fileURLToPath(import.meta.url)),
   '..',
   'dist',
-  'core',
   'store',
   'google',
-  'playSubscriptions.js',
+  'play-subscriptions.js',
 );
 
 function launch(...commandArguments: string[]): Promise<string> {

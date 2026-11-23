@@ -209,7 +209,7 @@ function describeLaunchStoreCLIOfflineSurfaceCompiledDist() {
       }
     }
 
-    expect(commandFailure?.stderr).toContain('[ERROR] No apps found.');
+    expect(commandFailure?.stderr).toContain('[ERROR] Pass --yes to release without a terminal');
     expect(commandFailure?.stderr).not.toContain('"_tag"');
   }
 

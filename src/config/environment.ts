@@ -19,7 +19,6 @@ export interface LaunchEnvironmentValues {
   continuousIntegration?: string;
   noColor?: string;
   colorTerminal?: string;
-  launchNoAnimation?: string;
   launchNoUpgrade?: string;
   launchUpgraded?: string;
   shellPath?: string;
@@ -49,7 +48,6 @@ const ENVIRONMENT_FIELDS = {
   CI: 'continuousIntegration',
   NO_COLOR: 'noColor',
   COLORTERM: 'colorTerminal',
-  LAUNCH_NO_ANIMATION: 'launchNoAnimation',
   LAUNCH_NO_UPGRADE: 'launchNoUpgrade',
   LAUNCH_UPGRADED: 'launchUpgraded',
   SHELL: 'shellPath',

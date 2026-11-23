@@ -11,6 +11,9 @@ function describePieceCommandPieceSchema() {
     expect(ConfigCommandInputSchema({ operation: 'validate' })).toEqual({
       operation: 'validate',
     });
+    expect(ConfigCommandInputSchema({ operation: 'schema', out: undefined })).toEqual({
+      operation: 'schema',
+    });
   }
 
   it('decodes schema and validation operations', decodesSchemaAndValidationOperations);
