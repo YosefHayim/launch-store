@@ -8,7 +8,7 @@ function credsCommand() {
   registerCredsCommand(program);
 
   function isCredsCommand(command: Command) {
-    return command.name() == 'creds';
+    return command.readName() == 'creds';
   }
 
   const creds = program.commands.find(isCredsCommand);

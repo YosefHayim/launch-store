@@ -3,7 +3,7 @@
 import { writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { Prompts } from '../prompts.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
@@ -23,31 +23,6 @@ type InitCommandInput = Readonly<{
   workingDirectory?: string;
   framed: boolean;
 }>;
-
-type InitCommandFailure = Readonly<{
-  _tag: 'InitCommandFailure';
-  operation: string;
-  message: string;
-  cause: unknown;
-}>;
-
-function initFailure(operation: string, cause: unknown): InitCommandFailure {
-  let message = `${operation} failed.`;
-
-  if (typeof cause == 'string') {
-    const hasText = cause.length > 0;
-
-    if (hasText) {
-      message = cause;
-    }
-  }
-
-  if (hasMessage(cause)) {
-    message = cause.message;
-  }
-
-  return { _tag: 'InitCommandFailure', operation, message, cause };
-}
 
 function readWorkingDirectory(record: Record<string, unknown>): string | undefined {
   const directoryIsPresent = 'workingDirectory' in record;
@@ -142,7 +117,7 @@ function showDiscoveredApps(discoveredApps: AppDescriptor[]): void {
   logger.notice(`Found ${discoveredApps.length} app${appSuffix}`, ...appLines);
 }
 
-function requireInteractiveTerminal(operation: string): void {
+function requireInteractiveTerminal(): void {
   const prompts = new Prompts();
 
   const isInteractive = prompts.isInteractive();
@@ -151,13 +126,11 @@ function requireInteractiveTerminal(operation: string): void {
     return;
   }
 
-  throw initFailure(operation, {
-    message: '`launch-store init` requires an interactive terminal.',
-  });
+  throw new Error('`launch-store init` requires an interactive terminal.');
 }
 
 async function readArtifactDirectory(): Promise<string | null> {
-  requireInteractiveTerminal('read artifact directory');
+  requireInteractiveTerminal();
 
   const prompts = new Prompts();
   const enteredDirectory = await prompts.text(
@@ -197,11 +170,9 @@ function readInitArtifactDirectory(artifactDir: string, projectDirectory: string
   const isEmpty = configuredDirectory.length == 0;
 
   if (isEmpty) {
-    throw {
-      _tag: 'ArtifactDirectoryFailure',
-      message:
-        '`artifactDir` in launch.config.ts must not be empty - set a path or omit it for ~/.launch/artifacts.',
-    };
+    throw new Error(
+      '`artifactDir` in launch.config.ts must not be empty - set a path or omit it for ~/.launch/artifacts.',
+    );
   }
 
   if (configuredDirectory == '~') {
@@ -239,7 +210,7 @@ export async function runInitProgram(rawCommandInput: unknown): Promise<boolean>
     const loadedConfiguration = await loadConfig(workingDirectory);
 
     showDiscoveredApps(loadedConfiguration.apps);
-    requireInteractiveTerminal('start init prompt');
+    requireInteractiveTerminal();
 
     const configPath = join(workingDirectory, 'launch.config.ts');
 
@@ -299,6 +270,6 @@ export async function runInitProgram(rawCommandInput: unknown): Promise<boolean>
 
     return true;
   } catch (cause) {
-    throw initFailure('run init', cause);
+    throw new Error(errorMessage(cause), { cause });
   }
 }

@@ -1,7 +1,7 @@
 // Lists Google Play reviews and posts or replaces a developer reply.
 
 import { readFile } from 'node:fs/promises';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import type { PlayReview } from '../types/google/reviews.ts';
 import {
@@ -33,26 +33,6 @@ export type PlayReviewsReplyInput = {
 };
 
 type PlayReviewsCommandInput = PlayReviewsListInput | PlayReviewsReplyInput;
-
-function playReviewsFailure(
-  operation: PlayReviewsCommandInput['operation'],
-  cause: unknown,
-): never {
-  const causeText = typeof cause == 'string' ? cause : '';
-  const isBlankCauseText = causeText.length == 0;
-
-  if (isBlankCauseText == false) {
-    throw new Error(causeText, { cause });
-  }
-
-  const causeHasMessage = hasMessage(cause);
-
-  if (causeHasMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`Play reviews ${operation} failed.`, { cause });
-}
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
@@ -398,13 +378,13 @@ export async function playReviewsCommandProgram(rawCommandInput: unknown): Promi
   try {
     var commandInput = decodePlayReviewsCommandInput(rawCommandInput);
   } catch (cause) {
-    throw playReviewsFailure('list', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   try {
     await runPlayReviewsOperation(commandInput);
   } catch (cause) {
-    throw playReviewsFailure(commandInput.operation, cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 

@@ -8,7 +8,7 @@ function registeredTestflight(): Command {
   registerTestflightCommand(program);
 
   function isTestflightCommand(registeredCommand: Command) {
-    return registeredCommand.name() == 'testflight';
+    return registeredCommand.readName() == 'testflight';
   }
 
   const testflightCommand = program.commands.find(isTestflightCommand);
@@ -25,7 +25,7 @@ function describeRegisterTestflightCommand() {
     const testflightCommand = registeredTestflight();
 
     function copyRegisteredCommand(registeredCommand: Command) {
-      return registeredCommand.name();
+      return registeredCommand.readName();
     }
 
     const subcommandNames = testflightCommand.commands.map(copyRegisteredCommand);
@@ -47,19 +47,19 @@ function describeRegisterTestflightCommand() {
     const testflightCommand = registeredTestflight();
 
     function isAddCommand(registeredCommand: Command) {
-      return registeredCommand.name() == 'add';
+      return registeredCommand.readName() == 'add';
     }
 
     const addCommand = testflightCommand.commands.find(isAddCommand);
 
     function isRemoveCommand(registeredCommand: Command) {
-      return registeredCommand.name() == 'rm';
+      return registeredCommand.readName() == 'rm';
     }
 
     const removeCommand = testflightCommand.commands.find(isRemoveCommand);
 
     function isReleaseCommand(registeredCommand: Command) {
-      return registeredCommand.name() == 'release';
+      return registeredCommand.readName() == 'release';
     }
 
     const releaseCommand = testflightCommand.commands.find(isReleaseCommand);
@@ -106,7 +106,7 @@ function describeRegisterTestflightCommand() {
     const testflightCommand = registeredTestflight();
 
     function isFeedbackCommand(registeredCommand: Command) {
-      return registeredCommand.name() == 'feedback';
+      return registeredCommand.readName() == 'feedback';
     }
 
     const feedbackCommand = testflightCommand.commands.find(isFeedbackCommand);

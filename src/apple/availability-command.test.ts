@@ -92,7 +92,7 @@ function describeRegisterAvailabilityCommand() {
     registerAvailabilityCommand(program);
 
     function isAvailabilityCommand(registeredCommand: Command) {
-      return registeredCommand.name() == 'availability';
+      return registeredCommand.readName() == 'availability';
     }
 
     const availabilityCommand = program.commands.find(isAvailabilityCommand);

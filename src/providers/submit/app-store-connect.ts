@@ -5,7 +5,6 @@ import type { BuildUploadProblem } from '../../types/apple/builds.ts';
 import type { BuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
 import {
-  makeProviderInputFailure,
   makeStoreUploadFailure,
   type SubmitArtifact,
   type Submitter,
@@ -131,19 +130,15 @@ async function submitAppleBuild(
   const isAppleCredential = buildCredentials.platform == 'ios';
 
   if (isAppleCredential == false) {
-    throw makeProviderInputFailure({
-      provider: PROVIDER,
-      message: 'The app-store-connect submitter handles Apple platforms only.',
-    });
+    throw new Error('The app-store-connect submitter handles Apple platforms only.');
   }
 
   const bundleId = buildContext.app.bundleId;
 
   if (bundleId == null) {
-    throw makeProviderInputFailure({
-      provider: PROVIDER,
-      message: `No bundle identifier for ${buildContext.app.name}. Set ios.bundleIdentifier in app.json.`,
-    });
+    throw new Error(
+      `No bundle identifier for ${buildContext.app.name}. Set ios.bundleIdentifier in app.json.`,
+    );
   }
 
   const ascPlatform = readConnectPlatform(buildContext.platform);
@@ -156,10 +151,7 @@ async function submitAppleBuild(
       `launch-store build ${buildContext.platform}`,
     );
 
-    throw makeProviderInputFailure({
-      provider: PROVIDER,
-      message: appMissingMessage,
-    });
+    throw new Error(appMissingMessage);
   }
 
   const buildUploadId = await appStoreClient.createBuildUpload({

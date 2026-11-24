@@ -4,7 +4,7 @@ import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
 } from '../types/apple/customer-reviews.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 
 /** The App Store transport operations required by the customer-reviews domain. */
 export type AscReviewsApi = Readonly<{
@@ -34,26 +34,12 @@ type ReplyResult = Readonly<{
   replaced: boolean;
 }>;
 
-/** Convert a transport failure into an Error. */
-function reviewFailure(operation: string, cause: unknown): never {
-  const hasCauseMessage = hasMessage(cause);
-
-  if (hasCauseMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`${operation} failed.`, { cause });
-}
-
 /** Run one App Store review request in the reviews error channel. */
-async function runReviewRequest<Success>(
-  operation: string,
-  request: Promise<Success>,
-): Promise<Success> {
+async function runReviewRequest<Success>(request: Promise<Success>): Promise<Success> {
   try {
     return await request;
   } catch (cause) {
-    throw reviewFailure(operation, cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -68,7 +54,7 @@ export async function listReviews(
   bundleId: string,
   filters: ReviewFilters = {},
 ): Promise<readonly CustomerReviewResource[]> {
-  const appId = await runReviewRequest('resolve App Store app', reviewsStore.getAppId(bundleId));
+  const appId = await runReviewRequest(reviewsStore.getAppId(bundleId));
 
   const isAppMissing = appId == null;
 
@@ -87,7 +73,6 @@ export async function listReviews(
   if (filters.territory != null) serverFilters.territory = filters.territory;
 
   const customerReviews = await runReviewRequest(
-    'list customer reviews',
     reviewsStore.listCustomerReviews(appId, serverFilters),
   );
 
@@ -106,12 +91,8 @@ export async function replyToReview(
   reviewId: string,
   responseText: string,
 ): Promise<ReplyResult> {
-  const existingReply = await runReviewRequest(
-    'read existing review reply',
-    reviewsStore.getCustomerReviewResponse(reviewId),
-  );
+  const existingReply = await runReviewRequest(reviewsStore.getCustomerReviewResponse(reviewId));
   const reviewReply = await runReviewRequest(
-    'post review reply',
     reviewsStore.createCustomerReviewResponse(reviewId, responseText),
   );
   const replaced = existingReply != null;
@@ -124,10 +105,7 @@ export async function deleteReviewResponse(
   reviewsStore: AscReviewsApi,
   reviewId: string,
 ): Promise<boolean> {
-  const existingReply = await runReviewRequest(
-    'read existing review reply',
-    reviewsStore.getCustomerReviewResponse(reviewId),
-  );
+  const existingReply = await runReviewRequest(reviewsStore.getCustomerReviewResponse(reviewId));
 
   const isReplyMissing = existingReply == null;
 
@@ -135,10 +113,7 @@ export async function deleteReviewResponse(
     return false;
   }
 
-  await runReviewRequest(
-    'delete review reply',
-    reviewsStore.deleteCustomerReviewResponse(existingReply.id),
-  );
+  await runReviewRequest(reviewsStore.deleteCustomerReviewResponse(existingReply.id));
 
   return true;
 }

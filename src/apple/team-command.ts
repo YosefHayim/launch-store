@@ -6,7 +6,7 @@ import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import type { UserInvitationResource, UserResource } from '../types/apple/users-and-access.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { getTeam, inviteTeamMember, removeTeamMember, type Team } from './team.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
@@ -84,24 +84,6 @@ export function TeamCommandInputSchema(rawCommandInput: unknown): TeamCommandInp
   }
 
   throw new Error('Unknown team command.');
-}
-
-/** Convert a dependency failure into an Error. */
-function teamCommandFailure(operation: TeamCommandInput['operation'], cause: unknown): never {
-  const causeText = typeof cause == 'string' ? cause : '';
-  const isBlankCauseText = causeText.length == 0;
-
-  if (isBlankCauseText == false) {
-    throw new Error(causeText, { cause });
-  }
-
-  const causeHasMessage = hasMessage(cause);
-
-  if (causeHasMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`Team ${operation} failed.`, { cause });
 }
 
 /** Join a person's available first and last names. */
@@ -216,7 +198,7 @@ async function confirmTeamWrite(confirmationMessage: string, assumeYes: boolean)
   try {
     var confirmed = await new LaunchPrompt().confirm(confirmationMessage);
   } catch (cause) {
-    throw teamCommandFailure('invite', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   if (confirmed) {
@@ -247,7 +229,7 @@ async function listTeam(commandInput: TeamListInput): Promise<void> {
 
     logger.line(team);
   } catch (cause) {
-    throw teamCommandFailure('list', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -277,7 +259,7 @@ async function inviteTeam(commandInput: TeamInviteInput): Promise<void> {
 
     logger.step('invited', `${createdInvitation.email} - [${createdInvitation.roles.join(', ')}]`);
   } catch (cause) {
-    throw teamCommandFailure('invite', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -313,7 +295,7 @@ async function removeFromTeam(commandInput: TeamRemoveInput): Promise<void> {
       `No team member or pending invitation matches ${commandInput.email} - nothing to remove.`,
     );
   } catch (cause) {
-    throw teamCommandFailure('remove', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -337,7 +319,7 @@ export async function teamCommandProgram(rawCommandInput: unknown): Promise<void
   try {
     var commandInput = TeamCommandInputSchema(rawCommandInput);
   } catch (cause) {
-    throw teamCommandFailure('list', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   await runTeamOperation(commandInput);

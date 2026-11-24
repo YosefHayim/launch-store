@@ -68,31 +68,6 @@ type ReleaseReconcileInput = Readonly<{
 
 type SecretReader = (secretReference: string, secretLabel: string) => Promise<string>;
 
-function releaseAttributesMessage(cause: unknown, explicitMessage?: string): string {
-  const hasExplicitMessage = explicitMessage != null;
-
-  if (hasExplicitMessage) {
-    return explicitMessage;
-  }
-
-  return errorMessage(cause);
-}
-
-function releaseAttributesFailure(
-  operation: string,
-  cause: unknown,
-  explicitMessage?: string,
-): Error {
-  const chosenMessage = releaseAttributesMessage(cause, explicitMessage);
-  const isMessageEmpty = chosenMessage.length == 0;
-
-  if (isMessageEmpty) {
-    return new Error(`${operation} failed.`, { cause });
-  }
-
-  return new Error(chosenMessage, { cause });
-}
-
 /** Record and optionally apply one non-destructive reconciliation action. */
 async function performAction(
   reconcileContext: ReconcileContext,
@@ -350,11 +325,9 @@ async function reconcilePricing(
       const isPricePointMissing = pricePoint == null;
 
       if (isPricePointMissing) {
-        throw releaseAttributesFailure(
-          'resolve App Store price point',
-          pricing,
-          `No ${baseTerritory} app price point matches ${pricing.customerPrice}.`,
-        );
+        throw new Error(`No ${baseTerritory} app price point matches ${pricing.customerPrice}.`, {
+          cause: pricing,
+        });
       }
 
       await appleReleaseApi.createAppPriceSchedule(appId, baseTerritory, pricePoint.id);
@@ -592,7 +565,7 @@ export async function reconcileRelease(
   try {
     return await reconcileReleaseWith(appleReleaseApi, reconciliationInput, readSecretRef);
   } catch (cause) {
-    throw releaseAttributesFailure('reconcile release attributes', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -602,17 +575,15 @@ export async function reconcileReleasePlan(
   reconciliationInput: ReleaseReconcileInput,
 ): Promise<ReconcileReport> {
   async function refuseSecret(secretReference: string): Promise<string> {
-    throw releaseAttributesFailure(
-      'resolve review secret during plan',
-      secretReference,
-      'A release-attribute plan must not resolve secrets.',
-    );
+    throw new Error('A release-attribute plan must not resolve secrets.', {
+      cause: secretReference,
+    });
   }
 
   try {
     return await reconcileReleaseWith(appleReleaseApi, reconciliationInput, refuseSecret);
   } catch (cause) {
-    throw releaseAttributesFailure('plan release attributes', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -639,10 +610,9 @@ function readOptionalText(
   const isText = typeof field == 'string';
 
   if (isText == false) {
-    throw releaseAttributesFailure(
-      'decode release config fields',
-      record,
+    throw new Error(
       `launch.config.ts releaseAttributes: ${documentLabel}.${fieldName} must be a string.`,
+      { cause: record },
     );
   }
 
@@ -663,10 +633,9 @@ function readOptionalBoolean(
   const isBoolean = typeof field == 'boolean';
 
   if (isBoolean == false) {
-    throw releaseAttributesFailure(
-      'decode release config fields',
-      record,
+    throw new Error(
       `launch.config.ts releaseAttributes: reviewDetails.${fieldName} must be a boolean.`,
+      { cause: record },
     );
   }
 
@@ -677,11 +646,9 @@ function decodeCategories(candidate: unknown): ReleaseCategories {
   const candidateObject = readPlainObject(candidate);
 
   if (candidateObject == null) {
-    throw releaseAttributesFailure(
-      'decode release config fields',
-      candidate,
-      'launch.config.ts releaseAttributes: categories must be an object.',
-    );
+    throw new Error('launch.config.ts releaseAttributes: categories must be an object.', {
+      cause: candidate,
+    });
   }
 
   const categories: { primary?: string; secondary?: string } = {};
@@ -703,30 +670,27 @@ function decodeCustomerPrice(candidate: unknown): number {
   const isNumber = typeof candidate == 'number';
 
   if (isNumber == false) {
-    throw releaseAttributesFailure(
-      'decode release config fields',
-      candidate,
+    throw new Error(
       'launch.config.ts releaseAttributes: pricing.customerPrice must be a non-negative number.',
+      { cause: candidate },
     );
   }
 
   const isFinitePrice = Number.isFinite(candidate);
 
   if (isFinitePrice == false) {
-    throw releaseAttributesFailure(
-      'decode release config fields',
-      candidate,
+    throw new Error(
       'launch.config.ts releaseAttributes: pricing.customerPrice must be a non-negative number.',
+      { cause: candidate },
     );
   }
 
   const isNegative = candidate < 0;
 
   if (isNegative) {
-    throw releaseAttributesFailure(
-      'decode release config fields',
-      candidate,
+    throw new Error(
       'launch.config.ts releaseAttributes: pricing.customerPrice must be a non-negative number.',
+      { cause: candidate },
     );
   }
 
@@ -737,11 +701,9 @@ function decodePricing(candidate: unknown): ReleasePricing {
   const candidateObject = readPlainObject(candidate);
 
   if (candidateObject == null) {
-    throw releaseAttributesFailure(
-      'decode release config fields',
-      candidate,
-      'launch.config.ts releaseAttributes: pricing must be an object.',
-    );
+    throw new Error('launch.config.ts releaseAttributes: pricing must be an object.', {
+      cause: candidate,
+    });
   }
 
   const customerPrice = decodeCustomerPrice(candidateObject['customerPrice']);
@@ -759,11 +721,9 @@ function decodeReviewDetails(candidate: unknown): ReviewDetailsConfig {
   const candidateObject = readPlainObject(candidate);
 
   if (candidateObject == null) {
-    throw releaseAttributesFailure(
-      'decode release config fields',
-      candidate,
-      'launch.config.ts releaseAttributes: reviewDetails must be an object.',
-    );
+    throw new Error('launch.config.ts releaseAttributes: reviewDetails must be an object.', {
+      cause: candidate,
+    });
   }
 
   const reviewDetails: {
@@ -828,10 +788,9 @@ function decodeAgeRating(candidate: unknown): Record<string, AgeRatingValue> {
   const candidateObject = readPlainObject(candidate);
 
   if (candidateObject == null) {
-    throw releaseAttributesFailure(
-      'decode release config fields',
-      candidate,
+    throw new Error(
       'launch.config.ts releaseAttributes: ageRating answers must be a string or boolean.',
+      { cause: candidate },
     );
   }
 
@@ -841,10 +800,9 @@ function decodeAgeRating(candidate: unknown): Record<string, AgeRatingValue> {
     const isValidAnswer = isAgeRatingValue(answer);
 
     if (isValidAnswer == false) {
-      throw releaseAttributesFailure(
-        'decode release config fields',
-        candidateObject,
+      throw new Error(
         'launch.config.ts releaseAttributes: ageRating answers must be a string or boolean.',
+        { cause: candidateObject },
       );
     }
 
@@ -856,7 +814,7 @@ function decodeAgeRating(candidate: unknown): Record<string, AgeRatingValue> {
   const isDeprecated = verdict != true;
 
   if (isDeprecated) {
-    throw releaseAttributesFailure('decode release config fields', candidateObject, verdict);
+    throw new Error(verdict ?? errorMessage(candidateObject), { cause: candidateObject });
   }
 
   return answers;
@@ -883,11 +841,9 @@ export function parseReleaseConfig(rawDocument: unknown): ReleaseAttributesConfi
   const rawDocumentObject = readPlainObject(rawDocument);
 
   if (rawDocumentObject == null) {
-    throw releaseAttributesFailure(
-      'decode release config document',
-      rawDocument,
-      'launch.config.ts releaseAttributes must be a JSON object.',
-    );
+    throw new Error('launch.config.ts releaseAttributes must be a JSON object.', {
+      cause: rawDocument,
+    });
   }
 
   const releaseConfig: {
@@ -916,10 +872,9 @@ export function parseReleaseConfig(rawDocument: unknown): ReleaseAttributesConfi
   const hasSection = hasDeclaredSection(releaseConfig);
 
   if (hasSection == false) {
-    throw releaseAttributesFailure(
-      'decode release config fields',
-      rawDocumentObject,
+    throw new Error(
       'launch.config.ts releaseAttributes has no recognized section - declare at least one of ageRating / categories / pricing / reviewDetails.',
+      { cause: rawDocumentObject },
     );
   }
 

@@ -155,7 +155,7 @@ function descendCommandTree(
 
   for (const word of words) {
     function isNamedCommand(candidate: Command) {
-      return candidate.name() == word;
+      return candidate.readName() == word;
     }
 
     const matchingSubcommand = command.commands.find(isNamedCommand);
@@ -187,7 +187,7 @@ function readEarlierWord(words: readonly string[]): string | null {
 }
 
 function readSubcommandName(subcommand: Command): string {
-  return subcommand.name();
+  return subcommand.readName();
 }
 
 function listStaticCompletionCandidates(command: Command): string[] {

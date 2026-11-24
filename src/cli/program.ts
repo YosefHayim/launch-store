@@ -37,7 +37,7 @@ export function buildProgram(launchVersion: string = '0.0.0'): Command {
   const terminalCommands = new TerminalCommands();
 
   program
-    .name('launch-store')
+    .setName('launch-store')
     .description('Call the App Store Connect and Google Play APIs from your machine.')
     .version(launchVersion);
 

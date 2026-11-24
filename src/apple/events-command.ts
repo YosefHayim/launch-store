@@ -6,7 +6,7 @@ import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import { AppEvents, type AppEventWithLocalizations } from './app-events.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { readStoreBundleId } from '../store/shared/select-store-app.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 
 /** Options for creating a draft in-app event. */
 export type CreateEventCommandInput = Readonly<{
@@ -36,17 +36,6 @@ type EventsCommandInput =
   | CreateEventCommandInput
   | LocalizeEventCommandInput
   | Readonly<{ operation: 'delete'; eventId: string; yes: boolean }>;
-
-/** Convert any dependency failure into an Error. */
-function eventsFailure(operation: EventsCommandInput['operation'], cause: unknown): never {
-  const causeHasMessage = hasMessage(cause);
-
-  if (causeHasMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`Events ${operation} failed.`, { cause });
-}
 
 function isPresentDetail(eventDetail: string | undefined): eventDetail is string {
   return eventDetail != null;
@@ -136,7 +125,7 @@ async function listEventsProgram(
 
     logger.line(`\n${appEvents.length} event${eventSuffix}.`);
   } catch (cause) {
-    throw eventsFailure('list', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -169,7 +158,7 @@ async function createEventProgram(commandInput: CreateEventCommandInput): Promis
       `${createdEvent.id} - ${createdEvent.referenceName} (${eventState})`,
     );
   } catch (cause) {
-    throw eventsFailure('create', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -199,7 +188,7 @@ async function localizeEventProgram(commandInput: LocalizeEventCommandInput): Pr
       `[${localizationOutcome.localization.locale}] ${commandInput.eventId}`,
     );
   } catch (cause) {
-    throw eventsFailure('localize', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -243,7 +232,7 @@ async function deleteEventProgram(
 
     logger.step('event deleted', commandInput.eventId);
   } catch (cause) {
-    throw eventsFailure('delete', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 

@@ -16,7 +16,7 @@ import {
   type CustomProductPagesConfig,
 } from './custom-product-pages.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
@@ -65,24 +65,6 @@ export function CustomProductPagesCommandInputSchema(
   return { app, dryRun, yes };
 }
 
-/** Convert a dependency failure into an Error. */
-function customPagesFailure(operation: string, cause: unknown): never {
-  const causeText = typeof cause == 'string' ? cause : '';
-  const isBlankCauseText = causeText.length == 0;
-
-  if (isBlankCauseText == false) {
-    throw new Error(causeText, { cause });
-  }
-
-  const causeHasMessage = hasMessage(cause);
-
-  if (causeHasMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`${operation} failed.`, { cause });
-}
-
 function isPlannedAction(plannedAction: PlannedAction): boolean {
   return plannedAction.status == 'planned';
 }
@@ -102,7 +84,7 @@ async function readCustomPagesTarget(
   try {
     var storeAppContext = await loadStoreAppContext(commandInput.app);
   } catch (cause) {
-    throw customPagesFailure('select custom pages app', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const bundleId = storeAppContext.app.bundleId;
@@ -136,7 +118,7 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
     try {
       var commandInput = CustomProductPagesCommandInputSchema(rawCommandInput);
     } catch (cause) {
-      throw customPagesFailure('decode custom pages command input', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const customPagesTarget = await readCustomPagesTarget(commandInput);
@@ -145,7 +127,7 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
     try {
       var appleStore = await loadActiveAppleStore();
     } catch (cause) {
-      throw customPagesFailure('load App Store Connect client', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     try {
@@ -155,7 +137,7 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
         dryRun: true,
       });
     } catch (cause) {
-      throw customPagesFailure('plan custom page changes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const plannedActions = customPagesPlan.actions.filter(isPlannedAction);
@@ -195,7 +177,7 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
         commandInput.yes,
       );
     } catch (cause) {
-      throw customPagesFailure('confirm custom page changes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const declined = confirmed == false;
@@ -211,7 +193,7 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
         dryRun: false,
       });
     } catch (cause) {
-      throw customPagesFailure('apply custom page changes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const customPagesSummary = summarizeCustomPages(appliedCustomPages.actions);
@@ -227,7 +209,7 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
 
     return customPagesSummary.failed;
   } catch (cause) {
-    throw customPagesFailure('run custom pages command', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 

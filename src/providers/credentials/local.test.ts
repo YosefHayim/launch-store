@@ -165,11 +165,9 @@ function describeLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelect
 
     const ios = iosContext();
 
-    await expect(provider.readBuildCredentials(ios)).rejects.toMatchObject({
-      _tag: 'MissingCredentialsFailure',
-      platform: 'apple',
-      message: 'No App Store Connect API key found. Import one with: launch-store creds set-key',
-    });
+    await expect(provider.readBuildCredentials(ios)).rejects.toThrow(
+      'No App Store Connect API key found. Import one with: launch-store creds set-key',
+    );
   }
 
   it(
@@ -342,10 +340,9 @@ function describeLegacyAndroidBuildGuidance() {
       },
     };
 
-    await expect(provider.readBuildCredentials(context)).rejects.toMatchObject({
-      _tag: 'MissingCredentialsFailure',
-      platform: 'android',
-    });
+    await expect(provider.readBuildCredentials(context)).rejects.toThrow(
+      "A legacy Play service account exists. Run `launch-store creds adopt --platform android --app 'demo'`.",
+    );
   }
 
   it(

@@ -9,7 +9,7 @@ import {
   listBetaFeedback,
   type FeedbackFilters,
 } from './testflight-feedback.ts';
-import { countLabel, loadSelectedAppleApp, testflightFailure } from './testflight-group.ts';
+import { countLabel, loadSelectedAppleApp } from './testflight-group.ts';
 
 const FEEDBACK_KINDS: readonly BetaFeedbackKind[] = ['crash', 'screenshot'];
 
@@ -41,10 +41,7 @@ export async function parseFeedbackType(
     return matchedKind;
   }
 
-  throw testflightFailure(
-    'parse feedback type',
-    `--type must be one of ${FEEDBACK_KINDS.join(' | ')} (got "${requestedType}").`,
-  );
+  throw new Error(`--type must be one of ${FEEDBACK_KINDS.join(' | ')} (got "${requestedType}").`);
 }
 
 function cleanTerminalText(unsafeText: string): string {

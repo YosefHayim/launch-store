@@ -1,5 +1,6 @@
 // Syncs subscription offers and promoted-purchase order to App Store Connect.
 
+import { errorMessage } from '../services/platform/error-message.ts';
 import { loadConfig } from '../config/config.ts';
 import type { AppStoreConnect } from './app-store-connect.ts';
 import { createLogger } from '../services/platform/logger.ts';
@@ -13,7 +14,6 @@ import { loadActiveAppleStore } from './apple-store-command.ts';
 import { appDeclaresOffers, reconcileOffers } from './offers.ts';
 import { summarize } from '../store/shared/reconcile.ts';
 import type { OffersReconcileInput } from './offers-command.ts';
-import { offersFailure } from './offers-subscription.ts';
 
 type OffersJob = Readonly<{
   readonly app: AppDescriptor;
@@ -111,11 +111,9 @@ function selectOffersApps(apps: AppDescriptor[], appSelector: string | undefined
         discoveredNames = 'none';
       }
 
-      throw offersFailure(
-        'select offers apps',
-        requestedName,
-        `Unknown app "${requestedName}". Discovered: ${discoveredNames}.`,
-      );
+      throw new Error(`Unknown app "${requestedName}". Discovered: ${discoveredNames}.`, {
+        cause: requestedName,
+      });
     }
 
     selectedApps.push(selectedApp);
@@ -130,7 +128,7 @@ async function readOffersJobs(appSelector: string | undefined): Promise<OffersJo
   try {
     var loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
   } catch (cause) {
-    throw offersFailure('load offers configuration', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const selectedApps = selectOffersApps(loadedConfiguration.apps, appSelector);
@@ -191,7 +189,7 @@ async function reconcileOffersJob(
     return {
       _tag: 'OffersJobFailed',
       job: offersJob,
-      message: offersFailure('reconcile app offers', cause).message,
+      message: errorMessage(cause),
     };
   }
 }
@@ -207,10 +205,9 @@ async function confirmOffersWrite(mutationCount: number, assumeYes: boolean): Pr
   const isInteractive = checkTerminalIsInteractive();
 
   if (isInteractive == false) {
-    throw offersFailure(
-      'confirm offers write',
-      'confirmation-required',
+    throw new Error(
       'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
+      { cause: 'confirmation-required' },
     );
   }
 
@@ -219,7 +216,7 @@ async function confirmOffersWrite(mutationCount: number, assumeYes: boolean): Pr
       `Apply ${mutationCount} offer change(s) to App Store Connect?`,
     );
   } catch (cause) {
-    throw offersFailure('confirm offers write', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   if (confirmed) {
@@ -314,7 +311,7 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
     try {
       var appleStore = await loadActiveAppleStore();
     } catch (cause) {
-      throw offersFailure('load App Store Connect client', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const offerJobConcurrency = 4;
@@ -480,6 +477,6 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
 
     return failureCount;
   } catch (cause) {
-    throw offersFailure('reconcile offers', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }

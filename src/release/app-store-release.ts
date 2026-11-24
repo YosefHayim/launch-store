@@ -88,27 +88,6 @@ export type AscReleaseApi = {
   createAppStoreVersionReleaseRequest(versionId: string): Promise<void>;
 };
 
-function releaseMessage(cause: unknown, explicitMessage?: string): string {
-  const hasExplicitMessage = explicitMessage != null;
-
-  if (hasExplicitMessage) {
-    return explicitMessage;
-  }
-
-  return errorMessage(cause);
-}
-
-function releaseFailure(operation: string, cause: unknown, explicitMessage?: string): Error {
-  const chosenMessage = releaseMessage(cause, explicitMessage);
-  const isMessageEmpty = chosenMessage.length == 0;
-
-  if (isMessageEmpty) {
-    return new Error(`${operation} failed.`, { cause });
-  }
-
-  return new Error(chosenMessage, { cause });
-}
-
 /** Apple platform filter/create value for App Store versions. iOS is all v1 covers. */
 export const IOS_PLATFORM = 'IOS';
 
@@ -337,18 +316,16 @@ function requireValidStoreBuild(storeBuild: BuildResource): void {
       processingState = 'still processing';
     }
 
-    throw releaseFailure(
-      'validate App Store build',
-      storeBuild,
+    throw new Error(
       `Build ${storeBuild.version} is ${processingState} on App Store Connect - wait for it to finish (\`launch-store status\`), then re-run.`,
+      { cause: storeBuild },
     );
   }
 
   if (storeBuild.expired) {
-    throw releaseFailure(
-      'validate App Store build',
-      storeBuild,
+    throw new Error(
       `Build ${storeBuild.version} has expired on App Store Connect - upload a fresh build first.`,
+      { cause: storeBuild },
     );
   }
 }
@@ -398,10 +375,9 @@ function checkBuildCanJoinVersion(
     return;
   }
 
-  throw releaseFailure(
-    'validate App Store build',
-    storeBuild,
+  throw new Error(
     `Build ${storeBuild.version} (version ${buildMarketingVersion}) cannot join a new App Store version: App Store version ${liveVersion.versionString} is already live. Next step: create a worktree from tag ios/${buildMarketingVersion}-${storeBuild.version}, set a new marketing version there, ${BUILD_AND_RELEASE_STEP}`,
+    { cause: storeBuild },
   );
 }
 
@@ -442,7 +418,7 @@ export async function releaseApp(
   try {
     var appId = await appleReleaseApi.getAppId(releaseInput.bundleId);
   } catch (cause) {
-    throw releaseFailure('find App Store app', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const foundAppId = appId;
@@ -451,7 +427,9 @@ export async function releaseApp(
 
   if (isAppMissing) {
     const appMissingMessage = appRecordMissingMessage(releaseInput.bundleId);
-    throw releaseFailure('find App Store app', releaseInput.bundleId, appMissingMessage);
+    throw new Error(appMissingMessage ?? errorMessage(releaseInput.bundleId), {
+      cause: releaseInput.bundleId,
+    });
   }
 
   const storeBuild = releaseInput.build;
@@ -468,7 +446,7 @@ export async function releaseApp(
       releaseInput.platform,
     );
   } catch (cause) {
-    throw releaseFailure('list App Store versions', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   if (hasStoreBuild) {
@@ -844,20 +822,18 @@ function reuseMatchingVersion(
   const isLive = releasePhase == 'live';
 
   if (isLive) {
-    throw releaseFailure(
-      'select App Store version',
-      matchingStoreVersion,
+    throw new Error(
       `Version ${releaseInput.versionString} is already on the App Store (${matchingStoreVersion.appStoreState}). Next step: set a new marketing version in app.json, ${BUILD_AND_RELEASE_STEP}`,
+      { cause: matchingStoreVersion },
     );
   }
 
   const isBlocked = releasePhase == 'blocked';
 
   if (isBlocked) {
-    throw releaseFailure(
-      'select App Store version',
-      matchingStoreVersion,
+    throw new Error(
       `Version ${releaseInput.versionString} is in state ${matchingStoreVersion.appStoreState}, which launch-store will not change. Resolve it in App Store Connect, then release again.`,
+      { cause: matchingStoreVersion },
     );
   }
 
@@ -1125,7 +1101,7 @@ export async function readAppStoreAppId(
   try {
     var appId = await appleReleaseApi.getAppId(bundleId);
   } catch (cause) {
-    throw releaseFailure('find App Store app', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const foundAppId = appId;
@@ -1134,7 +1110,7 @@ export async function readAppStoreAppId(
 
   if (isThereNoAppRecord) {
     const appMissingMessage = appRecordMissingMessage(bundleId, 'launch-store status');
-    throw releaseFailure('find App Store app', bundleId, appMissingMessage);
+    throw new Error(appMissingMessage ?? errorMessage(bundleId), { cause: bundleId });
   }
 
   return foundAppId;
@@ -1149,7 +1125,7 @@ export async function readReleaseStatusForApp(
   try {
     var storeVersions = await appleReleaseApi.listAppStoreVersions(appId, platform);
   } catch (cause) {
-    throw releaseFailure('list App Store versions', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const currentVersion = pickCurrentVersion(storeVersions);
@@ -1171,7 +1147,7 @@ export async function readReleaseStatusForApp(
   try {
     var phasedRelease = await appleReleaseApi.getPhasedRelease(currentVersion.id);
   } catch (cause) {
-    throw releaseFailure('read App Store release status', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   let buildNumber: string | null = null;
@@ -1291,7 +1267,7 @@ export async function waitForValidBuild(
         options.marketingVersion,
       );
     } catch (cause) {
-      throw releaseFailure('read App Store build', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     let processingState = 'PROCESSING';
@@ -1319,10 +1295,9 @@ export async function waitForValidBuild(
     const isProcessingRejected = isRejectedProcessing(processingState);
 
     if (isProcessingRejected) {
-      throw releaseFailure(
-        'wait for App Store build',
-        storeBuild,
+      throw new Error(
         `Build ${buildNumber} failed App Store Connect processing (${processingState}) - check the email Apple sent.`,
+        { cause: storeBuild },
       );
     }
 
@@ -1331,17 +1306,15 @@ export async function waitForValidBuild(
 
     if (isTimedOut) {
       if (isBuildMissing) {
-        throw releaseFailure(
-          'wait for App Store build',
-          storeBuild,
+        throw new Error(
           `Build ${buildNumber} was not found on App Store Connect after ${timeoutMinutes} min - check that the upload finished.`,
+          { cause: storeBuild },
         );
       }
 
-      throw releaseFailure(
-        'wait for App Store build',
-        storeBuild,
+      throw new Error(
         `Build ${buildNumber} is still ${processingState} after ${timeoutMinutes} min. Re-run \`launch-store release ios --build ${buildNumber}\` once \`launch-store status\` shows it VALID.`,
+        { cause: storeBuild },
       );
     }
 

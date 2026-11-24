@@ -2,29 +2,10 @@
 
 import type { Platform } from '../../types/app.ts';
 
-type PlatformMappingFailure = Readonly<{
-  readonly _tag: 'PlatformMappingFailure';
-  readonly operation: string;
-  readonly platform: string;
-  readonly message: string;
-}>;
-
-function makePlatformMappingFailure(fields: {
-  operation: string;
-  platform: string;
-  message: string;
-}): PlatformMappingFailure {
-  return {
-    _tag: 'PlatformMappingFailure',
-    operation: fields.operation,
-    platform: fields.platform,
-    message: fields.message,
-  };
+function unsupportedPlatform(message: string): never {
+  throw new Error(message);
 }
 
-function unsupportedPlatform(operation: string, platform: string, message: string): never {
-  throw makePlatformMappingFailure({ operation, platform, message });
-}
 /** The four Apple build platforms - all built with Xcode on macOS, signed with one team, submitted to App Store Connect. */
 export const APPLE_PLATFORMS: ReadonlySet<Platform> = new Set<Platform>([
   'ios',
@@ -66,8 +47,6 @@ export function parsePlatform(platformText: string) {
 
   if (!match)
     return unsupportedPlatform(
-      'parse platform',
-      platformText,
       `Unknown platform "${platformText}". Use one of: ${PLATFORMS.join(', ')}.`,
     );
 
@@ -86,11 +65,7 @@ export function readConnectPlatform(platform: Platform) {
     case 'visionos':
       return 'VISION_OS';
     case 'android':
-      return unsupportedPlatform(
-        'map App Store Connect platform',
-        platform,
-        'Android has no App Store Connect platform.',
-      );
+      return unsupportedPlatform('Android has no App Store Connect platform.');
   }
 }
 
@@ -104,11 +79,7 @@ export function readBundleIdPlatform(platform: Platform) {
     case 'macos':
       return 'MAC_OS';
     case 'android':
-      return unsupportedPlatform(
-        'map bundle identifier platform',
-        platform,
-        'Android has no App Store Connect bundle-id platform.',
-      );
+      return unsupportedPlatform('Android has no App Store Connect bundle-id platform.');
   }
 }
 
@@ -123,11 +94,7 @@ export function appStoreProfileType(platform: Platform) {
     case 'macos':
       return 'MAC_APP_STORE';
     case 'android':
-      return unsupportedPlatform(
-        'map App Store profile type',
-        platform,
-        'Android has no App Store provisioning profile.',
-      );
+      return unsupportedPlatform('Android has no App Store provisioning profile.');
   }
 }
 
@@ -142,11 +109,7 @@ export function adHocProfileType(platform: Platform) {
     case 'macos':
       return undefined;
     case 'android':
-      return unsupportedPlatform(
-        'map ad hoc profile type',
-        platform,
-        'Android has no ad-hoc provisioning profile.',
-      );
+      return unsupportedPlatform('Android has no ad-hoc provisioning profile.');
   }
 }
 
@@ -162,11 +125,7 @@ export function archiveDestination(platform: Platform) {
     case 'visionos':
       return 'generic/platform=visionOS';
     case 'android':
-      return unsupportedPlatform(
-        'map Xcode destination',
-        platform,
-        'Android does not build with Xcode.',
-      );
+      return unsupportedPlatform('Android does not build with Xcode.');
   }
 }
 
@@ -182,8 +141,6 @@ export function nativeProjectDirName(platform: Platform) {
       return 'visionos';
     case 'android':
       return unsupportedPlatform(
-        'map native project directory',
-        platform,
         'Android does not build with Xcode; its native project is android/.',
       );
   }
@@ -201,11 +158,7 @@ export function nativeTargetHint(platform: Platform) {
     case 'visionos':
       return '@callstack/react-native-visionos';
     case 'android':
-      return unsupportedPlatform(
-        'map native target hint',
-        platform,
-        'Android does not use an Xcode native target.',
-      );
+      return unsupportedPlatform('Android does not use an Xcode native target.');
   }
 }
 
@@ -219,10 +172,6 @@ export function appleArtifactExtension(platform: Platform) {
     case 'macos':
       return 'pkg';
     case 'android':
-      return unsupportedPlatform(
-        'map Apple artifact extension',
-        platform,
-        'Android does not produce an Apple build artifact.',
-      );
+      return unsupportedPlatform('Android does not produce an Apple build artifact.');
   }
 }

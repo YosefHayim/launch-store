@@ -2,32 +2,8 @@
 
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
-
-/** Convert a surface helper failure into an Error. */
-function surfaceFailure(operation: string, cause: unknown, explicitMessage?: string): never {
-  const hasExplicitMessage = explicitMessage != null;
-
-  if (hasExplicitMessage) {
-    throw new Error(explicitMessage, { cause });
-  }
-
-  const causeText = typeof cause == 'string' ? cause : '';
-  const isBlankCauseText = causeText.length == 0;
-
-  if (isBlankCauseText == false) {
-    throw new Error(causeText, { cause });
-  }
-
-  const causeHasMessage = hasMessage(cause);
-
-  if (causeHasMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`${operation} failed.`, { cause });
-}
 
 /** Render one planned App Store surface action with ASCII markers. */
 export function renderStoreSurfaceAction(plannedAction: PlannedAction): string {
@@ -75,17 +51,16 @@ export async function confirmStoreSurfaceWrite(
   const needsATerminal = isInteractive == false;
 
   if (needsATerminal) {
-    throw surfaceFailure(
-      'confirm store surface write',
-      'confirmation-required',
+    throw new Error(
       'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
+      { cause: 'confirmation-required' },
     );
   }
 
   try {
     var confirmed = await new LaunchPrompt().confirm(confirmationMessage);
   } catch (cause) {
-    throw surfaceFailure('confirm store surface write', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   if (confirmed) {

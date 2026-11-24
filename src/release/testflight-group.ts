@@ -5,29 +5,10 @@ import type { AppStoreConnect } from '../apple/app-store-connect.ts';
 import { selectStoreApp } from '../store/shared/select-store-app.ts';
 import type { BetaGroupResource } from '../types/apple/testflight.ts';
 
-type TestflightCommandFailure = Readonly<{
-  _tag: 'TestflightCommandFailure';
-  operation: string;
-  message: string;
-  cause?: unknown;
-}>;
-
 interface SelectedAppleApp {
   appId: string;
   name: string;
   bundleId: string;
-}
-
-export function testflightFailure(
-  operation: string,
-  message: string,
-  cause?: unknown,
-): TestflightCommandFailure {
-  if (cause == null) {
-    return { _tag: 'TestflightCommandFailure', operation, message };
-  }
-
-  return { _tag: 'TestflightCommandFailure', operation, message, cause };
 }
 
 export function countLabel(count: number, singularNoun: string): string {
@@ -47,8 +28,7 @@ export async function loadSelectedAppleApp(
   const selectedApp = await selectStoreApp(appSelector);
 
   if (selectedApp.bundleId == null) {
-    throw testflightFailure(
-      'select iOS app',
+    throw new Error(
       `App "${selectedApp.name}" has no iOS bundle identifier (set ios.bundleIdentifier).`,
     );
   }
@@ -56,8 +36,7 @@ export async function loadSelectedAppleApp(
   const appId = await appleStore.getAppId(selectedApp.bundleId);
 
   if (appId == null) {
-    throw testflightFailure(
-      'find App Store app',
+    throw new Error(
       `No App Store Connect record for ${selectedApp.bundleId}. Create the app once in App Store Connect, then retry.`,
     );
   }
@@ -103,8 +82,7 @@ function requireNamedGroup(
     return matchedGroup;
   }
 
-  throw testflightFailure(
-    'select beta group',
+  throw new Error(
     `No ${groupKind}beta group named "${requestedGroup}". Create one with \`launch-store testflight create-group "${requestedGroup}"\`.`,
   );
 }
@@ -156,8 +134,7 @@ export async function selectBetaGroup(
   const isEmpty = eligibleGroups.length == 0;
 
   if (isEmpty) {
-    throw testflightFailure(
-      'select beta group',
+    throw new Error(
       `No ${groupKind}beta groups for this app. Create one with \`launch-store testflight create-group <name>\`.`,
     );
   }
@@ -171,8 +148,7 @@ export async function selectBetaGroup(
   const isInteractive = process.stdout.isTTY == true;
 
   if (isInteractive == false) {
-    throw testflightFailure(
-      'select beta group',
+    throw new Error(
       'More than one beta group is available. Pass --group <name> non-interactively.',
     );
   }
@@ -194,10 +170,7 @@ export async function confirmAction(
   const isInteractive = process.stdout.isTTY == true;
 
   if (isInteractive == false) {
-    throw testflightFailure(
-      'confirm TestFlight change',
-      `${confirmationMessage} Re-run with --yes to proceed non-interactively.`,
-    );
+    throw new Error(`${confirmationMessage} Re-run with --yes to proceed non-interactively.`);
   }
 
   return new LaunchPrompt().confirm(confirmationMessage);

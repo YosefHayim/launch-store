@@ -63,10 +63,7 @@ export async function clearPurchaseHistory(
   const emails = request.emails.map(trimmedEmail).filter(isNonEmptyEmail);
 
   if (emails.length == 0) {
-    throw {
-      _tag: 'SandboxRequestFailure',
-      message: 'Provide at least one sandbox tester email, or pass --all.',
-    };
+    throw new Error('Provide at least one sandbox tester email, or pass --all.');
   }
 
   const byEmail = new Map(

@@ -9,7 +9,7 @@ import { completeCommand } from '../terminal/command-exit.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import { reconcileAccessibility, summarizeAccessibility } from './accessibility.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
 
@@ -19,23 +19,6 @@ type AccessibilityCommandInput = Readonly<{
   dryRun: boolean;
   yes: boolean;
 }>;
-
-/** Convert an unknown cause into an Error. */
-function accessibilityFailure(operation: string, cause: unknown, fallbackMessage?: string): never {
-  const hasFallback = fallbackMessage != null;
-
-  if (hasFallback) {
-    throw new Error(fallbackMessage, { cause });
-  }
-
-  const causeHasMessage = hasMessage(cause);
-
-  if (causeHasMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`${operation} failed.`, { cause });
-}
 
 /** Render one accessibility action with an ASCII status marker. */
 export function renderAccessibilityAction(plannedAction: PlannedAction): string {
@@ -100,7 +83,7 @@ export async function accessibilityCommandProgram(
   try {
     var storeAppContext = await loadStoreAppContext(commandInput.app);
   } catch (cause) {
-    throw accessibilityFailure('select app', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const bundleId = storeAppContext.app.bundleId;
@@ -108,10 +91,9 @@ export async function accessibilityCommandProgram(
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
-    throw accessibilityFailure(
-      'resolve iOS bundle identifier',
-      storeAppContext.app,
+    throw new Error(
       `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
+      { cause: storeAppContext.app },
     );
   }
 
@@ -120,31 +102,28 @@ export async function accessibilityCommandProgram(
   const isAccessibilityMissing = accessibilitySection == null;
 
   if (isAccessibilityMissing) {
-    throw accessibilityFailure(
-      'resolve accessibility config',
-      bundleId,
+    throw new Error(
       `No accessibility config for ${bundleId}. Add an accessibility entry to launch.config.ts.`,
+      { cause: bundleId },
     );
   }
 
   try {
     var ascKey = await loadActiveAscKey();
   } catch (cause) {
-    throw accessibilityFailure('load active Apple account', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   if (ascKey == null) {
-    throw accessibilityFailure(
-      'load active Apple account',
-      bundleId,
-      'No active Apple account. Run `launch-store creds set-key` first.',
-    );
+    throw new Error('No active Apple account. Run `launch-store creds set-key` first.', {
+      cause: bundleId,
+    });
   }
 
   try {
     var ascClient = new AppleStoreClientService().createClient(ascKey);
   } catch (cause) {
-    throw accessibilityFailure('create App Store client', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   try {
@@ -154,7 +133,7 @@ export async function accessibilityCommandProgram(
       dryRun: true,
     });
   } catch (cause) {
-    throw accessibilityFailure('plan accessibility changes', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const plannedActions = accessibilityPlan.actions.filter(isPlannedAction);
@@ -187,10 +166,9 @@ export async function accessibilityCommandProgram(
     const needsATerminal = terminalIsInteractive == false;
 
     if (needsATerminal) {
-      throw accessibilityFailure(
-        'confirm accessibility changes',
-        commandInput,
+      throw new Error(
         'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
+        { cause: commandInput },
       );
     }
 
@@ -199,7 +177,7 @@ export async function accessibilityCommandProgram(
         `Apply ${plannedActions.length} accessibility change(s) to App Store Connect?`,
       );
     } catch (cause) {
-      throw accessibilityFailure('confirm accessibility changes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const declined = confirmed == false;
@@ -217,7 +195,7 @@ export async function accessibilityCommandProgram(
       dryRun: false,
     });
   } catch (cause) {
-    throw accessibilityFailure('apply accessibility changes', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const accessibilitySummary = summarizeAccessibility(appliedAccessibility.actions);

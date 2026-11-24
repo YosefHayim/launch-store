@@ -295,43 +295,23 @@ export class Command {
   private explicitKeys = new Set<string>();
   private readonly aliasNames: string[] = [];
 
-  name(commandName: string): this;
-
-  name(): string;
-
-  name(commandName?: string): this | string {
-    if (commandName == null) {
-      return this.commandName;
-    }
-
+  setName(commandName: string): this {
     this.commandName = commandName;
 
     return this;
   }
 
-  description(text: string): this;
+  readName(): string {
+    return this.commandName;
+  }
 
-  description(): string;
-
-  description(text?: string): this | string {
-    if (text == null) {
-      return this.commandDescription;
-    }
-
+  description(text: string): this {
     this.commandDescription = text;
 
     return this;
   }
 
-  version(launchVersion: string): this;
-
-  version(): string;
-
-  version(launchVersion?: string): this | string {
-    if (launchVersion == null) {
-      return this.readVersion();
-    }
-
+  version(launchVersion: string): this {
     this.launchVersion = launchVersion;
     this.addVersionOption();
 
@@ -358,7 +338,7 @@ export class Command {
       return child;
     }
 
-    child.name(childName);
+    child.setName(childName);
     child.parent = this;
 
     if (settings?.hidden == true) {
@@ -617,7 +597,7 @@ export class Command {
 
   private findChild(token: string): Command | null {
     for (const child of this.commands) {
-      if (child.name() == token) {
+      if (child.readName() == token) {
         return child;
       }
 
@@ -983,7 +963,7 @@ export class Command {
       lines.push('Commands:');
 
       for (const child of shown) {
-        lines.push(`  ${child.name()}  ${child.commandDescription}`);
+        lines.push(`  ${child.readName()}  ${child.commandDescription}`);
       }
     }
 

@@ -1,8 +1,9 @@
 // Generates redeemable subscription offer codes on App Store Connect.
 
+import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import type { OffersGenerateCodesInput } from './offers-command.ts';
-import { findOfferCode, offersFailure, readSubscription } from './offers-subscription.ts';
+import { findOfferCode, readSubscription } from './offers-subscription.ts';
 
 function isInvalidCodeCount(codeCount: number): boolean {
   const isWholeNumber = Number.isInteger(codeCount);
@@ -23,11 +24,7 @@ export async function executeGenerateCodes(commandInput: OffersGenerateCodesInpu
     const countIsInvalid = isInvalidCodeCount(codeCount);
 
     if (countIsInvalid) {
-      throw offersFailure(
-        'validate offer code count',
-        commandInput.count,
-        '--count must be a positive integer.',
-      );
+      throw new Error('--count must be a positive integer.', { cause: commandInput.count });
     }
 
     const chosenSubscription = await readSubscription(commandInput.app, commandInput.productId);
@@ -49,7 +46,7 @@ export async function executeGenerateCodes(commandInput: OffersGenerateCodesInpu
           commandInput.expires,
         );
       } catch (cause) {
-        throw offersFailure('create custom offer code', cause);
+        throw new Error(errorMessage(cause), { cause: cause });
       }
 
       logger.step(
@@ -65,21 +62,17 @@ export async function executeGenerateCodes(commandInput: OffersGenerateCodesInpu
     const isExpirationMissing = expirationDate == null;
 
     if (isExpirationMissing) {
-      throw offersFailure(
-        'validate one-time offer codes',
-        commandInput,
-        'One-time-use codes need an expiration date: --expires YYYY-MM-DD.',
-      );
+      throw new Error('One-time-use codes need an expiration date: --expires YYYY-MM-DD.', {
+        cause: commandInput,
+      });
     }
 
     const isExpirationBlank = expirationDate.length == 0;
 
     if (isExpirationBlank) {
-      throw offersFailure(
-        'validate one-time offer codes',
-        commandInput,
-        'One-time-use codes need an expiration date: --expires YYYY-MM-DD.',
-      );
+      throw new Error('One-time-use codes need an expiration date: --expires YYYY-MM-DD.', {
+        cause: commandInput,
+      });
     }
 
     try {
@@ -89,7 +82,7 @@ export async function executeGenerateCodes(commandInput: OffersGenerateCodesInpu
         expirationDate,
       );
     } catch (cause) {
-      throw offersFailure('create one-time offer codes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     logger.step(
@@ -97,6 +90,6 @@ export async function executeGenerateCodes(commandInput: OffersGenerateCodesInpu
       `generated ${codeCount} one-time-use code(s) on "${commandInput.offerName}" (expire ${expirationDate})`,
     );
   } catch (cause) {
-    throw offersFailure('generate offer codes', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }

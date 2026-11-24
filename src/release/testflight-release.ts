@@ -10,7 +10,7 @@ import {
   summarizeBetaReview,
   type BetaReviewReconcileInput,
 } from './beta-review.ts';
-import { confirmAction, loadSelectedAppleApp, testflightFailure } from './testflight-group.ts';
+import { confirmAction, loadSelectedAppleApp } from './testflight-group.ts';
 
 export interface ReleaseCommandInput {
   operation: 'release';
@@ -66,7 +66,7 @@ async function readLocalizedNotes(
       message = cause.message;
     }
 
-    throw testflightFailure('read TestFlight notes', message, cause);
+    throw new Error(message, { cause });
   }
 
   const bundleId = storeAppContext.app.bundleId;
@@ -74,10 +74,7 @@ async function readLocalizedNotes(
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
-    throw testflightFailure(
-      'read TestFlight notes',
-      'Add a testFlight entry to launch.config.ts, or pass --whats-new.',
-    );
+    throw new Error('Add a testFlight entry to launch.config.ts, or pass --whats-new.');
   }
 
   const notesForBundle = storeAppContext.config.testFlight?.[bundleId];
@@ -85,8 +82,7 @@ async function readLocalizedNotes(
   const isNotesMissing = notesForBundle == null;
 
   if (isNotesMissing) {
-    throw testflightFailure(
-      'read TestFlight notes',
+    throw new Error(
       `No TestFlight notes for ${bundleId}. Add a testFlight entry to launch.config.ts, or pass --whats-new.`,
     );
   }
@@ -185,9 +181,6 @@ export async function releaseBuild(commandInput: ReleaseCommandInput): Promise<v
   const hasFailedActions = actionSummary.failed > 0;
 
   if (hasFailedActions) {
-    throw testflightFailure(
-      'apply beta release',
-      `${actionSummary.failed} TestFlight action(s) failed.`,
-    );
+    throw new Error(`${actionSummary.failed} TestFlight action(s) failed.`);
   }
 }

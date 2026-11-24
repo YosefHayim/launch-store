@@ -63,12 +63,6 @@ function readErrorText(cause: unknown, fallback: string): string {
   return cause.message;
 }
 
-function exportComplianceFailure(operation: string, cause: unknown): never {
-  const message = readErrorText(cause, `${operation} failed.`);
-
-  throw new Error(message, { cause });
-}
-
 function exportComplianceOutcome(
   complianceOutcome: ExportComplianceResult,
 ): ExportComplianceResult {
@@ -133,7 +127,10 @@ export async function reconcileExportCompliance(
 
     return exportComplianceOutcome({ status: 'needs-declaration' });
   } catch (cause) {
-    throw exportComplianceFailure('reconcile App Store export compliance', cause);
+    throw new Error(
+      readErrorText(cause, String('reconcile App Store export compliance') + ' failed.'),
+      { cause: cause },
+    );
   }
 }
 

@@ -11,23 +11,6 @@ import type { BuildContext } from './config.ts';
 import type { BuildCredentials } from './credentials.ts';
 import type { AllocateRequest, HostHandle, HostStatus } from './remote.ts';
 
-export type ProviderInputFailure = Readonly<{
-  readonly _tag: 'ProviderInputFailure';
-  readonly provider: string;
-  readonly message: string;
-}>;
-
-export function makeProviderInputFailure(fields: {
-  provider: string;
-  message: string;
-}): ProviderInputFailure {
-  return {
-    _tag: 'ProviderInputFailure',
-    provider: fields.provider,
-    message: fields.message,
-  };
-}
-
 /** A store refused an upload or never finished taking it; the message carries the store's own reasons. */
 export type StoreUploadFailure = Readonly<{
   readonly _tag: 'StoreUploadFailure';

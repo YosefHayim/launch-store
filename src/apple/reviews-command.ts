@@ -8,7 +8,7 @@ import type { CustomerReviewResource } from '../types/apple/customer-reviews.ts'
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { deleteReviewResponse, listReviews, replyToReview } from './reviews.ts';
 import { readStoreBundleId } from '../store/shared/select-store-app.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
 
@@ -36,17 +36,6 @@ type ReviewsCommandInput =
   | ReviewsListCommandInput
   | ReviewReplyCommandInput
   | Readonly<{ operation: 'delete'; reviewId: string; yes: boolean }>;
-
-/** Convert any dependency failure into an Error. */
-function reviewsFailure(operation: ReviewsCommandInput['operation'], cause: unknown): never {
-  const causeHasMessage = hasMessage(cause);
-
-  if (causeHasMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`Reviews ${operation} failed.`, { cause });
-}
 
 function isValidReviewRating(isWholeNumber: boolean, parsedRating: number): boolean {
   if (isWholeNumber == false) {
@@ -173,7 +162,7 @@ async function confirmReviewWrite(
   try {
     var shouldWrite = await new LaunchPrompt().confirm(confirmationMessage);
   } catch (cause) {
-    throw reviewsFailure(operation, cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   if (shouldWrite) {
@@ -239,7 +228,7 @@ async function listReviewsProgram(commandInput: ReviewsListCommandInput): Promis
 
     logger.line(`\n${customerReviews.length} review${reviewSuffix}.`);
   } catch (cause) {
-    throw reviewsFailure('list', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -252,7 +241,7 @@ async function readReplyText(commandInput: ReviewReplyCommandInput): Promise<str
       const fileText = await readFile(commandInput.file, 'utf8');
       return fileText.trim();
     } catch (cause) {
-      throw reviewsFailure('reply', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
   }
 
@@ -306,7 +295,7 @@ async function replyToReviewProgram(commandInput: ReviewReplyCommandInput): Prom
 
     logger.step(operationLabel, replyOutcome.reviewReply.state);
   } catch (cause) {
-    throw reviewsFailure('reply', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -338,7 +327,7 @@ async function deleteReviewReplyProgram(
 
     logger.note(`No developer response on review ${commandInput.reviewId} - nothing to delete.`);
   } catch (cause) {
-    throw reviewsFailure('delete', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 

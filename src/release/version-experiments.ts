@@ -51,14 +51,6 @@ export interface VersionExperimentsConfig {
   experiments: ExperimentConfig[];
 }
 
-/** Experiments decoding or reconciliation failed. */
-type VersionExperimentsFailure = Readonly<{
-  readonly _tag: 'VersionExperimentsFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
 /** Store API calls used by product-page experiment reconciliation. */
 export type AscExperimentsApi = ScreenshotSetApi &
   Readonly<{
@@ -126,25 +118,8 @@ type EnsuredLocalization = Readonly<{
   existed: boolean;
 }>;
 
-/** Convert an underlying failure to the experiments channel. */
-function versionExperimentsFailure(
-  operation: string,
-  cause: unknown,
-  explicitMessage?: string,
-): VersionExperimentsFailure {
-  const providedMessage = explicitMessage ?? errorMessage(cause);
-  const hasText = providedMessage.length > 0;
-  let message = `${operation} failed.`;
-
-  if (hasText) {
-    message = providedMessage;
-  }
-
-  return { _tag: 'VersionExperimentsFailure', operation, message, cause };
-}
-
 function failConfigFields(cause: unknown, message: string): never {
-  throw versionExperimentsFailure('decode experiments config fields', cause, message);
+  throw new Error(message, { cause });
 }
 
 function readExperimentName(field: unknown): string {
@@ -857,7 +832,7 @@ export async function reconcileVersionExperiments(
       actions: actionLog.actions,
     };
   } catch (error) {
-    throw versionExperimentsFailure('reconcile version experiments', error);
+    throw new Error(errorMessage(error), { cause: error });
   }
 }
 
@@ -905,24 +880,20 @@ export async function discoverTreatmentScreenshots(
     try {
       folderExists = await pathExists(folderPath);
     } catch (error) {
-      throw versionExperimentsFailure('inspect treatment screenshots', error);
+      throw new Error(errorMessage(error), { cause: error });
     }
 
     const folderIsMissing = folderExists == false;
 
     if (folderIsMissing) {
-      throw versionExperimentsFailure(
-        'read treatment screenshots',
-        folderPath,
-        `No treatment screenshots folder at ${folderPath}.`,
-      );
+      throw new Error(`No treatment screenshots folder at ${folderPath}.`, { cause: folderPath });
     }
 
     try {
       const folderScreenshots = await discoverScreenshotsAt(folderPath);
       treatmentScreenshots.set(screenshotsFolder, folderScreenshots);
     } catch (error) {
-      throw versionExperimentsFailure('read treatment screenshots', error);
+      throw new Error(errorMessage(error), { cause: error });
     }
   }
 
@@ -939,11 +910,7 @@ export async function parseVersionExperimentsConfig(
     return { experiments: readExperiments(rawDocumentObject) };
   }
 
-  throw versionExperimentsFailure(
-    'decode experiments config document',
-    rawDocument,
-    'launch.config.ts experiments must be a JSON object.',
-  );
+  throw new Error('launch.config.ts experiments must be a JSON object.', { cause: rawDocument });
 }
 
 /** Count applied, failed, and skipped experiment actions. */

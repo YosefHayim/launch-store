@@ -6,12 +6,7 @@ import { readPlainObject } from '../services/platform/plain-object.ts';
 import { loadActiveAppleStore } from '../apple/apple-store-command.ts';
 import type { BetaGroupResource, BetaTesterResource } from '../types/apple/testflight.ts';
 import { addTesters, type AddCommandInput } from './testflight-add-testers.ts';
-import {
-  countLabel,
-  loadSelectedAppleApp,
-  selectBetaGroup,
-  testflightFailure,
-} from './testflight-group.ts';
+import { countLabel, loadSelectedAppleApp, selectBetaGroup } from './testflight-group.ts';
 import { releaseBuild, type ReleaseCommandInput } from './testflight-release.ts';
 import { removeTesters, type RemoveCommandInput } from './testflight-remove-testers.ts';
 import { showFeedback, type FeedbackCommandInput } from './testflight-show-feedback.ts';
@@ -473,6 +468,6 @@ export async function testflightCommandProgram(rawCommandInput: unknown): Promis
     await runTestflightOperation(commandInput);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
-    throw testflightFailure('run TestFlight command', failureMessage, cause);
+    throw new Error(failureMessage, { cause });
   }
 }

@@ -5,7 +5,7 @@ import type {
   UserInvitationResource,
   UserResource,
 } from '../types/apple/users-and-access.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 
 /** App Store Connect operations needed for team membership. */
 export type AscTeamApi = Readonly<{
@@ -52,24 +52,6 @@ type RemoveOutcome =
   | Readonly<{ kind: 'invitation'; invitation: UserInvitationResource }>
   | Readonly<{ kind: 'none' }>;
 
-/** Convert a team dependency failure into an Error. */
-function teamFailure(operation: 'list' | 'invite' | 'remove', cause: unknown): never {
-  const causeText = typeof cause == 'string' ? cause : '';
-  const isBlankCauseText = causeText.length == 0;
-
-  if (isBlankCauseText == false) {
-    throw new Error(causeText, { cause });
-  }
-
-  const hasCauseMessage = hasMessage(cause);
-
-  if (hasCauseMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`Team ${operation} failed.`, { cause });
-}
-
 /** Read accepted members and pending invitations together. */
 export async function getTeam(teamClient: AscTeamApi): Promise<Team> {
   try {
@@ -78,7 +60,7 @@ export async function getTeam(teamClient: AscTeamApi): Promise<Team> {
     const [members, invitations] = await Promise.all([membersPromise, invitationsPromise]);
     return { members, invitations };
   } catch (cause) {
-    throw teamFailure('list', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -128,7 +110,9 @@ export async function inviteTeamMember(
   const isEmailMissing = email.length == 0;
 
   if (isEmailMissing) {
-    throw teamFailure('invite', 'An email is required to invite a team member.');
+    throw new Error(errorMessage('An email is required to invite a team member.'), {
+      cause: 'An email is required to invite a team member.',
+    });
   }
 
   const normalizedRoles = normalizeRoles(inviteRequest.roles);
@@ -136,18 +120,22 @@ export async function inviteTeamMember(
   const isRoleListEmpty = normalizedRoles.length == 0;
 
   if (isRoleListEmpty) {
-    throw teamFailure(
-      'invite',
-      `At least one role is required. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
+    throw new Error(
+      errorMessage(`At least one role is required. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`),
+      { cause: `At least one role is required. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.` },
     );
   }
 
   const usesDeprecatedRole = normalizedRoles.includes(DEPRECATED_ROLE_PERMISSION);
 
   if (usesDeprecatedRole) {
-    throw teamFailure(
-      'invite',
-      `${DEPRECATED_ROLE_PERMISSION} is deprecated by Apple (App Store Connect API 4.3). Report access comes with the Sales, Marketing, App Manager, and Developer roles: use one of them. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
+    throw new Error(
+      errorMessage(
+        `${DEPRECATED_ROLE_PERMISSION} is deprecated by Apple (App Store Connect API 4.3). Report access comes with the Sales, Marketing, App Manager, and Developer roles: use one of them. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
+      ),
+      {
+        cause: `${DEPRECATED_ROLE_PERMISSION} is deprecated by Apple (App Store Connect API 4.3). Report access comes with the Sales, Marketing, App Manager, and Developer roles: use one of them. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
+      },
     );
   }
 
@@ -156,16 +144,20 @@ export async function inviteTeamMember(
   const hasUnknownRoles = unknownRoles.length > 0;
 
   if (hasUnknownRoles) {
-    throw teamFailure(
-      'invite',
-      `Unknown role(s): ${unknownRoles.join(', ')}. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
+    throw new Error(
+      errorMessage(
+        `Unknown role(s): ${unknownRoles.join(', ')}. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
+      ),
+      {
+        cause: `Unknown role(s): ${unknownRoles.join(', ')}. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
+      },
     );
   }
 
   try {
     var currentTeam = await getTeam(teamClient);
   } catch (cause) {
-    throw teamFailure('invite', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const normalizedEmail = email.toLowerCase();
@@ -174,7 +166,9 @@ export async function inviteTeamMember(
   const isAlreadyMember = currentTeam.members.some(memberHasEmail);
 
   if (isAlreadyMember) {
-    throw teamFailure('invite', `${email} is already a team member.`);
+    throw new Error(errorMessage(`${email} is already a team member.`), {
+      cause: `${email} is already a team member.`,
+    });
   }
 
   const invitationHasEmail = hasInvitationEmail(normalizedEmail);
@@ -182,7 +176,9 @@ export async function inviteTeamMember(
   const hasPendingInvitation = currentTeam.invitations.some(invitationHasEmail);
 
   if (hasPendingInvitation) {
-    throw teamFailure('invite', `${email} already has a pending invitation.`);
+    throw new Error(errorMessage(`${email} already has a pending invitation.`), {
+      cause: `${email} already has a pending invitation.`,
+    });
   }
 
   let allAppsVisible = true;
@@ -207,7 +203,7 @@ export async function inviteTeamMember(
       provisioningAllowed,
     });
   } catch (cause) {
-    throw teamFailure('invite', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -220,7 +216,7 @@ export async function removeTeamMember(
   try {
     var currentTeam = await getTeam(teamClient);
   } catch (cause) {
-    throw teamFailure('remove', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const memberHasEmail = hasMemberEmail(normalizedEmail);
@@ -232,7 +228,7 @@ export async function removeTeamMember(
     try {
       await teamClient.deleteUser(matchingMember.id);
     } catch (cause) {
-      throw teamFailure('remove', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     return { kind: 'member', user: matchingMember };
@@ -247,7 +243,7 @@ export async function removeTeamMember(
     try {
       await teamClient.cancelUserInvitation(matchingInvitation.id);
     } catch (cause) {
-      throw teamFailure('remove', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     return { kind: 'invitation', invitation: matchingInvitation };

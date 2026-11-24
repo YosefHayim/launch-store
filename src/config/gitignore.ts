@@ -8,16 +8,6 @@ import { readLaunchDirectories } from '../services/platform/paths.ts';
 
 type GitignoreChange = { added: false } | { added: true; entry: string };
 
-type GitignoreFailure = Readonly<{
-  _tag: 'GitignoreFailure';
-  path: string;
-  cause: unknown;
-}>;
-
-function makeGitignoreFailure(path: string, cause: unknown): GitignoreFailure {
-  return { _tag: 'GitignoreFailure', path, cause };
-}
-
 // A git hook exports GIT_DIR, and then `git -C <dir>` treats <dir> as that repo. Drop it so discovery follows the directory.
 async function runGit(directory: string, gitArguments: readonly string[]): Promise<string> {
   return captureCommandOutput('env', [
@@ -138,7 +128,7 @@ export async function ensureArtifactDirIgnored(
       existing = await readFile(gitignorePath, 'utf8');
     }
   } catch (cause) {
-    throw makeGitignoreFailure(gitignorePath, cause);
+    throw new Error(`Could not read ${gitignorePath}.`, { cause });
   }
 
   let base = existing;
@@ -158,7 +148,7 @@ export async function ensureArtifactDirIgnored(
   try {
     await writeFile(gitignorePath, `${base}${gap}# launch-store build artifacts\n${entry}\n`);
   } catch (cause) {
-    throw makeGitignoreFailure(gitignorePath, cause);
+    throw new Error(`Could not update ${gitignorePath}.`, { cause });
   }
 
   return { added: true, entry };

@@ -6,12 +6,6 @@ import type { BuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
 import type { CredentialsProvider } from '../../types/providers.ts';
 
-type MissingCredentialsFailure = Readonly<{
-  readonly _tag: 'MissingCredentialsFailure';
-  readonly platform: 'apple' | 'android';
-  readonly message: string;
-}>;
-
 type AppleAccountStatus = Awaited<
   ReturnType<LocalCredentialsStore['listAppleAccountStatuses']>
 >[number];
@@ -45,13 +39,6 @@ function readCredentials(): CredentialsReader {
   return new LocalCredentialsStore();
 }
 
-function makeMissingCredentialsFailure(fields: {
-  platform: 'apple' | 'android';
-  message: string;
-}): MissingCredentialsFailure {
-  return { _tag: 'MissingCredentialsFailure', ...fields };
-}
-
 async function readAppleCredentials(
   buildContext: BuildContext,
   credentialStore: CredentialsReader,
@@ -59,10 +46,9 @@ async function readAppleCredentials(
   const ascKey = await credentialStore.loadAppleKey(buildContext.account);
 
   if (ascKey == null) {
-    throw makeMissingCredentialsFailure({
-      platform: 'apple',
-      message: 'No App Store Connect API key found. Import one with: launch-store creds set-key',
-    });
+    throw new Error(
+      'No App Store Connect API key found. Import one with: launch-store creds set-key',
+    );
   }
 
   const appleCredentials: BuildCredentials = { platform: 'ios', ascKey };
@@ -100,19 +86,13 @@ async function readAndroidCredentials(
   const packageName = buildContext.app.packageName;
 
   if (packageName == null) {
-    throw makeMissingCredentialsFailure({
-      platform: 'android',
-      message: 'Set android.package before resolving Android credentials.',
-    });
+    throw new Error('Set android.package before resolving Android credentials.');
   }
 
   const isBlankPackageName = packageName == '';
 
   if (isBlankPackageName) {
-    throw makeMissingCredentialsFailure({
-      platform: 'android',
-      message: 'Set android.package before resolving Android credentials.',
-    });
+    throw new Error('Set android.package before resolving Android credentials.');
   }
 
   const serviceAccountJson = await credentialStore.loadPlayServiceAccount(packageName);
@@ -120,10 +100,7 @@ async function readAndroidCredentials(
   if (serviceAccountJson == null) {
     const message = await credentialStore.describeMissingPlayServiceAccount(buildContext.app.name);
 
-    throw makeMissingCredentialsFailure({
-      platform: 'android',
-      message,
-    });
+    throw new Error(message);
   }
 
   const androidCredentials: BuildCredentials = { platform: 'android', serviceAccountJson };

@@ -47,7 +47,7 @@ function describeRegisterGameCenterCommand() {
     registerGameCenterCommand(program);
 
     function isGameCenterCommand(registeredCommand: Command) {
-      return registeredCommand.name() == 'game-center';
+      return registeredCommand.readName() == 'game-center';
     }
 
     const gameCenterCommand = program.commands.find(isGameCenterCommand);

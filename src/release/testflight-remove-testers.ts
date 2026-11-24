@@ -3,12 +3,7 @@
 import { createLogger } from '../services/platform/logger.ts';
 import { loadActiveAppleStore } from '../apple/apple-store-command.ts';
 import type { BetaTesterResource } from '../types/apple/testflight.ts';
-import {
-  confirmAction,
-  loadSelectedAppleApp,
-  selectBetaGroup,
-  testflightFailure,
-} from './testflight-group.ts';
+import { confirmAction, loadSelectedAppleApp, selectBetaGroup } from './testflight-group.ts';
 
 export interface RemoveCommandInput {
   operation: 'remove';
@@ -35,7 +30,7 @@ export async function removeTesters(commandInput: RemoveCommandInput): Promise<v
   const hasNoEmails = commandInput.emails.length == 0;
 
   if (hasNoEmails) {
-    throw testflightFailure('remove testers', 'Pass one or more tester emails to remove.');
+    throw new Error('Pass one or more tester emails to remove.');
   }
 
   const requestedEmails = new Set(commandInput.emails.map(lowerCaseText));

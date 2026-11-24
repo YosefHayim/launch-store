@@ -2,7 +2,7 @@
 
 import { join } from 'node:path';
 import type { LocalScreenshot } from '../listing/screenshots/assets.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import {
   confirmStoreSurfaceWrite,
@@ -85,28 +85,6 @@ export function decodeVersionExperimentsCommandInput(
   return { ...decodedInput, app };
 }
 
-function experimentsFailure(operation: string, cause: unknown): Error {
-  const causeHasMessage = hasMessage(cause);
-
-  if (causeHasMessage) {
-    return new Error(cause.message, { cause });
-  }
-
-  const isText = typeof cause == 'string';
-
-  if (isText == false) {
-    return new Error(`${operation} failed.`, { cause });
-  }
-
-  const hasText = cause.length > 0;
-
-  if (hasText == false) {
-    return new Error(`${operation} failed.`, { cause });
-  }
-
-  return new Error(cause, { cause });
-}
-
 type ExperimentsTarget = Readonly<{
   bundleId: string;
   experimentsConfig: VersionExperimentsConfig;
@@ -145,7 +123,7 @@ async function readExperimentsTarget(
   try {
     var storeAppContext = await loadStoreAppContext(commandInput.app);
   } catch (cause) {
-    throw experimentsFailure('select experiments app', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const bundleId = storeAppContext.app.bundleId;
@@ -173,7 +151,7 @@ async function readExperimentsTarget(
   try {
     var loadedConfiguration = await loadConfig();
   } catch (cause) {
-    throw experimentsFailure('read treatment screenshots', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const screenshotDirectory = pickScreenshotDirectory({
@@ -189,7 +167,7 @@ async function readExperimentsTarget(
       experimentsForBundle,
     );
   } catch (cause) {
-    throw experimentsFailure('read treatment screenshots', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   return { bundleId, experimentsConfig: experimentsForBundle, treatmentScreenshots };
@@ -208,7 +186,7 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
     try {
       var appleStore = await loadActiveAppleStore();
     } catch (cause) {
-      throw experimentsFailure('load App Store Connect client', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const reconciliationInput = {
@@ -224,7 +202,7 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
         dryRun: true,
       });
     } catch (cause) {
-      throw experimentsFailure('plan experiment changes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const plannedActions = experimentsPlan.actions.filter(isPlannedAction);
@@ -264,7 +242,7 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
         commandInput.yes,
       );
     } catch (cause) {
-      throw experimentsFailure('confirm experiment changes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const isDeclined = confirmed == false;
@@ -279,7 +257,7 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
         dryRun: false,
       });
     } catch (cause) {
-      throw experimentsFailure('apply experiment changes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const experimentsSummary = summarizeExperiments(appliedExperiments.actions);
@@ -297,7 +275,7 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
 
     return experimentsSummary.failed;
   } catch (cause) {
-    throw experimentsFailure('run experiments command', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 

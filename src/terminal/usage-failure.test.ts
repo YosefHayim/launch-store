@@ -1,14 +1,12 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
-import { endWithUsageFailure, makeUsageFailure } from './usage-failure.ts';
+import { endWithUsageFailure } from './usage-failure.ts';
 
 afterEach(function resetUsageLogger() {
   resetLogger();
 });
 
 function describeEndWithUsageFailure() {
-  const usageFailure = makeUsageFailure({ message: '--days is wrong.' });
-
   function end(isJson: boolean): { commandExit: unknown; lines: string[] } {
     const lines: string[] = [];
 
@@ -17,7 +15,7 @@ function describeEndWithUsageFailure() {
     });
 
     try {
-      endWithUsageFailure(usageFailure, isJson);
+      endWithUsageFailure('--days is wrong.', isJson);
     } catch (cause) {
       return { commandExit: cause, lines };
     }

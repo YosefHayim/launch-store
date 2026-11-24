@@ -5,11 +5,7 @@ import type { AndroidReleaseNote, PlayTrack } from '../../types/app.ts';
 import type { BuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
 import type { PlayRelease } from '../../types/google/edits-tracks.ts';
-import {
-  makeProviderInputFailure,
-  type SubmitArtifact,
-  type Submitter,
-} from '../../types/providers.ts';
+import type { SubmitArtifact, Submitter } from '../../types/providers.ts';
 import { GoogleStoreClientService } from '../../services/stores/google-store-client.ts';
 
 function copyReleaseNote(releaseNote: AndroidReleaseNote): AndroidReleaseNote {
@@ -49,19 +45,15 @@ async function submitAndroidBundle(
   const isAndroidCredential = buildCredentials.platform == 'android';
 
   if (isAndroidCredential == false) {
-    throw makeProviderInputFailure({
-      provider: 'google-play',
-      message: 'The google-play submitter handles Android only.',
-    });
+    throw new Error('The google-play submitter handles Android only.');
   }
 
   const packageName = buildContext.app.packageName;
 
   if (packageName == null) {
-    throw makeProviderInputFailure({
-      provider: 'google-play',
-      message: `No Android application id for ${buildContext.app.name}. Set android.package in app.json.`,
-    });
+    throw new Error(
+      `No Android application id for ${buildContext.app.name}. Set android.package in app.json.`,
+    );
   }
 
   let track: PlayTrack = 'internal';

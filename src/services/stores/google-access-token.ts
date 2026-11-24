@@ -5,19 +5,6 @@ import { readServiceAccount } from '../../google/play-client.ts';
 import type { ServiceAccount } from '../../types/credentials.ts';
 import { errorMessage } from '../platform/error-message.ts';
 
-export type GoogleAccessTokenFailure = Readonly<{
-  _tag: 'GoogleAccessTokenFailure';
-  message: string;
-  cause: unknown;
-}>;
-
-function makeGoogleAccessTokenFailure(fields: {
-  message: string;
-  cause: unknown;
-}): GoogleAccessTokenFailure {
-  return { _tag: 'GoogleAccessTokenFailure', message: fields.message, cause: fields.cause };
-}
-
 type GoogleAccessTokenFixture = Readonly<{
   serviceAccount: ServiceAccount;
   accessToken: string;
@@ -45,8 +32,7 @@ export class GoogleAccessToken {
     try {
       return readServiceAccount(savedServiceAccountKey);
     } catch (cause) {
-      const failureMessage = errorMessage(cause);
-      throw makeGoogleAccessTokenFailure({ message: failureMessage, cause });
+      throw new Error(errorMessage(cause), { cause });
     }
   }
 
@@ -60,10 +46,7 @@ export class GoogleAccessToken {
     } catch (cause) {
       const failureMessage = errorMessage(cause);
 
-      throw makeGoogleAccessTokenFailure({
-        message: `Could not get a Google access token: ${failureMessage}`,
-        cause,
-      });
+      throw new Error(`Could not get a Google access token: ${failureMessage}`, { cause });
     }
   }
 }

@@ -29,22 +29,6 @@ function makePlayPricingInputError(fields: {
   return { _tag: 'PlayPricingInputError', ...fields };
 }
 
-/** Configuration, credentials, conversion, or output failed. */
-type PlayPricingExecutionError = Readonly<{
-  readonly _tag: 'PlayPricingExecutionError';
-  readonly stage: 'decode' | 'app' | 'credentials' | 'conversion' | 'output';
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-function makePlayPricingExecutionError(fields: {
-  stage: PlayPricingExecutionError['stage'];
-  message: string;
-  cause?: unknown;
-}): PlayPricingExecutionError {
-  return { _tag: 'PlayPricingExecutionError', ...fields };
-}
-
 function failureMessage(cause: unknown, fallbackMessage: string): string {
   if (cause instanceof Error) {
     return cause.message;
@@ -63,18 +47,6 @@ function failureMessage(cause: unknown, fallbackMessage: string): string {
   }
 
   return fallbackMessage;
-}
-
-function pricingFailure(
-  stage: PlayPricingExecutionError['stage'],
-  fallbackMessage: string,
-  cause: unknown,
-): PlayPricingExecutionError {
-  return makePlayPricingExecutionError({
-    stage,
-    message: failureMessage(cause, fallbackMessage),
-    cause,
-  });
 }
 
 function readRequiredString(record: Record<string, unknown>, fieldName: string): string {
@@ -259,7 +231,9 @@ export async function playPricingCommandProgram(rawCommandInput: unknown): Promi
   try {
     var commandInput = decodePlayPricingCommandInput(rawCommandInput);
   } catch (cause) {
-    throw pricingFailure('decode', 'Could not decode the Play pricing command input.', cause);
+    throw new Error(failureMessage(cause, 'Could not decode the Play pricing command input.'), {
+      cause: cause,
+    });
   }
 
   const basePrice = parsePlayPrice(commandInput.amount, commandInput.currency);
@@ -267,7 +241,7 @@ export async function playPricingCommandProgram(rawCommandInput: unknown): Promi
   try {
     var selectedApp = await readGoogleStoreApp(commandInput.app);
   } catch (cause) {
-    throw pricingFailure('app', 'Could not select an app.', cause);
+    throw new Error(failureMessage(cause, 'Could not select an app.'), { cause: cause });
   }
 
   const packageName = selectedApp.packageName;
@@ -276,17 +250,18 @@ export async function playPricingCommandProgram(rawCommandInput: unknown): Promi
   try {
     var googleStore = await loadActiveGoogleStore(packageName, appName);
   } catch (cause) {
-    throw pricingFailure(
-      'credentials',
-      failureMessage(cause, 'Could not load Play credentials.'),
-      cause,
+    throw new Error(
+      failureMessage(cause, failureMessage(cause, 'Could not load Play credentials.')),
+      { cause: cause },
     );
   }
 
   try {
     var convertedPrices = await googleStore.convertRegionPrices(packageName, basePrice);
   } catch (cause) {
-    throw pricingFailure('conversion', 'Google Play could not convert the base price.', cause);
+    throw new Error(failureMessage(cause, 'Google Play could not convert the base price.'), {
+      cause: cause,
+    });
   }
 
   const logger = createLogger(false);

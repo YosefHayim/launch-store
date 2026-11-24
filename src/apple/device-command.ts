@@ -3,7 +3,7 @@
 import { createLogger } from '../services/platform/logger.ts';
 import type { DeviceResource } from '../types/apple/provisioning.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export type DeviceAddInput = Readonly<{
@@ -63,24 +63,6 @@ export function DeviceCommandInputSchema(rawCommandInput: unknown): DeviceComman
   throw new Error('Device command operation must be add or list.');
 }
 
-/** Convert a dependency failure into an Error. */
-function deviceCommandFailure(operation: DeviceCommandInput['operation'], cause: unknown): never {
-  const causeText = typeof cause == 'string' ? cause : '';
-  const isBlankCauseText = causeText.length == 0;
-
-  if (isBlankCauseText == false) {
-    throw new Error(causeText, { cause });
-  }
-
-  const hasCauseMessage = hasMessage(cause);
-
-  if (hasCauseMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`Device ${operation} failed.`, { cause });
-}
-
 /** Render one registered device for the list view. */
 export function renderRegisteredDevice(registeredDevice: DeviceResource): string {
   let statusSuffix = '';
@@ -106,7 +88,7 @@ async function addDevice(commandInput: DeviceAddInput): Promise<void> {
       "- It'll be included on the next `launch-store build ios --distribution internal`.",
     );
   } catch (cause) {
-    throw deviceCommandFailure('add', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -130,7 +112,7 @@ async function listDevices(): Promise<void> {
 
     logger.line(`\n${registeredDevices.length} device(s).`);
   } catch (cause) {
-    throw deviceCommandFailure('list', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -149,7 +131,7 @@ export async function deviceCommandProgram(rawCommandInput: unknown): Promise<vo
   try {
     var commandInput = DeviceCommandInputSchema(rawCommandInput);
   } catch (cause) {
-    throw deviceCommandFailure('list', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   await runDeviceOperation(commandInput);

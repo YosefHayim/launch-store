@@ -1,12 +1,13 @@
 // Runs one subscription-offer action against App Store Connect.
 
+import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import { executeGenerateCodes } from './offers-generate-codes.ts';
 import { executeListOfferCodes } from './offers-list.ts';
 import { executeOffersReconcile } from './offers-reconcile.ts';
-import { findOfferCode, offersFailure, readSubscription } from './offers-subscription.ts';
+import { findOfferCode, readSubscription } from './offers-subscription.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
 
@@ -205,7 +206,7 @@ async function executeDeactivateOfferCode(commandInput: OffersDeactivateInput): 
     try {
       await chosenSubscription.appleStore.deactivateOfferCode(offerCode.id);
     } catch (cause) {
-      throw offersFailure('deactivate offer-code campaign', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     logger.step(
@@ -213,7 +214,7 @@ async function executeDeactivateOfferCode(commandInput: OffersDeactivateInput): 
       `deactivated offer code "${commandInput.offerName}" on ${commandInput.productId}`,
     );
   } catch (cause) {
-    throw offersFailure('deactivate offer code', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -223,7 +224,7 @@ async function executeOffersCommand(rawCommandInput: unknown): Promise<number> {
     try {
       var commandInput = OffersCommandInputSchema(rawCommandInput);
     } catch (cause) {
-      throw offersFailure('decode offers command input', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     if (commandInput.operation == 'reconcile') {
@@ -244,7 +245,7 @@ async function executeOffersCommand(rawCommandInput: unknown): Promise<number> {
 
     return 0;
   } catch (cause) {
-    throw offersFailure('run offers command', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 

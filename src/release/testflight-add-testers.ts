@@ -5,12 +5,7 @@ import { pathExists } from '../path-exists.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { loadActiveAppleStore } from '../apple/apple-store-command.ts';
 import type { BetaTesterResource } from '../types/apple/testflight.ts';
-import {
-  confirmAction,
-  loadSelectedAppleApp,
-  selectBetaGroup,
-  testflightFailure,
-} from './testflight-group.ts';
+import { confirmAction, loadSelectedAppleApp, selectBetaGroup } from './testflight-group.ts';
 
 export interface AddCommandInput {
   operation: 'add';
@@ -104,11 +99,11 @@ async function readTesterCsv(csvPath: string): Promise<TesterInput[]> {
   try {
     csvExists = await pathExists(csvPath);
   } catch (cause) {
-    throw testflightFailure('inspect tester CSV', `Could not inspect ${csvPath}.`, cause);
+    throw new Error(`Could not inspect ${csvPath}.`, { cause });
   }
 
   if (csvExists == false) {
-    throw testflightFailure('read tester CSV', `CSV file not found: ${csvPath}`);
+    throw new Error(`CSV file not found: ${csvPath}`);
   }
 
   var csvText = '';
@@ -116,7 +111,7 @@ async function readTesterCsv(csvPath: string): Promise<TesterInput[]> {
   try {
     csvText = await readFile(csvPath, 'utf8');
   } catch (cause) {
-    throw testflightFailure('read tester CSV', `Could not read ${csvPath}.`, cause);
+    throw new Error(`Could not read ${csvPath}.`, { cause });
   }
 
   return parseTestersCsv(csvText);
@@ -129,7 +124,7 @@ function dedupeTesters(testers: readonly TesterInput[]): TesterInput[] {
     const hasAtSign = includesAtSign(tester.email);
 
     if (hasAtSign == false) {
-      throw testflightFailure('validate tester email', `"${tester.email}" is not a valid email.`);
+      throw new Error(`"${tester.email}" is not a valid email.`);
     }
 
     testersByEmail.set(tester.email.toLowerCase(), tester);
@@ -167,10 +162,7 @@ export async function addTesters(commandInput: AddCommandInput): Promise<void> {
   const hasNoTesters = requestedTesters.length == 0;
 
   if (hasNoTesters) {
-    throw testflightFailure(
-      'collect testers',
-      'No testers to add. Pass one or more emails, or --csv <path>.',
-    );
+    throw new Error('No testers to add. Pass one or more emails, or --csv <path>.');
   }
 
   const appleStore = await loadActiveAppleStore();

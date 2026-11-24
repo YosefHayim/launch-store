@@ -1,6 +1,6 @@
 // Syncs Google Play subscription base plans and offers from the Launch catalog.
 
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import type { SubscriptionConfig } from '../types/catalog.ts';
@@ -21,23 +21,6 @@ export type PlaySubscriptionsCommandInput = {
   dryRun: boolean;
   yes: boolean;
 };
-
-function subscriptionsFailure(operation: string, cause: unknown): never {
-  const causeText = typeof cause == 'string' ? cause : '';
-  const isBlankCauseText = causeText.length == 0;
-
-  if (isBlankCauseText == false) {
-    throw new Error(causeText, { cause });
-  }
-
-  const causeHasMessage = hasMessage(cause);
-
-  if (causeHasMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`${operation} failed.`, { cause });
-}
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
@@ -99,16 +82,24 @@ async function readSubscriptionsTarget(appSelector: string | undefined): Promise
   const selectedApp = storeAppContext.app;
 
   if (selectedApp.packageName == null) {
-    throw subscriptionsFailure(
-      'resolve Android application id',
-      `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
+    throw new Error(
+      errorMessage(
+        `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
+      ),
+      {
+        cause: `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
+      },
     );
   }
 
   if (selectedApp.bundleId == null) {
-    throw subscriptionsFailure(
-      'resolve product catalog',
-      `No iOS bundle identifier for ${selectedApp.name} - the product catalog is keyed by bundle id; set ios.bundleIdentifier.`,
+    throw new Error(
+      errorMessage(
+        `No iOS bundle identifier for ${selectedApp.name} - the product catalog is keyed by bundle id; set ios.bundleIdentifier.`,
+      ),
+      {
+        cause: `No iOS bundle identifier for ${selectedApp.name} - the product catalog is keyed by bundle id; set ios.bundleIdentifier.`,
+      },
     );
   }
 
@@ -223,7 +214,7 @@ export async function playSubscriptionsCommandProgram(rawCommandInput: unknown):
   try {
     var failureCount = await executePlaySubscriptions(rawCommandInput);
   } catch (cause) {
-    throw subscriptionsFailure('reconcile Play subscriptions', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   if (failureCount > 0) {

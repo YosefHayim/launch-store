@@ -6,7 +6,7 @@ import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import type { SandboxTesterResource } from '../types/apple/users-and-access.ts';
 import { clearPurchaseHistory, listSandboxTesters } from '../services/stores/sandbox.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 
 /** One sandbox-tester operation selected by Commander. */
 type SandboxCommandInput =
@@ -17,17 +17,6 @@ type SandboxCommandInput =
       all: boolean;
       yes: boolean;
     }>;
-
-/** Convert any dependency failure into an Error. */
-function sandboxFailure(operation: SandboxCommandInput['operation'], cause: unknown): never {
-  const causeHasMessage = hasMessage(cause);
-
-  if (causeHasMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`Sandbox ${operation} failed.`, { cause });
-}
 
 function isPresentName(namePart: string | undefined): namePart is string {
   if (namePart == null) {
@@ -95,7 +84,7 @@ async function confirmClear(targetLabel: string, confirmed: boolean): Promise<bo
       `Clear purchase history for ${targetLabel}?`,
     );
   } catch (cause) {
-    throw sandboxFailure('clear', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   if (shouldClear) {
@@ -143,7 +132,7 @@ async function listSandboxTestersProgram(json: boolean): Promise<void> {
 
     logger.line(`\n${sandboxTesters.length} sandbox tester${testerSuffix}.`);
   } catch (cause) {
-    throw sandboxFailure('list', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -193,7 +182,7 @@ async function clearSandboxTestersProgram(
       logger.warn(`No sandbox tester found for: ${clearOutcome.notFound.join(', ')}`);
     }
   } catch (cause) {
-    throw sandboxFailure('clear', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 

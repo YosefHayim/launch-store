@@ -1,8 +1,9 @@
 // Lists the offer-code campaigns for one subscription on App Store Connect.
 
+import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import type { OffersListInput } from './offers-command.ts';
-import { offersFailure, readSubscription } from './offers-subscription.ts';
+import { readSubscription } from './offers-subscription.ts';
 
 /** Render an offer-code campaign without Unicode status glyphs. */
 export function renderOfferCodeState(
@@ -25,7 +26,7 @@ export async function executeListOfferCodes(commandInput: OffersListInput): Prom
         chosenSubscription.subscriptionId,
       );
     } catch (cause) {
-      throw offersFailure('list offer-code campaigns', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const hasNoOfferCodes = offerCodes.length == 0;
@@ -47,6 +48,6 @@ export async function executeListOfferCodes(commandInput: OffersListInput): Prom
       ...offerLines,
     );
   } catch (cause) {
-    throw offersFailure('list offer codes', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }

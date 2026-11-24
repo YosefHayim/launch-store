@@ -20,20 +20,6 @@ export async function runCliProgram<Success>(program: Promise<Success>): Promise
   return program;
 }
 
-function jsonFailureMessage(cause: unknown): string {
-  const isExit = isCommandExit(cause);
-
-  if (isExit == false) {
-    return errorMessage(cause);
-  }
-
-  if (cause.message != null) {
-    return cause.message;
-  }
-
-  return `The command ended with exit code ${cause.exitCode}.`;
-}
-
 function writeStdout(text: string): void {
   stdout.write(text);
 }
@@ -56,8 +42,25 @@ export async function runJsonCliProgram<Success>(
     const machineLine = jsonLine({ event: 'result', ok: true, ...summary });
     writeStdout(machineLine);
   } catch (cause) {
-    const message = jsonFailureMessage(cause);
+    const isExit = isCommandExit(cause);
+
+    if (isExit == false) {
+      const message = errorMessage(cause);
+      const machineLine = jsonLine({ event: 'result', ok: false, ...summary, message });
+
+      writeStdout(machineLine);
+      throw new Error(message, { cause });
+    }
+
+    let message = `The command ended with exit code ${cause.exitCode}.`;
+    const hasExitMessage = cause.message != null;
+
+    if (hasExitMessage) {
+      message = cause.message;
+    }
+
     const machineLine = jsonLine({ event: 'result', ok: false, ...summary, message });
+
     writeStdout(machineLine);
     throw new Error(message, { cause });
   } finally {

@@ -96,10 +96,9 @@ describe('clearPurchaseHistory', () => {
   async function throwsWhenNeitherEmailsNorAllAreGiven() {
     const api = makeApi();
 
-    await expect(clearPurchaseHistory(api, { emails: ['  '], all: false })).rejects.toMatchObject({
-      _tag: 'SandboxRequestFailure',
-      message: 'Provide at least one sandbox tester email, or pass --all.',
-    });
+    await expect(clearPurchaseHistory(api, { emails: ['  '], all: false })).rejects.toThrow(
+      'Provide at least one sandbox tester email, or pass --all.',
+    );
   }
 
   it('throws when neither emails nor all are given', throwsWhenNeitherEmailsNorAllAreGiven);

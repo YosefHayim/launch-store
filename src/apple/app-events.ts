@@ -7,7 +7,7 @@ import type {
   AppEventResource,
   NewAppEvent,
 } from '../types/apple/app-events.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 
 /** The App Store transport operations required by the in-app-events domain. */
 export type AscAppEventsApi = Readonly<{
@@ -57,26 +57,12 @@ type LocalizeResult = Readonly<{
   replaced: boolean;
 }>;
 
-/** Convert a transport failure into an Error. */
-function appEventFailure(operation: string, cause: unknown): never {
-  const hasCauseMessage = hasMessage(cause);
-
-  if (hasCauseMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`${operation} failed.`, { cause });
-}
-
 /** Run one transport call in the in-app-event error channel. */
-async function runEventRequest<Success>(
-  operation: string,
-  request: Promise<Success>,
-): Promise<Success> {
+async function runEventRequest<Success>(request: Promise<Success>): Promise<Success> {
   try {
     return await request;
   } catch (cause) {
-    throw appEventFailure(operation, cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -123,10 +109,7 @@ export class AppEvents {
 
   /** List an app's in-app events with their localizations. */
   async list(bundleId: string): Promise<readonly AppEventWithLocalizations[]> {
-    const appId = await runEventRequest(
-      'resolve App Store app',
-      this.appEventsStore.getAppId(bundleId),
-    );
+    const appId = await runEventRequest(this.appEventsStore.getAppId(bundleId));
 
     const isAppMissing = appId == null;
 
@@ -135,16 +118,12 @@ export class AppEvents {
     }
 
     const appEventsStore = this.appEventsStore;
-    const appEvents = await runEventRequest(
-      'list in-app events',
-      appEventsStore.listAppEvents(appId),
-    );
+    const appEvents = await runEventRequest(appEventsStore.listAppEvents(appId));
 
     async function attachLocalizations(
       appEvent: AppEventResource,
     ): Promise<AppEventWithLocalizations> {
       const localizations = await runEventRequest(
-        'list event localizations',
         appEventsStore.listAppEventLocalizations(appEvent.id),
       );
 
@@ -182,10 +161,7 @@ export class AppEvents {
       'KEEP_ACTIVE_USERS_INFORMED',
       'BRING_BACK_LAPSED_USERS',
     ]);
-    const appId = await runEventRequest(
-      'resolve App Store app',
-      this.appEventsStore.getAppId(bundleId),
-    );
+    const appId = await runEventRequest(this.appEventsStore.getAppId(bundleId));
 
     const isAppMissing = appId == null;
 
@@ -209,10 +185,7 @@ export class AppEvents {
 
     if (purpose != null) eventAttributes.purpose = purpose;
 
-    return runEventRequest(
-      'create in-app event',
-      this.appEventsStore.createAppEvent(appId, eventAttributes),
-    );
+    return runEventRequest(this.appEventsStore.createAppEvent(appId, eventAttributes));
   }
 
   /** Create or update one locale's event copy. */
@@ -253,7 +226,6 @@ export class AppEvents {
     }
 
     const localizations = await runEventRequest(
-      'list event localizations',
       this.appEventsStore.listAppEventLocalizations(eventId),
     );
 
@@ -267,7 +239,6 @@ export class AppEvents {
 
     if (hasExistingLocalization) {
       const storedLocalization = await runEventRequest(
-        'update event localization',
         this.appEventsStore.updateAppEventLocalization(
           existingLocalization.id,
           localizationAttributes,
@@ -281,7 +252,6 @@ export class AppEvents {
     }
 
     const storedLocalization = await runEventRequest(
-      'create event localization',
       this.appEventsStore.createAppEventLocalization(eventId, locale, localizationAttributes),
     );
 
@@ -290,6 +260,6 @@ export class AppEvents {
 
   /** Delete a draft in-app event by its App Store resource id. */
   delete(eventId: string): Promise<void> {
-    return runEventRequest('delete in-app event', this.appEventsStore.deleteAppEvent(eventId));
+    return runEventRequest(this.appEventsStore.deleteAppEvent(eventId));
   }
 }

@@ -13,7 +13,7 @@ import { loadActiveAppleStore } from './apple-store-command.ts';
 import { reconcileAppClips } from './app-clips.ts';
 import { summarize } from '../store/shared/reconcile.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
@@ -62,24 +62,6 @@ export function AppClipsCommandInputSchema(rawCommandInput: unknown): AppClipsCo
   return { app, dryRun, yes };
 }
 
-/** Convert a dependency failure into an Error. */
-function appClipsFailure(operation: string, cause: unknown): never {
-  const causeText = typeof cause == 'string' ? cause : '';
-  const isBlankCauseText = causeText.length == 0;
-
-  if (isBlankCauseText == false) {
-    throw new Error(causeText, { cause });
-  }
-
-  const causeHasMessage = hasMessage(cause);
-
-  if (causeHasMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`${operation} failed.`, { cause });
-}
-
 function isPlannedAction(plannedAction: PlannedAction): boolean {
   return plannedAction.status == 'planned';
 }
@@ -99,7 +81,7 @@ async function readAppClipsTarget(
   try {
     var storeAppContext = await loadStoreAppContext(commandInput.app);
   } catch (cause) {
-    throw appClipsFailure('select App Clips app', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const bundleId = storeAppContext.app.bundleId;
@@ -133,7 +115,7 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
     try {
       var commandInput = AppClipsCommandInputSchema(rawCommandInput);
     } catch (cause) {
-      throw appClipsFailure('decode App Clips command input', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const appClipsTarget = await readAppClipsTarget(commandInput);
@@ -142,7 +124,7 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
     try {
       var appleStore = await loadActiveAppleStore();
     } catch (cause) {
-      throw appClipsFailure('load App Store Connect client', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     try {
@@ -152,7 +134,7 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
         dryRun: true,
       });
     } catch (cause) {
-      throw appClipsFailure('plan App Clip changes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const plannedActions = appClipsPlan.actions.filter(isPlannedAction);
@@ -196,7 +178,7 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
         commandInput.yes,
       );
     } catch (cause) {
-      throw appClipsFailure('confirm App Clip changes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const declined = confirmed == false;
@@ -212,7 +194,7 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
         dryRun: false,
       });
     } catch (cause) {
-      throw appClipsFailure('apply App Clip changes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const appClipsSummary = summarize(appliedAppClips.actions);
@@ -228,7 +210,7 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
 
     return appClipsSummary.failed;
   } catch (cause) {
-    throw appClipsFailure('run App Clips command', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 

@@ -53,21 +53,6 @@ type AppConfigDocument = Readonly<{
   path: string;
 }>;
 
-type ConfigLoadFailure = Readonly<{
-  _tag: 'ConfigLoadFailure';
-  path: string;
-  message: string;
-  cause?: unknown;
-}>;
-
-function makeConfigLoadFailure(fields: {
-  path: string;
-  message: string;
-  cause?: unknown;
-}): ConfigLoadFailure {
-  return { _tag: 'ConfigLoadFailure', ...fields };
-}
-
 async function readLaunchConfigFile(directory: string): Promise<FoundConfig | null> {
   for (const fileName of ['launch.config.ts', 'launch.config.mjs', 'launch.config.js']) {
     const configPath = join(directory, fileName);
@@ -82,18 +67,11 @@ async function readLaunchConfigFile(directory: string): Promise<FoundConfig | nu
     try {
       loaded = await importTypeScriptModule<{ default?: LaunchConfig }>(configPath, SELF_ENTRY);
     } catch (cause) {
-      throw makeConfigLoadFailure({
-        path: configPath,
-        message: `Could not load ${fileName}.`,
-        cause,
-      });
+      throw new Error(`Could not load ${fileName}.`, { cause });
     }
 
     if (loaded.default == null) {
-      throw makeConfigLoadFailure({
-        path: configPath,
-        message: `${fileName} must \`export default defineConfig({ ... })\`.`,
-      });
+      throw new Error(`${fileName} must \`export default defineConfig({ ... })\`.`);
     }
 
     return { path: configPath, config: loaded.default };

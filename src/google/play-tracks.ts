@@ -37,27 +37,26 @@ function releaseNotesFromDocument(
   return Object.entries(releaseNotesDocument).map(releaseNoteFromEntry);
 }
 
-function releaseNotesFailure(cause: unknown): never {
-  throw new Error(
-    'Release notes must be a JSON object mapping language codes to text, e.g. { "en-US": "..." }.',
-    { cause },
-  );
-}
-
 function decodeReleaseNotesDocument(
   releaseNotesDocument: unknown,
 ): Readonly<Record<string, string>> {
   const releaseNotesDocumentObject = readPlainObject(releaseNotesDocument);
 
   if (releaseNotesDocumentObject == null) {
-    throw releaseNotesFailure(releaseNotesDocument);
+    throw new Error(
+      'Release notes must be a JSON object mapping language codes to text, e.g. { "en-US": "..." }.',
+      { cause: releaseNotesDocument },
+    );
   }
 
   const notes: Record<string, string> = {};
 
   for (const [language, noteText] of Object.entries(releaseNotesDocumentObject)) {
     if (typeof noteText != 'string') {
-      throw releaseNotesFailure(releaseNotesDocumentObject);
+      throw new Error(
+        'Release notes must be a JSON object mapping language codes to text, e.g. { "en-US": "..." }.',
+        { cause: releaseNotesDocumentObject },
+      );
     }
 
     notes[language] = noteText;
@@ -233,7 +232,10 @@ export function parseReleaseNotesJson(releaseNotesText: string): readonly Releas
   try {
     var parsedNotes = JSON.parse(releaseNotesText);
   } catch (cause) {
-    throw releaseNotesFailure(cause);
+    throw new Error(
+      'Release notes must be a JSON object mapping language codes to text, e.g. { "en-US": "..." }.',
+      { cause: cause },
+    );
   }
 
   return parseReleaseNotes(parsedNotes);

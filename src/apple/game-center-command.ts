@@ -12,7 +12,7 @@ import { loadActiveAppleStore } from './apple-store-command.ts';
 import { reconcileGameCenter } from './game-center.ts';
 import { summarize } from '../store/shared/reconcile.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
@@ -61,24 +61,6 @@ export function GameCenterCommandInputSchema(rawCommandInput: unknown): GameCent
   return { app, dryRun, yes };
 }
 
-/** Convert a dependency failure into an Error. */
-function gameCenterFailure(operation: string, cause: unknown): never {
-  const causeText = typeof cause == 'string' ? cause : '';
-  const isBlankCauseText = causeText.length == 0;
-
-  if (isBlankCauseText == false) {
-    throw new Error(causeText, { cause });
-  }
-
-  const hasCauseMessage = hasMessage(cause);
-
-  if (hasCauseMessage) {
-    throw new Error(cause.message, { cause });
-  }
-
-  throw new Error(`${operation} failed.`, { cause });
-}
-
 /** Read the selected bundle id and its Game Center declaration. */
 async function readGameCenterTarget(
   commandInput: GameCenterCommandInput,
@@ -86,7 +68,7 @@ async function readGameCenterTarget(
   try {
     var storeAppContext = await loadStoreAppContext(commandInput.app);
   } catch (cause) {
-    throw gameCenterFailure('select Game Center app', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const bundleId = storeAppContext.app.bundleId;
@@ -124,7 +106,7 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
     try {
       var commandInput = GameCenterCommandInputSchema(rawCommandInput);
     } catch (cause) {
-      throw gameCenterFailure('decode Game Center command input', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const gameCenterTarget = await readGameCenterTarget(commandInput);
@@ -132,7 +114,7 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
     try {
       var appleStore = await loadActiveAppleStore();
     } catch (cause) {
-      throw gameCenterFailure('load App Store Connect client', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     try {
@@ -142,7 +124,7 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
         dryRun: true,
       });
     } catch (cause) {
-      throw gameCenterFailure('plan Game Center changes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const plannedActions = gameCenterPlan.actions.filter(isPlannedAction);
@@ -188,7 +170,7 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
         commandInput.yes,
       );
     } catch (cause) {
-      throw gameCenterFailure('confirm Game Center changes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const wasDeclined = confirmed == false;
@@ -204,7 +186,7 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
         dryRun: false,
       });
     } catch (cause) {
-      throw gameCenterFailure('apply Game Center changes', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     const gameCenterSummary = summarize(appliedGameCenter.actions);
@@ -228,7 +210,7 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
       throw cause;
     }
 
-    gameCenterFailure('run Game Center command', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 

@@ -40,7 +40,7 @@ function describeGoogleAccessToken() {
       failure = caught;
     }
 
-    expect(failure).toMatchObject({ _tag: 'GoogleAccessTokenFailure' });
+    expect(failure).toBeInstanceOf(Error);
   }
 
   test(
@@ -51,10 +51,7 @@ function describeGoogleAccessToken() {
   async function turnsATokenRequestWithAnUnusableKeyIntoAFailure() {
     await expect(
       new GoogleAccessToken().createAccessToken(SERVICE_ACCOUNT, ['scope']),
-    ).rejects.toMatchObject({
-      _tag: 'GoogleAccessTokenFailure',
-      message: expect.stringContaining('Could not get a Google access token'),
-    });
+    ).rejects.toThrow('Could not get a Google access token');
   }
 
   test(

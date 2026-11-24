@@ -8,24 +8,6 @@ import type { AppDescriptor } from '../types/app.ts';
 import type { OfferCodeResource } from '../types/apple/subscriptions.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 
-/** Convert a dependency failure into an Error the offers commands throw. */
-export function offersFailure(operation: string, cause: unknown, explicitMessage?: string): Error {
-  const hasExplicitMessage = explicitMessage != null;
-
-  if (hasExplicitMessage) {
-    return new Error(explicitMessage, { cause });
-  }
-
-  const failureMessage = errorMessage(cause);
-  const isFailureMessageEmpty = failureMessage.length == 0;
-
-  if (isFailureMessageEmpty) {
-    return new Error(`${operation} failed.`, { cause });
-  }
-
-  return new Error(failureMessage, { cause });
-}
-
 type ChosenSubscription = Readonly<{
   readonly appleStore: AppStoreConnect;
   readonly appName: string;
@@ -98,11 +80,9 @@ function pickSubscriptionApp(
       return chosenApp;
     }
 
-    throw offersFailure(
-      'select offer-code app',
-      appSelector,
-      `Unknown app "${appSelector}". Discovered: ${appleAppNames(appleApps)}.`,
-    );
+    throw new Error(`Unknown app "${appSelector}". Discovered: ${appleAppNames(appleApps)}.`, {
+      cause: appSelector,
+    });
   }
 
   const onlyApp = readOnlyAppleApp(appleApps);
@@ -113,11 +93,9 @@ function pickSubscriptionApp(
     return onlyApp;
   }
 
-  throw offersFailure(
-    'select offer-code app',
-    appleApps,
-    `Several apps found - pass --app <name> (one of: ${appleAppNames(appleApps)}).`,
-  );
+  throw new Error(`Several apps found - pass --app <name> (one of: ${appleAppNames(appleApps)}).`, {
+    cause: appleApps,
+  });
 }
 
 /** Read an App Store subscription id for an imperative offer-code command. */
@@ -129,20 +107,20 @@ export async function readSubscription(
   try {
     var loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
   } catch (cause) {
-    throw offersFailure('load offer-code configuration', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const selectedApp = pickSubscriptionApp(loadedConfiguration.apps, appSelector);
   try {
     var appleStore = await loadActiveAppleStore();
   } catch (cause) {
-    throw offersFailure('load App Store Connect client', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   try {
     var appId = await appleStore.getAppId(selectedApp.bundleId);
   } catch (cause) {
-    throw offersFailure('find App Store Connect app', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const foundAppId = appId;
@@ -150,24 +128,22 @@ export async function readSubscription(
   const isAppMissing = foundAppId == null;
 
   if (isAppMissing) {
-    throw offersFailure(
-      'find App Store Connect app',
-      selectedApp.bundleId,
-      `No App Store Connect app record for ${selectedApp.bundleId}.`,
-    );
+    throw new Error(`No App Store Connect app record for ${selectedApp.bundleId}.`, {
+      cause: selectedApp.bundleId,
+    });
   }
 
   try {
     var subscriptionGroups = await appleStore.listSubscriptionGroups(foundAppId);
   } catch (cause) {
-    throw offersFailure('list subscription groups', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   for (const subscriptionGroup of subscriptionGroups) {
     try {
       var subscriptions = await appleStore.listSubscriptions(subscriptionGroup.id);
     } catch (cause) {
-      throw offersFailure('list subscriptions', cause);
+      throw new Error(errorMessage(cause), { cause: cause });
     }
 
     for (const subscription of subscriptions) {
@@ -183,10 +159,9 @@ export async function readSubscription(
     }
   }
 
-  throw offersFailure(
-    'find subscription',
-    productId,
+  throw new Error(
     `No subscription ${productId} in App Store Connect for ${selectedApp.app.name}.`,
+    { cause: productId },
   );
 }
 
@@ -201,7 +176,7 @@ export async function findOfferCode(
       chosenSubscription.subscriptionId,
     );
   } catch (cause) {
-    throw offersFailure('list offer-code campaigns', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   let matchingOfferCode: OfferCodeResource | null = null;
@@ -219,10 +194,9 @@ export async function findOfferCode(
   const isOfferMissing = foundOfferCode == null;
 
   if (isOfferMissing) {
-    throw offersFailure(
-      'find offer-code campaign',
-      offerName,
+    throw new Error(
       `No offer code named "${offerName}" on ${productId} (${chosenSubscription.appName}).`,
+      { cause: offerName },
     );
   }
 

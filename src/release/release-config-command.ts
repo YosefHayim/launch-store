@@ -3,7 +3,7 @@
 import { stdout } from 'node:process';
 import { launchConfigForApp, loadConfig } from '../config/config.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { hasMessage, errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
@@ -19,22 +19,6 @@ type ReleaseConfigCommandInput = Readonly<{
   dryRun: boolean;
   yes: boolean;
 }>;
-
-function releaseConfigFailure(operation: string, cause: unknown, fallbackMessage?: string): Error {
-  const hasFallbackMessage = fallbackMessage != null;
-
-  if (hasFallbackMessage) {
-    return new Error(fallbackMessage, { cause });
-  }
-
-  const causeHasMessage = hasMessage(cause);
-
-  if (causeHasMessage) {
-    return new Error(cause.message, { cause });
-  }
-
-  return new Error(`${operation} failed.`, { cause });
-}
 
 /** Render one planned, skipped, applied, or failed action with ASCII markers. */
 export function renderAction(plannedAction: PlannedAction): string {
@@ -103,17 +87,16 @@ async function confirmReleaseChanges(changeCount: number, yes: boolean): Promise
   const terminalIsInteractive = stdout.isTTY == true;
 
   if (terminalIsInteractive == false) {
-    throw releaseConfigFailure(
-      'confirm release attributes',
-      { yes },
+    throw new Error(
       'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
+      { cause: { yes } },
     );
   }
 
   try {
     return await new LaunchPrompt().confirm(`Apply ${changeCount} change(s) to App Store Connect?`);
   } catch (cause) {
-    throw releaseConfigFailure('confirm release attributes', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 }
 
@@ -125,7 +108,7 @@ export async function releaseConfigCommandProgram(
   try {
     var loadedConfiguration = await loadConfig();
   } catch (cause) {
-    throw releaseConfigFailure('load Launch configuration', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   try {
@@ -139,7 +122,7 @@ export async function releaseConfigCommandProgram(
       explicitMessage = cause.message;
     }
 
-    throw releaseConfigFailure('select app', cause, explicitMessage);
+    throw new Error(explicitMessage ?? errorMessage(cause), { cause: cause });
   }
 
   const bundleId = selectedApp.bundleId;
@@ -147,17 +130,16 @@ export async function releaseConfigCommandProgram(
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
-    throw releaseConfigFailure(
-      'resolve iOS bundle identifier',
-      selectedApp,
+    throw new Error(
       `No iOS bundle identifier for ${selectedApp.name} (set ios.bundleIdentifier in app.json).`,
+      { cause: selectedApp },
     );
   }
 
   try {
     var appLaunch = await launchConfigForApp(loadedConfiguration.config, selectedApp.dir);
   } catch (cause) {
-    throw releaseConfigFailure('load release attributes', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const releaseAttributes = appLaunch.releaseAttributes?.[bundleId];
@@ -165,31 +147,28 @@ export async function releaseConfigCommandProgram(
   const isReleaseAttributesMissing = releaseAttributes == null;
 
   if (isReleaseAttributesMissing) {
-    throw releaseConfigFailure(
-      'load release attributes',
-      bundleId,
+    throw new Error(
       `No release attributes for ${bundleId}. Add a releaseAttributes entry to launch.config.ts.`,
+      { cause: bundleId },
     );
   }
 
   try {
     var ascKey = await loadActiveAscKey();
   } catch (cause) {
-    throw releaseConfigFailure('load active Apple account', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   if (ascKey == null) {
-    throw releaseConfigFailure(
-      'load active Apple account',
-      bundleId,
-      'No active Apple account. Run `launch-store creds set-key` first.',
-    );
+    throw new Error('No active Apple account. Run `launch-store creds set-key` first.', {
+      cause: bundleId,
+    });
   }
 
   try {
     var ascClient = new AppleStoreClientService().createClient(ascKey);
   } catch (cause) {
-    throw releaseConfigFailure('create App Store client', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   try {
@@ -199,7 +178,7 @@ export async function releaseConfigCommandProgram(
       dryRun: true,
     });
   } catch (cause) {
-    throw releaseConfigFailure('plan release attributes', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const plannedActions = releasePlan.actions.filter(isPlannedAction);
@@ -253,7 +232,7 @@ export async function releaseConfigCommandProgram(
       dryRun: false,
     });
   } catch (cause) {
-    throw releaseConfigFailure('apply release attributes', cause);
+    throw new Error(errorMessage(cause), { cause: cause });
   }
 
   const releaseSummary = summarize(appliedRelease.actions);

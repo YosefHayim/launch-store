@@ -9,7 +9,7 @@ function completionGroup(): Command {
   new TerminalCommands().registerCompletion(program);
 
   function isCompletionCommand(command: Command) {
-    return command.name() == 'completion';
+    return command.readName() == 'completion';
   }
 
   const completion = program.commands.find(isCompletionCommand);
@@ -24,7 +24,7 @@ function completionGroup(): Command {
 function describeRegisterCompletionCommand() {
   function attachesACompletionGroupWithInstallAndTheHiddenCompleteSubcommand() {
     function readCommandName(command: Command) {
-      return command.name();
+      return command.readName();
     }
 
     const names = completionGroup().commands.map(readCommandName).sort();
@@ -54,7 +54,7 @@ function describeRegisterCompletionCommand() {
 
   function installTakesSShell() {
     function isInstallCommand(command: Command) {
-      return command.name() == 'install';
+      return command.readName() == 'install';
     }
 
     const install = completionGroup().commands.find(isInstallCommand);
@@ -74,7 +74,7 @@ function describeRegisterCompletionCommand() {
     const group = completionGroup();
 
     function isCompleteCommand(command: Command) {
-      return command.name() == '__complete';
+      return command.readName() == '__complete';
     }
 
     expect(group.commands.some(isCompleteCommand)).toBe(true);
@@ -82,7 +82,7 @@ function describeRegisterCompletionCommand() {
     const visible = group.createHelp().visibleCommands(group);
 
     function hasCompleteName(command: Command) {
-      return command.name() == '__complete';
+      return command.readName() == '__complete';
     }
 
     expect(visible.some(hasCompleteName)).toBe(false);
