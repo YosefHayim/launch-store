@@ -19,10 +19,7 @@ import type { MutableDeep } from '../types/mutable.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import { plan, type ReconcileContext } from '../store/shared/reconcile.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import {
-  buildPlayPaymentsProfileUrl,
-  buildPlayUsersAndPermissionsUrl,
-} from '../terminal/play-console-urls.ts';
+import { ConsoleLinks } from '../terminal/console-links.ts';
 
 /** Apple billing period -> ISO-8601 duration, the form Play's base plans and offer phases want. */
 const PERIOD_ISO: Record<SubscriptionPeriod, string> = {
@@ -102,7 +99,7 @@ export function describePlaySubscriptionWriteFailure(
   const isPaymentsProfileFailure = /payments? profile/i.test(failureText);
 
   if (isPaymentsProfileFailure) {
-    return `${failureText}\nComplete Play Console Setup > Payments profile, then rerun your original \`launch-store play-subscriptions\` command: ${buildPlayPaymentsProfileUrl()}`;
+    return `${failureText}\nComplete Play Console Setup > Payments profile, then rerun your original \`launch-store play-subscriptions\` command: ${new ConsoleLinks().playPaymentsProfileUrl()}`;
   }
 
   const isSensitivePermissionFailure = /sensitive|high.?risk|permissions? declaration/i.test(
@@ -128,7 +125,7 @@ export function describePlaySubscriptionWriteFailure(
   }
 
   return (
-    `${failureText}\nFor ${packageName}, grant ${serviceAccountIdentity} app access and "Manage store presence" in Play Console Users and permissions: ${buildPlayUsersAndPermissionsUrl()}\n` +
+    `${failureText}\nFor ${packageName}, grant ${serviceAccountIdentity} app access and "Manage store presence" in Play Console Users and permissions: ${new ConsoleLinks().playUsersAndPermissionsUrl()}\n` +
     '"Admin (all permissions)" is an alternative, not a requirement. The Google Play Billing API permissions "View financial data" and "Manage orders and subscriptions" cover purchase/order management; they do not replace the catalog-write permission. Then rerun `launch-store play-subscriptions`.'
   );
 }

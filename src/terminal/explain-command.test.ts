@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
-import { explainCommandProgram } from './explain-command.ts';
+import { TerminalCommands } from './terminal-commands.ts';
 
 afterEach(function resetExplainLogger() {
   resetLogger();
@@ -19,7 +19,7 @@ function captureExplainWrites(): string[] {
 function describeExplainCommandProgram() {
   function listsTopicsWhenNoneIsRequested() {
     const terminalWrites = captureExplainWrites();
-    explainCommandProgram({});
+    new TerminalCommands().explain({});
 
     expect(terminalWrites.join('')).toContain('Topics:');
   }
@@ -32,13 +32,12 @@ function describeExplainCommandProgram() {
     let thrownCause: unknown = null;
 
     try {
-      explainCommandProgram({ topic: 'magic' });
+      new TerminalCommands().explain({ topic: 'magic' });
     } catch (cause) {
       thrownCause = cause;
     }
 
     expect(thrownCause).toMatchObject({
-      _tag: 'ExplainCommandFailure',
       message: expect.stringMatching(/Unknown topic "magic"/),
     });
   }
@@ -46,4 +45,4 @@ function describeExplainCommandProgram() {
   it('rejects an unknown topic with the known choices', rejectsAnUnknownTopicWithTheKnownChoices);
 }
 
-describe('explainCommandProgram', describeExplainCommandProgram);
+describe('TerminalCommands.explain', describeExplainCommandProgram);

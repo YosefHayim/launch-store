@@ -26,7 +26,7 @@ import type {
   ResourceSingle,
   PromotedPurchasePage,
 } from './shared.ts';
-import type { components } from '../apple-api-types.ts';
+import type { components } from '../types/apple-api-types.ts';
 import {
   IN_APP_PURCHASE_VERSION_RESOURCES,
   SUBSCRIPTION_VERSION_RESOURCES,

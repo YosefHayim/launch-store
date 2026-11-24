@@ -1,6 +1,6 @@
 // Holds the App Store Connect resource shapes Launch reads and writes.
 
-import type { components } from '../apple-api-types.ts';
+import type { components } from './apple-api-types.ts';
 
 import type {
   OfferCustomerEligibility,

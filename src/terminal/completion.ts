@@ -19,24 +19,7 @@ const BLOCK_END = '# launch-completion end';
 /** The hidden subcommand the generated scripts invoke on `<Tab>`. */
 export const COMPLETE_SUBCOMMAND = '__complete';
 
-/** Validate a raw `--shell`/positional value against {@link SHELLS}, with a pointed error listing the valid set. */
-export type CompletionFailure = Readonly<{
-  readonly _tag: 'CompletionFailure';
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-export function makeCompletionFailure(fields: {
-  message: string;
-  cause?: unknown;
-}): CompletionFailure {
-  if (fields.cause == null) {
-    return { _tag: 'CompletionFailure', message: fields.message };
-  }
-
-  return { _tag: 'CompletionFailure', message: fields.message, cause: fields.cause };
-}
-
+/** Validate a raw shell name against the shells completion supports. */
 export function parseShell(shellText: string): Shell {
   function isThisShell(knownShell: Shell): boolean {
     return knownShell == shellText;
@@ -45,9 +28,7 @@ export function parseShell(shellText: string): Shell {
   const shell = SHELLS.find(isThisShell);
 
   if (shell == null) {
-    throw makeCompletionFailure({
-      message: `Unsupported shell "${shellText}". Use one of: ${SHELLS.join(', ')}.`,
-    });
+    throw new Error(`Unsupported shell "${shellText}". Use one of: ${SHELLS.join(', ')}.`);
   }
 
   return shell;
@@ -485,9 +466,7 @@ export async function installCompletion(options: InstallOptions = {}): Promise<I
   }
 
   if (shell == null) {
-    throw makeCompletionFailure({
-      message: 'Could not detect your shell. Re-run with --shell bash|zsh|fish.',
-    });
+    throw new Error('Could not detect your shell. Re-run with --shell bash|zsh|fish.');
   }
 
   let home = options.home;
@@ -510,9 +489,6 @@ export async function installCompletion(options: InstallOptions = {}): Promise<I
   try {
     return await writeCompletionBlock({ shell, rcFile, rcDirectory, completionBlock });
   } catch (cause) {
-    throw makeCompletionFailure({
-      message: `Could not install completion in ${rcFile}.`,
-      cause,
-    });
+    throw new Error(`Could not install completion in ${rcFile}.`, { cause });
   }
 }

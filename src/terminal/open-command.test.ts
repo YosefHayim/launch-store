@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { readOpenCommandInput } from './open-command.ts';
+import { TerminalCommands } from './terminal-commands.ts';
 
 function describeReadOpenCommandPiece() {
   function keepsTheTargetAndOptionalSelectorsFromCommander() {
-    const commandInput = readOpenCommandInput({
+    const commandInput = new TerminalCommands().readOpenCommandInput({
       target: 'reviews',
       platform: 'ios',
       app: 'sample',

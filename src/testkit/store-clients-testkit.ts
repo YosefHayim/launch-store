@@ -7,13 +7,9 @@ interface FakeAscApp {
   readonly bundleId: string | null;
 }
 
-function isError(candidate: object): candidate is Error {
-  return candidate instanceof Error;
-}
-
 export function makeFakeAscClient(appsOrFailure: readonly FakeAscApp[] | Error): AppStoreConnect {
   async function listApps(): Promise<FakeAscApp[]> {
-    if (isError(appsOrFailure)) {
+    if (appsOrFailure instanceof Error) {
       throw appsOrFailure;
     }
 
@@ -28,7 +24,7 @@ export function makeFakePlayReportingClient(
   appsOrFailure: readonly PlayReportingApp[] | Error,
 ): PlayReportingClient {
   async function listApps(): Promise<PlayReportingApp[]> {
-    if (isError(appsOrFailure)) {
+    if (appsOrFailure instanceof Error) {
       throw appsOrFailure;
     }
 

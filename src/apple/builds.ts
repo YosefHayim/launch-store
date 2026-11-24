@@ -7,7 +7,7 @@ import type {
   EncryptionDeclarationResource,
 } from '../types/apple-catalog.ts';
 import type { ResourceList, BuildPage } from './shared.ts';
-import type { components } from '../apple-api-types.ts';
+import type { components } from '../types/apple-api-types.ts';
 import { highestAppleMarketingVersion } from './transport-helpers.ts';
 import {
   readTransportSize,

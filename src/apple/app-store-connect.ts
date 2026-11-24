@@ -1,6 +1,6 @@
 // Calls the App Store Connect endpoints Launch commands use.
 
-import type { components } from '../apple-api-types.ts';
+import type { components } from '../types/apple-api-types.ts';
 import type {
   AccessibilityDeclarationResource,
   AccessibilitySupport,

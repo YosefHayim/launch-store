@@ -9,318 +9,299 @@ import { isApplePlatform, parsePlatform } from '../services/stores/platform.ts';
 import { createAscClientResolver } from '../store/shared/store-clients.ts';
 import { selectApps } from '../store/shared/sync-jobs.ts';
 import type { AppDescriptor, OpenTarget, Platform } from '../types/app.ts';
-import { PLAY_CONSOLE_URL } from './play-console-urls.ts';
 
-export const OPEN_TARGETS: readonly OpenTarget[] = [
-  'asc',
-  'play',
-  'testflight',
-  'listing',
-  'reviews',
-  'agreements',
-  'app-record',
-];
-
-type OpenUrlOptions = Readonly<{
-  platform?: string;
-  app?: string;
-}>;
-
-type ConsoleLinkFailure = Readonly<{
-  readonly _tag: 'ConsoleLinkFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
+const PLAY_CONSOLE_URL = 'https://play.google.com/console';
+const ASC_ORIGIN = 'https://appstoreconnect.apple.com';
 
 interface AppleAppLookup {
   getAppId(bundleId: string): Promise<string | null>;
 }
 
-const ASC_ORIGIN = 'https://appstoreconnect.apple.com';
+export class ConsoleLinks {
+  readonly openTargets: readonly OpenTarget[] = [
+    'asc',
+    'play',
+    'testflight',
+    'listing',
+    'reviews',
+    'agreements',
+    'app-record',
+  ];
 
-function makeConsoleLinkFailure(fields: {
-  operation: string;
-  message: string;
-  cause?: unknown;
-}): ConsoleLinkFailure {
-  if (fields.cause == null) {
-    return { _tag: 'ConsoleLinkFailure', operation: fields.operation, message: fields.message };
+  appStoreSectionUrl(target: OpenTarget, appId: string): string {
+    const appBase = `${ASC_ORIGIN}/apps/${appId}`;
+
+    switch (target) {
+      case 'testflight':
+        return `${appBase}/testflight/ios`;
+      case 'listing':
+        return `${appBase}/appstore`;
+      case 'reviews':
+        return `${appBase}/ratings-and-reviews/ios`;
+      case 'asc':
+      case 'play':
+      case 'app-record':
+      case 'agreements':
+        return appBase;
+    }
   }
 
-  return {
-    _tag: 'ConsoleLinkFailure',
-    operation: fields.operation,
-    message: fields.message,
-    cause: fields.cause,
-  };
-}
-
-function isNonEmptyText(cause: unknown): cause is string {
-  if (typeof cause != 'string') {
-    return false;
-  }
-
-  return cause.length > 0;
-}
-
-function consoleLinkFailure(operation: string, cause: unknown): ConsoleLinkFailure {
-  let message = `${operation} failed.`;
-
-  if (isNonEmptyText(cause)) {
-    message = cause;
-  }
-
-  if (hasMessage(cause)) {
-    message = cause.message;
-  }
-
-  return makeConsoleLinkFailure({ operation, message, cause });
-}
-
-function appStoreSectionUrl(target: OpenTarget, appId: string): string {
-  const appBase = `${ASC_ORIGIN}/apps/${appId}`;
-
-  switch (target) {
-    case 'testflight':
-      return `${appBase}/testflight/ios`;
-    case 'listing':
-      return `${appBase}/appstore`;
-    case 'reviews':
-      return `${appBase}/ratings-and-reviews/ios`;
-    case 'asc':
-    case 'play':
-    case 'app-record':
-    case 'agreements':
-      return appBase;
-  }
-}
-
-function appStoreConnectUrl(target: OpenTarget, appId: string | undefined): string {
-  if (target == 'agreements') {
-    return `${ASC_ORIGIN}/agreements/`;
-  }
-
-  if (appId == null) {
-    return `${ASC_ORIGIN}/apps`;
-  }
-
-  return appStoreSectionUrl(target, appId);
-}
-
-export function buildConsoleUrl(
-  target: OpenTarget,
-  platform: Platform,
-  appId: string | undefined,
-): string {
-  if (target == 'play') {
-    return PLAY_CONSOLE_URL;
-  }
-
-  if (platform == 'android') {
-    return PLAY_CONSOLE_URL;
-  }
-
-  return appStoreConnectUrl(target, appId);
-}
-
-export function parseOpenTarget(targetText: string | undefined): OpenTarget {
-  if (targetText == null) {
-    return 'asc';
-  }
-
-  function isKnownTarget(knownTarget: OpenTarget): boolean {
-    return knownTarget == targetText;
-  }
-
-  const matchedTarget = OPEN_TARGETS.find(isKnownTarget);
-
-  if (matchedTarget != null) {
-    return matchedTarget;
-  }
-
-  throw makeConsoleLinkFailure({
-    operation: 'parse open target',
-    message: `Unknown target "${targetText}". Use one of: ${OPEN_TARGETS.join(', ')}.`,
-    cause: targetText,
-  });
-}
-
-function readFlaggedOpenPlatform(platformFlag: string): 'ios' | 'android' {
-  try {
-    const parsedPlatform = parsePlatform(platformFlag);
-
-    if (isApplePlatform(parsedPlatform)) {
-      return 'ios';
+  playUsersAndPermissionsUrl(developerId?: string): string {
+    if (developerId == null) {
+      return `${PLAY_CONSOLE_URL}/developers/users-and-permissions`;
     }
 
-    return 'android';
-  } catch (cause) {
-    throw consoleLinkFailure('parse open platform', cause);
-  }
-}
+    const developerAccount = encodeURIComponent(developerId);
 
-export function resolveOpenPlatform(
-  target: OpenTarget,
-  platformFlag: string | undefined,
-): 'ios' | 'android' {
-  if (platformFlag != null) {
-    return readFlaggedOpenPlatform(platformFlag);
+    return `${PLAY_CONSOLE_URL}/u/0/developers/${developerAccount}/users-and-permissions`;
   }
 
-  if (target == 'play') {
-    return 'android';
+  playPaymentsProfileUrl(developerId?: string): string {
+    if (developerId == null) {
+      return `${PLAY_CONSOLE_URL}/developers/paymentssettings`;
+    }
+
+    const developerAccount = encodeURIComponent(developerId);
+
+    return `${PLAY_CONSOLE_URL}/u/0/developers/${developerAccount}/paymentssettings`;
   }
 
-  return 'ios';
-}
+  consolePageUrl(target: OpenTarget, platform: Platform, appId: string | undefined): string {
+    if (target == 'play') {
+      return PLAY_CONSOLE_URL;
+    }
 
-function hasOpenIdentifier(platform: Platform, discoveredApp: AppDescriptor): boolean {
-  if (platform == 'ios') {
-    return discoveredApp.bundleId != null;
+    if (platform == 'android') {
+      return PLAY_CONSOLE_URL;
+    }
+
+    return this.appStoreConnectUrl(target, appId);
   }
 
-  return discoveredApp.packageName != null;
-}
+  parseOpenTarget(targetText: string | undefined): OpenTarget {
+    if (targetText == null) {
+      return 'asc';
+    }
 
-export async function selectOpenApp(
-  discoveredApps: AppDescriptor[],
-  platform: Platform,
-  appSelector: string | undefined,
-): Promise<AppDescriptor> {
-  let selectedApps: readonly AppDescriptor[] = [];
+    function isKnownTarget(knownTarget: OpenTarget): boolean {
+      return knownTarget == targetText;
+    }
 
-  try {
-    selectedApps = await selectApps(discoveredApps, appSelector);
-  } catch (cause) {
-    throw consoleLinkFailure('select app to open', cause);
+    const matchedTarget = this.openTargets.find(isKnownTarget);
+
+    if (matchedTarget != null) {
+      return matchedTarget;
+    }
+
+    const knownTargets = this.openTargets.join(', ');
+
+    throw new Error(`Unknown target "${targetText}". Use one of: ${knownTargets}.`, {
+      cause: targetText,
+    });
   }
 
-  function isOpenPlatformApp(discoveredApp: AppDescriptor): boolean {
-    return hasOpenIdentifier(platform, discoveredApp);
+  resolveOpenPlatform(target: OpenTarget, platformFlag: string | undefined): 'ios' | 'android' {
+    if (platformFlag != null) {
+      return this.readFlaggedOpenPlatform(platformFlag);
+    }
+
+    if (target == 'play') {
+      return 'android';
+    }
+
+    return 'ios';
   }
 
-  const selectedApp = selectedApps.find(isOpenPlatformApp);
+  async selectOpenApp(
+    discoveredApps: AppDescriptor[],
+    platform: Platform,
+    appSelector: string | undefined,
+  ): Promise<AppDescriptor> {
+    let selectedApps: readonly AppDescriptor[] = [];
 
-  if (selectedApp != null) {
-    return selectedApp;
+    try {
+      selectedApps = await selectApps(discoveredApps, appSelector);
+    } catch (cause) {
+      throw this.consoleLinkError('select app to open', cause);
+    }
+
+    const consoleLinks = this;
+
+    function isOpenPlatformApp(discoveredApp: AppDescriptor): boolean {
+      return consoleLinks.hasOpenIdentifier(platform, discoveredApp);
+    }
+
+    const selectedApp = selectedApps.find(isOpenPlatformApp);
+
+    if (selectedApp != null) {
+      return selectedApp;
+    }
+
+    let identifierLabel = 'android.package';
+    const isIosPlatform = platform == 'ios';
+
+    if (isIosPlatform) {
+      identifierLabel = 'ios.bundleIdentifier';
+    }
+
+    let selectorDetails = '';
+    const hasAppSelector = appSelector != null;
+
+    if (hasAppSelector) {
+      selectorDetails = ` matching "${appSelector}"`;
+    }
+
+    throw new Error(
+      `No ${platform} app found${selectorDetails}. Add an ${identifierLabel} in app.json.`,
+    );
   }
 
-  let identifierLabel = 'android.package';
+  async resolveOpenUrl(
+    rawTarget: string | undefined,
+    openChoice: { platform?: string; app?: string },
+  ): Promise<string> {
+    const target = this.parseOpenTarget(rawTarget);
+    const platform = this.resolveOpenPlatform(target, openChoice.platform);
+    const launchPaths = readLaunchDirectories();
+    let loadedLaunchFile: LoadedConfig;
 
-  const isIosPlatform = platform == 'ios';
+    try {
+      loadedLaunchFile = await loadConfig(launchPaths.workingDirectory);
+    } catch (cause) {
+      throw this.consoleLinkError('load configuration for console link', cause);
+    }
 
-  if (isIosPlatform) {
-    identifierLabel = 'ios.bundleIdentifier';
+    const selectedApp = await this.selectOpenApp(loadedLaunchFile.apps, platform, openChoice.app);
+    const appId = await this.readOpenAppId(platform, selectedApp);
+
+    return this.consolePageUrl(target, platform, appId);
   }
 
-  let selectorDetails = '';
+  async openUrl(url: string): Promise<void> {
+    const hostOperatingSystem = detectHostOperatingSystem();
 
-  const hasAppSelector = appSelector != null;
-
-  if (hasAppSelector) {
-    selectorDetails = ` matching "${appSelector}"`;
+    switch (hostOperatingSystem) {
+      case 'macos':
+        await executeCommand('open', [url]);
+        return;
+      case 'linux':
+        await executeCommand('xdg-open', [url]);
+        return;
+      case 'windows':
+        await executeCommand('cmd', ['/c', 'start', '', url]);
+        return;
+    }
   }
 
-  throw makeConsoleLinkFailure({
-    operation: 'select app to open',
-    message: `No ${platform} app found${selectorDetails}. Add an ${identifierLabel} in app.json.`,
-    cause: appSelector,
-  });
-}
+  private appStoreConnectUrl(target: OpenTarget, appId: string | undefined): string {
+    if (target == 'agreements') {
+      return `${ASC_ORIGIN}/agreements/`;
+    }
 
-async function connectAppleStore(): Promise<AppleAppLookup | null> {
-  const readAppleStore = createAscClientResolver();
+    if (appId == null) {
+      return `${ASC_ORIGIN}/apps`;
+    }
 
-  try {
-    return await readAppleStore();
-  } catch (cause) {
-    throw consoleLinkFailure('connect to App Store Connect', cause);
+    return this.appStoreSectionUrl(target, appId);
   }
-}
 
-async function lookupAppleAppId(
-  appleStore: AppleAppLookup,
-  bundleId: string,
-): Promise<string | undefined> {
-  try {
-    const lookedUpAppId = await appleStore.getAppId(bundleId);
+  private readFlaggedOpenPlatform(platformFlag: string): 'ios' | 'android' {
+    try {
+      const parsedPlatform = parsePlatform(platformFlag);
+      const isApple = isApplePlatform(parsedPlatform);
 
-    if (lookedUpAppId == null) {
+      if (isApple) {
+        return 'ios';
+      }
+
+      return 'android';
+    } catch (cause) {
+      throw this.consoleLinkError('parse open platform', cause);
+    }
+  }
+
+  private hasOpenIdentifier(platform: Platform, discoveredApp: AppDescriptor): boolean {
+    if (platform == 'ios') {
+      return discoveredApp.bundleId != null;
+    }
+
+    return discoveredApp.packageName != null;
+  }
+
+  private async connectAppleStore(): Promise<AppleAppLookup | null> {
+    const readAppleStore = createAscClientResolver();
+
+    try {
+      return await readAppleStore();
+    } catch (cause) {
+      throw this.consoleLinkError('connect to App Store Connect', cause);
+    }
+  }
+
+  private async lookupAppleAppId(
+    appleStore: AppleAppLookup,
+    bundleId: string,
+  ): Promise<string | undefined> {
+    try {
+      const lookedUpAppId = await appleStore.getAppId(bundleId);
+
+      if (lookedUpAppId == null) {
+        return undefined;
+      }
+
+      return lookedUpAppId;
+    } catch (cause) {
+      // A failed lookup still opens the apps list.
+      const lookupFailed = cause != null;
+
+      if (lookupFailed) {
+        return undefined;
+      }
+
+      return undefined;
+    }
+  }
+
+  private async readOpenAppId(
+    platform: 'ios' | 'android',
+    selectedApp: AppDescriptor,
+  ): Promise<string | undefined> {
+    const isAndroid = platform == 'android';
+
+    if (isAndroid) {
       return undefined;
     }
 
-    return lookedUpAppId;
-  } catch (cause) {
-    // A failed lookup still opens the apps list.
-    const lookupFailed = cause != null;
+    const bundleId = selectedApp.bundleId;
 
-    if (lookupFailed) {
+    if (bundleId == null) {
       return undefined;
     }
 
-    return undefined;
-  }
-}
+    const appleStore = await this.connectAppleStore();
 
-async function readOpenAppId(
-  platform: 'ios' | 'android',
-  selectedApp: AppDescriptor,
-): Promise<string | undefined> {
-  const isIosApp = platform == 'ios';
+    if (appleStore == null) {
+      return undefined;
+    }
 
-  if (isIosApp == false) {
-    return undefined;
+    return this.lookupAppleAppId(appleStore, bundleId);
   }
 
-  const bundleId = selectedApp.bundleId;
+  private consoleLinkError(operation: string, cause: unknown): Error {
+    let message = `${operation} failed.`;
 
-  if (bundleId == null) {
-    return undefined;
-  }
+    if (typeof cause == 'string') {
+      const hasCauseText = cause.length > 0;
 
-  const appleStore = await connectAppleStore();
+      if (hasCauseText) {
+        message = cause;
+      }
+    }
 
-  if (appleStore == null) {
-    return undefined;
-  }
+    if (hasMessage(cause)) {
+      message = cause.message;
+    }
 
-  return lookupAppleAppId(appleStore, bundleId);
-}
-
-export async function resolveOpenUrl(
-  rawTarget: string | undefined,
-  openOptions: OpenUrlOptions,
-): Promise<string> {
-  const target = parseOpenTarget(rawTarget);
-  const platform = resolveOpenPlatform(target, openOptions.platform);
-  const launchPaths = readLaunchDirectories();
-  let loadedConfiguration: LoadedConfig;
-
-  try {
-    loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
-  } catch (cause) {
-    throw consoleLinkFailure('load configuration for console link', cause);
-  }
-
-  const selectedApp = await selectOpenApp(loadedConfiguration.apps, platform, openOptions.app);
-  const appId = await readOpenAppId(platform, selectedApp);
-
-  return buildConsoleUrl(target, platform, appId);
-}
-
-export async function openUrl(url: string): Promise<void> {
-  const hostOperatingSystem = detectHostOperatingSystem();
-
-  switch (hostOperatingSystem) {
-    case 'macos':
-      await executeCommand('open', [url]);
-      return;
-    case 'linux':
-      await executeCommand('xdg-open', [url]);
-      return;
-    case 'windows':
-      await executeCommand('cmd', ['/c', 'start', '', url]);
-      return;
+    return new Error(message, { cause });
   }
 }

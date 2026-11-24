@@ -332,7 +332,6 @@ function describeInstallCompletion() {
     const home = makeDir('launch-completion-home-');
 
     await expect(runInstallCompletion({ home })).rejects.toMatchObject({
-      _tag: 'CompletionFailure',
       message: expect.stringContaining('Could not detect your shell'),
     });
   }

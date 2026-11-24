@@ -1,6 +1,6 @@
 // Holds the teaching text for store, signing, and release terms the explain command prints.
 
-export type GlossaryTopic =
+export type ExplainTerm =
   // Ecosystem & frameworks - the stack your app is built on
   | 'react-native'
   | 'expo'
@@ -108,7 +108,7 @@ export type GlossaryTopic =
   | 'build-location'
   | 'apple-account'
   | 'build-profile';
-const GLOSSARY: Record<GlossaryTopic, string> = {
+const EXPLAIN_TERMS: Record<ExplainTerm, string> = {
   //  Ecosystem & frameworks
   'react-native': [
     'React Native: the framework that lets you write one TypeScript/React codebase that runs as a',
@@ -595,16 +595,16 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
 };
 
 /** Return the teaching text for a topic. */
-export function explainTopic(topic: GlossaryTopic): string {
-  return GLOSSARY[topic];
+export function explainTopic(topic: ExplainTerm): string {
+  return EXPLAIN_TERMS[topic];
 }
 
 /** Return whether a string is a known topic (narrows the type for the `explain` command). */
-export function isGlossaryTopic(topicText: string): topicText is GlossaryTopic {
-  return topicText in GLOSSARY;
+export function isExplainTerm(topicText: string): topicText is ExplainTerm {
+  return topicText in EXPLAIN_TERMS;
 }
 
 /** All known topic keys, for `launch-store explain` with no argument. */
-export function listTopics(): GlossaryTopic[] {
-  return Object.keys(GLOSSARY).filter(isGlossaryTopic);
+export function listTopics(): ExplainTerm[] {
+  return Object.keys(EXPLAIN_TERMS).filter(isExplainTerm);
 }

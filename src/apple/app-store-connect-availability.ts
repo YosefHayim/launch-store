@@ -3,7 +3,7 @@
 import type { AppAvailabilityResource } from '../types/apple-catalog.ts';
 import type { AscHost } from './host.ts';
 import type { TerritoryAvailabilityRow, TerritoryAvailabilityPage } from './shared.ts';
-import type { components } from '../apple-api-types.ts';
+import type { components } from '../types/apple-api-types.ts';
 import { AscAvailabilityUpdateError, TERRITORY_AVAILABILITY_UPDATE_CONCURRENCY } from './shared.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 

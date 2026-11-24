@@ -10,7 +10,7 @@ import type {
   LeaderboardFormatter,
 } from '../types/apple-catalog.ts';
 import type { ResourceSingle } from './shared.ts';
-import type { components } from '../apple-api-types.ts';
+import type { components } from '../types/apple-api-types.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectGameCenter {

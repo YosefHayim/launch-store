@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import openapiTypeScript, { astToString } from 'openapi-typescript';
 
-const schemaPath = fileURLToPath(new URL('../src/apple-api-types.ts', import.meta.url));
+const appleTypesPath = fileURLToPath(new URL('../src/types/apple-api-types.ts', import.meta.url));
 const ASC_SPEC_URL =
   'https://developer.apple.com/sample-code/app-store-connect/app-store-connect-openapi-specification.zip';
 
@@ -139,8 +139,8 @@ async function main(): Promise<void> {
 
     const generatedSyntax = await openapiTypeScript(specText);
     const generatedTypes = astToString(generatedSyntax);
-    await writeFile(schemaPath, generatedHeader(specVersion) + generatedTypes);
-    process.stdout.write(`Wrote ${schemaPath}\n`);
+    await writeFile(appleTypesPath, generatedHeader(specVersion) + generatedTypes);
+    process.stdout.write(`Wrote ${appleTypesPath}\n`);
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }

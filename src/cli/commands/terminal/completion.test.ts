@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { Command, type CommandOption, type CommandArgument } from '../../command.ts';
-import { registerCompletionCommand } from './completion.ts';
+import { TerminalCommands } from '../../../terminal/terminal-commands.ts';
 
 /** The `completion` group from a fresh program, asserting it registered. */
 function completionGroup(): Command {
   const program = new Command();
 
-  registerCompletionCommand(program);
+  new TerminalCommands().registerCompletion(program);
 
   function isCompletionCommand(command: Command) {
     return command.name() == 'completion';

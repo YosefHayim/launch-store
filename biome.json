@@ -3,7 +3,7 @@
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!!src/apple-api-types.ts", "!!schema/launch.config.schema.json"]
+    "includes": ["**", "!!src/types/apple-api-types.ts", "!!schema/launch.config.schema.json"]
   },
   "formatter": {
     "enabled": true,

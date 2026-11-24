@@ -1,7 +1,7 @@
 // Prints run, warning, and progress lines, or one JSON event per line, with secrets hidden.
 
 import { stdout } from 'node:process';
-import { explainTopic, type GlossaryTopic } from '../../terminal/glossary.ts';
+import { explainTopic, type ExplainTerm } from '../../terminal/explain-terms.ts';
 import { formatElapsed } from './elapsed.ts';
 import { redactText } from './redact.ts';
 
@@ -17,7 +17,7 @@ export type Logger = Readonly<{
   progressStart: (label: string) => void;
   progressDone: (label: string, elapsedMs: number) => void;
   progressFail: (label: string, failureText: string) => void;
-  step: (label: string, detail?: string, topic?: GlossaryTopic) => void;
+  step: (label: string, detail?: string, topic?: ExplainTerm) => void;
   chip: (chipText: string) => string;
   note: (message: string) => void;
   tip: (message: string) => void;

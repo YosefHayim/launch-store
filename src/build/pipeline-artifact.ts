@@ -19,8 +19,8 @@ import {
 } from '../services/platform/progress.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { makeCommandExit } from '../terminal/command-exit.ts';
-import { buildConsoleUrl } from '../terminal/console-links.ts';
-import type { GlossaryTopic } from '../terminal/glossary.ts';
+import { ConsoleLinks } from '../terminal/console-links.ts';
+import type { ExplainTerm } from '../terminal/explain-terms.ts';
 import type { AppDescriptor, Platform, PlayTrack } from '../types/app.ts';
 import type { BuildArtifact, SizeReport } from '../types/artifacts.ts';
 import type { LaunchConfig, PrebuildMode, ResolvedBuildContext } from '../types/config.ts';
@@ -661,7 +661,7 @@ export async function previousBuild(
 export async function reportSize(
   sizeReport: SizeReport,
   log: Logger,
-  sizeTopic: GlossaryTopic = 'app-thinning',
+  sizeTopic: ExplainTerm = 'app-thinning',
 ): Promise<void> {
   const hasNoEntries = sizeReport.entries.length == 0;
 
@@ -847,7 +847,7 @@ export async function resolveAscBuildLink(
     linkAppId = appId;
   }
 
-  return buildConsoleUrl('testflight', 'ios', linkAppId);
+  return new ConsoleLinks().consolePageUrl('testflight', 'ios', linkAppId);
 }
 
 function hasReceiptLink(link: string | undefined): link is string {

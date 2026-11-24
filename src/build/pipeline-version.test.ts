@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runOnNodePlatform } from '../testkit/platform-run-testkit.ts';
 import { findNativeTargetDirectory, setNativePlistValue } from './pipeline-version.ts';
 const scratchDirs: string[] = [];
 
@@ -61,9 +60,9 @@ afterEach(cleanup);
 function describeFindNativeTargetDirectory() {
   async function findsTheAppTargetBehindTheRegularFilesExpoPrebuildWritesBesideIt() {
     const nativeDirectory = makePrebuiltNativeDir('OLY');
-    const nativeTargetDirectory = findNativeTargetDirectory(nativeDirectory);
-    const onNodePlatform = await runOnNodePlatform(nativeTargetDirectory);
-    expect(onNodePlatform).toBe('OLY');
+    const nativeTargetDirectory = await findNativeTargetDirectory(nativeDirectory);
+
+    expect(nativeTargetDirectory).toBe('OLY');
   }
 
   it(
@@ -82,10 +81,9 @@ function describeFindNativeTargetDirectory() {
 
     mkdirSync(podsPath);
 
-    const nativeTargetDirectory = findNativeTargetDirectory(nativeDirectory);
-    const onNodePlatform = await runOnNodePlatform(nativeTargetDirectory);
+    const nativeTargetDirectory = await findNativeTargetDirectory(nativeDirectory);
 
-    expect(onNodePlatform).toBeNull();
+    expect(nativeTargetDirectory).toBeNull();
   }
 
   it(
@@ -107,10 +105,9 @@ function describeSetNativePlistPiece() {
 
     writePrebuildFiles(joinedPath);
 
-    const stamping = setNativePlistValue(appDir, 'ios', 'CFBundleVersion', 575);
-    const onNodePlatform = await runOnNodePlatform(stamping);
+    const stampedVersion = await setNativePlistValue(appDir, 'ios', 'CFBundleVersion', 575);
 
-    expect(onNodePlatform).toBe(false);
+    expect(stampedVersion).toBe(false);
   }
 
   it(
@@ -120,9 +117,9 @@ function describeSetNativePlistPiece() {
 
   async function reportsNoTargetWhenThePlatformHasNoNativeProjectDirectory() {
     const appDir = makeAppDir();
-    const stamping = setNativePlistValue(appDir, 'ios', 'CFBundleVersion', 575);
-    const onNodePlatform = await runOnNodePlatform(stamping);
-    expect(onNodePlatform).toBe(false);
+    const stampedVersion = await setNativePlistValue(appDir, 'ios', 'CFBundleVersion', 575);
+
+    expect(stampedVersion).toBe(false);
   }
 
   it(

@@ -87,7 +87,7 @@ import type {
   WinBackOfferResource,
 } from '../types/apple-catalog.ts';
 import type { AscKey } from '../types/credentials.ts';
-import type { components } from '../apple-api-types.ts';
+import type { components } from '../types/apple-api-types.ts';
 import { platform as detectOperatingSystem } from 'node:os';
 import { retryAppleTransportRequest } from './transport-helpers.ts';
 import type { AscHost } from './host.ts';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { explainTopic, isGlossaryTopic, listTopics } from './glossary.ts';
+import { explainTopic, isExplainTerm, listTopics } from './explain-terms.ts';
 
 function describeGlossaryTheSinglePieceForExplainAndDocs() {
   function returnsNonEmptyTeachingPieceForEveryTopic() {
@@ -13,16 +13,16 @@ function describeGlossaryTheSinglePieceForExplainAndDocs() {
   it('returns non-empty teaching text for every topic', returnsNonEmptyTeachingPieceForEveryTopic);
 
   function narrowsKnownStringsAndRejectsUnknownOnes() {
-    expect(isGlossaryTopic('csr')).toBe(true);
-    expect(isGlossaryTopic('app-record')).toBe(true);
-    expect(isGlossaryTopic('not-a-topic')).toBe(false);
-    expect(isGlossaryTopic('')).toBe(false);
+    expect(isExplainTerm('csr')).toBe(true);
+    expect(isExplainTerm('app-record')).toBe(true);
+    expect(isExplainTerm('not-a-topic')).toBe(false);
+    expect(isExplainTerm('')).toBe(false);
   }
 
   it('narrows known strings and rejects unknown ones', narrowsKnownStringsAndRejectsUnknownOnes);
 }
 
 describe(
-  'glossary - the single source for --explain and docs',
+  'explain terms the explain command prints',
   describeGlossaryTheSinglePieceForExplainAndDocs,
 );

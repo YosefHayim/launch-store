@@ -2,7 +2,7 @@
 
 import type { AscKey } from '../types/credentials.ts';
 import type { MutableDeep } from '../types/mutable.ts';
-import type { components } from '../apple-api-types.ts';
+import type { components } from '../types/apple-api-types.ts';
 import { createHash } from 'node:crypto';
 import { signAppStoreConnectToken } from './app-store-token.ts';
 import { open, readFile, stat, type FileHandle } from 'node:fs/promises';

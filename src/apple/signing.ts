@@ -10,7 +10,7 @@ import type {
   ProfileResource,
 } from '../types/apple-catalog.ts';
 import type { ProvisioningProfileType, ResourceList } from './shared.ts';
-import type { components } from '../apple-api-types.ts';
+import type { components } from '../types/apple-api-types.ts';
 import {
   DISTRIBUTION_CERT_TYPE,
   APP_STORE_PROFILE_TYPE,

@@ -17,10 +17,6 @@ interface HttpClientTest {
   answer(call: HttpClientSentCall): Response;
 }
 
-function isMissing(candidate: unknown): candidate is null | undefined {
-  return candidate == null;
-}
-
 function findRoute(
   routes: readonly HttpClientTestRoute[],
   method: string,
@@ -57,7 +53,7 @@ export function makeHttpClientTest(routes: readonly HttpClientTestRoute[]): Http
 
     const matchedRoute = findRoute(routes, call.method, call.url);
 
-    if (isMissing(matchedRoute)) {
+    if (matchedRoute == null) {
       throw new Error(`No test route for ${call.method} ${call.url}`);
     }
 

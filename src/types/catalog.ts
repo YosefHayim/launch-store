@@ -1,6 +1,6 @@
 // Holds in-app purchase and subscription settings Launch keeps for both stores.
 
-import type { components } from '../apple-api-types.ts';
+import type { components } from './apple-api-types.ts';
 
 /** How often an auto-renewable subscription bills. */
 export type SubscriptionPeriod =

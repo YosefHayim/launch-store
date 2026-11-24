@@ -1,6 +1,7 @@
 // Builds the full launch-store command tree before any arguments are parsed.
 
 import { Command } from './command.ts';
+import { TerminalCommands } from '../terminal/terminal-commands.ts';
 import { SetupCommand } from '../launch-file/setup-command.ts';
 import { StoreCommand } from '../store/store-command.ts';
 import { registerMigrateCommand } from './commands/setup/migrate.ts';
@@ -8,7 +9,6 @@ import { registerConfigCommand } from './commands/setup/config.ts';
 import { BuildCommand } from '../build/build-command.ts';
 import { registerReleaseCommand } from './commands/release/release.ts';
 import { registerStatusCommand } from './commands/release/status.ts';
-import { registerOpenCommand } from './commands/terminal/open.ts';
 import { registerReleaseTrainCommand } from './commands/release/release-train.ts';
 import { registerRolloutCommand } from './commands/release/rollout.ts';
 import { CredentialsCommand } from '../credentials/credentials-command.ts';
@@ -44,8 +44,6 @@ import { registerAuditCommand } from './commands/readiness/audit.ts';
 import { registerPrivacyCommand } from './commands/readiness/privacy.ts';
 import { registerIapCommand } from './commands/readiness/in-app-purchase-doctor.ts';
 import { registerSnapshotCommand } from './commands/store/snapshot.ts';
-import { registerExplainCommand } from './commands/terminal/explain.ts';
-import { registerCompletionCommand } from './commands/terminal/completion.ts';
 import { registerUpdateCommand } from './commands/release/update.ts';
 import { registerUpdatesCommand } from './commands/release/updates.ts';
 import { registerBuildsCommand } from './commands/build/builds.ts';
@@ -62,6 +60,7 @@ import { registerStatsCommand } from './commands/insights/stats.ts';
 /** Assemble the full `launch-store` command tree and return it unparsed. */
 export function buildProgram(launchVersion: string = '0.0.0'): Command {
   const program = new Command();
+  const terminalCommands = new TerminalCommands();
 
   program
     .name('launch-store')
@@ -76,7 +75,7 @@ export function buildProgram(launchVersion: string = '0.0.0'): Command {
   new BuildCommand().register(program);
   registerReleaseCommand(program);
   registerStatusCommand(program);
-  registerOpenCommand(program);
+  terminalCommands.registerOpen(program);
   registerReleaseTrainCommand(program);
   registerRolloutCommand(program);
   new CredentialsCommand().register(program);
@@ -116,8 +115,8 @@ export function buildProgram(launchVersion: string = '0.0.0'): Command {
   registerPrivacyCommand(program);
   registerIapCommand(program);
   registerSnapshotCommand(program);
-  registerExplainCommand(program);
-  registerCompletionCommand(program);
+  terminalCommands.registerExplain(program);
+  terminalCommands.registerCompletion(program);
   registerUpdateCommand(program);
   registerUpdatesCommand(program);
   registerBuildsCommand(program);
