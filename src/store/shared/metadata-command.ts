@@ -19,11 +19,7 @@ import type { PlayListing } from '../../types/google/edits-listings.ts';
 import { readAppleListing } from '../../apple/apple-listing-read.ts';
 import { reconcileAppListing } from '../../apple/app-store-sync.ts';
 import { loadStoreAppContext } from './select-store-app.ts';
-import type {
-  AndroidLocaleInfo,
-  AndroidStoreConfig,
-  StoreConfig,
-} from './store-config.ts';
+import type { AndroidLocaleInfo, AndroidStoreConfig, StoreConfig } from './store-config.ts';
 import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 export type MetadataCommandInput = {
