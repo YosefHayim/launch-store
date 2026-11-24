@@ -50,7 +50,7 @@ function describePlayReviewsCommandPieceSchema() {
 describe('PlayReviewsCommandInputSchema', describePlayReviewsCommandPieceSchema);
 
 function describePlayReviewPresentation() {
-  function validatesRatingsThroughTheTaggedCommandChannel() {
+  function acceptsAPaddedRatingAndRejectsAFractionWithTheRangeMessage() {
     const playReviewRating = parsePlayReviewRating(' 4 ');
 
     expect(playReviewRating).toBe(4);
@@ -63,8 +63,8 @@ function describePlayReviewPresentation() {
   }
 
   it(
-    'validates ratings through the tagged command channel',
-    validatesRatingsThroughTheTaggedCommandChannel,
+    'accepts a padded rating and rejects a fraction with the 1-5 message',
+    acceptsAPaddedRatingAndRejectsAFractionWithTheRangeMessage,
   );
 
   function rendersAnAnsweredReviewWithCleanASCIIStatusPiece() {

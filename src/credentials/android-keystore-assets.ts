@@ -41,30 +41,6 @@ type AndroidCredentialsIndex = {
   keystore?: KeystoreRecord;
 };
 
-export type AndroidCredentialFailure = Readonly<{
-  readonly _tag: 'AndroidCredentialFailure';
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-function makeAndroidCredentialFailure(fields: {
-  message: string;
-  cause?: unknown;
-}): AndroidCredentialFailure {
-  if (fields.cause != null) {
-    return {
-      _tag: 'AndroidCredentialFailure',
-      message: fields.message,
-      cause: fields.cause,
-    };
-  }
-
-  return {
-    _tag: 'AndroidCredentialFailure',
-    message: fields.message,
-  };
-}
-
 export type KeystoreImport = {
   path: string;
   alias: string;
@@ -126,11 +102,16 @@ function resolveLegacyKeystoreBackupPath(): string {
   return join(credentialsDirectory, 'upload.keystore');
 }
 
-function corruptIndex(credentialsIndexPath: string, cause?: unknown): AndroidCredentialFailure {
-  return makeAndroidCredentialFailure({
-    message: `The Android credentials index at ${credentialsIndexPath} is corrupt.`,
-    cause,
-  });
+function corruptIndex(credentialsIndexPath: string, cause?: unknown): never {
+  const message = `The Android credentials index at ${credentialsIndexPath} is corrupt.`;
+
+  const hasCause = cause != null;
+
+  if (hasCause) {
+    throw new Error(message, { cause });
+  }
+
+  throw new Error(message);
 }
 
 function readKeystoreRecord(
@@ -191,10 +172,10 @@ async function readIndexAt(credentialsIndexPath: string): Promise<AndroidCredent
   try {
     indexExists = await pathExists(credentialsIndexPath);
   } catch (cause) {
-    throw makeAndroidCredentialFailure({
-      message: `Could not check for the Android credentials index at ${credentialsIndexPath}.`,
-      cause,
-    });
+    throw new Error(
+      `Could not check for the Android credentials index at ${credentialsIndexPath}.`,
+      { cause },
+    );
   }
 
   if (indexExists == false) {
@@ -206,8 +187,7 @@ async function readIndexAt(credentialsIndexPath: string): Promise<AndroidCredent
   try {
     indexText = await readFile(credentialsIndexPath, 'utf8');
   } catch (cause) {
-    throw makeAndroidCredentialFailure({
-      message: `Could not read the Android credentials index at ${credentialsIndexPath}.`,
+    throw new Error(`Could not read the Android credentials index at ${credentialsIndexPath}.`, {
       cause,
     });
   }
@@ -253,37 +233,33 @@ function validateServiceAccountJson(serviceAccountJson: string): void {
   try {
     parsed = JSON.parse(serviceAccountJson);
   } catch (cause) {
-    throw makeAndroidCredentialFailure({
-      message:
-        'Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account JSON key.',
-      cause,
-    });
+    throw new Error(
+      'Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account JSON key.',
+      { cause },
+    );
   }
 
   const parsedObject = readPlainObject(parsed);
 
   if (parsedObject == null) {
-    throw makeAndroidCredentialFailure({
-      message:
-        'Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account JSON key.',
-    });
+    throw new Error(
+      'Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account JSON key.',
+    );
   }
 
   const clientEmail = readNonEmptyText(parsedObject, 'client_email');
   const privateKey = readNonEmptyText(parsedObject, 'private_key');
 
   if (clientEmail == null) {
-    throw makeAndroidCredentialFailure({
-      message:
-        'Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account JSON key.',
-    });
+    throw new Error(
+      'Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account JSON key.',
+    );
   }
 
   if (privateKey == null) {
-    throw makeAndroidCredentialFailure({
-      message:
-        'Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account JSON key.',
-    });
+    throw new Error(
+      'Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account JSON key.',
+    );
   }
 }
 
@@ -690,16 +666,15 @@ export async function adoptLegacyAndroidCredentials(
   const isLegacyStoreEmpty = foundNoLegacyCredentials(legacyAccount, hasLegacyFiles);
 
   if (isLegacyStoreEmpty) {
-    throw makeAndroidCredentialFailure({ message: 'No legacy Android credentials were found.' });
+    throw new Error('No legacy Android credentials were found.');
   }
 
   const isLegacyKeystoreBroken = foundBrokenLegacyKeystore(hasLegacyFiles, legacyKeystore);
 
   if (isLegacyKeystoreBroken) {
-    throw makeAndroidCredentialFailure({
-      message:
-        'The legacy upload keystore or its passwords could not be read. Restore them before adoption.',
-    });
+    throw new Error(
+      'The legacy upload keystore or its passwords could not be read. Restore them before adoption.',
+    );
   }
 
   const destinationIndex = await readAndroidIndex(packageName);
@@ -731,9 +706,7 @@ export async function adoptLegacyAndroidCredentials(
       destinationHasMaterial,
     })
   ) {
-    throw makeAndroidCredentialFailure({
-      message: 'App credentials already exist. Pass --yes to replace them.',
-    });
+    throw new Error('App credentials already exist. Pass --yes to replace them.');
   }
 
   if (legacyAccount != null) {
@@ -744,11 +717,10 @@ export async function adoptLegacyAndroidCredentials(
     try {
       await verifyKeystore(legacyKeystore);
     } catch (cause) {
-      throw makeAndroidCredentialFailure({
-        message:
-          'Could not open the legacy keystore and its private key with the stored passwords.',
-        cause,
-      });
+      throw new Error(
+        'Could not open the legacy keystore and its private key with the stored passwords.',
+        { cause },
+      );
     }
   }
 
@@ -808,7 +780,7 @@ async function importWhenRequested(
   const isReplacementRefused = await replacementWasRefused(options, hasExistingKeystore);
 
   if (isReplacementRefused) {
-    throw makeAndroidCredentialFailure({ message: 'Existing upload keystore was not replaced.' });
+    throw new Error('Existing upload keystore was not replaced.');
   }
 
   return importKeystore(keystoreImport, options.log, options.packageName);
@@ -850,10 +822,9 @@ export async function ensureUploadKeystore(
   }
 
   if (hasExistingKeystore) {
-    throw makeAndroidCredentialFailure({
-      message:
-        'An upload keystore already exists but could not be loaded. Restore its file and passwords before continuing.',
-    });
+    throw new Error(
+      'An upload keystore already exists but could not be loaded. Restore its file and passwords before continuing.',
+    );
   }
 
   const legacyIndex = await readLegacyAndroidIndex();
@@ -869,9 +840,9 @@ export async function ensureUploadKeystore(
   );
 
   if (hasLegacyKeystore) {
-    throw makeAndroidCredentialFailure({
-      message: `A legacy upload keystore exists. Run \`${androidAdoptionCommand(options.appName)}\`.`,
-    });
+    throw new Error(
+      `A legacy upload keystore exists. Run \`${androidAdoptionCommand(options.appName)}\`.`,
+    );
   }
 
   const shouldCreate = await options.confirmCreate(
@@ -879,9 +850,7 @@ export async function ensureUploadKeystore(
   );
 
   if (shouldCreate == false) {
-    throw makeAndroidCredentialFailure({
-      message: 'No upload keystore. Confirm generation or import an existing keystore.',
-    });
+    throw new Error('No upload keystore. Confirm generation or import an existing keystore.');
   }
 
   return generateKeystore(options.appName, options.log, options.packageName);
@@ -960,16 +929,16 @@ async function importKeystore(
   const importExists = await pathExists(keystoreImport.path);
 
   if (importExists == false) {
-    throw makeAndroidCredentialFailure({ message: `No keystore at ${keystoreImport.path}.` });
+    throw new Error(`No keystore at ${keystoreImport.path}.`);
   }
 
   try {
     await verifyKeystore(keystoreImport);
   } catch (cause) {
-    throw makeAndroidCredentialFailure({
-      message: `Could not open keystore ${keystoreImport.path} with alias "${keystoreImport.alias}" and the given password.`,
-      cause,
-    });
+    throw new Error(
+      `Could not open keystore ${keystoreImport.path} with alias "${keystoreImport.alias}" and the given password.`,
+      { cause },
+    );
   }
 
   await mkdir(credentialsDirectory, { recursive: true });

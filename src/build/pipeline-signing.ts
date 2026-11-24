@@ -93,15 +93,6 @@ export function interactiveConfirm(
   return launchPrompt.confirm(message);
 }
 
-type SigningResolutionFailure = Readonly<{
-  readonly _tag: 'SigningResolutionFailure';
-  readonly message: string;
-}>;
-
-function makeSigningResolutionFailure(fields: { message: string }): SigningResolutionFailure {
-  return { _tag: 'SigningResolutionFailure', message: fields.message };
-}
-
 function isNotMainBundle(mainBundleId: string | undefined) {
   return function keepExtension(extensionId: string): boolean {
     return extensionId != mainBundleId;
@@ -330,9 +321,9 @@ function presentBundleId(app: AppDescriptor): string {
     return bundleId;
   }
 
-  throw makeSigningResolutionFailure({
-    message: `No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`,
-  });
+  throw new Error(
+    `No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`,
+  );
 }
 
 async function reuseWhenCached(
@@ -366,10 +357,7 @@ function requireAndroidPackage(app: AppDescriptor): string {
     return packageName;
   }
 
-  throw {
-    _tag: 'MissingAndroidPackage',
-    message: 'Set android.package before creating an upload keystore.',
-  };
+  throw new Error('Set android.package before creating an upload keystore.');
 }
 
 /** Reuse a cached upload keystore, or provision one inline. */

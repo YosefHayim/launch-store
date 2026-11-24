@@ -1,7 +1,7 @@
 // Pulls App Store Connect, Google Play, and Google Analytics stats for the chosen apps.
 
 import { loadPortfolioApps } from '../portfolio/load-portfolio-apps.ts';
-import { findAppsByName, joinTags } from '../portfolio/portfolio-logic.ts';
+import { findAppsByName, joinTags } from '../portfolio/portfolio-apps.ts';
 import { readDocumentFile } from '../services/platform/atomic-document-file.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { locatePortfolioFilePath } from '../services/platform/paths.ts';
@@ -30,7 +30,7 @@ import {
   markFeedCoverageSkipped,
   mergeFeedCoverage,
   subtractCoverage,
-} from './coverage-logic.ts';
+} from './feed-coverage.ts';
 import { loadAppCoverage, saveAppCoverage } from './coverage-store.ts';
 import { createLastDaysRange, readYesterdayUtc } from './date-range.ts';
 import { STATS_FEED_PLUGINS } from './feed-registry.ts';

@@ -2,7 +2,6 @@
 
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { CredentialsCommandOptions } from './credentials-command-options.ts';
-import { failCommand } from './credentials-failure.ts';
 
 export function firstDefinedText(
   ...candidates: readonly (string | undefined)[]
@@ -51,7 +50,7 @@ export async function requireText(
   }
 
   if (canPrompt == false) {
-    failCommand('read credentials input', nonInteractiveMessage);
+    throw new Error(nonInteractiveMessage);
   }
 
   const entered = await new LaunchPrompt().requiredText(promptMessage);

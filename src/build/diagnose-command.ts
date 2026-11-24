@@ -8,41 +8,10 @@ import { resolveLogsDirectory } from '../services/platform/paths.ts';
 import { pathExists } from '../path-exists.ts';
 import { diagnoseBuildLog, formatDiagnoses } from './build-diagnostics.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 type DiagnoseCommandInput = Readonly<{
   logfile?: string;
 }>;
-
-type DiagnoseCommandFailure = Readonly<{
-  readonly _tag: 'DiagnoseCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-function makeDiagnoseCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause?: unknown;
-}): DiagnoseCommandFailure {
-  const hasCause = fields.cause != null;
-
-  if (hasCause) {
-    return {
-      _tag: 'DiagnoseCommandFailure',
-      operation: fields.operation,
-      message: fields.message,
-      cause: fields.cause,
-    };
-  }
-
-  return {
-    _tag: 'DiagnoseCommandFailure',
-    operation: fields.operation,
-    message: fields.message,
-  };
-}
 
 /** Decode `launch-store diagnose` input. Omitted optionals stay absent. */
 export function decodeDiagnoseCommandInput(rawCommandInput: unknown): DiagnoseCommandInput {
@@ -73,10 +42,6 @@ export function decodeDiagnoseCommandInput(rawCommandInput: unknown): DiagnoseCo
   }
 
   return { logfile };
-}
-
-function isDiagnoseCommandFailure(cause: unknown): cause is DiagnoseCommandFailure {
-  return isFailureTag(cause, 'DiagnoseCommandFailure');
 }
 
 type NewestLog = Readonly<{ path: string; modifiedAt: number }>;
@@ -173,10 +138,7 @@ export async function diagnoseCommandProgram(rawCommandInput: unknown): Promise<
     const logFileExists = await pathExists(logPath);
 
     if (logFileExists == false) {
-      throw makeDiagnoseCommandFailure({
-        operation: 'read build log',
-        message: `No log file at ${logPath}.`,
-      });
+      throw new Error(`No log file at ${logPath}.`);
     }
 
     const logText = await readFile(logPath, 'utf8');
@@ -193,18 +155,14 @@ export async function diagnoseCommandProgram(rawCommandInput: unknown): Promise<
     logger.line(`Diagnosing ${logPath}\n`);
     logger.line(formatDiagnoses(diagnoses));
   } catch (cause) {
-    const alreadyDiagnoseFailure = isDiagnoseCommandFailure(cause);
+    const isAlreadyError = cause instanceof Error;
 
-    if (alreadyDiagnoseFailure) {
+    if (isAlreadyError) {
       throw cause;
     }
 
     const failureMessage = errorMessage(cause);
 
-    throw makeDiagnoseCommandFailure({
-      operation: 'diagnose build log',
-      message: failureMessage,
-      cause,
-    });
+    throw new Error(failureMessage, { cause });
   }
 }

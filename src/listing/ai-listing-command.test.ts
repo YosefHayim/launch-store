@@ -166,8 +166,10 @@ function describeAiListingCommand() {
       parseListingTargets('windows');
     }
 
-    await expect(rejectUnknownPlatform()).rejects.toMatchObject({
-      _tag: 'AiListingFailure',
+    const pendingRejection = rejectUnknownPlatform();
+
+    await expect(pendingRejection).rejects.toBeInstanceOf(Error);
+    await expect(pendingRejection).rejects.toMatchObject({
       message: expect.stringMatching(/Use ios, android, or all/),
     });
   }
@@ -183,8 +185,10 @@ function describeAiListingCommand() {
       resolveListingLocales(' , ', {});
     }
 
-    await expect(rejectEmptyLocales()).rejects.toMatchObject({
-      _tag: 'AiListingFailure',
+    const pendingRejection = rejectEmptyLocales();
+
+    await expect(pendingRejection).rejects.toBeInstanceOf(Error);
+    await expect(pendingRejection).rejects.toMatchObject({
       message: expect.stringMatching(/--locale was empty/),
     });
   }

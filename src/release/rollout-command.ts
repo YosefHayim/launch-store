@@ -13,7 +13,6 @@ import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import { IOS_PLATFORM, pickCurrentVersion } from './app-store-release.ts';
 import { selectIosApps } from './status-command.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 type RolloutAction = 'pause' | 'resume' | 'complete';
 
@@ -21,40 +20,6 @@ type RolloutCommandInput = {
   readonly action: RolloutAction;
   readonly app?: string;
 };
-
-type RolloutCommandFailure = Readonly<{
-  readonly _tag: 'RolloutCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeRolloutCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): RolloutCommandFailure {
-  return {
-    _tag: 'RolloutCommandFailure',
-    operation: fields.operation,
-    message: fields.message,
-    cause: fields.cause,
-  };
-}
-
-function rolloutFailure(
-  operation: string,
-  cause: unknown,
-  explicitMessage?: string,
-): RolloutCommandFailure {
-  let message = errorMessage(cause);
-
-  if (explicitMessage != null) {
-    message = explicitMessage;
-  }
-
-  return makeRolloutCommandFailure({ operation, message, cause });
-}
 
 function isRolloutAction(action: unknown): action is RolloutAction {
   if (action == 'pause') {
@@ -76,10 +41,9 @@ export function decodeRolloutCommandInput(rawCommandInput: unknown): RolloutComm
   const rawCommandInputObject = readPlainObject(rawCommandInput);
 
   if (rawCommandInputObject == null) {
-    throw rolloutFailure(
-      'decode command input',
-      rawCommandInput,
+    throw new Error(
       'Rollout command input must be an object with action pause, resume, or complete.',
+      { cause: rawCommandInput },
     );
   }
 
@@ -95,11 +59,7 @@ export function decodeRolloutCommandInput(rawCommandInput: unknown): RolloutComm
   const isAppText = typeof appField == 'string';
 
   if (isAppText == false) {
-    throw rolloutFailure(
-      'decode command input',
-      rawCommandInputObject,
-      'Rollout app must be a string.',
-    );
+    throw new Error('Rollout app must be a string.', { cause: rawCommandInputObject });
   }
 
   return { action, app: appField };
@@ -112,11 +72,9 @@ function readRolloutAction(rawCommandInput: Record<string, unknown>): RolloutAct
     return actionField;
   }
 
-  throw rolloutFailure(
-    'decode command input',
-    rawCommandInput,
-    'Rollout action must be pause, resume, or complete.',
-  );
+  throw new Error('Rollout action must be pause, resume, or complete.', {
+    cause: rawCommandInput,
+  });
 }
 
 /** Map a public rollout action to App Store Connect's phased-release state. */
@@ -203,11 +161,9 @@ export async function rolloutCommandProgram(rawCommandInput: unknown): Promise<v
     const isAccountMissing = ascKey == null;
 
     if (isAccountMissing) {
-      throw rolloutFailure(
-        'load active Apple account',
-        'missing-active-account',
-        'No active Apple account. Run `launch-store creds set-key` first.',
-      );
+      throw new Error('No active Apple account. Run `launch-store creds set-key` first.', {
+        cause: 'missing-active-account',
+      });
     }
 
     const appleStore = new AppleStoreClientService().createClient(ascKey);
@@ -230,10 +186,14 @@ export async function rolloutCommandProgram(rawCommandInput: unknown): Promise<v
       throw cause;
     }
 
-    if (isFailureTag(cause, 'RolloutCommandFailure')) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
       throw cause;
     }
 
-    throw rolloutFailure('update phased release', cause);
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }

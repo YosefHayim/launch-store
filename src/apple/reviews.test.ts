@@ -6,6 +6,12 @@ import type {
 import { deleteReviewResponse, listReviews, replyToReview, type AscReviewsApi } from './reviews.ts';
 
 function readThrownMessage(cause: unknown): string | null {
+  const isError = cause instanceof Error;
+
+  if (isError) {
+    return cause.message;
+  }
+
   const isMissing = cause == null;
 
   if (isMissing) return null;

@@ -37,36 +37,15 @@ type EventsCommandInput =
   | LocalizeEventCommandInput
   | Readonly<{ operation: 'delete'; eventId: string; yes: boolean }>;
 
-/** An in-app-events command failed before it could complete. */
-type EventsCommandFailure = Readonly<{
-  readonly _tag: 'EventsCommandFailure';
-  readonly operation: EventsCommandInput['operation'];
-  readonly message: string;
-  readonly cause: unknown;
-}>;
+/** Convert any dependency failure into an Error. */
+function eventsFailure(operation: EventsCommandInput['operation'], cause: unknown): never {
+  const causeHasMessage = hasMessage(cause);
 
-function makeEventsCommandFailure(fields: {
-  operation: EventsCommandInput['operation'];
-  message: string;
-  cause: unknown;
-}): EventsCommandFailure {
-  return { _tag: 'EventsCommandFailure', ...fields };
-}
-
-/** Convert any dependency failure into the in-app-events command channel. */
-function eventsFailure(
-  operation: EventsCommandInput['operation'],
-  cause: unknown,
-): EventsCommandFailure {
-  if (hasMessage(cause)) {
-    return makeEventsCommandFailure({ operation, message: cause.message, cause });
+  if (causeHasMessage) {
+    throw new Error(cause.message, { cause });
   }
 
-  return makeEventsCommandFailure({
-    operation,
-    message: `Events ${operation} failed.`,
-    cause,
-  });
+  throw new Error(`Events ${operation} failed.`, { cause });
 }
 
 function isPresentDetail(eventDetail: string | undefined): eventDetail is string {
@@ -237,11 +216,10 @@ async function deleteEventProgram(
       const needsATerminal = !terminalIsInteractive;
 
       if (needsATerminal) {
-        throw makeEventsCommandFailure({
-          operation: 'delete',
-          message: 'Refusing to delete without confirmation. Re-run with --yes (non-interactive).',
-          cause: 'confirmation-required',
-        });
+        throw new Error(
+          'Refusing to delete without confirmation. Re-run with --yes (non-interactive).',
+          { cause: 'confirmation-required' },
+        );
       }
 
       const confirmed = await new LaunchPrompt().confirm(

@@ -88,8 +88,10 @@ function describeParseDraftListing() {
       parseDraftListing('not json');
     }
 
-    expect(thrownBy(parseInvalidJson)).toMatchObject({
-      _tag: 'ListingGenerationFailure',
+    const failure = thrownBy(parseInvalidJson);
+
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).toMatchObject({
       message: expect.stringMatching(/valid JSON/),
     });
   }
@@ -101,8 +103,10 @@ function describeParseDraftListing() {
       parseDraftListing('{"unknown":"x"}');
     }
 
-    expect(thrownBy(parseEmptyListing)).toMatchObject({
-      _tag: 'ListingGenerationFailure',
+    const failure = thrownBy(parseEmptyListing);
+
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).toMatchObject({
       message: expect.stringMatching(/no usable/),
     });
   }
@@ -126,10 +130,10 @@ function describeCreateAnthropicListingGenerator() {
 
     const listingGenerator = createAnthropicListingGenerator();
 
-    await expect(
-      listingGenerator.generate({ locale: 'en-US', appName: 'MyApp' }),
-    ).rejects.toMatchObject({
-      _tag: 'ListingGenerationFailure',
+    const pendingGeneration = listingGenerator.generate({ locale: 'en-US', appName: 'MyApp' });
+
+    await expect(pendingGeneration).rejects.toBeInstanceOf(Error);
+    await expect(pendingGeneration).rejects.toMatchObject({
       message: expect.stringMatching(/ANTHROPIC_API_KEY/),
     });
   }

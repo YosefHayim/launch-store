@@ -2,7 +2,7 @@
 
 import type { StatsMetric } from '../types/stats.ts';
 import type { AppStatsReport, MetricTotal } from '../types/stats-report.ts';
-import { listProceedsTotals, pickHeadlineTotals, readHeadlineTotal } from './stats-report-logic.ts';
+import { listProceedsTotals, pickHeadlineTotals, readHeadlineTotal } from './stats-series.ts';
 const USAGE_METRICS: readonly StatsMetric[] = ['sessions', 'activeUsers'];
 
 const NO_NUMBER_MARK = '-';

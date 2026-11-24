@@ -1,7 +1,6 @@
-import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { euDistributionPlanner } from './eu-distribution.ts';
-import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import { makeAscApiFake } from '../../testkit/app-store-connect-surfaces.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
 import type { EuDistributionConfig } from '../../types/store-surface.ts';
@@ -38,7 +37,7 @@ function makeCtx(api: AscSurfacesApi | null, euDistribution?: EuDistributionConf
 function describeEuDistributionPlanner() {
   async function omitsItselfWhenNoDistributionDomainsAreDeclared() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(euDistributionPlanner, makeCtx(ascApiFake));
+    const plan = await euDistributionPlanner.plan(makeCtx(ascApiFake));
     expect(plan.state).toBe('omitted');
   }
 
@@ -48,7 +47,7 @@ function describeEuDistributionPlanner() {
   );
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(euDistributionPlanner, makeCtx(null, DECLARED));
+    const plan = await euDistributionPlanner.plan(makeCtx(null, DECLARED));
 
     expect(plan.state).toBe('skipped');
 
@@ -64,7 +63,7 @@ function describeEuDistributionPlanner() {
 
   async function reportsATeamScopedAdditivePlanForAFreshDomain() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(euDistributionPlanner, makeCtx(ascApiFake, DECLARED));
+    const plan = await euDistributionPlanner.plan(makeCtx(ascApiFake, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -97,7 +96,7 @@ function describeEuDistributionPlanner() {
         .fn()
         .mockResolvedValue([{ id: 'd1', domain: 'downloads.acme.com' }]),
     });
-    const plan = await runPlanner(euDistributionPlanner, makeCtx(api, DECLARED));
+    const plan = await euDistributionPlanner.plan(makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -115,7 +114,7 @@ function describeEuDistributionPlanner() {
 
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
-    await runPlanner(euDistributionPlanner, makeCtx(api, DECLARED));
+    await euDistributionPlanner.plan(makeCtx(api, DECLARED));
     expect(api.createAlternativeDistributionDomain).toHaveBeenCalledTimes(0);
   }
 

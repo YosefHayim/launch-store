@@ -35,7 +35,9 @@ function describeDecodeVersionExperimentsCommandPiece() {
     }
 
     expect(callDecodeVersionExperimentsCommandPiece).toThrowError(
-      expect.objectContaining({ _tag: 'VersionExperimentsCommandFailure' }),
+      expect.objectContaining({
+        message: 'Experiments command app must be a string when it is present.',
+      }),
     );
   }
 

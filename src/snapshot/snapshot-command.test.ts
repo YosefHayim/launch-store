@@ -213,7 +213,7 @@ function describeParsePruneCount() {
     try {
       parsePruneCount('1.5', '--keep');
     } catch (failure) {
-      expect(failure).toMatchObject({ _tag: 'SnapshotCommandFailure' });
+      expect(failure).toBeInstanceOf(Error);
     }
   }
 

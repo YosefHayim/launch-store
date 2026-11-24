@@ -9,7 +9,7 @@ import {
   remoteToolchainPreflight,
   type ToolchainIo,
 } from './toolchain.ts';
-import { expectDefined } from '../testkit/assertions-testkit.ts';
+import { expectDefined } from '../testkit/expect-defined.ts';
 
 function listBrewPair(tool: {
   label: string;

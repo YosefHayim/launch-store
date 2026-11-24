@@ -15,30 +15,6 @@ type BetaReviewConfig = {
   readonly whatToTest: Record<string, string>;
 };
 
-type BetaReviewFailure = Readonly<{
-  readonly _tag: 'BetaReviewFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-function makeBetaReviewFailure(fields: {
-  operation: string;
-  message: string;
-  cause?: unknown;
-}): BetaReviewFailure {
-  if (fields.cause == null) {
-    return { _tag: 'BetaReviewFailure', operation: fields.operation, message: fields.message };
-  }
-
-  return {
-    _tag: 'BetaReviewFailure',
-    operation: fields.operation,
-    message: fields.message,
-    cause: fields.cause,
-  };
-}
-
 export type AscBetaReviewApi = Readonly<{
   readonly listBuilds: (appId: string, limit?: number) => Promise<BuildResource[]>;
   readonly listBetaBuildLocalizations: (
@@ -110,19 +86,17 @@ function selectRequestedBuild(
   const isBuildMissing = matchedBuild == null;
 
   if (isBuildMissing) {
-    throw makeBetaReviewFailure({
-      operation: 'select TestFlight build',
-      message: `No build ${requestedVersion} for this app. Upload it first, or omit --build to use the latest.`,
-    });
+    throw new Error(
+      `No build ${requestedVersion} for this app. Upload it first, or omit --build to use the latest.`,
+    );
   }
 
   const isExpired = matchedBuild.expired == true;
 
   if (isExpired) {
-    throw makeBetaReviewFailure({
-      operation: 'select TestFlight build',
-      message: `Build ${requestedVersion} has expired (TestFlight's 90-day limit) and cannot be submitted.`,
-    });
+    throw new Error(
+      `Build ${requestedVersion} has expired (TestFlight's 90-day limit) and cannot be submitted.`,
+    );
   }
 
   return matchedBuild;
@@ -144,11 +118,9 @@ function selectBuild(
   const isLatestMissing = latestBuild == null;
 
   if (isLatestMissing) {
-    throw makeBetaReviewFailure({
-      operation: 'select TestFlight build',
-      message:
-        'No VALID, non-expired build to release. Upload a build and wait for processing to finish.',
-    });
+    throw new Error(
+      'No VALID, non-expired build to release. Upload a build and wait for processing to finish.',
+    );
   }
 
   return latestBuild;
@@ -315,9 +287,7 @@ export function parseBetaReviewConfig(rawConfiguration: unknown): BetaReviewConf
   const rawConfigurationObject = readPlainObject(rawConfiguration);
 
   if (rawConfigurationObject == null) {
-    throw makeBetaReviewFailure({
-      operation: 'decode TestFlight config',
-      message: 'Invalid launch.config.ts testFlight: expected an object.',
+    throw new Error('Invalid launch.config.ts testFlight: expected an object.', {
       cause: rawConfiguration,
     });
   }
@@ -326,9 +296,7 @@ export function parseBetaReviewConfig(rawConfiguration: unknown): BetaReviewConf
   const localizedNotesObject = readPlainObject(localizedNotes);
 
   if (localizedNotesObject == null) {
-    throw makeBetaReviewFailure({
-      operation: 'decode TestFlight config',
-      message: 'Invalid launch.config.ts testFlight: whatToTest must be an object.',
+    throw new Error('Invalid launch.config.ts testFlight: whatToTest must be an object.', {
       cause: rawConfigurationObject,
     });
   }
@@ -338,11 +306,10 @@ export function parseBetaReviewConfig(rawConfiguration: unknown): BetaReviewConf
   const hasNoLocales = locales.length == 0;
 
   if (hasNoLocales) {
-    throw makeBetaReviewFailure({
-      operation: 'decode TestFlight config',
-      message: 'Invalid launch.config.ts testFlight: whatToTest must declare at least one locale.',
-      cause: rawConfigurationObject,
-    });
+    throw new Error(
+      'Invalid launch.config.ts testFlight: whatToTest must declare at least one locale.',
+      { cause: rawConfigurationObject },
+    );
   }
 
   const whatToTest: Record<string, string> = {};
@@ -352,11 +319,10 @@ export function parseBetaReviewConfig(rawConfiguration: unknown): BetaReviewConf
     const isValidNote = isNoteText(noteText);
 
     if (isValidNote == false) {
-      throw makeBetaReviewFailure({
-        operation: 'decode TestFlight config',
-        message: `Invalid launch.config.ts testFlight: whatToTest.${locale} must be a non-empty string.`,
-        cause: rawConfigurationObject,
-      });
+      throw new Error(
+        `Invalid launch.config.ts testFlight: whatToTest.${locale} must be a non-empty string.`,
+        { cause: rawConfigurationObject },
+      );
     }
 
     whatToTest[locale] = noteText;

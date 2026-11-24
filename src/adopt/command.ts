@@ -23,7 +23,6 @@ import {
 } from './adoption.ts';
 import { listAdopters, registerBuiltinAdopters } from './registry.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 export type AdoptCommandInput = {
   all: boolean;
@@ -95,37 +94,6 @@ function decodeAdoptCommandInput(rawCommandInput: unknown): AdoptCommandInput {
 
 export const AdoptCommandInputSchema = decodeAdoptCommandInput;
 
-/** The adopt command could not read or apply existing App Store state. */
-type AdoptCommandFailure = Readonly<{
-  _tag: 'AdoptCommandFailure';
-  operation: string;
-  message: string;
-  cause: unknown;
-}>;
-
-function makeAdoptCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): AdoptCommandFailure {
-  return { _tag: 'AdoptCommandFailure', ...fields };
-}
-
-/** Normalize one adopt failure into the command error channel. */
-function adoptFailure(
-  operation: string,
-  cause: unknown,
-  explicitMessage?: string,
-): AdoptCommandFailure {
-  let message = errorMessage(cause);
-
-  if (explicitMessage != null) {
-    message = explicitMessage;
-  }
-
-  return makeAdoptCommandFailure({ operation, message, cause });
-}
-
 function trimAppName(appName: string): string {
   return appName.trim();
 }
@@ -169,11 +137,7 @@ export function selectAdoptApps(
         .join(', ');
     }
 
-    throw adoptFailure(
-      'select apps to adopt',
-      requestedName,
-      `Unknown app "${requestedName}". Discovered apps: ${discoveredNames}.`,
-    );
+    throw new Error(`Unknown app "${requestedName}". Discovered apps: ${discoveredNames}.`);
   }
 
   return selectedApps;
@@ -361,11 +325,7 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
     const ascKey = await loadActiveAscKey();
 
     if (ascKey == null) {
-      throw adoptFailure(
-        'load active Apple account',
-        'missing-active-account',
-        'No active Apple account. Run `launch-store creds set-key` first.',
-      );
+      throw new Error('No active Apple account. Run `launch-store creds set-key` first.');
     }
 
     const appleCatalog: AdoptCatalogApi = new AppleStoreClientService().createClient(ascKey);
@@ -426,11 +386,7 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
       const isInteractive = checkTerminalIsInteractive();
 
       if (isInteractive == false) {
-        throw adoptFailure(
-          'confirm adoption',
-          'confirmation-required',
-          'Refusing to import without confirmation. Re-run with --yes or --dry-run.',
-        );
+        throw new Error('Refusing to import without confirmation. Re-run with --yes or --dry-run.');
       }
 
       const confirmed = await new LaunchPrompt().confirm(
@@ -469,10 +425,14 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
       throw cause;
     }
 
-    if (isFailureTag(cause, 'AdoptCommandFailure')) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
       throw cause;
     }
 
-    throw adoptFailure('adopt existing app', cause);
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }

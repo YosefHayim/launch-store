@@ -5,53 +5,28 @@ import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 
-/** Reading a sidecar or confirming an App Store surface write failed. */
-type AppStoreSurfaceCommandFailure = Readonly<{
-  readonly _tag: 'AppStoreSurfaceCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeAppStoreSurfaceCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): AppStoreSurfaceCommandFailure {
-  return { _tag: 'AppStoreSurfaceCommandFailure', ...fields };
-}
-
-/** Convert a surface helper failure into its tagged channel. */
-function surfaceFailure(
-  operation: string,
-  cause: unknown,
-  explicitMessage?: string,
-): AppStoreSurfaceCommandFailure {
+/** Convert a surface helper failure into an Error. */
+function surfaceFailure(operation: string, cause: unknown, explicitMessage?: string): never {
   const hasExplicitMessage = explicitMessage != null;
 
   if (hasExplicitMessage) {
-    return makeAppStoreSurfaceCommandFailure({ operation, message: explicitMessage, cause });
+    throw new Error(explicitMessage, { cause });
   }
 
-  const isCauseText = typeof cause == 'string';
+  const causeText = typeof cause == 'string' ? cause : '';
+  const isBlankCauseText = causeText.length == 0;
 
-  if (isCauseText) {
-    const hasCauseText = cause.length > 0;
-
-    if (hasCauseText) {
-      return makeAppStoreSurfaceCommandFailure({ operation, message: cause, cause });
-    }
+  if (isBlankCauseText == false) {
+    throw new Error(causeText, { cause });
   }
 
-  if (hasMessage(cause)) {
-    return makeAppStoreSurfaceCommandFailure({ operation, message: cause.message, cause });
+  const causeHasMessage = hasMessage(cause);
+
+  if (causeHasMessage) {
+    throw new Error(cause.message, { cause });
   }
 
-  return makeAppStoreSurfaceCommandFailure({
-    operation,
-    message: `${operation} failed.`,
-    cause,
-  });
+  throw new Error(`${operation} failed.`, { cause });
 }
 
 /** Render one planned App Store surface action with ASCII markers. */

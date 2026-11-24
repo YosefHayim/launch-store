@@ -18,22 +18,6 @@ type DeviceListInput = Readonly<{
 
 type DeviceCommandInput = DeviceAddInput | DeviceListInput;
 
-/** A device command step failed. */
-type DeviceCommandFailure = Readonly<{
-  readonly _tag: 'DeviceCommandFailure';
-  readonly operation: DeviceCommandInput['operation'];
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeDeviceCommandFailure(fields: {
-  operation: DeviceCommandInput['operation'];
-  message: string;
-  cause: unknown;
-}): DeviceCommandFailure {
-  return { _tag: 'DeviceCommandFailure', ...fields };
-}
-
 function readRequiredString(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
   const isString = typeof field == 'string';
@@ -103,13 +87,11 @@ function readCauseMessage(cause: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Convert a dependency failure into the device command channel. */
-function deviceCommandFailure(
-  operation: DeviceCommandInput['operation'],
-  cause: unknown,
-): DeviceCommandFailure {
+/** Convert a dependency failure into an Error. */
+function deviceCommandFailure(operation: DeviceCommandInput['operation'], cause: unknown): never {
   const message = readCauseMessage(cause, `Device ${operation} failed.`);
-  return makeDeviceCommandFailure({ operation, message, cause });
+
+  throw new Error(message, { cause });
 }
 
 /** Render one registered device for the list view. */

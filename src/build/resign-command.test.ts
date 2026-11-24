@@ -6,7 +6,6 @@ import {
   assertResignablePlatform,
   filterStoredArtifactsByApp,
   iosCodesignArgs,
-  makeResignCommandFailure,
   plistBuddyEntitlementsArgs,
   resignOutputPath,
   securityCmsArgs,
@@ -57,7 +56,10 @@ function describeAssertResignablePlatform() {
       assertResignablePlatform('macos');
       throw new Error('expected macos to fail');
     } catch (error) {
-      expect(error).toMatchObject({ _tag: 'ResignCommandFailure' });
+      expect(error).toBeInstanceOf(Error);
+      expect(error).toMatchObject({
+        message: expect.stringContaining('build:resign supports Apple .ipa'),
+      });
     }
   }
 
@@ -187,22 +189,3 @@ function describeAndroidResignSpec() {
 }
 
 describe('androidResignSpec', describeAndroidResignSpec);
-
-function describeMakeResignCommandFailure() {
-  function tagsOperationSpecificResignFailuresForThePublicErrorChannel() {
-    const failure = makeResignCommandFailure({
-      operation: 'select stored artifact',
-      message: 'No stored build matches "latest".',
-    });
-
-    expect(failure._tag).toBe('ResignCommandFailure');
-    expect(failure.operation).toBe('select stored artifact');
-  }
-
-  it(
-    'tags operation-specific resign failures for the public error channel',
-    tagsOperationSpecificResignFailuresForThePublicErrorChannel,
-  );
-}
-
-describe('makeResignCommandFailure', describeMakeResignCommandFailure);

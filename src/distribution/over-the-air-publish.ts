@@ -10,7 +10,6 @@ import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { StorageProvider } from '../types/providers.ts';
 import { assembleManifest, contentTypeFor, type ManifestAsset } from './over-the-air-manifest.ts';
 import { activateUpdate } from './update-history.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 /** The part of Expo export metadata required to publish bundles and assets. */
 export type ExportMetadata = {
@@ -26,15 +25,6 @@ export type ExportMetadata = {
   >;
 };
 
-export type OtaPublishFailure = Readonly<{
-  readonly _tag: 'OtaPublishFailure';
-  readonly message: string;
-}>;
-
-function makeOtaPublishFailure(message: string): OtaPublishFailure {
-  return { _tag: 'OtaPublishFailure', message };
-}
-
 function decodeExportMetadata(metadataText: string, metadataFilePath: string): ExportMetadata {
   let parsed: unknown;
 
@@ -44,24 +34,22 @@ function decodeExportMetadata(metadataText: string, metadataFilePath: string): E
     const isUnreadable = cause != null;
 
     if (isUnreadable) {
-      throw makeOtaPublishFailure(
-        `${metadataFilePath} does not contain valid Expo export metadata.`,
-      );
+      throw new Error(`${metadataFilePath} does not contain valid Expo export metadata.`);
     }
 
-    throw makeOtaPublishFailure(`${metadataFilePath} does not contain valid Expo export metadata.`);
+    throw new Error(`${metadataFilePath} does not contain valid Expo export metadata.`);
   }
 
   const parsedObject = readPlainObject(parsed);
 
   if (parsedObject == null) {
-    throw makeOtaPublishFailure(`${metadataFilePath} does not contain valid Expo export metadata.`);
+    throw new Error(`${metadataFilePath} does not contain valid Expo export metadata.`);
   }
 
   const fileMetadataField = readPlainObject(parsedObject['fileMetadata']);
 
   if (fileMetadataField == null) {
-    throw makeOtaPublishFailure(`${metadataFilePath} does not contain valid Expo export metadata.`);
+    throw new Error(`${metadataFilePath} does not contain valid Expo export metadata.`);
   }
 
   const fileMetadata: ExportMetadata['fileMetadata'] = {};
@@ -70,21 +58,15 @@ function decodeExportMetadata(metadataText: string, metadataFilePath: string): E
     const platformMetadata = readPlainObject(fileMetadataField[platformName]);
 
     if (platformMetadata == null) {
-      throw makeOtaPublishFailure(
-        `${metadataFilePath} does not contain valid Expo export metadata.`,
-      );
+      throw new Error(`${metadataFilePath} does not contain valid Expo export metadata.`);
     }
 
     if (typeof platformMetadata['bundle'] != 'string') {
-      throw makeOtaPublishFailure(
-        `${metadataFilePath} does not contain valid Expo export metadata.`,
-      );
+      throw new Error(`${metadataFilePath} does not contain valid Expo export metadata.`);
     }
 
     if (Array.isArray(platformMetadata['assets']) == false) {
-      throw makeOtaPublishFailure(
-        `${metadataFilePath} does not contain valid Expo export metadata.`,
-      );
+      throw new Error(`${metadataFilePath} does not contain valid Expo export metadata.`);
     }
 
     const assets: ExportMetadata['fileMetadata'][string]['assets'] = [];
@@ -93,21 +75,15 @@ function decodeExportMetadata(metadataText: string, metadataFilePath: string): E
       const assetObject = readPlainObject(asset);
 
       if (assetObject == null) {
-        throw makeOtaPublishFailure(
-          `${metadataFilePath} does not contain valid Expo export metadata.`,
-        );
+        throw new Error(`${metadataFilePath} does not contain valid Expo export metadata.`);
       }
 
       if (typeof assetObject['path'] != 'string') {
-        throw makeOtaPublishFailure(
-          `${metadataFilePath} does not contain valid Expo export metadata.`,
-        );
+        throw new Error(`${metadataFilePath} does not contain valid Expo export metadata.`);
       }
 
       if (typeof assetObject['ext'] != 'string') {
-        throw makeOtaPublishFailure(
-          `${metadataFilePath} does not contain valid Expo export metadata.`,
-        );
+        throw new Error(`${metadataFilePath} does not contain valid Expo export metadata.`);
       }
 
       assets.push({ path: assetObject['path'], ext: assetObject['ext'] });
@@ -125,22 +101,18 @@ export async function readExportMetadata(exportDirectory: string): Promise<Expor
   const metadataExists = await pathExists(metadataFilePath);
 
   if (metadataExists == false) {
-    throw makeOtaPublishFailure(
-      `No metadata.json in ${exportDirectory}; Expo export may not have completed.`,
-    );
+    throw new Error(`No metadata.json in ${exportDirectory}; Expo export may not have completed.`);
   }
+
+  var metadataText = '';
 
   try {
-    const metadataText = await readFile(metadataFilePath, 'utf8');
-
-    return decodeExportMetadata(metadataText, metadataFilePath);
+    metadataText = await readFile(metadataFilePath, 'utf8');
   } catch (cause) {
-    if (isFailureTag(cause, 'OtaPublishFailure')) {
-      throw cause;
-    }
-
-    throw makeOtaPublishFailure(`Could not read ${metadataFilePath}.`);
+    throw new Error(`Could not read ${metadataFilePath}.`, { cause });
   }
+
+  return decodeExportMetadata(metadataText, metadataFilePath);
 }
 
 type OtaPublishInput = Readonly<{

@@ -1,7 +1,6 @@
-import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { catalogPlanner } from './catalog.ts';
-import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import { makeAscApiFake } from '../../testkit/app-store-connect-surfaces.ts';
 import type { AscCatalogApi } from '../../apple/app-store-sync.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { AppProducts } from '../../types/catalog.ts';
@@ -149,14 +148,14 @@ function makeCtx(
 function describeCatalogPlanner() {
   async function omitsItselfWhenNoAppDeclaresACatalog() {
     const api = makeApi();
-    const plan = await runPlanner(catalogPlanner, makeCtx(api, {}));
+    const plan = await catalogPlanner.plan(makeCtx(api, {}));
     expect(plan.state).toBe('omitted');
   }
 
   it('omits itself when no app declares a catalog', omitsItselfWhenNoAppDeclaresACatalog);
 
   async function skipsWithAnActionableHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(catalogPlanner, makeCtx(null, { 'com.acme.alpha': PRODUCTS }));
+    const plan = await catalogPlanner.plan(makeCtx(null, { 'com.acme.alpha': PRODUCTS }));
 
     expect(plan.state).toBe('skipped');
 
@@ -173,7 +172,7 @@ function describeCatalogPlanner() {
 
   async function reportsThePerAppDiffAFreshCatalogWouldCreate() {
     const api = makeApi();
-    const plan = await runPlanner(catalogPlanner, makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
+    const plan = await catalogPlanner.plan(makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
 
     expect(plan.state).toBe('planned');
 
@@ -203,7 +202,7 @@ function describeCatalogPlanner() {
 
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await runPlanner(catalogPlanner, makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
+    const plan = await catalogPlanner.plan(makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
 
     expect(plan.state).toBe('planned');
 
@@ -223,7 +222,7 @@ function describeCatalogPlanner() {
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeApi();
 
-    await runPlanner(catalogPlanner, makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
+    await catalogPlanner.plan(makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
     expect(api.getAppId).toHaveBeenCalled();
     expect(api.listInAppPurchases).toHaveBeenCalled();
     expect(api.enableCapability).toHaveBeenCalledTimes(0);

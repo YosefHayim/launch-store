@@ -58,7 +58,9 @@ export class GooglePlay {
     const publisher = await this.connect(packageName);
 
     try {
-      var opened = await publisher.edits.insert(withSelectedFields({ packageName }, fields));
+      const editsInsert = withSelectedFields({ packageName }, fields);
+
+      var opened = await publisher.edits.insert(editsInsert);
     } catch (error) {
       throw new Error(`Play did not open an edit for ${packageName}`, { cause: error });
     }
@@ -83,7 +85,9 @@ export class GooglePlay {
     const publisher = await this.connect(packageName);
 
     try {
-      await publisher.edits.delete(withSelectedFields({ packageName, editId }, fields));
+      const editsDelete = withSelectedFields({ packageName, editId }, fields);
+
+      await publisher.edits.delete(editsDelete);
     } catch (error) {
       throw new Error(`Play did not delete the edit for ${packageName}`, { cause: error });
     }
@@ -98,7 +102,9 @@ export class GooglePlay {
     const publisher = await this.connect(packageName);
 
     try {
-      await publisher.edits.commit(withSelectedFields({ packageName, editId }, fields));
+      const editsCommit = withSelectedFields({ packageName, editId }, fields);
+
+      await publisher.edits.commit(editsCommit);
     } catch (error) {
       throw new Error(`Play did not commit the edit for ${packageName}`, { cause: error });
     }
@@ -143,20 +149,20 @@ export class GooglePlay {
     try {
       const asString = String(versionCode);
 
-      await publisher.edits.tracks.update(
-        withSelectedFields(
-          {
-            packageName,
-            editId,
+      const tracksUpdate = withSelectedFields(
+        {
+          packageName,
+          editId,
+          track,
+          requestBody: {
             track,
-            requestBody: {
-              track,
-              releases: [{ status: 'completed', versionCodes: [asString] }],
-            },
+            releases: [{ status: 'completed', versionCodes: [asString] }],
           },
-          fields,
-        ),
+        },
+        fields,
       );
+
+      await publisher.edits.tracks.update(tracksUpdate);
     } catch (error) {
       throw new Error(`Play did not update the ${track} track for ${packageName}`, {
         cause: error,
@@ -172,7 +178,9 @@ export class GooglePlay {
     const publisher = await this.connect(packageName);
 
     try {
-      var listed = await publisher.inappproducts.list(withSelectedFields({ packageName }, fields));
+      const inappproductsList = withSelectedFields({ packageName }, fields);
+
+      var listed = await publisher.inappproducts.list(inappproductsList);
     } catch (error) {
       throw new Error(`Play did not list in-app products for ${packageName}`, { cause: error });
     }
@@ -211,9 +219,9 @@ export class GooglePlay {
     const publisher = await this.connect(packageName);
 
     try {
-      var listed = await publisher.edits.listings.list(
-        withSelectedFields({ packageName, editId }, fields),
-      );
+      const listingsList = withSelectedFields({ packageName, editId }, fields);
+
+      var listed = await publisher.edits.listings.list(listingsList);
     } catch (error) {
       throw new Error(`Play did not list store listings for ${packageName}`, { cause: error });
     }
@@ -252,9 +260,9 @@ export class GooglePlay {
     const publisher = await this.connect(packageName);
 
     try {
-      var listed = await publisher.edits.tracks.list(
-        withSelectedFields({ packageName, editId }, fields),
-      );
+      const tracksList = withSelectedFields({ packageName, editId }, fields);
+
+      var listed = await publisher.edits.tracks.list(tracksList);
     } catch (error) {
       throw new Error(`Play did not list tracks for ${packageName}`, { cause: error });
     }

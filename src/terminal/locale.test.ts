@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { UTF8_LOCALE, isUtf8ShellLocale, mergeChildEnv } from './locale.ts';
+import { UTF8_LOCALE, mergeChildEnv } from './locale.ts';
 
 function describeMergeChildPiece() {
   function forcesUTF8LocaleOverBrokenShellDefaults() {
@@ -23,30 +23,3 @@ function describeMergeChildPiece() {
 }
 
 describe('mergeChildEnv', describeMergeChildPiece);
-
-function describeIsUtf8ShellLocale() {
-  function acceptsCommonUTF8Spellings() {
-    expect(isUtf8ShellLocale({ LANG: 'en_US.UTF-8' })).toBe(true);
-    expect(isUtf8ShellLocale({ LC_ALL: 'C.UTF-8' })).toBe(true);
-    expect(isUtf8ShellLocale({ LANGUAGE: 'en_US.utf8' })).toBe(true);
-  }
-
-  it('accepts common UTF-8 spellings', acceptsCommonUTF8Spellings);
-
-  function rejectsUSASCIIAndUnsetLocale() {
-    expect(isUtf8ShellLocale({ LANG: 'C' })).toBe(false);
-    expect(isUtf8ShellLocale({ LC_ALL: 'US-ASCII' })).toBe(false);
-    expect(isUtf8ShellLocale({})).toBe(false);
-  }
-
-  it('rejects US-ASCII and unset locale', rejectsUSASCIIAndUnsetLocale);
-
-  function prefersLCALLOverLANG() {
-    expect(isUtf8ShellLocale({ LC_ALL: 'US-ASCII', LANG: 'en_US.UTF-8' })).toBe(false);
-    expect(isUtf8ShellLocale({ LC_ALL: 'en_US.UTF-8', LANG: 'C' })).toBe(true);
-  }
-
-  it('prefers LC_ALL over LANG', prefersLCALLOverLANG);
-}
-
-describe('isUtf8ShellLocale', describeIsUtf8ShellLocale);

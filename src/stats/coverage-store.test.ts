@@ -4,7 +4,7 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '../testkit/launch-home-testkit.ts';
+} from '../testkit/temporary-launch-home.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import type { AppCoverage } from '../types/stats.ts';
 import { createEmptyAppCoverage, loadAppCoverage, saveAppCoverage } from './coverage-store.ts';
@@ -74,7 +74,7 @@ function describeLoadAppCoverage() {
 
   async function failsForAnAppKeyThatIsNotValid() {
     const appCoverage = loadAppCoverage('../x');
-    await expect(appCoverage).rejects.toMatchObject({ _tag: 'InvalidAppKeyFailure' });
+    await expect(appCoverage).rejects.toThrow('not a valid app key');
   }
 
   test('fails for an app key that is not valid', failsForAnAppKeyThatIsNotValid);

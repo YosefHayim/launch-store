@@ -27,7 +27,6 @@ import {
   writeTrainRecord,
 } from './record.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 type ReleaseTrainCommandOptions = {
   app?: string;
@@ -49,39 +48,12 @@ type ReleaseTrainCommandInput = {
   options: ReleaseTrainCommandOptions;
 };
 
-type ReleaseTrainCommandFailure = Readonly<{
-  _tag: 'ReleaseTrainCommandFailure';
-  operation: string;
-  message: string;
-  cause: unknown;
-}>;
-
 type PreparedTrain = Readonly<{
   config: LaunchConfig;
   app: AppDescriptor;
   runtime: TrainRuntime;
   logger: Logger;
 }>;
-
-function trainFailure(
-  operation: string,
-  cause: unknown,
-  fallbackMessage?: string,
-): ReleaseTrainCommandFailure {
-  let message = fallbackMessage;
-
-  if (message == null) {
-    message = errorMessage(cause);
-  }
-
-  const isMessageEmpty = message.length == 0;
-
-  if (isMessageEmpty) {
-    message = `${operation} failed.`;
-  }
-
-  return { _tag: 'ReleaseTrainCommandFailure', operation, message, cause };
-}
 
 function readRequiredString(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
@@ -352,7 +324,14 @@ async function failMissingNamedTrain(trainId: string): Promise<TrainRecord> {
   try {
     knownTrains = await listTrainRecords();
   } catch (cause) {
-    throw trainFailure('list release trains', cause);
+    const failureMessage = errorMessage(cause);
+    const isMessageEmpty = failureMessage.length == 0;
+
+    if (isMessageEmpty) {
+      throw new Error('list release trains failed.', { cause });
+    }
+
+    throw new Error(failureMessage, { cause });
   }
 
   const knownTrainIds = knownTrains.map(readTrainId);
@@ -364,11 +343,9 @@ async function failMissingNamedTrain(trainId: string): Promise<TrainRecord> {
     knownTrainSummary = 'none';
   }
 
-  throw trainFailure(
-    'find release train',
-    trainId,
-    `No release train "${trainId}". Known: ${knownTrainSummary}.`,
-  );
+  throw new Error(`No release train "${trainId}". Known: ${knownTrainSummary}.`, {
+    cause: trainId,
+  });
 }
 
 async function readNamedTrain(trainId: string): Promise<TrainRecord> {
@@ -389,18 +366,21 @@ async function readLatestTrain(): Promise<TrainRecord> {
   try {
     newestTrain = await latestTrainRecord();
   } catch (cause) {
-    throw trainFailure('read latest release train', cause);
+    const failureMessage = errorMessage(cause);
+    const isMessageEmpty = failureMessage.length == 0;
+
+    if (isMessageEmpty) {
+      throw new Error('read latest release train failed.', { cause });
+    }
+
+    throw new Error(failureMessage, { cause });
   }
 
   if (newestTrain != null) {
     return newestTrain;
   }
 
-  throw trainFailure(
-    'find release train',
-    undefined,
-    'No release train yet. Start one with `launch-store release-train start`.',
-  );
+  throw new Error('No release train yet. Start one with `launch-store release-train start`.');
 }
 
 /** Load an explicit train id or the latest persisted train. */
@@ -434,7 +414,14 @@ async function prepareTrain(commandFlags: ReleaseTrainCommandOptions): Promise<P
   try {
     loadedConfiguration = await loadConfig();
   } catch (cause) {
-    throw trainFailure('load Launch configuration', cause);
+    const failureMessage = errorMessage(cause);
+    const isMessageEmpty = failureMessage.length == 0;
+
+    if (isMessageEmpty) {
+      throw new Error('load Launch configuration failed.', { cause });
+    }
+
+    throw new Error(failureMessage, { cause });
   }
 
   let selectedApp: AppDescriptor;
@@ -443,7 +430,13 @@ async function prepareTrain(commandFlags: ReleaseTrainCommandOptions): Promise<P
     selectedApp = await selectApp(loadedConfiguration.apps, commandFlags.app);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
-    throw trainFailure('select app', cause, failureMessage);
+    const isMessageEmpty = failureMessage.length == 0;
+
+    if (isMessageEmpty) {
+      throw new Error('select app failed.', { cause });
+    }
+
+    throw new Error(failureMessage, { cause });
   }
 
   const buildProfile = readTrainProfile(loadedConfiguration.config.profiles, commandFlags.profile);
@@ -454,7 +447,13 @@ async function prepareTrain(commandFlags: ReleaseTrainCommandOptions): Promise<P
     environmentOverrides = parseCliEnv([...commandFlags.env]);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
-    throw trainFailure('parse environment overrides', cause, failureMessage);
+    const isMessageEmpty = failureMessage.length == 0;
+
+    if (isMessageEmpty) {
+      throw new Error('parse environment overrides failed.', { cause });
+    }
+
+    throw new Error(failureMessage, { cause });
   }
 
   let resolvedEnvironment: ResolvedEnv;
@@ -468,7 +467,14 @@ async function prepareTrain(commandFlags: ReleaseTrainCommandOptions): Promise<P
       envExclude: loadedConfiguration.config.envExclude,
     });
   } catch (cause) {
-    throw trainFailure('resolve release train environment', cause);
+    const failureMessage = errorMessage(cause);
+    const isMessageEmpty = failureMessage.length == 0;
+
+    if (isMessageEmpty) {
+      throw new Error('resolve release train environment failed.', { cause });
+    }
+
+    throw new Error(failureMessage, { cause });
   }
 
   const buildEnvironment = applyBuildEnvironment(resolvedEnvironment, logger);
@@ -493,7 +499,14 @@ async function persistTrain(trainRecord: TrainRecord): Promise<void> {
   try {
     await writeTrainRecord(trainRecord);
   } catch (cause) {
-    throw trainFailure('write release train', cause);
+    const failureMessage = errorMessage(cause);
+    const isMessageEmpty = failureMessage.length == 0;
+
+    if (isMessageEmpty) {
+      throw new Error('write release train failed.', { cause });
+    }
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -537,7 +550,14 @@ async function reconcileOnce(
       onWarn: keepWarning,
     });
   } catch (cause) {
-    throw trainFailure('advance release train', cause);
+    const failureMessage = errorMessage(cause);
+    const isMessageEmpty = failureMessage.length == 0;
+
+    if (isMessageEmpty) {
+      throw new Error('advance release train failed.', { cause });
+    }
+
+    throw new Error(failureMessage, { cause });
   }
 
   await persistTrain(advancedTrain);
@@ -560,11 +580,9 @@ function requireTrainPlatform(platformFilter: string | undefined): TrainPlatform
     return platformFilter;
   }
 
-  throw trainFailure(
-    'select release train platform',
-    platformFilter,
-    `Unknown --platform "${platformFilter}". Use ios or android.`,
-  );
+  throw new Error(`Unknown --platform "${platformFilter}". Use ios or android.`, {
+    cause: platformFilter,
+  });
 }
 
 async function startReleaseTrain(commandFlags: ReleaseTrainCommandOptions): Promise<void> {
@@ -595,10 +613,9 @@ async function startReleaseTrain(commandFlags: ReleaseTrainCommandOptions): Prom
   const hasNoPlatforms = trainCars.platforms.length == 0;
 
   if (hasNoPlatforms) {
-    throw trainFailure(
-      'resolve release train cars',
-      preparedTrain.app,
+    throw new Error(
       `${preparedTrain.app.name} declares no iOS bundle id or Android package - nothing to release.`,
+      { cause: preparedTrain.app },
     );
   }
 
@@ -641,7 +658,14 @@ async function runRuntimeVersion(
   try {
     return await resolveRuntimeVersion(appDescriptor, runtimeVersionFlag);
   } catch (cause) {
-    throw trainFailure('resolve train runtime version', cause);
+    const failureMessage = errorMessage(cause);
+    const isMessageEmpty = failureMessage.length == 0;
+
+    if (isMessageEmpty) {
+      throw new Error('resolve train runtime version failed.', { cause });
+    }
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -755,10 +779,11 @@ async function executeReleaseTrainCommand(commandInput: ReleaseTrainCommandInput
     return abortReleaseTrain(commandInput.id, commandInput.options);
   }
 
-  throw trainFailure(
-    'select release train action',
-    commandInput.action,
+  throw new Error(
     `Unknown action "${commandInput.action}". Use start, status, release, or abort.`,
+    {
+      cause: commandInput.action,
+    },
   );
 }
 
@@ -772,10 +797,19 @@ export async function releaseTrainCommandProgram(rawCommandInput: unknown): Prom
       throw cause;
     }
 
-    if (isFailureTag(cause, 'ReleaseTrainCommandFailure')) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
       throw cause;
     }
 
-    throw trainFailure('run release-train command', cause);
+    const failureMessage = errorMessage(cause);
+    const isMessageEmpty = failureMessage.length == 0;
+
+    if (isMessageEmpty) {
+      throw new Error('run release-train command failed.', { cause });
+    }
+
+    throw new Error(failureMessage, { cause });
   }
 }

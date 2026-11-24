@@ -40,15 +40,6 @@ function hostFor(): ComputeHost {
   return getComputeHost('byo-ssh');
 }
 
-type RemotePipelineFailure = Readonly<{
-  readonly _tag: 'RemotePipelineFailure';
-  readonly message: string;
-}>;
-
-function makeRemotePipelineFailure(fields: { message: string }): RemotePipelineFailure {
-  return { _tag: 'RemotePipelineFailure', message: fields.message };
-}
-
 function isCcacheEnabled(ccache: boolean | undefined): boolean {
   return ccache != false;
 }
@@ -173,9 +164,9 @@ async function loadLiveAscKey(
   const loaded = await loadAscKeyById(account.keyId);
 
   if (loaded == null) {
-    throw makeRemotePipelineFailure({
-      message: `Apple account "${account.label}" has no stored key. Re-import: launch-store creds set-key`,
-    });
+    throw new Error(
+      `Apple account "${account.label}" has no stored key. Re-import: launch-store creds set-key`,
+    );
   }
 
   return { ascKey: loaded, account };
@@ -185,17 +176,17 @@ function requireIosBundleId(bundleId: string | undefined, appName: string): stri
   const bundleIsMissing = bundleId == null;
 
   if (bundleIsMissing) {
-    throw makeRemotePipelineFailure({
-      message: `No iOS bundle identifier for ${appName}. Set ios.bundleIdentifier in app.json.`,
-    });
+    throw new Error(
+      `No iOS bundle identifier for ${appName}. Set ios.bundleIdentifier in app.json.`,
+    );
   }
 
   const bundleIsBlank = bundleId == '';
 
   if (bundleIsBlank) {
-    throw makeRemotePipelineFailure({
-      message: `No iOS bundle identifier for ${appName}. Set ios.bundleIdentifier in app.json.`,
-    });
+    throw new Error(
+      `No iOS bundle identifier for ${appName}. Set ios.bundleIdentifier in app.json.`,
+    );
   }
 
   return bundleId;
@@ -215,7 +206,7 @@ export async function runRemoteBuild(
   const remote = buildOptions.remote;
 
   if (remote == null) {
-    throw makeRemotePipelineFailure({ message: 'runRemoteBuild called without a remote target.' });
+    throw new Error('runRemoteBuild called without a remote target.');
   }
 
   const bundleId = requireIosBundleId(app.bundleId, app.name);
@@ -358,9 +349,7 @@ export async function runRemoteBuild(
   }
 
   if (pulled == null) {
-    throw makeRemotePipelineFailure({
-      message: 'Remote build completed without pulling the .ipa home.',
-    });
+    throw new Error('Remote build completed without pulling the .ipa home.');
   }
 
   if (buildOptions.submit) {

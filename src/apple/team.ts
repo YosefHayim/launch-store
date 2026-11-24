@@ -52,22 +52,6 @@ type RemoveOutcome =
   | Readonly<{ kind: 'invitation'; invitation: UserInvitationResource }>
   | Readonly<{ kind: 'none' }>;
 
-/** A team validation or App Store Connect operation failed. */
-type TeamFailure = Readonly<{
-  readonly _tag: 'TeamFailure';
-  readonly operation: 'list' | 'invite' | 'remove';
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeTeamFailure(fields: {
-  operation: TeamFailure['operation'];
-  message: string;
-  cause: unknown;
-}): TeamFailure {
-  return { _tag: 'TeamFailure', ...fields };
-}
-
 function readNonEmptyText(cause: unknown): string | null {
   const isNotText = typeof cause != 'string';
 
@@ -92,10 +76,11 @@ function readCauseMessage(cause: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Convert a team dependency failure to the typed domain channel. */
-function teamFailure(operation: TeamFailure['operation'], cause: unknown): TeamFailure {
+/** Convert a team dependency failure into an Error. */
+function teamFailure(operation: 'list' | 'invite' | 'remove', cause: unknown): never {
   const message = readCauseMessage(cause, `Team ${operation} failed.`);
-  return makeTeamFailure({ operation, message, cause });
+
+  throw new Error(message, { cause });
 }
 
 /** Read accepted members and pending invitations together. */

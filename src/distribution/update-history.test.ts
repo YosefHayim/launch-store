@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { expectDefined } from '../testkit/assertions-testkit.ts';
+import { expectDefined } from '../testkit/expect-defined.ts';
 import type { CodeSigner } from '../credentials/code-sign.ts';
 import type { StorageProvider } from '../types/providers.ts';
 import {
@@ -358,7 +358,7 @@ function describeRepublishUpdate() {
         createdAt: '2026-06-14T12:00:00.000Z',
         signer: null,
       }),
-    ).rejects.toMatchObject({ _tag: 'UpdateHistoryFailure' });
+    ).rejects.toThrow(/No snapshot for update ghost/);
   }
 
   it(

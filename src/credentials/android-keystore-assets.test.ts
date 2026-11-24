@@ -133,10 +133,7 @@ function describeDescribeStoredAndroidCredentials() {
 
     const storedAndroidCredentials = describeStoredAndroidCredentials('com.example.app');
 
-    await expect(storedAndroidCredentials).rejects.toMatchObject({
-      _tag: 'AndroidCredentialFailure',
-      message: expect.stringContaining('is corrupt'),
-    });
+    await expect(storedAndroidCredentials).rejects.toThrow(/is corrupt/);
   }
 
   it(

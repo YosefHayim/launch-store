@@ -10,7 +10,6 @@ import { loadActiveAppleStore } from './apple-store-command.ts';
 import { reconcileAvailability } from './availability.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
 
@@ -19,21 +18,6 @@ export type AvailabilityCommandInput = {
   dryRun: boolean;
   yes: boolean;
 };
-
-type AvailabilityCommandFailure = Readonly<{
-  readonly _tag: 'AvailabilityCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeAvailabilityCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): AvailabilityCommandFailure {
-  return { _tag: 'AvailabilityCommandFailure', ...fields };
-}
 
 function readFlag(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
@@ -70,22 +54,6 @@ export function AvailabilityCommandInputSchema(rawCommandInput: unknown): Availa
   }
 
   return { app, dryRun, yes };
-}
-
-function commandFailure(
-  operation: string,
-  cause: unknown,
-  explicitMessage?: string,
-): AvailabilityCommandFailure {
-  let message = errorMessage(cause);
-
-  const hasExplicitMessage = explicitMessage != null;
-
-  if (hasExplicitMessage) {
-    message = explicitMessage;
-  }
-
-  return makeAvailabilityCommandFailure({ operation, message, cause });
 }
 
 export function renderAvailabilityAction(plannedAction: PlannedAction): string {
@@ -142,10 +110,9 @@ async function confirmAvailabilityWrite(
   const needsATerminal = terminalIsInteractive == false;
 
   if (needsATerminal) {
-    throw commandFailure(
-      'confirm availability write',
-      'confirmation-required',
+    throw new Error(
       'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
+      { cause: 'confirmation-required' },
     );
   }
 
@@ -154,7 +121,15 @@ async function confirmAvailabilityWrite(
   try {
     confirmed = await new LaunchPrompt().confirm(availabilityConfirmationMessage(plannedAction));
   } catch (cause) {
-    throw commandFailure('confirm availability write', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   if (confirmed) {
@@ -176,10 +151,9 @@ export async function availabilityCommandProgram(rawCommandInput: unknown): Prom
     const isBundleMissing = bundleId == null;
 
     if (isBundleMissing) {
-      throw commandFailure(
-        'resolve availability bundle id',
-        storeAppContext.app,
+      throw new Error(
         `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
+        { cause: storeAppContext.app },
       );
     }
 
@@ -188,10 +162,9 @@ export async function availabilityCommandProgram(rawCommandInput: unknown): Prom
     const isAvailabilityMissing = availabilitySection == null;
 
     if (isAvailabilityMissing) {
-      throw commandFailure(
-        'resolve availability config',
-        bundleId,
+      throw new Error(
         `No availability config for ${bundleId}. Add an availability entry to launch.config.ts.`,
+        { cause: bundleId },
       );
     }
 
@@ -255,11 +228,15 @@ export async function availabilityCommandProgram(rawCommandInput: unknown): Prom
       throw cause;
     }
 
-    if (isFailureTag(cause, 'AvailabilityCommandFailure')) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
       throw cause;
     }
 
-    throw commandFailure('run availability command', cause);
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 

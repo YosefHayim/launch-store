@@ -28,21 +28,6 @@ type EuDistributionCommandInput =
   | Readonly<{ operation: 'set-key'; pemPath: string }>
   | Readonly<{ operation: 'list' }>;
 
-type EuDistributionCommandFailure = Readonly<{
-  readonly _tag: 'EuDistributionCommandFailure';
-  readonly operation: EuDistributionCommandInput['operation'];
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-function makeEuDistributionCommandFailure(fields: {
-  operation: EuDistributionCommandInput['operation'];
-  message: string;
-  cause?: unknown;
-}): EuDistributionCommandFailure {
-  return { _tag: 'EuDistributionCommandFailure', ...fields };
-}
-
 function readText(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
   const isText = typeof field == 'string';
@@ -93,16 +78,6 @@ function decodeEuDistributionCommandInput(rawCommandInput: unknown): EuDistribut
   throw new Error('Unknown EU distribution command.');
 }
 
-function readEuDistributionOperation(
-  rawCommandInput: unknown,
-): EuDistributionCommandInput['operation'] | null {
-  try {
-    return decodeEuDistributionCommandInput(rawCommandInput).operation;
-  } catch (cause) {
-    return null;
-  }
-}
-
 function projectPath(commandPath: string): string {
   const launchPaths = readLaunchDirectories();
 
@@ -137,10 +112,7 @@ async function reconcileDomains(
   const isEuDistributionMissing = euDistributionSection == null;
 
   if (isEuDistributionMissing) {
-    throw makeEuDistributionCommandFailure({
-      operation: 'reconcile',
-      message: 'No EU distribution config. Add an euDistribution field to launch.config.ts.',
-    });
+    throw new Error('No EU distribution config. Add an euDistribution field to launch.config.ts.');
   }
 
   const appleStore = await loadActiveAppleStore();
@@ -213,10 +185,7 @@ async function setDistributionKey(pemPath: string): Promise<void> {
   const isEmpty = publicKey.length == 0;
 
   if (isEmpty) {
-    throw makeEuDistributionCommandFailure({
-      operation: 'set-key',
-      message: `${pemPath} is empty - expected a PEM public key.`,
-    });
+    throw new Error(`${pemPath} is empty - expected a PEM public key.`);
   }
 
   const appleStore = await loadActiveAppleStore();
@@ -309,22 +278,15 @@ export async function euDistributionCommandProgram(rawCommandInput: unknown): Pr
       throw cause;
     }
 
-    let operation: EuDistributionCommandInput['operation'] = 'reconcile';
-    const decodedOperation = readEuDistributionOperation(rawCommandInput);
+    const isAlreadyError = cause instanceof Error;
 
-    const hasDecodedOperation = decodedOperation != null;
-
-    if (hasDecodedOperation) {
-      operation = decodedOperation;
+    if (isAlreadyError) {
+      throw cause;
     }
 
     const failureMessage = errorMessage(cause);
 
-    throw makeEuDistributionCommandFailure({
-      operation,
-      message: failureMessage,
-      cause,
-    });
+    throw new Error(failureMessage, { cause });
   }
 }
 

@@ -11,7 +11,7 @@ import {
   joinTags,
   keepCachedAppsOfFailedAccounts,
   mergeDiscoveredApps,
-} from './portfolio-logic.ts';
+} from './portfolio-apps.ts';
 
 function createApp(overrides: Partial<DiscoveredApp>): DiscoveredApp {
   return {

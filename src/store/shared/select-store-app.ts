@@ -8,20 +8,6 @@ import { checkTerminalIsInteractive } from '../../services/platform/progress.ts'
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 
-/** Selecting an app for a store command failed. */
-type StoreAppSelectionFailure = Readonly<{
-  readonly _tag: 'StoreAppSelectionFailure';
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-export function makeStoreAppSelectionFailure(fields: {
-  message: string;
-  cause: unknown;
-}): StoreAppSelectionFailure {
-  return { _tag: 'StoreAppSelectionFailure', ...fields };
-}
-
 /** Loaded Launch configuration paired with the selected app. */
 type StoreAppContext = Readonly<{
   config: LaunchConfig;
@@ -60,8 +46,7 @@ async function oneDiscoveredApp(
   onlyApp: AppDescriptor | undefined,
 ): Promise<StoreAppContext> {
   if (onlyApp == null) {
-    throw makeStoreAppSelectionFailure({
-      message: 'No apps found. Run Launch from a repo containing at least one app.json.',
+    throw new Error('No apps found. Run Launch from a repo containing at least one app.json.', {
       cause: 'no-apps',
     });
   }
@@ -85,17 +70,13 @@ export async function loadStoreAppContext(
   try {
     loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
   } catch (cause) {
-    throw makeStoreAppSelectionFailure({
-      message: 'Could not load the Launch configuration.',
-      cause,
-    });
+    throw new Error('Could not load the Launch configuration.', { cause });
   }
 
   const hasNoApps = loadedConfiguration.apps.length == 0;
 
   if (hasNoApps) {
-    throw makeStoreAppSelectionFailure({
-      message: 'No apps found. Run Launch from a repo containing at least one app.json.',
+    throw new Error('No apps found. Run Launch from a repo containing at least one app.json.', {
       cause: 'no-apps',
     });
   }
@@ -107,8 +88,9 @@ export async function loadStoreAppContext(
       return withAppLaunch(loadedConfiguration.config, selectedApp);
     }
 
-    throw makeStoreAppSelectionFailure({
-      message: `App "${appSelector}" not found. Available: ${loadedConfiguration.apps.map(appNameOf).join(', ')}.`,
+    const availableAppNames = loadedConfiguration.apps.map(appNameOf).join(', ');
+
+    throw new Error(`App "${appSelector}" not found. Available: ${availableAppNames}.`, {
       cause: appSelector,
     });
   }
@@ -124,8 +106,7 @@ export async function loadStoreAppContext(
   const isInteractive = checkTerminalIsInteractive();
 
   if (isInteractive == false) {
-    throw makeStoreAppSelectionFailure({
-      message: 'More than one app found. Pass --app <name> to choose non-interactively.',
+    throw new Error('More than one app found. Pass --app <name> to choose non-interactively.', {
       cause: 'app-selection-required',
     });
   }
@@ -139,7 +120,7 @@ export async function loadStoreAppContext(
     return withAppLaunch(loadedConfiguration.config, selectedApp);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
-    throw makeStoreAppSelectionFailure({ message: failureMessage, cause });
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -158,8 +139,8 @@ export async function resolveStoreBundleId(appSelector: string | undefined): Pro
     return selectedApp.bundleId;
   }
 
-  throw makeStoreAppSelectionFailure({
-    message: `No iOS bundle identifier for ${selectedApp.name} (set ios.bundleIdentifier in app.json).`,
-    cause: selectedApp,
-  });
+  throw new Error(
+    `No iOS bundle identifier for ${selectedApp.name} (set ios.bundleIdentifier in app.json).`,
+    { cause: selectedApp },
+  );
 }

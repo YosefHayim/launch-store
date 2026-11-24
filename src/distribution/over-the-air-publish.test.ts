@@ -226,9 +226,7 @@ function describeReadExportMetadata() {
 
     try {
       const exportMetadata = readExportMetadata(exportDirectory);
-      await expect(exportMetadata).rejects.toMatchObject({
-        _tag: 'OtaPublishFailure',
-      });
+      await expect(exportMetadata).rejects.toThrow(/No metadata.json/);
     } finally {
       rmSync(exportDirectory, { recursive: true, force: true });
     }

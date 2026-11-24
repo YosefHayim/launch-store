@@ -1,7 +1,6 @@
-import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { offersPlanner } from './offers.ts';
-import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import { makeAscApiFake } from '../../testkit/app-store-connect-surfaces.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { AppProducts } from '../../types/catalog.ts';
 import type { LaunchConfig } from '../../types/config.ts';
@@ -92,8 +91,7 @@ function makeCtx(
 
 function describeOffersPlanner() {
   async function omitsItselfWhenNoAppDeclaresOffersOrPromotedPurchases() {
-    const plan = await runPlanner(
-      offersPlanner,
+    const plan = await offersPlanner.plan(
       makeCtx(apiWithLiveSubscription(), { 'com.acme.alpha': noOffers }),
     );
 
@@ -106,7 +104,7 @@ function describeOffersPlanner() {
   );
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(offersPlanner, makeCtx(null, { 'com.acme.alpha': WITH_OFFER }));
+    const plan = await offersPlanner.plan(makeCtx(null, { 'com.acme.alpha': WITH_OFFER }));
 
     expect(plan.state).toBe('skipped');
 
@@ -121,8 +119,7 @@ function describeOffersPlanner() {
   );
 
   async function reportsAnAdditivePlanToCreateADeclaredOfferCodeThatDoesnTExistYet() {
-    const plan = await runPlanner(
-      offersPlanner,
+    const plan = await offersPlanner.plan(
       makeCtx(apiWithLiveSubscription(), { 'com.acme.alpha': WITH_OFFER }),
     );
 
@@ -153,7 +150,7 @@ function describeOffersPlanner() {
 
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = apiWithLiveSubscription({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await runPlanner(offersPlanner, makeCtx(api, { 'com.acme.alpha': WITH_OFFER }));
+    const plan = await offersPlanner.plan(makeCtx(api, { 'com.acme.alpha': WITH_OFFER }));
 
     expect(plan.state).toBe('planned');
 
@@ -172,7 +169,7 @@ function describeOffersPlanner() {
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = apiWithLiveSubscription();
 
-    await runPlanner(offersPlanner, makeCtx(api, { 'com.acme.alpha': WITH_OFFER }));
+    await offersPlanner.plan(makeCtx(api, { 'com.acme.alpha': WITH_OFFER }));
     expect(api.createSubscriptionOfferCode).toHaveBeenCalledTimes(0);
     expect(api.createPromotionalOffer).toHaveBeenCalledTimes(0);
     expect(api.createPromotedPurchase).toHaveBeenCalledTimes(0);

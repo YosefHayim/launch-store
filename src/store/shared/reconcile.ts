@@ -10,20 +10,6 @@ export type ReconcileContext = {
   dryRun: boolean;
 };
 
-/** Missing App Store Connect app record. */
-type AppRecordFailure = Readonly<{
-  readonly _tag: 'AppRecordFailure';
-  readonly bundleId: string;
-  readonly message: string;
-}>;
-
-export function makeAppRecordFailure(fields: {
-  bundleId: string;
-  message: string;
-}): AppRecordFailure {
-  return { _tag: 'AppRecordFailure', ...fields };
-}
-
 /** Record and optionally apply one non-destructive action. */
 export async function act(
   reconcileContext: ReconcileContext,
@@ -68,23 +54,21 @@ export function plan(
 }
 
 /** Describe the missing app record for a write command. */
-export function appRecordMissing(bundleId: string, commandName: string): AppRecordFailure {
-  return makeAppRecordFailure({
-    bundleId,
-    message:
-      `No App Store Connect app record for ${bundleId}. Create the app once in App Store Connect ` +
-      `(Apple has no API to create the app record), then re-run \`launch-store ${commandName}\`.`,
-  });
+export function appRecordMissing(bundleId: string, commandName: string): Error {
+  const missingRecordMessage =
+    `No App Store Connect app record for ${bundleId}. Create the app once in App Store Connect ` +
+    `(Apple has no API to create the app record), then re-run \`launch-store ${commandName}\`.`;
+
+  return new Error(missingRecordMessage);
 }
 
 /** Describe the missing app record for a read command. */
-export function appRecordNotFound(bundleId: string): AppRecordFailure {
-  return makeAppRecordFailure({
-    bundleId,
-    message:
-      `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this account ` +
-      `can access the app (Apple has no API to create an app record - it's created once in App Store Connect).`,
-  });
+export function appRecordNotFound(bundleId: string): Error {
+  const missingRecordMessage =
+    `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this account ` +
+    `can access the app (Apple has no API to create an app record - it's created once in App Store Connect).`;
+
+  return new Error(missingRecordMessage);
 }
 
 /** Record a sub-area that cannot be reconciled yet. */

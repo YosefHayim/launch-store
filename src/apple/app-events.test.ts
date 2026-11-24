@@ -3,6 +3,12 @@ import type { AppEventLocalizationInput, NewAppEvent } from '../types/apple-cata
 import { AppEvents, type AscAppEventsApi } from './app-events.ts';
 
 function readThrownMessage(cause: unknown): string | null {
+  const isError = cause instanceof Error;
+
+  if (isError) {
+    return cause.message;
+  }
+
   const isMissing = cause == null;
 
   if (isMissing) return null;

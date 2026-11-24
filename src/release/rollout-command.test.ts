@@ -21,7 +21,9 @@ function describeRolloutActionMapping() {
     }
 
     expect(callDecodeRolloutCommandPiece).toThrowError(
-      expect.objectContaining({ _tag: 'RolloutCommandFailure' }),
+      expect.objectContaining({
+        message: 'Rollout action must be pause, resume, or complete.',
+      }),
     );
   }
 

@@ -18,36 +18,15 @@ type SandboxCommandInput =
       yes: boolean;
     }>;
 
-/** A sandbox command could not load credentials, call Apple, prompt, or render output. */
-type SandboxCommandFailure = Readonly<{
-  readonly _tag: 'SandboxCommandFailure';
-  readonly operation: SandboxCommandInput['operation'];
-  readonly message: string;
-  readonly cause: unknown;
-}>;
+/** Convert any dependency failure into an Error. */
+function sandboxFailure(operation: SandboxCommandInput['operation'], cause: unknown): never {
+  const causeHasMessage = hasMessage(cause);
 
-function makeSandboxCommandFailure(fields: {
-  operation: SandboxCommandInput['operation'];
-  message: string;
-  cause: unknown;
-}): SandboxCommandFailure {
-  return { _tag: 'SandboxCommandFailure', ...fields };
-}
-
-/** Convert any dependency failure to the command's stable tagged error. */
-function sandboxFailure(
-  operation: SandboxCommandInput['operation'],
-  cause: unknown,
-): SandboxCommandFailure {
-  if (hasMessage(cause)) {
-    return makeSandboxCommandFailure({ operation, message: cause.message, cause });
+  if (causeHasMessage) {
+    throw new Error(cause.message, { cause });
   }
 
-  return makeSandboxCommandFailure({
-    operation,
-    message: `Sandbox ${operation} failed.`,
-    cause,
-  });
+  throw new Error(`Sandbox ${operation} failed.`, { cause });
 }
 
 function isPresentName(namePart: string | undefined): namePart is string {
@@ -105,12 +84,10 @@ async function confirmClear(targetLabel: string, confirmed: boolean): Promise<bo
   const needsATerminal = terminalIsInteractive == false;
 
   if (needsATerminal) {
-    throw makeSandboxCommandFailure({
-      operation: 'clear',
-      message:
-        'Refusing to clear purchase history without confirmation. Re-run with --yes (non-interactive).',
-      cause: 'confirmation-required',
-    });
+    throw new Error(
+      'Refusing to clear purchase history without confirmation. Re-run with --yes (non-interactive).',
+      { cause: 'confirmation-required' },
+    );
   }
 
   let shouldClear = false;

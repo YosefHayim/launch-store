@@ -51,22 +51,6 @@ export type ExportComplianceResult =
       status: 'needs-declaration';
     };
 
-/** Export-compliance reconciliation failed. */
-type ExportComplianceFailure = Readonly<{
-  readonly _tag: 'ExportComplianceFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeExportComplianceFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): ExportComplianceFailure {
-  return { _tag: 'ExportComplianceFailure', ...fields };
-}
-
 function readErrorText(cause: unknown, fallback: string): string {
   const isNotError = !(cause instanceof Error);
 
@@ -79,9 +63,10 @@ function readErrorText(cause: unknown, fallback: string): string {
   return cause.message;
 }
 
-function exportComplianceFailure(operation: string, cause: unknown): ExportComplianceFailure {
+function exportComplianceFailure(operation: string, cause: unknown): never {
   const message = readErrorText(cause, `${operation} failed.`);
-  return makeExportComplianceFailure({ operation, message, cause });
+
+  throw new Error(message, { cause });
 }
 
 function exportComplianceOutcome(

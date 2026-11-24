@@ -5,7 +5,7 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '../testkit/launch-home-testkit.ts';
+} from '../testkit/temporary-launch-home.ts';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
 import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
@@ -18,7 +18,6 @@ import {
   countFailedReleaseActions,
   formatReleaseActionLine,
   isVerifiedStoreBuild,
-  makeReleaseCommandFailure,
   newestValidBuild,
   parseAppStoreBuildSelector,
   releaseCommandProgram,
@@ -290,24 +289,6 @@ describe(
   'formatReleaseActionLine / countFailedReleaseActions',
   describeFormatReleaseActionLineCountFailedReleaseActions,
 );
-
-function describeMakeReleaseCommandFailure() {
-  function tagsCommandFailuresForTheEffectChannel() {
-    const failure = makeReleaseCommandFailure({
-      operation: 'upload App Store build',
-      message: 'network down',
-      cause: new Error('network down'),
-    });
-
-    expect(failure._tag).toBe('ReleaseCommandFailure');
-    expect(failure.operation).toBe('upload App Store build');
-    expect(failure.message).toBe('network down');
-  }
-
-  it('tags command failures for the Effect channel', tagsCommandFailuresForTheEffectChannel);
-}
-
-describe('makeReleaseCommandFailure', describeMakeReleaseCommandFailure);
 
 const ASC_KEY_ID = 'KEY123';
 const p8Secret = Buffer.from('-----BEGIN PRIVATE KEY-----').toString('base64');

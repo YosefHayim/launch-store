@@ -1,7 +1,6 @@
-import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { releaseConfigPlanner } from './release-config.ts';
-import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import { makeAscApiFake } from '../../testkit/app-store-connect-surfaces.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
@@ -49,7 +48,7 @@ function makeCtx(
 function describeReleasePiecePlanner() {
   async function omitsItselfWhenNoAppDeclaresReleaseAttributes() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(releaseConfigPlanner, makeCtx(ascApiFake));
+    const plan = await releaseConfigPlanner.plan(makeCtx(ascApiFake));
     expect(plan.state).toBe('omitted');
   }
 
@@ -59,7 +58,7 @@ function describeReleasePiecePlanner() {
   );
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(releaseConfigPlanner, makeCtx(null, PRICED));
+    const plan = await releaseConfigPlanner.plan(makeCtx(null, PRICED));
 
     expect(plan.state).toBe('skipped');
 
@@ -75,7 +74,7 @@ function describeReleasePiecePlanner() {
 
   async function reportsThePerAppPriceChangeAFreshPieceWouldApplyTwoWay() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(releaseConfigPlanner, makeCtx(ascApiFake, PRICED));
+    const plan = await releaseConfigPlanner.plan(makeCtx(ascApiFake, PRICED));
 
     expect(plan.state).toBe('planned');
 
@@ -105,7 +104,7 @@ function describeReleasePiecePlanner() {
 
   async function rendersInSyncWhenTheLivePriceAlreadyMatches() {
     const api = makeAscApiFake({ getCurrentAppPrice: vi.fn().mockResolvedValue('9.99') });
-    const plan = await runPlanner(releaseConfigPlanner, makeCtx(api, PRICED));
+    const plan = await releaseConfigPlanner.plan(makeCtx(api, PRICED));
 
     expect(plan.state).toBe('planned');
 
@@ -123,7 +122,7 @@ function describeReleasePiecePlanner() {
 
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await runPlanner(releaseConfigPlanner, makeCtx(api, PRICED));
+    const plan = await releaseConfigPlanner.plan(makeCtx(api, PRICED));
 
     expect(plan.state).toBe('planned');
 
@@ -141,7 +140,7 @@ function describeReleasePiecePlanner() {
 
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
-    await runPlanner(releaseConfigPlanner, makeCtx(api, PRICED));
+    await releaseConfigPlanner.plan(makeCtx(api, PRICED));
     expect(api.createAppPriceSchedule).toHaveBeenCalledTimes(0);
     expect(api.updateAppInfoCategories).toHaveBeenCalledTimes(0);
   }

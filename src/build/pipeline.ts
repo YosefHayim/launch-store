@@ -19,20 +19,6 @@ import { runIosBuild } from './pipeline-ios.ts';
 import { runAndroidBuild } from './pipeline-android.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 
-/** App configuration failed the pre-build footgun check. */
-type BuildPreparationFailure = Readonly<{
-  readonly _tag: 'BuildPreparationFailure';
-  readonly appName: string;
-  readonly message: string;
-}>;
-
-function makeBuildPreparationFailure(fields: {
-  appName: string;
-  message: string;
-}): BuildPreparationFailure {
-  return { _tag: 'BuildPreparationFailure', appName: fields.appName, message: fields.message };
-}
-
 type ConfigFinding = Parameters<typeof formatFinding>[0];
 
 function isSecretSource(environmentSource: string): boolean {
@@ -182,10 +168,9 @@ async function attachAndroidRelease(
   } catch (error) {
     const failureDetail = readFailureDetail(error);
 
-    throw makeBuildPreparationFailure({
-      appName: preparedAppName,
-      message: `Could not resolve Android release notes for ${preparedAppName}: ${failureDetail}`,
-    });
+    throw new Error(
+      `Could not resolve Android release notes for ${preparedAppName}: ${failureDetail}`,
+    );
   }
 
   const hasReleaseNotes = releaseNotes.length > 0;
@@ -268,10 +253,7 @@ export async function prepareBuild(buildOptions: BuildRunOptions): Promise<Prepa
   if (hasConfigErrors) {
     const errorLines = configErrors.map(formatConfigError);
 
-    throw makeBuildPreparationFailure({
-      appName: app.name,
-      message: `App config preflight failed for ${app.name}:\n${errorLines.join('\n')}`,
-    });
+    throw new Error(`App config preflight failed for ${app.name}:\n${errorLines.join('\n')}`);
   }
 
   let configCheckDescription = 'no footguns';

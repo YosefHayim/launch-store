@@ -79,15 +79,13 @@ function describeSelectApps() {
 
   it('trims whitespace and ignores empty entries', trimsWhitespaceAndIgnoresEmptyEntries);
 
-  async function failsWithTaggedPieceForAnUnknownAppName() {
+  async function failsForAnUnknownAppName() {
     await expect(selectApps(apps, 'delta')).rejects.toMatchObject({
-      _tag: 'AppSelectionFailure',
-      appName: 'delta',
-      discoveredApps: ['alpha', 'beta', 'gamma'],
+      message: 'Unknown app "delta". Discovered apps: alpha, beta, gamma.',
     });
   }
 
-  it('fails with tagged context for an unknown app name', failsWithTaggedPieceForAnUnknownAppName);
+  it('fails for an unknown app name', failsForAnUnknownAppName);
 }
 
 describe('selectApps', describeSelectApps);

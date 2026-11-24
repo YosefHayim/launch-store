@@ -164,15 +164,6 @@ export async function ensureDirectoryExists(directoryPath: string): Promise<stri
   return directoryPath;
 }
 
-export type InvalidAppKeyFailure = Readonly<{
-  _tag: 'InvalidAppKeyFailure';
-  message: string;
-}>;
-
-function makeInvalidAppKeyFailure(message: string): InvalidAppKeyFailure {
-  return { _tag: 'InvalidAppKeyFailure', message };
-}
-
 export function locateStatsDirectory(): string {
   const launchHomeDirectory = resolveLaunchHomeDirectory();
   return join(launchHomeDirectory, 'stats');
@@ -182,7 +173,7 @@ export function locateAppStatsDirectory(appKey: string): string {
   const isAppKeyValid = /^(ios|android)-[A-Za-z0-9._]+$/.test(appKey);
 
   if (isAppKeyValid == false) {
-    throw makeInvalidAppKeyFailure(`"${appKey}" is not a valid app key.`);
+    throw new Error(`"${appKey}" is not a valid app key.`);
   }
 
   const statsDirectory = locateStatsDirectory();

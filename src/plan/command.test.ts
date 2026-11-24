@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PlannedAction } from '../types/reconcile.ts';
 import type { SurfacePlanner } from '../types/plan.ts';
-import {
-  additiveNote,
-  decodePlanCommandInput,
-  isPlanCommandFailure,
-  planGlyph,
-  selectPlanPlanners,
-} from './command.ts';
+import { additiveNote, decodePlanCommandInput, planGlyph, selectPlanPlanners } from './command.ts';
 
 function plannedAction(actionFields: Partial<PlannedAction> = {}): PlannedAction {
   return {
@@ -116,9 +110,11 @@ describe('selectPlanPlanners', () => {
       failure = cause;
     }
 
-    if (isPlanCommandFailure(failure)) {
-      expect(failure._tag).toBe('PlanCommandFailure');
-      expect(failure.operation).toBe('select plan surface');
+    function isPlanFailure(cause: unknown): cause is Error {
+      return cause instanceof Error;
+    }
+
+    if (isPlanFailure(failure)) {
       expect(failure.message).toContain('wallet');
       expect(failure.message).toContain('catalog');
 

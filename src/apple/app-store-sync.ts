@@ -162,15 +162,6 @@ export type ListingReconcileInput = {
   dryRun: boolean;
 };
 
-type CatalogPricePointFailure = Readonly<{
-  readonly _tag: 'CatalogPricePointFailure';
-  readonly message: string;
-}>;
-
-function makeCatalogPricePointFailure(message: string): CatalogPricePointFailure {
-  return { _tag: 'CatalogPricePointFailure', message };
-}
-
 /** Stand-in parent id when a create was planned only (dry-run) so dependent plan lines still chain. */
 export const DRY_RUN_ID = '(dry-run)';
 
@@ -306,7 +297,7 @@ async function assignInitialPrice(
     const isPricePointMissing = pricePoint == null;
 
     if (isPricePointMissing) {
-      throw makeCatalogPricePointFailure(missingPriceMessage);
+      throw new Error(missingPriceMessage);
     }
 
     await writePrice(pricePoint.id);

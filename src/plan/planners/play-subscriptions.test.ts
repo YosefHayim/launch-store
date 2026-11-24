@@ -1,4 +1,3 @@
-import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { playSubscriptionsPlanner } from './play-subscriptions.ts';
 import type { AppDescriptor } from '../../types/app.ts';
@@ -128,8 +127,7 @@ function makeCtx(
 function describePlaySubscriptionsPlanner() {
   async function omitsItselfWhenNoAppDeclaresAPlayOverriddenSubscription() {
     const playApi = makePlayApi();
-    const plan = await runPlanner(
-      playSubscriptionsPlanner,
+    const plan = await playSubscriptionsPlanner.plan(
       makeCtx(
         playApi,
         productsWith([
@@ -159,8 +157,7 @@ function describePlaySubscriptionsPlanner() {
       bundleId: 'com.acme.alpha',
     };
     const playApi = makePlayApi();
-    const plan = await runPlanner(
-      playSubscriptionsPlanner,
+    const plan = await playSubscriptionsPlanner.plan(
       makeCtx(playApi, productsWith([PLAY_SUB]), [noPackage]),
     );
 
@@ -173,10 +170,7 @@ function describePlaySubscriptionsPlanner() {
   );
 
   async function skipsWithAnActionableHintWhenNoPlayServiceAccountIsConfigured() {
-    const plan = await runPlanner(
-      playSubscriptionsPlanner,
-      makeCtx(null, productsWith([PLAY_SUB])),
-    );
+    const plan = await playSubscriptionsPlanner.plan(makeCtx(null, productsWith([PLAY_SUB])));
 
     expect(plan.state).toBe('skipped');
 
@@ -193,10 +187,7 @@ function describePlaySubscriptionsPlanner() {
 
   async function reportsThePerAppDiffAFreshPlaySubscriptionWouldCreate() {
     const playApi = makePlayApi();
-    const plan = await runPlanner(
-      playSubscriptionsPlanner,
-      makeCtx(playApi, productsWith([PLAY_SUB])),
-    );
+    const plan = await playSubscriptionsPlanner.plan(makeCtx(playApi, productsWith([PLAY_SUB])));
 
     expect(plan.state).toBe('planned');
 
@@ -232,7 +223,7 @@ function describePlaySubscriptionsPlanner() {
     const api = makePlayApi({
       assertAppExists: vi.fn(mockCall12),
     });
-    const plan = await runPlanner(playSubscriptionsPlanner, makeCtx(api, productsWith([PLAY_SUB])));
+    const plan = await playSubscriptionsPlanner.plan(makeCtx(api, productsWith([PLAY_SUB])));
 
     expect(plan.state).toBe('planned');
 
@@ -252,7 +243,7 @@ function describePlaySubscriptionsPlanner() {
   async function isStrictlyReadOnlyNeverInvokesAPlayWriteEndpoint() {
     const api = makePlayApi();
 
-    await runPlanner(playSubscriptionsPlanner, makeCtx(api, productsWith([PLAY_SUB])));
+    await playSubscriptionsPlanner.plan(makeCtx(api, productsWith([PLAY_SUB])));
     expect(api.listSubscriptions).toHaveBeenCalled();
     expect(api.createSubscription).toHaveBeenCalledTimes(0);
     expect(api.patchSubscription).toHaveBeenCalledTimes(0);

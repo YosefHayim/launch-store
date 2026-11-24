@@ -218,11 +218,12 @@ const EXPLAIN_TERMS: Record<ExplainTerm, string> = {
     "`launch-store sync` reconciles them onto App Store Connect by reference name, the group's natural key.",
   ].join('\n'),
   'subscription-offer': [
-    'Subscription offer: a discounted or free entry price on a subscription. Three kinds - introductory (a',
-    "new customer's first-time deal), promotional (a win-back/retention deal for lapsed or current users), and",
-    'an offer code (a redeemable code, e.g. for press or partners). Apple makes offer terms immutable once',
-    'created, so Launch only ever adds missing offers - `launch-store offers` reconciles them from config, never',
-    "edits or deletes (deactivating a code is the explicit `launch-store offers deactivate`), so it's safe to re-run.",
+    'Subscription offer: a lower or free price on an auto-renewable subscription. Apple has four kinds.',
+    "An introductory offer is a new customer's first deal. A promotional offer is one your app presents to",
+    'a current or previous subscriber. An offer code is a code someone redeems. A win-back offer is one the',
+    'App Store shows to someone whose subscription has ended. Apple keeps the terms fixed once created, so',
+    'Launch only adds offers that are missing. `launch-store offers` reconciles them from config and does not',
+    'edit or delete them. Deactivating a code is the separate `launch-store offers deactivate` command.',
   ].join('\n'),
   //  Apple - identity & code signing
   'asc-api-key': [
@@ -248,7 +249,7 @@ const EXPLAIN_TERMS: Record<ExplainTerm, string> = {
   'distribution-certificate': [
     "Distribution Certificate: proves Apple trusts you to sign release builds. It's a key pair;",
     'the private half stays on your machine. Launch creates one via the API from a local CSR, imports',
-    'it into the Keychain, and reuses it - Apple caps you at ~2-3, so it never burns a slot per build.',
+    'it into the Keychain, and reuses that certificate instead of creating another for every build.',
   ].join('\n'),
   'provisioning-profile': [
     'Provisioning Profile: the file that ties your App ID (e.g. com.example.sampleapp) to a',
@@ -542,9 +543,11 @@ const EXPLAIN_TERMS: Record<ExplainTerm, string> = {
     "step the API can't do). It's what makes the upload key recoverable - Launch mandates it.",
   ].join('\n'),
   'play-track': [
-    'Play track: where a release lands - internal, closed, or open testing, or production. A new personal',
-    'account must run ~20 testers for 14 days on a testing track before production unlocks, so Launch',
-    'defaults to the internal track; production is the deliberate `launch-store release android`.',
+    'Play track: where a release lands. Internal testing reaches up to 100 invited testers. Closed testing',
+    'reaches lists you control. Open testing is public. Production is the live store. A personal Play',
+    'account created after November 13, 2023 must run a closed test with at least 12 testers opted in for',
+    '14 days in a row before it can apply for production. Internal testing does not count toward that.',
+    'Launch sends a release to the internal track unless you release to production on purpose.',
   ].join('\n'),
   'version-code': [
     "versionCode: Android's integer build counter (separate from the human versionName). Every upload",

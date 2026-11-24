@@ -4,15 +4,6 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
 
-type CliEnvironmentFailure = Readonly<{
-  _tag: 'CliEnvironmentFailure';
-  message: string;
-}>;
-
-function makeCliEnvironmentFailure(message: string): CliEnvironmentFailure {
-  return { _tag: 'CliEnvironmentFailure', message };
-}
-
 function stripMatchingQuotes(environmentValue: string): string {
   const startsWithDoubleQuote = environmentValue.startsWith('"');
 
@@ -367,7 +358,7 @@ export function parseCliEnv(pairs: string[]): Record<string, string> {
     const hasSeparator = separatorAt != -1;
 
     if (hasSeparator == false) {
-      throw makeCliEnvironmentFailure(`Invalid --env "${pair}". Use --env KEY=VALUE.`);
+      throw new Error(`Invalid --env "${pair}". Use --env KEY=VALUE.`);
     }
 
     const key = pair.slice(0, separatorAt).trim();
@@ -375,7 +366,7 @@ export function parseCliEnv(pairs: string[]): Record<string, string> {
     const keyIsEmpty = key == '';
 
     if (keyIsEmpty) {
-      throw makeCliEnvironmentFailure(`Invalid --env "${pair}". The key is empty.`);
+      throw new Error(`Invalid --env "${pair}". The key is empty.`);
     }
 
     parsedPairs[key] = pair.slice(separatorAt + 1);

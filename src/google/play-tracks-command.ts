@@ -54,46 +54,27 @@ type PlayTracksCommandInput =
   | PlayTracksPromoteInput
   | PlayTracksTestersInput;
 
-type PlayTracksCommandFailure = Readonly<{
-  readonly _tag: 'PlayTracksCommandFailure';
-  readonly operation: PlayTracksCommandInput['operation'];
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
 type TrackWithCountries = {
   track: string;
   releases: readonly PlayRelease[];
   countryAvailability: PlayCountryAvailability | null;
 };
 
-function makePlayTracksCommandFailure(fields: {
-  operation: PlayTracksCommandInput['operation'];
-  message: string;
-  cause: unknown;
-}): PlayTracksCommandFailure {
-  return { _tag: 'PlayTracksCommandFailure', ...fields };
-}
+function tracksFailure(operation: PlayTracksCommandInput['operation'], cause: unknown): never {
+  const causeText = typeof cause == 'string' ? cause : '';
+  const isBlankCauseText = causeText.length == 0;
 
-function tracksFailure(
-  operation: PlayTracksCommandInput['operation'],
-  cause: unknown,
-): PlayTracksCommandFailure {
-  let message = `Play tracks ${operation} failed.`;
-
-  if (typeof cause == 'string') {
-    const isBlank = cause.length == 0;
-
-    if (isBlank == false) {
-      message = cause;
-    }
+  if (isBlankCauseText == false) {
+    throw new Error(causeText, { cause });
   }
 
-  if (hasMessage(cause)) {
-    message = cause.message;
+  const causeHasMessage = hasMessage(cause);
+
+  if (causeHasMessage) {
+    throw new Error(cause.message, { cause });
   }
 
-  return makePlayTracksCommandFailure({ operation, message, cause });
+  throw new Error(`Play tracks ${operation} failed.`, { cause });
 }
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
@@ -302,11 +283,10 @@ function resolveReleaseStatus(commandInput: PlayTracksPromoteInput): PlayRelease
     return releaseStatus;
   }
 
-  throw makePlayTracksCommandFailure({
-    operation: 'promote',
-    message: `--status must be one of ${RELEASE_STATUSES.join(', ')} (got "${releaseStatus}").`,
-    cause: releaseStatus,
-  });
+  throw new Error(
+    `--status must be one of ${RELEASE_STATUSES.join(', ')} (got "${releaseStatus}").`,
+    { cause: releaseStatus },
+  );
 }
 
 function countryCodeOf(country: { countryCode: string }): string {
@@ -419,12 +399,10 @@ async function promoteTrackRelease(commandInput: PlayTracksPromoteInput): Promis
     const latestVersionCode = await googleStore.getLatestVersionCode(selectedApp.packageName);
 
     if (latestVersionCode == 0) {
-      throw makePlayTracksCommandFailure({
-        operation: 'promote',
-        message:
-          'No uploaded build to promote. Run `launch-store submit --platform android` first, or pass --version-code.',
-        cause: 'missing-build',
-      });
+      throw new Error(
+        'No uploaded build to promote. Run `launch-store submit --platform android` first, or pass --version-code.',
+        { cause: 'missing-build' },
+      );
     }
 
     versionCode = String(latestVersionCode);

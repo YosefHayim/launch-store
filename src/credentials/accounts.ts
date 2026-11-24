@@ -26,15 +26,6 @@ const LEGACY_ISSUER_ID = 'asc-issuer-id';
 const LEGACY_P8 = 'asc-p8';
 const LEGACY_P12_PASSWORD = 'dist-cert-p12-password';
 
-type AccountFailure = Readonly<{
-  _tag: 'AccountFailure';
-  message: string;
-}>;
-
-function makeAccountFailure(message: string): AccountFailure {
-  return { _tag: 'AccountFailure', message };
-}
-
 function emptyAccountsFile(): AccountsFile {
   return { active: null, accounts: [] };
 }
@@ -316,7 +307,7 @@ async function writeAccounts(accountsFile: AccountsFile): Promise<void> {
     const isWriteFailure = error != null;
 
     if (isWriteFailure) {
-      throw makeAccountFailure('Could not write the account registry.');
+      throw new Error('Could not write the account registry.');
     }
   }
 }
@@ -568,7 +559,7 @@ function requireSavedAccount(accountsFile: AccountsFile, keyId: string): void {
     return;
   }
 
-  throw makeAccountFailure(`No account with key ${keyId}.`);
+  throw new Error(`No account with key ${keyId}.`);
 }
 
 export async function setAccountVendorNumber(keyId: string, vendorNumber: string): Promise<void> {
@@ -690,7 +681,7 @@ async function loadSelectedAscKey(selector: string): Promise<AscKey | null> {
   const selected = matchAccount(accounts, selector);
 
   if (selected == null) {
-    throw makeAccountFailure(
+    throw new Error(
       `No Apple account matching "${selector}". Run \`launch-store creds\` to list them.`,
     );
   }
@@ -822,11 +813,11 @@ export async function resolveBuildAccount(
   }
 
   if (decision.kind == 'error') {
-    throw makeAccountFailure(decision.message);
+    throw new Error(decision.message);
   }
 
   if (accountRequest.interactive == false) {
-    throw makeAccountFailure(
+    throw new Error(
       'No active Apple account. Pick one with: launch-store creds use  (or pass --account / set ASC_ACCOUNT).',
     );
   }

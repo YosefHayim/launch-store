@@ -9,8 +9,8 @@ import type {
   StatsMetric,
 } from '../types/stats.ts';
 import { METRIC_AGGREGATION, STATS_FEEDS } from '../types/stats.ts';
-import type { DailyPoint, MetricSeries, MetricTotal } from '../types/stats-report.ts';
-import { findFeedCoverage } from './coverage-logic.ts';
+import type { MetricSeries, MetricTotal } from '../types/stats-report.ts';
+import { findFeedCoverage } from './feed-coverage.ts';
 import { readMonthOfDate, shiftDate } from './date-range.ts';
 import type { AppFeedSyncReport } from '../types/stats.ts';
 
@@ -213,49 +213,6 @@ function isProceedsTotal(total: MetricTotal) {
 /** The proceeds totals, one per currency. */
 export function listProceedsTotals(totals: readonly MetricTotal[]): MetricTotal[] {
   return totals.filter(isProceedsTotal);
-}
-
-/** One daily series for a headline: the first preferred metric that has points, feeds added per day. */
-export function mergeHeadlinePoints(
-  series: readonly MetricSeries[],
-  preferredMetrics: readonly StatsMetric[],
-): DailyPoint[] {
-  for (const metric of preferredMetrics) {
-    function hasMetricPoints(oneSeries: MetricSeries) {
-      return oneSeries.metric == metric && oneSeries.points.length > 0;
-    }
-
-    const metricSeries = series.filter(hasMetricPoints);
-
-    const hasMetricSeries = metricSeries.length > 0;
-
-    if (!hasMetricSeries) continue;
-
-    function readPoints(oneSeries: MetricSeries) {
-      return oneSeries.points;
-    }
-
-    const allPoints = metricSeries.flatMap(readPoints);
-
-    function groupByKeyPoint(point: DailyPoint) {
-      return point.date;
-    }
-
-    function addPointAmount(runningTotal: number, point: DailyPoint) {
-      return runningTotal + point.amount;
-    }
-
-    function sumPointsOnDate(dateGroup: KeyedMembers<DailyPoint>) {
-      return {
-        date: dateGroup.key,
-        amount: dateGroup.members.reduce(addPointAmount, 0),
-      };
-    }
-
-    return groupByKey(allPoints, groupByKeyPoint).map(sumPointsOnDate);
-  }
-
-  return [];
 }
 
 /** An app is stale when the sync could not run, or one of its own feeds failed. */

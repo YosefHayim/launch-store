@@ -27,22 +27,6 @@ export type TeamRemoveInput = Readonly<{ operation: 'remove'; email: string; yes
 
 type TeamCommandInput = TeamListInput | TeamInviteInput | TeamRemoveInput;
 
-/** A team command step failed. */
-type TeamCommandFailure = Readonly<{
-  readonly _tag: 'TeamCommandFailure';
-  readonly operation: TeamCommandInput['operation'];
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeTeamCommandFailure(fields: {
-  operation: TeamCommandInput['operation'];
-  message: string;
-  cause: unknown;
-}): TeamCommandFailure {
-  return { _tag: 'TeamCommandFailure', ...fields };
-}
-
 function readText(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
   const isText = typeof field == 'string';
@@ -102,24 +86,22 @@ export function TeamCommandInputSchema(rawCommandInput: unknown): TeamCommandInp
   throw new Error('Unknown team command.');
 }
 
-/** Convert a dependency failure into the team command channel. */
-function teamCommandFailure(
-  operation: TeamCommandInput['operation'],
-  cause: unknown,
-): TeamCommandFailure {
-  if (typeof cause == 'string') {
-    const hasCauseText = cause.length > 0;
+/** Convert a dependency failure into an Error. */
+function teamCommandFailure(operation: TeamCommandInput['operation'], cause: unknown): never {
+  const causeText = typeof cause == 'string' ? cause : '';
+  const isBlankCauseText = causeText.length == 0;
 
-    if (hasCauseText) {
-      return makeTeamCommandFailure({ operation, message: cause, cause });
-    }
+  if (isBlankCauseText == false) {
+    throw new Error(causeText, { cause });
   }
 
-  if (hasMessage(cause)) {
-    return makeTeamCommandFailure({ operation, message: cause.message, cause });
+  const causeHasMessage = hasMessage(cause);
+
+  if (causeHasMessage) {
+    throw new Error(cause.message, { cause });
   }
 
-  return makeTeamCommandFailure({ operation, message: `Team ${operation} failed.`, cause });
+  throw new Error(`Team ${operation} failed.`, { cause });
 }
 
 /** Join a person's available first and last names. */
@@ -225,12 +207,10 @@ async function confirmTeamWrite(confirmationMessage: string, assumeYes: boolean)
   const needsATerminal = terminalIsInteractive == false;
 
   if (needsATerminal) {
-    throw makeTeamCommandFailure({
-      operation: 'invite',
-      message:
-        'Refusing to change team access without confirmation. Re-run with --yes (non-interactive).',
-      cause: 'confirmation-required',
-    });
+    throw new Error(
+      'Refusing to change team access without confirmation. Re-run with --yes (non-interactive).',
+      { cause: 'confirmation-required' },
+    );
   }
 
   let confirmed = false;

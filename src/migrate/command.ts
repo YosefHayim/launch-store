@@ -23,13 +23,6 @@ type MigrateCommandInput = {
   out?: string;
 };
 
-type MigrateCommandFailure = Readonly<{
-  readonly _tag: 'MigrateCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
 
@@ -98,14 +91,6 @@ function decodeMigrateCommandInput(rawCommandInput: unknown): MigrateCommandInpu
 }
 
 export const MigrateCommandInputSchema = decodeMigrateCommandInput;
-
-function makeMigrateCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause?: unknown;
-}): MigrateCommandFailure {
-  return { _tag: 'MigrateCommandFailure', ...fields };
-}
 
 async function readMigration(
   source: MigrateCommandInput['source'],
@@ -243,10 +228,6 @@ export async function migrateCommandProgram(rawCommandInput: unknown): Promise<v
   } catch (cause) {
     const failureMessage = errorMessage(cause);
 
-    throw makeMigrateCommandFailure({
-      operation: 'migrate project configuration',
-      message: failureMessage,
-      cause,
-    });
+    throw new Error(failureMessage, { cause });
   }
 }

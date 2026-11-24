@@ -17,8 +17,7 @@ import {
   setRollbackToEmbedded,
 } from '../distribution/update-history.ts';
 import { Prompts } from '../prompts.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
+import { errorMessage, hasMessage } from '../services/platform/error-message.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { LaunchPrompt, pickOne } from '../services/platform/prompt.ts';
 import type { Platform } from '../types/app.ts';
@@ -50,14 +49,6 @@ type UpdatesCommandInput =
       yes: boolean;
     }>;
 
-/** An update-history operation failed at a typed boundary. */
-export type UpdatesCommandFailure = Readonly<{
-  readonly _tag: 'UpdatesCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
 /** Injectable terminal, clock, and identifier boundary for update history. */
 type UpdatesCommandService = Readonly<{
   logger: Logger;
@@ -79,39 +70,6 @@ type UpdateColumn = Readonly<{
   cell: (updateRow: UpdateRow) => string;
 }>;
 
-function failureText(cause: unknown, operation: string, fallbackMessage?: string): string {
-  if (fallbackMessage != null) {
-    return fallbackMessage;
-  }
-
-  if (hasMessage(cause)) {
-    return cause.message;
-  }
-
-  return `${operation} failed.`;
-}
-
-function updatesFailure(
-  operation: string,
-  cause: unknown,
-  fallbackMessage?: string,
-): UpdatesCommandFailure {
-  return {
-    _tag: 'UpdatesCommandFailure',
-    operation,
-    message: failureText(cause, operation, fallbackMessage),
-    cause,
-  };
-}
-
-function wrapUpdatesFailure(operation: string, cause: unknown, fallbackMessage?: string): never {
-  if (isFailureTag(cause, 'UpdatesCommandFailure')) {
-    throw cause;
-  }
-
-  throw updatesFailure(operation, cause, fallbackMessage);
-}
-
 function thrownMessage(cause: unknown, fallback: string): string {
   if (hasMessage(cause)) {
     return cause.message;
@@ -127,11 +85,7 @@ function readRequiredString(fields: Record<string, unknown>, fieldName: string):
     return field;
   }
 
-  throw updatesFailure(
-    'decode update snapshot',
-    fieldName,
-    `Update snapshot ${fieldName} must be a string.`,
-  );
+  throw new Error(`Update snapshot ${fieldName} must be a string.`, { cause: fieldName });
 }
 
 function requirePlainObject(fields: Record<string, unknown>, fieldName: string): void {
@@ -141,11 +95,7 @@ function requirePlainObject(fields: Record<string, unknown>, fieldName: string):
     return;
   }
 
-  throw updatesFailure(
-    'decode update snapshot',
-    fieldName,
-    `Update snapshot ${fieldName} must be an object.`,
-  );
+  throw new Error(`Update snapshot ${fieldName} must be an object.`, { cause: fieldName });
 }
 
 function readFileExtension(fields: Record<string, unknown>): string | undefined {
@@ -163,11 +113,7 @@ function readFileExtension(fields: Record<string, unknown>): string | undefined 
     return fileExtension;
   }
 
-  throw updatesFailure(
-    'decode update snapshot',
-    fileExtension,
-    'Update snapshot fileExtension must be a string.',
-  );
+  throw new Error('Update snapshot fileExtension must be a string.', { cause: fileExtension });
 }
 
 function assetFromRecord(fields: Record<string, unknown>): ManifestAsset {
@@ -192,11 +138,7 @@ function readManifestAsset(candidate: unknown): ManifestAsset {
     return assetFromRecord(candidateObject);
   }
 
-  throw updatesFailure(
-    'decode update snapshot',
-    candidate,
-    'Update snapshot asset must be an object.',
-  );
+  throw new Error('Update snapshot asset must be an object.', { cause: candidate });
 }
 
 function readAssets(candidate: unknown): ManifestAsset[] {
@@ -204,11 +146,7 @@ function readAssets(candidate: unknown): ManifestAsset[] {
     return candidate.map(readManifestAsset);
   }
 
-  throw updatesFailure(
-    'decode update snapshot',
-    candidate,
-    'Update snapshot assets must be an array.',
-  );
+  throw new Error('Update snapshot assets must be an array.', { cause: candidate });
 }
 
 function manifestFromRecord(fields: Record<string, unknown>): UpdateManifest {
@@ -230,7 +168,15 @@ function parseSnapshotJson(snapshotText: string): unknown {
   try {
     return JSON.parse(snapshotText);
   } catch (cause) {
-    throw updatesFailure('decode update snapshot', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -243,7 +189,7 @@ function decodeManifestSnapshot(snapshotText: string): UpdateManifest {
     return manifestFromRecord(parsedObject);
   }
 
-  throw updatesFailure('decode update snapshot', parsed, 'Update snapshot must be an object.');
+  throw new Error('Update snapshot must be an object.', { cause: parsed });
 }
 
 /** Abbreviate an update id for compact terminal display. */
@@ -273,11 +219,9 @@ export function platformsForUpdatesFilter(platformText: string | undefined): rea
     return ['android'];
   }
 
-  throw updatesFailure(
-    'parse update platform',
-    platformText,
-    `Unknown --platform "${platformText}". Use "ios" or "android".`,
-  );
+  throw new Error(`Unknown --platform "${platformText}". Use "ios" or "android".`, {
+    cause: platformText,
+  });
 }
 
 function updateIdCell(updateRow: UpdateRow): string {
@@ -398,10 +342,9 @@ function requireCloudStorage(storageName: string, cloudBacked: boolean): void {
     return;
   }
 
-  throw updatesFailure(
-    'resolve update storage',
-    storageName,
+  throw new Error(
     'Over-the-air updates need a public artifact store, and that is not in this version.',
+    { cause: storageName },
   );
 }
 
@@ -419,7 +362,15 @@ async function readPlatformRows(
 
     return historyEntries.map(tagPlatform);
   } catch (cause) {
-    wrapUpdatesFailure('read update history', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -445,7 +396,15 @@ async function confirmRollback(message: string): Promise<boolean> {
   try {
     return await new LaunchPrompt().confirm(message);
   } catch (cause) {
-    wrapUpdatesFailure('confirm update rollback', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -482,10 +441,11 @@ async function requireRollbackConfirmation(
   }
 
   if (commandService.terminalIsInteractive == false) {
-    throw updatesFailure(
-      'confirm update rollback',
-      message,
+    throw new Error(
       'Rollback needs confirmation. Re-run with --yes to proceed non-interactively.',
+      {
+        cause: message,
+      },
     );
   }
 
@@ -512,11 +472,7 @@ function embeddedRollbackRuntimeVersion(
     return appVersion;
   }
 
-  throw updatesFailure(
-    'resolve runtime version',
-    appVersion,
-    'Could not resolve a runtime version. Pass --runtime-version <v> (e.g. 1.0.0).',
-  );
+  throw new Error('Could not resolve a runtime version. Pass --runtime-version <v> (e.g. 1.0.0).');
 }
 
 function matchesRuntime(runtimeVersion: string) {
@@ -552,7 +508,15 @@ async function loadUpdateSigner(signed: boolean, logger: Logger): Promise<CodeSi
   try {
     return await ensureCodeSigner(false, logger);
   } catch (cause) {
-    wrapUpdatesFailure('resolve update signer', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -560,7 +524,15 @@ async function openUpdatesSession(): Promise<UpdatesSession> {
   try {
     var loadedConfiguration = await loadConfig();
   } catch (cause) {
-    wrapUpdatesFailure('load Launch configuration', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   requireCloudStorage(
@@ -573,7 +545,15 @@ async function openUpdatesSession(): Promise<UpdatesSession> {
 
     return { loadedConfiguration, storageProvider };
   } catch (cause) {
-    wrapUpdatesFailure('resolve storage provider', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -641,7 +621,15 @@ async function readStoredSnapshot(
   try {
     return await storageProvider.getObject(objectKey);
   } catch (cause) {
-    wrapUpdatesFailure('read update snapshot', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -657,10 +645,9 @@ async function viewUpdate(
   const updateRow = findHistoryEntry([...updateRows], commandInput.reference);
 
   if (updateRow == null) {
-    throw updatesFailure(
-      'find published update',
-      commandInput.reference,
+    throw new Error(
       `No update matches "${commandInput.reference}" on "${commandInput.channel}". Run \`launch-store updates list\` to see what's available.`,
+      { cause: commandInput.reference },
     );
   }
 
@@ -707,7 +694,15 @@ async function rollbackOnePlatform(rollback: EmbeddedRollback): Promise<void> {
       rollback.platform,
     );
   } catch (cause) {
-    wrapUpdatesFailure('read update history', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   const signer = await loadUpdateSigner(
@@ -725,7 +720,15 @@ async function rollbackOnePlatform(rollback: EmbeddedRollback): Promise<void> {
       signer,
     });
   } catch (cause) {
-    wrapUpdatesFailure('write rollback directive', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   rollback.commandService.logger.step(
@@ -748,7 +751,15 @@ async function rollbackToEmbedded(
       commandInput.app,
     );
   } catch (cause) {
-    wrapUpdatesFailure('select app', cause, thrownMessage(cause, 'select app failed.'));
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = thrownMessage(cause, 'select app failed.');
+
+    throw new Error(failureMessage, { cause });
   }
 
   const runtimeVersion = embeddedRollbackRuntimeVersion(
@@ -814,11 +825,9 @@ async function selectRollbackTarget(
     const targetUpdate = findHistoryEntry([...updateRows], commandInput.to);
 
     if (targetUpdate == null) {
-      throw updatesFailure(
-        'find rollback target',
-        commandInput.to,
-        `No update matches --to "${commandInput.to}" on "${commandInput.channel}".`,
-      );
+      throw new Error(`No update matches --to "${commandInput.to}" on "${commandInput.channel}".`, {
+        cause: commandInput.to,
+      });
     }
 
     return targetUpdate;
@@ -827,10 +836,9 @@ async function selectRollbackTarget(
   const rollbackCandidates = updateRows.filter(isInactive);
 
   if (rollbackCandidates.length == 0) {
-    throw updatesFailure(
-      'find rollback target',
-      commandInput.channel,
+    throw new Error(
       `No prior update to roll back to on "${commandInput.channel}". Need a non-active update in history.`,
+      { cause: commandInput.channel },
     );
   }
 
@@ -845,11 +853,15 @@ async function selectRollbackTarget(
       },
     });
   } catch (cause) {
-    wrapUpdatesFailure(
-      'select rollback target',
-      cause,
-      thrownMessage(cause, 'select rollback target failed.'),
-    );
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = thrownMessage(cause, 'select rollback target failed.');
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -884,7 +896,15 @@ async function rollbackToPriorUpdate(
       signer,
     });
   } catch (cause) {
-    wrapUpdatesFailure('republish update', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   commandService.logger.step(

@@ -16,7 +16,6 @@ import { addAccount, listAccounts } from './accounts.ts';
 import { requireUniqueAccountLabel } from './apple-account-match.ts';
 import { credentialSearchDirectories, offerSourceRemoval } from './credential-discovery.ts';
 import type { CredentialsCommandOptions } from './credentials-command-options.ts';
-import { failCommand } from './credentials-failure.ts';
 import { displayPath, expandHomePath } from './credentials-paths.ts';
 import { commandCanPrompt, firstDefinedText, requireText } from './credentials-prompt.ts';
 import { extractKeyId, findAuthKeyFiles, reconcileKeyId } from './key-files.ts';
@@ -79,7 +78,7 @@ export async function selectAppleKeyFile(
       const keyExists = await pathExists(expandedPath);
 
       if (keyExists == false) {
-        failCommand('select Apple key', `No .p8 file at ${explicitPath}.`);
+        throw new Error(`No .p8 file at ${explicitPath}.`);
       }
 
       return expandedPath;
@@ -103,7 +102,7 @@ export async function selectAppleKeyFile(
   const enteredKeyExists = await pathExists(expandedPath);
 
   if (enteredKeyExists == false) {
-    failCommand('select Apple key', `No .p8 file at ${enteredPath}.`);
+    throw new Error(`No .p8 file at ${enteredPath}.`);
   }
 
   return expandedPath;
@@ -136,7 +135,7 @@ async function selectAccountLabel(
 
   const accounts = await listAccounts();
 
-  requireUniqueAccountLabel(accounts, accountLabel, keyId, 'select account label');
+  requireUniqueAccountLabel(accounts, accountLabel, keyId);
 
   return accountLabel;
 }
@@ -184,8 +183,7 @@ async function verifyAppleKey(ascKey: AscKey): Promise<AppStoreIdentity> {
     const status = readFailureStatus(cause);
 
     if (isRejectedAppleStatus(status)) {
-      failCommand(
-        'verify Apple key',
+      throw new Error(
         'Apple rejected the key. Check that the Key ID, Issuer ID, and .p8 belong together.',
       );
     }

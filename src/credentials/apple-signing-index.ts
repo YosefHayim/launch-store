@@ -32,23 +32,6 @@ function emptyCredentialsIndex(): CredentialsIndex {
   return { profiles: {} };
 }
 
-export type AppleSigningFailure = Readonly<{
-  readonly _tag: 'AppleSigningFailure';
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-export function makeAppleSigningFailure(fields: {
-  message: string;
-  cause?: unknown;
-}): AppleSigningFailure {
-  if (fields.cause == null) {
-    return { _tag: 'AppleSigningFailure', message: fields.message };
-  }
-
-  return { _tag: 'AppleSigningFailure', message: fields.message, cause: fields.cause };
-}
-
 function readRequiredString(document: Record<string, unknown>, fieldName: string): string | null {
   const field = document[fieldName];
 

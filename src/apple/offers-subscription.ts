@@ -8,37 +8,22 @@ import type { AppDescriptor } from '../types/app.ts';
 import type { OfferCodeResource } from '../types/apple-catalog.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 
-/** An offers command step failed. */
-type OffersCommandFailure = Readonly<{
-  readonly _tag: 'OffersCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeOffersCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): OffersCommandFailure {
-  return { _tag: 'OffersCommandFailure', ...fields };
-}
-
-/** Convert a dependency failure into the offers command channel. */
-export function offersFailure(
-  operation: string,
-  cause: unknown,
-  explicitMessage?: string,
-): OffersCommandFailure {
+/** Convert a dependency failure into an Error the offers commands throw. */
+export function offersFailure(operation: string, cause: unknown, explicitMessage?: string): Error {
   const hasExplicitMessage = explicitMessage != null;
 
   if (hasExplicitMessage) {
-    return makeOffersCommandFailure({ operation, message: explicitMessage, cause });
+    return new Error(explicitMessage, { cause });
   }
 
   const failureMessage = errorMessage(cause);
+  const isFailureMessageEmpty = failureMessage.length == 0;
 
-  return makeOffersCommandFailure({ operation, message: failureMessage, cause });
+  if (isFailureMessageEmpty) {
+    return new Error(`${operation} failed.`, { cause });
+  }
+
+  return new Error(failureMessage, { cause });
 }
 
 type ResolvedSubscription = Readonly<{

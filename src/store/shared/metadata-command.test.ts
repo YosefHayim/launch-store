@@ -304,9 +304,9 @@ function describeMetadataCommandProgram() {
   async function failsDecodeBeforeContactingTheStore() {
     const commandFailure = await failRawCommand({ operation: 'pull' });
 
+    expect(commandFailure).toBeInstanceOf(Error);
     expect(commandFailure).toMatchObject({
-      _tag: 'MetadataCommandFailure',
-      operation: 'decode metadata command input',
+      message: 'dryRun must be a boolean',
     });
     expect(loadStoreAppContext).not.toHaveBeenCalled();
   }
@@ -344,7 +344,6 @@ function describeMetadataCommandProgram() {
     });
 
     expect(commandFailure).toMatchObject({
-      operation: 'resolve App Store listing',
       message: expect.stringMatching(/bundle identifier/),
     });
   }
@@ -367,7 +366,6 @@ function describeMetadataCommandProgram() {
     });
 
     expect(commandFailure).toMatchObject({
-      operation: 'resolve Play listing',
       message: expect.stringMatching(/android\.package/),
     });
   }
@@ -380,7 +378,6 @@ function describeMetadataCommandProgram() {
     const commandFailure = await failCommand('pull', 'ios', true);
 
     expect(commandFailure).toMatchObject({
-      operation: 'load active Apple account',
       message: expect.stringMatching(/No active Apple account/),
     });
     expect(createEffectAppleClient).not.toHaveBeenCalled();
@@ -397,7 +394,6 @@ function describeMetadataCommandProgram() {
     const commandFailure = await failCommand('pull', 'android', true);
 
     expect(commandFailure).toMatchObject({
-      operation: 'load Play service account',
       message: expect.stringMatching(/No Play service account/),
     });
     expect(createEffectPlayClient).not.toHaveBeenCalled();
@@ -414,7 +410,6 @@ function describeMetadataCommandProgram() {
     const commandFailure = await failCommand('push', 'ios', true);
 
     expect(commandFailure).toMatchObject({
-      operation: 'read App Store metadata',
       message: expect.stringMatching(/No App Store listing for com\.demo\.app/),
     });
     expect(createEffectAppleClient).not.toHaveBeenCalled();
@@ -431,7 +426,6 @@ function describeMetadataCommandProgram() {
     const commandFailure = await failCommand('push', 'android', true);
 
     expect(commandFailure).toMatchObject({
-      operation: 'read Play metadata',
       message: expect.stringMatching(/No Play listing for com\.demo\.app/),
     });
     expect(createEffectPlayClient).not.toHaveBeenCalled();
@@ -728,7 +722,6 @@ function describeMetadataCommandProgram() {
       const commandFailure = await failCommand('push', 'android', false);
 
       expect(commandFailure).toMatchObject({
-        operation: 'upload Play listings',
         message: expect.stringMatching(/Play said no/),
       });
     }

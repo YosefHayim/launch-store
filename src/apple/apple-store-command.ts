@@ -6,20 +6,6 @@ import { errorMessage } from '../services/platform/error-message.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
 import type { AscKey } from '../types/credentials.ts';
 
-/** Loading the active Apple account or creating its transport client failed. */
-type ActiveAppleStoreFailure = Readonly<{
-  readonly _tag: 'ActiveAppleStoreFailure';
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeActiveAppleStoreFailure(fields: {
-  message: string;
-  cause: unknown;
-}): ActiveAppleStoreFailure {
-  return { _tag: 'ActiveAppleStoreFailure', message: fields.message, cause: fields.cause };
-}
-
 /** Load the active keychain-backed Apple account and create its transport client. */
 export async function loadActiveAppleStore(): Promise<AppStoreConnect> {
   let ascKey: AscKey | null = null;
@@ -29,10 +15,7 @@ export async function loadActiveAppleStore(): Promise<AppStoreConnect> {
   } catch (cause) {
     const failureMessage = errorMessage(cause);
 
-    throw makeActiveAppleStoreFailure({
-      message: `Could not load the active Apple account: ${failureMessage}`,
-      cause,
-    });
+    throw new Error(`Could not load the active Apple account: ${failureMessage}`, { cause });
   }
 
   const loadedAscKey = ascKey;
@@ -40,8 +23,7 @@ export async function loadActiveAppleStore(): Promise<AppStoreConnect> {
   const isAccountMissing = loadedAscKey == null;
 
   if (isAccountMissing) {
-    throw makeActiveAppleStoreFailure({
-      message: 'No active Apple account. Run `launch-store creds set-key` first.',
+    throw new Error('No active Apple account. Run `launch-store creds set-key` first.', {
       cause: 'missing-active-account',
     });
   }
@@ -49,9 +31,6 @@ export async function loadActiveAppleStore(): Promise<AppStoreConnect> {
   try {
     return new AppleStoreClientService().createClient(loadedAscKey);
   } catch (cause) {
-    throw makeActiveAppleStoreFailure({
-      message: 'Could not create the App Store Connect client.',
-      cause,
-    });
+    throw new Error('Could not create the App Store Connect client.', { cause });
   }
 }

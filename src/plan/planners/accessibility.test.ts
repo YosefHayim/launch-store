@@ -1,7 +1,6 @@
-import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { accessibilityPlanner } from './accessibility.ts';
-import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import { makeAscApiFake } from '../../testkit/app-store-connect-surfaces.ts';
 import type { AccessibilityConfig } from '../../apple/accessibility.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
@@ -75,7 +74,7 @@ const publishedIphone = {
 function describeAccessibilityPlanner() {
   async function omitsItselfWhenNoAccessibilitySidecarIsPresent() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(accessibilityPlanner, makeCtx(ascApiFake, null));
+    const plan = await accessibilityPlanner.plan(makeCtx(ascApiFake, null));
 
     expect(plan.state).toBe('omitted');
   }
@@ -86,7 +85,7 @@ function describeAccessibilityPlanner() {
   );
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(accessibilityPlanner, makeCtx(null, DECLARED));
+    const plan = await accessibilityPlanner.plan(makeCtx(null, DECLARED));
 
     expect(plan.state).toBe('skipped');
 
@@ -102,7 +101,7 @@ function describeAccessibilityPlanner() {
 
   async function reportsAnAdditivePlanWhenADeclarationDoesnTExistYet() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(accessibilityPlanner, makeCtx(ascApiFake, DECLARED));
+    const plan = await accessibilityPlanner.plan(makeCtx(ascApiFake, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -133,7 +132,7 @@ function describeAccessibilityPlanner() {
     const api = makeAscApiFake({
       listAccessibilityDeclarations: vi.fn().mockResolvedValue([publishedIphone]),
     });
-    const plan = await runPlanner(accessibilityPlanner, makeCtx(api, DECLARED));
+    const plan = await accessibilityPlanner.plan(makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -151,7 +150,7 @@ function describeAccessibilityPlanner() {
 
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await runPlanner(accessibilityPlanner, makeCtx(api, DECLARED));
+    const plan = await accessibilityPlanner.plan(makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -169,7 +168,7 @@ function describeAccessibilityPlanner() {
 
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
-    await runPlanner(accessibilityPlanner, makeCtx(api, DECLARED));
+    await accessibilityPlanner.plan(makeCtx(api, DECLARED));
     expect(api.createAccessibilityDeclaration).toHaveBeenCalledTimes(0);
     expect(api.updateAccessibilityDeclaration).toHaveBeenCalledTimes(0);
   }

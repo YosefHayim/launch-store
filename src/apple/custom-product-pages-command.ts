@@ -26,22 +26,6 @@ export type CustomProductPagesCommandInput = {
   yes: boolean;
 };
 
-/** A custom product pages command step failed. */
-type CustomProductPagesCommandFailure = Readonly<{
-  readonly _tag: 'CustomProductPagesCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeCustomProductPagesCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): CustomProductPagesCommandFailure {
-  return { _tag: 'CustomProductPagesCommandFailure', ...fields };
-}
-
 function readFlag(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
   const isFlag = typeof field == 'boolean';
@@ -81,25 +65,22 @@ export function CustomProductPagesCommandInputSchema(
   return { app, dryRun, yes };
 }
 
-/** Convert a dependency failure into the custom pages command channel. */
-function customPagesFailure(operation: string, cause: unknown): CustomProductPagesCommandFailure {
-  if (typeof cause == 'string') {
-    const hasCauseText = cause.length > 0;
+/** Convert a dependency failure into an Error. */
+function customPagesFailure(operation: string, cause: unknown): never {
+  const causeText = typeof cause == 'string' ? cause : '';
+  const isBlankCauseText = causeText.length == 0;
 
-    if (hasCauseText) {
-      return makeCustomProductPagesCommandFailure({ operation, message: cause, cause });
-    }
+  if (isBlankCauseText == false) {
+    throw new Error(causeText, { cause });
   }
 
-  if (hasMessage(cause)) {
-    return makeCustomProductPagesCommandFailure({ operation, message: cause.message, cause });
+  const causeHasMessage = hasMessage(cause);
+
+  if (causeHasMessage) {
+    throw new Error(cause.message, { cause });
   }
 
-  return makeCustomProductPagesCommandFailure({
-    operation,
-    message: `${operation} failed.`,
-    cause,
-  });
+  throw new Error(`${operation} failed.`, { cause });
 }
 
 function isPlannedAction(plannedAction: PlannedAction): boolean {
@@ -129,11 +110,10 @@ async function resolveCustomPagesTarget(
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
-    throw makeCustomProductPagesCommandFailure({
-      operation: 'resolve custom pages bundle id',
-      message: `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
-      cause: storeAppContext.app,
-    });
+    throw new Error(
+      `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
+      { cause: storeAppContext.app },
+    );
   }
 
   const customPagesSection = storeAppContext.config.customPages?.[bundleId];
@@ -141,11 +121,10 @@ async function resolveCustomPagesTarget(
   const isCustomPagesMissing = customPagesSection == null;
 
   if (isCustomPagesMissing) {
-    throw makeCustomProductPagesCommandFailure({
-      operation: 'resolve custom pages config',
-      message: `No custom pages config for ${bundleId}. Add a customPages entry to launch.config.ts.`,
-      cause: bundleId,
-    });
+    throw new Error(
+      `No custom pages config for ${bundleId}. Add a customPages entry to launch.config.ts.`,
+      { cause: bundleId },
+    );
   }
 
   return { bundleId, customPagesConfig: customPagesSection };

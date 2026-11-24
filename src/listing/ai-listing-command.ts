@@ -3,7 +3,6 @@
 import { launchConfigForApp, loadConfig, readResolvedConfig } from '../config/config.ts';
 import { readLastApp } from '../distribution/last-run.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
@@ -31,13 +30,6 @@ interface ListingTargets {
   readonly android: boolean;
 }
 
-interface AiListingFailure {
-  readonly _tag: 'AiListingFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}
-
 interface CopyGenerator {
   readonly name: string;
 
@@ -48,21 +40,6 @@ interface PromptChoice {
   selection: AppDescriptor;
   label: string;
   hint?: string;
-}
-
-/** Normalize one listing command failure. */
-function listingFailure(
-  operation: string,
-  cause: unknown,
-  explicitMessage?: string,
-): AiListingFailure {
-  let message = errorMessage(cause);
-
-  if (explicitMessage != null) {
-    message = explicitMessage;
-  }
-
-  return { _tag: 'AiListingFailure', operation, message, cause };
 }
 
 function readOptionalInputString(
@@ -80,11 +57,7 @@ function readOptionalInputString(
   }
 
   if (typeof field != 'string') {
-    throw listingFailure(
-      'decode AI listing command',
-      field,
-      `Command field ${fieldName} must be a string.`,
-    );
+    throw new Error(`Command field ${fieldName} must be a string.`, { cause: field });
   }
 
   return field;
@@ -102,11 +75,7 @@ function readBooleanField(
   const field = record[fieldName];
 
   if (typeof field != 'boolean') {
-    throw listingFailure(
-      'decode AI listing command',
-      field,
-      `Command field ${fieldName} must be a boolean.`,
-    );
+    throw new Error(`Command field ${fieldName} must be a boolean.`, { cause: field });
   }
 
   return field;
@@ -126,11 +95,7 @@ export function readAiListingInput(rawCommandInput: unknown): AiListingInput {
   const rawCommandInputObject = readPlainObject(rawCommandInput);
 
   if (rawCommandInputObject == null) {
-    throw listingFailure(
-      'decode AI listing command',
-      rawCommandInput,
-      'The AI listing command input must be an object.',
-    );
+    throw new Error('The AI listing command input must be an object.', { cause: rawCommandInput });
   }
 
   const commandInput: AiListingInput = {
@@ -176,11 +141,9 @@ export function parseListingTargets(platformSelector: string): ListingTargets {
     return { ios: true, android: true };
   }
 
-  throw listingFailure(
-    'select listing platforms',
-    platformSelector,
-    `Unknown platform "${platformSelector}". Use ios, android, or all.`,
-  );
+  throw new Error(`Unknown platform "${platformSelector}". Use ios, android, or all.`, {
+    cause: platformSelector,
+  });
 }
 
 function trimLocale(localeName: string): string {
@@ -203,11 +166,9 @@ export function resolveListingLocales(
       return requestedLocales;
     }
 
-    throw listingFailure(
-      'select listing locales',
-      localeSelector,
-      '--locale was empty. Pass locales like --locale en-US,fr-FR.',
-    );
+    throw new Error('--locale was empty. Pass locales like --locale en-US,fr-FR.', {
+      cause: localeSelector,
+    });
   }
 
   const appleListing = storeConfiguration.apple;
@@ -269,11 +230,9 @@ function requireDiscoveredApp(
   discoveredApps: readonly AppDescriptor[],
 ): AppDescriptor {
   if (onlyApp == null) {
-    throw listingFailure(
-      'select app',
-      discoveredApps,
-      'No apps found. Run Launch from a repo containing at least one app.json.',
-    );
+    throw new Error('No apps found. Run Launch from a repo containing at least one app.json.', {
+      cause: discoveredApps,
+    });
   }
 
   return onlyApp;
@@ -287,7 +246,15 @@ async function selectNamedApp(request: {
   try {
     return await new LaunchPrompt().select(request);
   } catch (cause) {
-    throw listingFailure('select app', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -297,11 +264,12 @@ async function promptForListingApp(
   const isInteractive = checkTerminalIsInteractive();
 
   if (isInteractive == false) {
-    throw listingFailure(
-      'select app',
-      discoveredApps,
-      `Multiple apps found. Pass --app <name> to choose one: ${discoveredApps.map(readAppName).join(', ')}.`,
-    );
+    const appNames = discoveredApps.map(readAppName);
+    const appList = appNames.join(', ');
+
+    throw new Error(`Multiple apps found. Pass --app <name> to choose one: ${appList}.`, {
+      cause: discoveredApps,
+    });
   }
 
   const rememberedAppName = await readLastApp();
@@ -324,11 +292,9 @@ async function selectListingApp(
   appSelector: string | undefined,
 ): Promise<AppDescriptor> {
   if (discoveredApps.length == 0) {
-    throw listingFailure(
-      'select app',
-      discoveredApps,
-      'No apps found. Run Launch from a repo containing at least one app.json.',
-    );
+    throw new Error('No apps found. Run Launch from a repo containing at least one app.json.', {
+      cause: discoveredApps,
+    });
   }
 
   if (appSelector != null) {
@@ -338,11 +304,12 @@ async function selectListingApp(
       return selectedApp;
     }
 
-    throw listingFailure(
-      'select app',
-      appSelector,
-      `App "${appSelector}" not found. Available: ${discoveredApps.map(readAppName).join(', ')}.`,
-    );
+    const availableNames = discoveredApps.map(readAppName);
+    const availableList = availableNames.join(', ');
+
+    throw new Error(`App "${appSelector}" not found. Available: ${availableList}.`, {
+      cause: appSelector,
+    });
   }
 
   const onlyApp = discoveredApps[0];
@@ -522,10 +489,9 @@ export async function runAiListing(
     const listingKey = listingKeyFor(selectedApp);
 
     if (listingKey == null) {
-      throw listingFailure(
-        'print listing draft',
-        selectedApp.name,
+      throw new Error(
         `${selectedApp.name} has no bundle id or package name, so the draft cannot be keyed under listing.`,
+        { cause: selectedApp.name },
       );
     }
 
@@ -547,11 +513,15 @@ export async function runAiListing(
       `Add this under listing in launch.config.ts, then run \`launch-store metadata push\`.`,
     );
   } catch (cause) {
-    if (isFailureTag(cause, 'AiListingFailure')) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
       throw cause;
     }
 
-    throw listingFailure('run AI listing command', cause);
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -569,10 +539,14 @@ export async function aiListingCommandProgram(rawCommandInput: unknown): Promise
 
     await runAiListing(commandInput, listingGenerator);
   } catch (cause) {
-    if (isFailureTag(cause, 'AiListingFailure')) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
       throw cause;
     }
 
-    throw listingFailure('decode AI listing command', cause);
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }

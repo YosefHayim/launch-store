@@ -261,15 +261,6 @@ function resendableBasePlan(basePlan: BasePlan): BasePlan {
   return resendablePlan;
 }
 
-type PlayOfferConfigFailure = Readonly<{
-  readonly _tag: 'PlayOfferConfigFailure';
-  readonly message: string;
-}>;
-
-function makePlayOfferConfigFailure(fields: { message: string }): PlayOfferConfigFailure {
-  return { _tag: 'PlayOfferConfigFailure', ...fields };
-}
-
 function freeTrialPhase(
   basePlanRegions: readonly string[],
   duration: string,
@@ -353,9 +344,7 @@ export function offerFromConfig(
   const hasNoPhases = phases.length == 0;
 
   if (hasNoPhases) {
-    throw makePlayOfferConfigFailure({
-      message: `Play offer ${offer.offerId} has neither a free trial nor intro prices.`,
-    });
+    throw new Error(`Play offer ${offer.offerId} has neither a free trial nor intro prices.`);
   }
 
   const regions = offerRegions(phases);
@@ -363,9 +352,9 @@ export function offerFromConfig(
   const hasNoSharedRegion = regions.length == 0;
 
   if (hasNoSharedRegion) {
-    throw makePlayOfferConfigFailure({
-      message: `Play offer ${offer.offerId} has no region common to its trial and intro-price phases.`,
-    });
+    throw new Error(
+      `Play offer ${offer.offerId} has no region common to its trial and intro-price phases.`,
+    );
   }
 
   return {

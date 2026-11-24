@@ -39,24 +39,6 @@ export type BuildPreviewInput = Readonly<{
   readonly rollout?: number;
 }>;
 
-/** A requested build preview cannot be resolved from configuration. */
-export type BuildPreviewFailure = Readonly<{
-  readonly _tag: 'BuildPreviewFailure';
-  readonly requestedProfile: string;
-  readonly message: string;
-}>;
-
-function makeBuildPreviewFailure(fields: {
-  requestedProfile: string;
-  message: string;
-}): BuildPreviewFailure {
-  return {
-    _tag: 'BuildPreviewFailure',
-    requestedProfile: fields.requestedProfile,
-    message: fields.message,
-  };
-}
-
 /** Resolve the store identifier an app exposes for the selected platform. */
 function identifierFor(appDescriptor: AppDescriptor, platform: Platform): string | undefined {
   const isApple = isApplePlatform(platform);
@@ -92,10 +74,9 @@ function resolveProfileName(
       declaredProfiles = 'none';
     }
 
-    throw makeBuildPreviewFailure({
-      requestedProfile,
-      message: `Unknown profile "${requestedProfile}". Declared profiles: ${declaredProfiles}.`,
-    });
+    throw new Error(
+      `Unknown profile "${requestedProfile}". Declared profiles: ${declaredProfiles}.`,
+    );
   }
 
   const hasProduction = 'production' in launchConfig.profiles;

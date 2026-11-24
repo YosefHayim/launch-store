@@ -20,48 +20,20 @@ type ReleaseConfigCommandInput = Readonly<{
   yes: boolean;
 }>;
 
-/** Release-attribute configuration or transport work failed. */
-type ReleaseConfigCommandFailure = Readonly<{
-  readonly _tag: 'ReleaseConfigCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
+function releaseConfigFailure(operation: string, cause: unknown, fallbackMessage?: string): Error {
+  const hasFallbackMessage = fallbackMessage != null;
 
-function makeReleaseConfigCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): ReleaseConfigCommandFailure {
-  return {
-    _tag: 'ReleaseConfigCommandFailure',
-    operation: fields.operation,
-    message: fields.message,
-    cause: fields.cause,
-  };
-}
-
-/** Convert an unknown cause to the release-config failure channel. */
-function releaseConfigFailure(
-  operation: string,
-  cause: unknown,
-  fallbackMessage?: string,
-): ReleaseConfigCommandFailure {
-  let message = fallbackMessage;
-
-  if (message == null) {
-    const causeHasMessage = hasMessage(cause);
-
-    if (causeHasMessage) {
-      message = cause.message;
-    }
+  if (hasFallbackMessage) {
+    return new Error(fallbackMessage, { cause });
   }
 
-  if (message == null) {
-    message = `${operation} failed.`;
+  const causeHasMessage = hasMessage(cause);
+
+  if (causeHasMessage) {
+    return new Error(cause.message, { cause });
   }
 
-  return makeReleaseConfigCommandFailure({ operation, message, cause });
+  return new Error(`${operation} failed.`, { cause });
 }
 
 /** Render one planned, skipped, applied, or failed action with ASCII markers. */

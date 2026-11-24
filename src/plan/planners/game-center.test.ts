@@ -1,7 +1,6 @@
-import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { gameCenterPlanner } from './game-center.ts';
-import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import { makeAscApiFake } from '../../testkit/app-store-connect-surfaces.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
@@ -47,14 +46,14 @@ function makeCtx(
 function describeGameCenterPlanner() {
   async function omitsItselfWhenNoAppDeclaresGameCenter() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(gameCenterPlanner, makeCtx(ascApiFake));
+    const plan = await gameCenterPlanner.plan(makeCtx(ascApiFake));
     expect(plan.state).toBe('omitted');
   }
 
   it('omits itself when no app declares Game Center', omitsItselfWhenNoAppDeclaresGameCenter);
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(gameCenterPlanner, makeCtx(null, DECLARED));
+    const plan = await gameCenterPlanner.plan(makeCtx(null, DECLARED));
 
     expect(plan.state).toBe('skipped');
 
@@ -70,7 +69,7 @@ function describeGameCenterPlanner() {
 
   async function reportsAnAdditivePlanWhenGameCenterIsnTEnabledYet() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(gameCenterPlanner, makeCtx(ascApiFake, DECLARED));
+    const plan = await gameCenterPlanner.plan(makeCtx(ascApiFake, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -102,7 +101,7 @@ function describeGameCenterPlanner() {
     const api = makeAscApiFake({
       getGameCenterDetail: vi.fn().mockResolvedValue({ id: 'detail1' }),
     });
-    const plan = await runPlanner(gameCenterPlanner, makeCtx(api, DECLARED));
+    const plan = await gameCenterPlanner.plan(makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -120,7 +119,7 @@ function describeGameCenterPlanner() {
 
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await runPlanner(gameCenterPlanner, makeCtx(api, DECLARED));
+    const plan = await gameCenterPlanner.plan(makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -138,7 +137,7 @@ function describeGameCenterPlanner() {
 
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
-    await runPlanner(gameCenterPlanner, makeCtx(api, DECLARED));
+    await gameCenterPlanner.plan(makeCtx(api, DECLARED));
     expect(api.createGameCenterDetail).toHaveBeenCalledTimes(0);
     expect(api.createGameCenterAchievement).toHaveBeenCalledTimes(0);
   }

@@ -4,12 +4,12 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '../testkit/launch-home-testkit.ts';
+} from '../testkit/temporary-launch-home.ts';
 import {
   readDateDaysAgo,
   STATS_PORTFOLIO_FILE,
   writeStatsMonthFiles,
-} from '../testkit/stats-home-testkit.ts';
+} from '../testkit/stats-home-files.ts';
 import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { makeStatsCredentialsTest, useStatsCredentials } from './stats-credentials.ts';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createVerify, generateKeyPairSync } from 'node:crypto';
-import { expectArrayElement, expectDefined } from '../testkit/assertions-testkit.ts';
+import { expectArrayElement, expectDefined } from '../testkit/expect-defined.ts';
 import { signatureHeader } from './code-sign.ts';
 
 function describeSignatureHeader() {

@@ -5,8 +5,8 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '../testkit/launch-home-testkit.ts';
-import { makeFakeAscClient } from '../testkit/store-clients-testkit.ts';
+} from '../testkit/temporary-launch-home.ts';
+import { makeFakeAscClient } from '../testkit/store-client-stand-ins.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import type { PortfolioFile } from '../types/portfolio.ts';
 import type { AppCoverage, FeedFetchReply, StatsFeedFailure } from '../types/stats.ts';

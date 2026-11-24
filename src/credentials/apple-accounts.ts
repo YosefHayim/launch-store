@@ -28,7 +28,6 @@ import { adoptLegacyAndroidCredentials } from './android-keystore-assets.ts';
 import { requireMatchedAccount, requireUniqueAccountLabel } from './apple-account-match.ts';
 import { chooseAccountInteractive } from './choose-account-interactive.ts';
 import type { CredentialsCommandOptions } from './credentials-command-options.ts';
-import { failCommand } from './credentials-failure.ts';
 import { commandCanPrompt } from './credentials-prompt.ts';
 import { selectConfiguredApp } from './select-configured-app.ts';
 
@@ -40,7 +39,7 @@ async function verifyPlayAccess(serviceAccountJson: string, packageName: string)
 
 export async function adoptAndroid(options: CredentialsCommandOptions): Promise<void> {
   if (options.app == null) {
-    failCommand('adopt Android credentials', 'Pass --app <name>.');
+    throw new Error('Pass --app <name>.');
   }
 
   const launchPaths = readLaunchDirectories();
@@ -48,7 +47,7 @@ export async function adoptAndroid(options: CredentialsCommandOptions): Promise<
   const app = await selectConfiguredApp(configuration.apps, options.app, false);
 
   if (app.packageName == null) {
-    failCommand('adopt Android credentials', 'Set android.package for the selected app.');
+    throw new Error('Set android.package for the selected app.');
   }
 
   await adoptLegacyAndroidCredentials(app.packageName, options.yes == true, verifyPlayAccess);
@@ -63,7 +62,7 @@ export async function useAppleAccount(
     const canPrompt = commandCanPrompt(commandOptions);
 
     if (canPrompt == false) {
-      failCommand('use Apple account', 'Pass an account label or Key ID.');
+      throw new Error('Pass an account label or Key ID.');
     }
 
     await chooseAccountInteractive(commandOptions);
@@ -72,7 +71,7 @@ export async function useAppleAccount(
   }
 
   const accounts = await listAccounts();
-  const matchedAccount = requireMatchedAccount(accounts, selector, 'use Apple account');
+  const matchedAccount = requireMatchedAccount(accounts, selector);
 
   await setActiveKeyId(matchedAccount.keyId);
   createLogger(false).ok(
@@ -85,18 +84,18 @@ export async function renameAppleAccount(
   enteredLabel: string | undefined,
 ): Promise<void> {
   if (selector == null) {
-    failCommand('rename Apple account', 'Usage: launch-store creds rename <account> <new-label>.');
+    throw new Error('Usage: launch-store creds rename <account> <new-label>.');
   }
 
   if (enteredLabel == null) {
-    failCommand('rename Apple account', 'Usage: launch-store creds rename <account> <new-label>.');
+    throw new Error('Usage: launch-store creds rename <account> <new-label>.');
   }
 
   const accounts = await listAccounts();
-  const matchedAccount = requireMatchedAccount(accounts, selector, 'rename Apple account');
+  const matchedAccount = requireMatchedAccount(accounts, selector);
   const accountLabel = enteredLabel.trim();
 
-  requireUniqueAccountLabel(accounts, accountLabel, matchedAccount.keyId, 'rename Apple account');
+  requireUniqueAccountLabel(accounts, accountLabel, matchedAccount.keyId);
   await renameAccount(matchedAccount.keyId, accountLabel);
   createLogger(false).ok(`Renamed account ${matchedAccount.keyId} to "${accountLabel}".`);
 }
@@ -110,11 +109,11 @@ export async function setAppleVendorNumber(
   const vendorNumber = commandOptions.vendorNumber;
 
   if (selector == null) {
-    failCommand('set vendor number', usage);
+    throw new Error(usage);
   }
 
   if (vendorNumber == null) {
-    failCommand('set vendor number', usage);
+    throw new Error(usage);
   }
 
   const trimmedVendorNumber = vendorNumber.trim();
@@ -122,11 +121,11 @@ export async function setAppleVendorNumber(
   const isVendorNumberDigits = /^[0-9]+$/.test(trimmedVendorNumber);
 
   if (isVendorNumberDigits == false) {
-    failCommand('set vendor number', 'The vendor number is digits only.');
+    throw new Error('The vendor number is digits only.');
   }
 
   const accounts = await listAccounts();
-  const selectedAccount = requireMatchedAccount(accounts, selector, 'set vendor number');
+  const selectedAccount = requireMatchedAccount(accounts, selector);
 
   await setAccountVendorNumber(selectedAccount.keyId, trimmedVendorNumber);
   createLogger(false).ok(`Saved the vendor number for account "${selectedAccount.label}".`);
@@ -172,14 +171,13 @@ export async function setPlayReportsBucket(
   const copiedBucket = commandOptions.playReportsBucket;
 
   if (copiedBucket == null) {
-    failCommand('set Play reports bucket', usage);
+    throw new Error(usage);
   }
 
   const bucketName = parsePlayReportsBucket(copiedBucket);
 
   if (bucketName == null) {
-    failCommand(
-      'set Play reports bucket',
+    throw new Error(
       'Expected a Cloud Storage URI like gs://pubsite_prod_rev_0123456789/ or its bucket name.',
     );
   }
@@ -201,11 +199,11 @@ export async function removeAppleAccount(
   commandOptions: CredentialsCommandOptions,
 ): Promise<void> {
   if (selector == null) {
-    failCommand('remove Apple account', 'Usage: launch-store creds remove <account>.');
+    throw new Error('Usage: launch-store creds remove <account>.');
   }
 
   const accounts = await listAccounts();
-  const matchedAccount = requireMatchedAccount(accounts, selector, 'remove Apple account');
+  const matchedAccount = requireMatchedAccount(accounts, selector);
 
   const canPrompt = commandCanPrompt(commandOptions);
 
@@ -243,11 +241,11 @@ export async function refreshAppleAccounts(selector: string | undefined): Promis
   let refreshTargets = [...accounts];
 
   if (selector != null) {
-    refreshTargets = [requireMatchedAccount(accounts, selector, 'refresh Apple accounts')];
+    refreshTargets = [requireMatchedAccount(accounts, selector)];
   }
 
   if (refreshTargets.length == 0) {
-    failCommand('refresh Apple accounts', 'No Apple accounts to refresh.');
+    throw new Error('No Apple accounts to refresh.');
   }
 
   const logger = createLogger(false);

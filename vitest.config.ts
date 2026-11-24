@@ -19,7 +19,7 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       exclude: [
         'src/**/*.test.ts',
-        'src/**/*-testkit.ts',
+        'src/testkit/**',
         'e2e/**/*-e2e.ts',
         'src/cli/**',
         'src/index.ts',

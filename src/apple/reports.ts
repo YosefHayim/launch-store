@@ -62,15 +62,6 @@ export function parseTsv(text: string): ParsedReport {
 /** Milliseconds in a day - the step for {@link eachDate}'s UTC walk. */
 const dayMs = 24 * 60 * 60 * 1000;
 
-type ReportDateFailure = Readonly<{
-  readonly _tag: 'ReportDateFailure';
-  readonly message: string;
-}>;
-
-function makeReportDateFailure(message: string): ReportDateFailure {
-  return { _tag: 'ReportDateFailure', message };
-}
-
 /** Parse a strict `YYYY-MM-DD` into a UTC timestamp */
 function parseYmd(date: string): number {
   // Four-digit year, two-digit month, two-digit day, nothing else.
@@ -79,7 +70,7 @@ function parseYmd(date: string): number {
   const isFormatWrong = match == null;
 
   if (isFormatWrong) {
-    throw makeReportDateFailure(`Invalid date "${date}" (use YYYY-MM-DD).`);
+    throw new Error(`Invalid date "${date}" (use YYYY-MM-DD).`);
   }
 
   const yearText = match[1];
@@ -89,19 +80,19 @@ function parseYmd(date: string): number {
   const isYearMissing = yearText == null;
 
   if (isYearMissing) {
-    throw makeReportDateFailure(`Invalid date "${date}" (use YYYY-MM-DD).`);
+    throw new Error(`Invalid date "${date}" (use YYYY-MM-DD).`);
   }
 
   const isMonthMissing = monthText == null;
 
   if (isMonthMissing) {
-    throw makeReportDateFailure(`Invalid date "${date}" (use YYYY-MM-DD).`);
+    throw new Error(`Invalid date "${date}" (use YYYY-MM-DD).`);
   }
 
   const isDayMissing = dayText == null;
 
   if (isDayMissing) {
-    throw makeReportDateFailure(`Invalid date "${date}" (use YYYY-MM-DD).`);
+    throw new Error(`Invalid date "${date}" (use YYYY-MM-DD).`);
   }
 
   const year = Number(yearText);
@@ -113,19 +104,19 @@ function parseYmd(date: string): number {
   const isYearWrong = back.getUTCFullYear() != year;
 
   if (isYearWrong) {
-    throw makeReportDateFailure(`Invalid calendar date "${date}".`);
+    throw new Error(`Invalid calendar date "${date}".`);
   }
 
   const isMonthWrong = back.getUTCMonth() != month - 1;
 
   if (isMonthWrong) {
-    throw makeReportDateFailure(`Invalid calendar date "${date}".`);
+    throw new Error(`Invalid calendar date "${date}".`);
   }
 
   const isDayWrong = back.getUTCDate() != day;
 
   if (isDayWrong) {
-    throw makeReportDateFailure(`Invalid calendar date "${date}".`);
+    throw new Error(`Invalid calendar date "${date}".`);
   }
 
   return ms;
@@ -139,7 +130,7 @@ export function eachDate(from: string, to: string): string[] {
   const isRangeInverted = end < start;
 
   if (isRangeInverted) {
-    throw makeReportDateFailure(`Date range end ${to} is before start ${from}.`);
+    throw new Error(`Date range end ${to} is before start ${from}.`);
   }
 
   const dates: string[] = [];

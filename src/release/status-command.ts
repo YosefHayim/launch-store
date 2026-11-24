@@ -19,7 +19,6 @@ import {
   waitForValidBuild,
 } from './app-store-release.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 const NO_IOS_APPS_MESSAGE =
   'No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.';
@@ -49,35 +48,6 @@ type AppReleaseStatus = Readonly<{
   releaseStatus: ReleaseStatus;
   recentBuilds?: readonly BuildResource[];
 }>;
-
-type StatusCommandFailure = Readonly<{
-  readonly _tag: 'StatusCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeStatusCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): StatusCommandFailure {
-  return {
-    _tag: 'StatusCommandFailure',
-    operation: fields.operation,
-    message: fields.message,
-    cause: fields.cause,
-  };
-}
-
-function isStatusCommandFailure(cause: unknown): cause is StatusCommandFailure {
-  return isFailureTag(cause, 'StatusCommandFailure');
-}
-
-function createStatusFailure(operation: string, cause: unknown): StatusCommandFailure {
-  const failureMessage = errorMessage(cause);
-  return makeStatusCommandFailure({ operation, message: failureMessage, cause });
-}
 
 function readOptionalText(record: Record<string, unknown>, fieldName: string): string | undefined {
   const hasField = Object.hasOwn(record, fieldName);
@@ -256,10 +226,9 @@ export function selectIosApps(
       availableApps = iosApps.map(appName).join(', ');
     }
 
-    throw createStatusFailure(
-      'select iOS apps',
-      new Error(`Unknown iOS app "${requestedName}". iOS apps: ${availableApps}.`),
-    );
+    const unknownAppMessage = `Unknown iOS app "${requestedName}". iOS apps: ${availableApps}.`;
+
+    throw new Error(unknownAppMessage);
   }
 
   return selectedApps;
@@ -399,7 +368,9 @@ async function readOneAppStatus(
   try {
     appId = await readAppStoreAppId(appleClient, selectedApp.bundleId);
   } catch (cause) {
-    throw createStatusFailure(`find App Store app for ${selectedApp.name}`, cause);
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   let releaseStatus: ReleaseStatus;
@@ -412,7 +383,9 @@ async function readOneAppStatus(
       IOS_PLATFORM,
     );
   } catch (cause) {
-    throw createStatusFailure(`read App Store status for ${selectedApp.name}`, cause);
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   if (isBuildListWanted == false) {
@@ -425,7 +398,9 @@ async function readOneAppStatus(
   try {
     recentBuilds = await appleClient.listBuilds(appId, recentBuildCount);
   } catch (cause) {
-    throw createStatusFailure(`list builds for ${selectedApp.name}`, cause);
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   return { appName: selectedApp.name, releaseStatus, recentBuilds };
@@ -530,10 +505,9 @@ async function watchBuildProcessing(buildWatchRequest: BuildWatchRequest): Promi
       buildWatchRequest.selectedApp.bundleId,
     );
   } catch (cause) {
-    throw createStatusFailure(
-      `find App Store app for ${buildWatchRequest.selectedApp.name}`,
-      cause,
-    );
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   function reportProgress(processingState: string): void {
@@ -555,10 +529,9 @@ async function watchBuildProcessing(buildWatchRequest: BuildWatchRequest): Promi
       { onTick: reportProgress },
     );
   } catch (cause) {
-    throw createStatusFailure(
-      `wait for build ${buildWatchRequest.buildNumber} of ${buildWatchRequest.selectedApp.name}`,
-      cause,
-    );
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -585,10 +558,7 @@ function reportValidBuild(buildWatchRequest: BuildWatchRequest, storeBuild: Buil
   );
 }
 
-function reportFailedBuildWatch(
-  buildWatchRequest: BuildWatchRequest,
-  watchFailure: StatusCommandFailure,
-): void {
+function reportFailedBuildWatch(buildWatchRequest: BuildWatchRequest, watchFailure: Error): void {
   if (buildWatchRequest.isJson == false) {
     return;
   }
@@ -685,7 +655,7 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
 
     if (isBuildWatchWithNoApp) {
       if (statusFlags.build != null) {
-        throw createStatusFailure('find iOS app', new Error(NO_IOS_APPS_MESSAGE));
+        throw new Error(NO_IOS_APPS_MESSAGE);
       }
     }
 
@@ -699,11 +669,8 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
     const isThereNoAscKey = ascKey == null;
 
     if (isThereNoAscKey) {
-      throw createStatusFailure(
-        'load Apple account',
-        new Error(
-          'No Apple account key found. Run `launch-store creds set-key`, or pick one with --account.',
-        ),
+      throw new Error(
+        'No Apple account key found. Run `launch-store creds set-key`, or pick one with --account.',
       );
     }
 
@@ -732,7 +699,9 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
         reportValidBuild(buildWatchRequest, storeBuild);
         return;
       } catch (cause) {
-        if (isStatusCommandFailure(cause)) {
+        const isAlreadyError = cause instanceof Error;
+
+        if (isAlreadyError) {
           reportFailedBuildWatch(buildWatchRequest, cause);
         }
 
@@ -776,10 +745,14 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
       throw cause;
     }
 
-    if (isStatusCommandFailure(cause)) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
       throw cause;
     }
 
-    throw createStatusFailure('read App Store status', cause);
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }

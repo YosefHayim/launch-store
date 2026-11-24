@@ -29,13 +29,7 @@ import type {
 } from '../types/catalog.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import {
-  act,
-  makeAppRecordFailure,
-  plan,
-  skip,
-  type ReconcileContext,
-} from '../store/shared/reconcile.ts';
+import { act, plan, skip, type ReconcileContext } from '../store/shared/reconcile.ts';
 
 /** The exact slice of {@link AppStoreConnectClient} the offers reconciler depends on. */
 export type AscOffersApi = {
@@ -90,16 +84,6 @@ type OffersContext = ReconcileContext & {
   api: AscOffersApi;
 };
 
-/** Resolve declared per-territory prices to Apple price-point ids; fails on the first non-matching amount. */
-type OfferPricePointFailure = Readonly<{
-  readonly _tag: 'OfferPricePointFailure';
-  readonly message: string;
-}>;
-
-function makeOfferPricePointFailure(message: string): OfferPricePointFailure {
-  return { _tag: 'OfferPricePointFailure', message };
-}
-
 async function resolvePrices(
   api: AscOffersApi,
   subscriptionId: string,
@@ -126,9 +110,7 @@ async function resolvePrices(
     const isPointMissing = point == null;
 
     if (isPointMissing) {
-      throw makeOfferPricePointFailure(
-        `no ${territory} price point matches ${price.customerPrice}`,
-      );
+      throw new Error(`no ${territory} price point matches ${price.customerPrice}`);
     }
 
     resolved.push({ territory, pricePointId: point.id });
@@ -859,10 +841,9 @@ export async function reconcileOffers(
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
-    throw makeAppRecordFailure({
-      bundleId: reconcileInput.bundleId,
-      message: `No App Store Connect app record for ${reconcileInput.bundleId}. Create the app in App Store Connect, then re-run.`,
-    });
+    throw new Error(
+      `No App Store Connect app record for ${reconcileInput.bundleId}. Create the app in App Store Connect, then re-run.`,
+    );
   }
 
   const subscriptionIdByProduct = new Map<string, string>();

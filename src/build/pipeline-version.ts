@@ -25,15 +25,6 @@ import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { BuildRunOptions, BumpResolution } from './pipeline-types.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 
-type BuildVersionFailure = Readonly<{
-  readonly _tag: 'BuildVersionFailure';
-  readonly message: string;
-}>;
-
-function makeBuildVersionFailure(fields: { message: string }): BuildVersionFailure {
-  return { _tag: 'BuildVersionFailure', message: fields.message };
-}
-
 type PromptedVersion = Readonly<{
   readonly chosen: string;
   readonly kind: BumpKind | undefined;
@@ -222,7 +213,7 @@ async function promptVersion(
     const parsedVersion = parseVersion(typedVersion);
 
     if (parsedVersion == null) {
-      throw makeBuildVersionFailure({ message: 'Use a version like 1.2.3.' });
+      throw new Error('Use a version like 1.2.3.');
     }
 
     return { chosen: formatVersion(parsedVersion), kind: undefined };

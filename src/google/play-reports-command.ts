@@ -23,19 +23,6 @@ type PlayReportsCommandInput = {
   json: boolean;
 };
 
-type PlayReportsCommandFailure = Readonly<{
-  readonly _tag: 'PlayReportsCommandFailure';
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-function makePlayReportsCommandFailure(fields: {
-  message: string;
-  cause?: unknown;
-}): PlayReportsCommandFailure {
-  return { _tag: 'PlayReportsCommandFailure', ...fields };
-}
-
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
 
@@ -111,9 +98,7 @@ export function parseVitalsMetrics(metricFlag: string | undefined): PlayVitalsMe
     return ['anr'];
   }
 
-  throw makePlayReportsCommandFailure({
-    message: `--metric must be "crash" or "anr" (got "${metricFlag}").`,
-  });
+  throw new Error(`--metric must be "crash" or "anr" (got "${metricFlag}").`);
 }
 
 export function parseVitalsDays(daysFlag: string | undefined): number {
@@ -125,9 +110,7 @@ export function parseVitalsDays(daysFlag: string | undefined): number {
   const isWholeNumber = /^\d+$/.test(trimmedDays);
 
   if (isWholeNumber == false) {
-    throw makePlayReportsCommandFailure({
-      message: `--days must be a positive whole number (got "${daysFlag}").`,
-    });
+    throw new Error(`--days must be a positive whole number (got "${daysFlag}").`);
   }
 
   const historyDays = Number(trimmedDays);
@@ -135,17 +118,13 @@ export function parseVitalsDays(daysFlag: string | undefined): number {
   const isBelowOne = historyDays < 1;
 
   if (isBelowOne) {
-    throw makePlayReportsCommandFailure({
-      message: `--days must be a positive whole number (got "${daysFlag}").`,
-    });
+    throw new Error(`--days must be a positive whole number (got "${daysFlag}").`);
   }
 
   const isAboveMax = historyDays > MAX_VITALS_DAYS;
 
   if (isAboveMax) {
-    throw makePlayReportsCommandFailure({
-      message: `--days cannot exceed ${MAX_VITALS_DAYS} (got "${daysFlag}").`,
-    });
+    throw new Error(`--days cannot exceed ${MAX_VITALS_DAYS} (got "${daysFlag}").`);
   }
 
   return historyDays;
@@ -200,9 +179,9 @@ export async function playReportsCommandProgram(rawCommandInput: unknown): Promi
     const selectedApp = await selectStoreApp(commandInput.app);
 
     if (selectedApp.packageName == null) {
-      throw makePlayReportsCommandFailure({
-        message: `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
-      });
+      throw new Error(
+        `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
+      );
     }
 
     const packageName = selectedApp.packageName;
@@ -211,7 +190,7 @@ export async function playReportsCommandProgram(rawCommandInput: unknown): Promi
     if (serviceAccountJson == null) {
       const missingMessage = await describeMissingPlayServiceAccount(selectedApp.name);
 
-      throw makePlayReportsCommandFailure({ message: missingMessage });
+      throw new Error(missingMessage);
     }
 
     const reportingClient = new GoogleReportingClientService().createClient(serviceAccountJson);
@@ -235,7 +214,14 @@ export async function playReportsCommandProgram(rawCommandInput: unknown): Promi
 
     logger.line(timelines.map(timelineText).join('\n'));
   } catch (cause) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
     const failureMessage = errorMessage(cause);
-    throw makePlayReportsCommandFailure({ message: failureMessage, cause });
+
+    throw new Error(failureMessage, { cause });
   }
 }

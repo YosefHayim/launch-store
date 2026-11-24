@@ -7,7 +7,6 @@ import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { AccountRecord } from '../types/credentials.ts';
 import { getActiveAccount } from './accounts.ts';
 import type { CredentialsCommandOptions } from './credentials-command-options.ts';
-import { failCommand } from './credentials-failure.ts';
 import { displayPath, expandHomePath } from './credentials-paths.ts';
 import { commandCanPrompt, firstDefinedText, requireText } from './credentials-prompt.ts';
 import { extractKeyId, reconcileKeyId } from './key-files.ts';
@@ -83,7 +82,7 @@ async function importApnsKey(
   const keyExists = await pathExists(keyPath);
 
   if (keyExists == false) {
-    failCommand('import APNs key', `No .p8 file at ${enteredPath}.`);
+    throw new Error(`No .p8 file at ${enteredPath}.`);
   }
 
   const filenameKeyId = extractKeyId(keyPath);
@@ -137,22 +136,19 @@ async function exportApnsKey(
   commandOptions: CredentialsCommandOptions,
 ): Promise<void> {
   if (keyIdArgument == null) {
-    failCommand(
-      'export APNs key',
-      'Usage: launch-store creds push-key export <keyId> --out <path>.',
-    );
+    throw new Error('Usage: launch-store creds push-key export <keyId> --out <path>.');
   }
 
   const keyRecord = await findPushKey(keyIdArgument);
 
   if (keyRecord == null) {
-    failCommand('export APNs key', `No APNs key "${keyIdArgument}" exists.`);
+    throw new Error(`No APNs key "${keyIdArgument}" exists.`);
   }
 
   const p8 = await loadPushKey(keyRecord.keyId);
 
   if (p8 == null) {
-    failCommand('export APNs key', `APNs key ${keyRecord.keyId} has no stored secret.`);
+    throw new Error(`APNs key ${keyRecord.keyId} has no stored secret.`);
   }
 
   const canPrompt = commandCanPrompt(commandOptions);
@@ -166,10 +162,7 @@ async function exportApnsKey(
   const outputExists = await pathExists(outputPath);
 
   if (blocksKeyOverwrite(outputExists, commandOptions.force)) {
-    failCommand(
-      'export APNs key',
-      `${displayPath(outputPath)} already exists. Pass --force to overwrite.`,
-    );
+    throw new Error(`${displayPath(outputPath)} already exists. Pass --force to overwrite.`);
   }
 
   if (canPrompt) {
@@ -217,8 +210,5 @@ export async function runPushKeyAction(
     return;
   }
 
-  failCommand(
-    'run APNs command',
-    `Unknown push-key action "${pushAction}". Use import, status, or export.`,
-  );
+  throw new Error(`Unknown push-key action "${pushAction}". Use import, status, or export.`);
 }

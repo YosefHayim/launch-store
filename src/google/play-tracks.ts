@@ -25,20 +25,6 @@ export type ReleaseInput = Readonly<{
   readonly releaseNotes?: readonly ReleaseNote[];
 }>;
 
-/** Invalid Play track release input. */
-type PlayReleaseInputFailure = Readonly<{
-  readonly _tag: 'PlayReleaseInputFailure';
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makePlayReleaseInputFailure(fields: {
-  message: string;
-  cause: unknown;
-}): PlayReleaseInputFailure {
-  return { _tag: 'PlayReleaseInputFailure', ...fields };
-}
-
 function releaseNoteFromEntry(languageAndText: [string, string]): ReleaseNote {
   const [language, noteText] = languageAndText;
 
@@ -51,12 +37,11 @@ function releaseNotesFromDocument(
   return Object.entries(releaseNotesDocument).map(releaseNoteFromEntry);
 }
 
-function releaseNotesFailure(cause: unknown): PlayReleaseInputFailure {
-  return makePlayReleaseInputFailure({
-    message:
-      'Release notes must be a JSON object mapping language codes to text, e.g. { "en-US": "..." }.',
-    cause,
-  });
+function releaseNotesFailure(cause: unknown): never {
+  throw new Error(
+    'Release notes must be a JSON object mapping language codes to text, e.g. { "en-US": "..." }.',
+    { cause },
+  );
 }
 
 function decodeReleaseNotesDocument(
@@ -110,10 +95,10 @@ function requireStagedFraction(releaseInput: ReleaseInput): void {
     return;
   }
 
-  throw makePlayReleaseInputFailure({
-    message: 'An "inProgress" staged rollout needs a rollout fraction (--rollout, 0-1 exclusive).',
-    cause: releaseInput,
-  });
+  throw new Error(
+    'An "inProgress" staged rollout needs a rollout fraction (--rollout, 0-1 exclusive).',
+    { cause: releaseInput },
+  );
 }
 
 function rejectForbiddenFraction(releaseInput: ReleaseInput): void {
@@ -127,10 +112,10 @@ function rejectForbiddenFraction(releaseInput: ReleaseInput): void {
     return;
   }
 
-  throw makePlayReleaseInputFailure({
-    message: `A "${releaseInput.status}" release can't carry a rollout fraction (only "inProgress" or "halted" can).`,
-    cause: releaseInput,
-  });
+  throw new Error(
+    `A "${releaseInput.status}" release can't carry a rollout fraction (only "inProgress" or "halted" can).`,
+    { cause: releaseInput },
+  );
 }
 
 function rejectOutOfRangeFraction(userFraction: number | undefined): void {
@@ -141,19 +126,19 @@ function rejectOutOfRangeFraction(userFraction: number | undefined): void {
   const fractionIsTooLow = userFraction <= 0;
 
   if (fractionIsTooLow) {
-    throw makePlayReleaseInputFailure({
-      message: `The rollout fraction must be between 0 and 1 (exclusive); got ${userFraction}.`,
-      cause: userFraction,
-    });
+    throw new Error(
+      `The rollout fraction must be between 0 and 1 (exclusive); got ${userFraction}.`,
+      { cause: userFraction },
+    );
   }
 
   const fractionIsTooHigh = userFraction >= 1;
 
   if (fractionIsTooHigh) {
-    throw makePlayReleaseInputFailure({
-      message: `The rollout fraction must be between 0 and 1 (exclusive); got ${userFraction}.`,
-      cause: userFraction,
-    });
+    throw new Error(
+      `The rollout fraction must be between 0 and 1 (exclusive); got ${userFraction}.`,
+      { cause: userFraction },
+    );
   }
 }
 
@@ -178,8 +163,7 @@ export function buildRelease(releaseInput: ReleaseInput): PlayRelease {
   const hasNoVersionCodes = releaseInput.versionCodes.length == 0;
 
   if (hasNoVersionCodes) {
-    throw makePlayReleaseInputFailure({
-      message: 'A release needs at least one version code.',
+    throw new Error('A release needs at least one version code.', {
       cause: releaseInput.versionCodes,
     });
   }
@@ -212,28 +196,28 @@ export function parseRollout(rolloutText: string): number {
   const fractionIsUnusable = Number.isFinite(rolloutFraction) == false;
 
   if (fractionIsUnusable) {
-    throw makePlayReleaseInputFailure({
-      message: `--rollout must be a number between 0 and 1 (exclusive); got "${rolloutText}".`,
-      cause: rolloutText,
-    });
+    throw new Error(
+      `--rollout must be a number between 0 and 1 (exclusive); got "${rolloutText}".`,
+      { cause: rolloutText },
+    );
   }
 
   const fractionIsTooLow = rolloutFraction <= 0;
 
   if (fractionIsTooLow) {
-    throw makePlayReleaseInputFailure({
-      message: `--rollout must be a number between 0 and 1 (exclusive); got "${rolloutText}".`,
-      cause: rolloutText,
-    });
+    throw new Error(
+      `--rollout must be a number between 0 and 1 (exclusive); got "${rolloutText}".`,
+      { cause: rolloutText },
+    );
   }
 
   const fractionIsTooHigh = rolloutFraction >= 1;
 
   if (fractionIsTooHigh) {
-    throw makePlayReleaseInputFailure({
-      message: `--rollout must be a number between 0 and 1 (exclusive); got "${rolloutText}".`,
-      cause: rolloutText,
-    });
+    throw new Error(
+      `--rollout must be a number between 0 and 1 (exclusive); got "${rolloutText}".`,
+      { cause: rolloutText },
+    );
   }
 
   return rolloutFraction;

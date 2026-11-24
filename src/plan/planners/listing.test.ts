@@ -1,10 +1,9 @@
-import { runPlanner } from './planner-testkit.ts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { listingPlanner } from './listing.ts';
-import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import { makeAscApiFake } from '../../testkit/app-store-connect-surfaces.ts';
 import type { AscCatalogApi } from '../../apple/app-store-sync.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
@@ -118,7 +117,7 @@ function makeCtx(
 function describeListingPlanner() {
   async function omitsItselfWhenNoAppDeclaresAStoreListing() {
     const api = makeApi();
-    const plan = await runPlanner(listingPlanner, makeCtx(api, '/no/such/dir/alpha'));
+    const plan = await listingPlanner.plan(makeCtx(api, '/no/such/dir/alpha'));
     expect(plan.state).toBe('omitted');
   }
 
@@ -128,10 +127,7 @@ function describeListingPlanner() {
   );
 
   async function skipsWithAnActionableHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(
-      listingPlanner,
-      makeCtx(null, appDirWithListing(), { title: 'Acme' }),
-    );
+    const plan = await listingPlanner.plan(makeCtx(null, appDirWithListing(), { title: 'Acme' }));
 
     expect(plan.state).toBe('skipped');
 
@@ -150,7 +146,7 @@ function describeListingPlanner() {
     const localeListing = { title: 'Acme', description: 'The best acme app.' };
     const dir = appDirWithListing();
     const api = makeApi();
-    const plan = await runPlanner(listingPlanner, makeCtx(api, dir, localeListing));
+    const plan = await listingPlanner.plan(makeCtx(api, dir, localeListing));
 
     expect(plan.state).toBe('planned');
 
@@ -191,10 +187,7 @@ function describeListingPlanner() {
 
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await runPlanner(
-      listingPlanner,
-      makeCtx(api, appDirWithListing(), { title: 'Acme' }),
-    );
+    const plan = await listingPlanner.plan(makeCtx(api, appDirWithListing(), { title: 'Acme' }));
 
     expect(plan.state).toBe('planned');
 
@@ -214,8 +207,7 @@ function describeListingPlanner() {
   async function isStrictlyReadOnlyNeverInvokesAListingWriteEndpoint() {
     const api = makeApi();
 
-    await runPlanner(
-      listingPlanner,
+    await listingPlanner.plan(
       makeCtx(api, appDirWithListing(), { title: 'Acme', description: 'The best acme app.' }),
     );
     expect(api.getEditableAppInfoId).toHaveBeenCalled();

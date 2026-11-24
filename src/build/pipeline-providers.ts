@@ -25,15 +25,6 @@ import {
 const IOS_SUBMITTER = 'app-store-connect';
 const ANDROID_SUBMITTER = 'google-play';
 
-type BuildTransportFailure = Readonly<{
-  readonly _tag: 'BuildTransportFailure';
-  readonly message: string;
-}>;
-
-function makeBuildTransportFailure(fields: { message: string }): BuildTransportFailure {
-  return { _tag: 'BuildTransportFailure', message: fields.message };
-}
-
 /** Engines that only build Apple apps; an Android build swaps any of them for `gradle`. */
 const appleOnlyBuildEngines = new Set(['xcode', 'remote-mac', 'eas']);
 
@@ -270,9 +261,7 @@ function iosTransport(remote: RemoteTarget | undefined, buildEngine: string): Bu
   const isRemoteMacEngine = buildEngine == 'remote-mac';
 
   if (isRemoteMacEngine) {
-    throw makeBuildTransportFailure({
-      message: 'A remote Mac build needs --remote user@host.',
-    });
+    throw new Error('A remote Mac build needs --remote user@host.');
   }
 
   const isEas = buildEngine == 'eas';
@@ -293,21 +282,21 @@ function localAppleTransport(
   const hasRemote = remote != null;
 
   if (hasRemote) {
-    throw makeBuildTransportFailure({ message: offMacMessage });
+    throw new Error(offMacMessage);
   }
 
   const isRemoteMacEngine = buildEngine == 'remote-mac';
 
   if (isRemoteMacEngine) {
-    throw makeBuildTransportFailure({ message: offMacMessage });
+    throw new Error(offMacMessage);
   }
 
   const isEas = buildEngine == 'eas';
 
   if (isEas) {
-    throw makeBuildTransportFailure({
-      message: `EAS does not build ${platformLabel(platform)} - build it on a local Mac (drop \`buildEngine: "eas"\`).`,
-    });
+    throw new Error(
+      `EAS does not build ${platformLabel(platform)} - build it on a local Mac (drop \`buildEngine: "eas"\`).`,
+    );
   }
 
   return { kind: 'local' };

@@ -55,26 +55,6 @@ export type BuildHistoryCommandInput =
   | Readonly<{ operation: 'log'; reference: string; open: boolean }>
   | Readonly<{ operation: 'prune'; options: PruneCommandOptions }>;
 
-export type BuildHistoryCommandFailure = Readonly<{
-  readonly _tag: 'BuildHistoryCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-export function makeBuildHistoryCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): BuildHistoryCommandFailure {
-  return {
-    _tag: 'BuildHistoryCommandFailure',
-    operation: fields.operation,
-    message: fields.message,
-    cause: fields.cause,
-  };
-}
-
 type BuildStorageSession = Readonly<{
   config: LaunchConfig;
   storageProvider: StorageProvider;
@@ -91,28 +71,27 @@ type BuildHistoryTools = {
   openLog: (logPath: string) => Promise<void>;
 };
 
-function buildHistoryFailure(
-  operation: string,
-  cause: unknown,
-  fallbackMessage?: string,
-): BuildHistoryCommandFailure {
-  let message = fallbackMessage;
+function buildHistoryFailure(operation: string, cause: unknown, fallbackMessage?: string): Error {
+  const hasFallbackMessage = fallbackMessage != null;
 
-  if (message == null) {
-    if (hasMessage(cause)) {
-      message = cause.message;
-    }
+  if (hasFallbackMessage) {
+    return new Error(fallbackMessage, { cause });
   }
 
-  if (message == null) {
-    message = readLooseMessage(cause);
+  const causeHasMessage = hasMessage(cause);
+
+  if (causeHasMessage) {
+    return new Error(cause.message, { cause });
   }
 
-  if (message == null) {
-    message = `${operation} failed.`;
+  const looseMessage = readLooseMessage(cause);
+  const hasLooseMessage = looseMessage != null;
+
+  if (hasLooseMessage) {
+    return new Error(looseMessage, { cause });
   }
 
-  return makeBuildHistoryCommandFailure({ operation, message, cause });
+  return new Error(`${operation} failed.`, { cause });
 }
 
 function readLooseMessage(cause: unknown): string | undefined {
@@ -400,9 +379,7 @@ export function parsePruneDays(daysText: string | undefined): number | undefined
     return retentionDays;
   }
 
-  throw makeBuildHistoryCommandFailure({
-    operation: 'parse prune retention',
-    message: `Invalid --days "${daysText}". Use a positive whole number of days.`,
+  throw new Error(`Invalid --days "${daysText}". Use a positive whole number of days.`, {
     cause: daysText,
   });
 }

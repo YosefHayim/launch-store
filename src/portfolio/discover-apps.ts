@@ -9,7 +9,7 @@ import { StatsCredentials } from '../stats/stats-credentials.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type { AccountRecord } from '../types/credentials.ts';
 import type { DiscoveredApp, DiscoveryWarning } from '../types/portfolio.ts';
-import { createAndroidAppKey, createIosAppKey, mergeDiscoveredApps } from './portfolio-logic.ts';
+import { createAndroidAppKey, createIosAppKey, mergeDiscoveredApps } from './portfolio-apps.ts';
 import { loadPortfolioFile } from './portfolio-store.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 

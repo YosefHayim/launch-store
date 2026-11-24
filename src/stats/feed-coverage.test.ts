@@ -8,7 +8,7 @@ import {
   markFeedCoverageSkipped,
   mergeFeedCoverage,
   subtractCoverage,
-} from './coverage-logic.ts';
+} from './feed-coverage.ts';
 
 const SYNCED_AT = '2026-10-29T08:00:00.000Z';
 const COVERED = { coveredFrom: '2026-10-01', coveredThrough: '2026-10-20' };

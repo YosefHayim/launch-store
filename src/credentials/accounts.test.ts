@@ -665,9 +665,7 @@ function describeSetAccountVendorNumber() {
 
   async function failsForAnUnknownKeyId() {
     const accountEffect = runAccountEffect(setAccountVendorNumber('NOPE', '1'));
-    await expect(accountEffect).rejects.toMatchObject({
-      _tag: 'AccountFailure',
-    });
+    await expect(accountEffect).rejects.toThrow('No account with key NOPE.');
   }
 
   it('fails for an unknown key id', failsForAnUnknownKeyId);

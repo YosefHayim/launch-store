@@ -1,7 +1,6 @@
-import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { experimentsPlanner } from './experiments.ts';
-import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import { makeAscApiFake } from '../../testkit/app-store-connect-surfaces.ts';
 import type { VersionExperimentsConfig } from '../../release/version-experiments.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
@@ -61,7 +60,7 @@ const DECLARED: VersionExperimentsConfig = {
 function describeExperimentsPlanner() {
   async function omitsItselfWhenNoExperimentsSidecarIsPresent() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(experimentsPlanner, makeCtx(ascApiFake, null));
+    const plan = await experimentsPlanner.plan(makeCtx(ascApiFake, null));
 
     expect(plan.state).toBe('omitted');
   }
@@ -72,7 +71,7 @@ function describeExperimentsPlanner() {
   );
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(experimentsPlanner, makeCtx(null, DECLARED));
+    const plan = await experimentsPlanner.plan(makeCtx(null, DECLARED));
 
     expect(plan.state).toBe('skipped');
 
@@ -88,7 +87,7 @@ function describeExperimentsPlanner() {
 
   async function reportsAnAdditivePlanWhenTheExperimentDoesnTExistYet() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(experimentsPlanner, makeCtx(ascApiFake, DECLARED));
+    const plan = await experimentsPlanner.plan(makeCtx(ascApiFake, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -121,7 +120,7 @@ function describeExperimentsPlanner() {
         .fn()
         .mockResolvedValue([{ id: 'ex1', name: 'exp1', state: 'DRAFT', trafficProportion: 50 }]),
     });
-    const plan = await runPlanner(experimentsPlanner, makeCtx(api, DECLARED));
+    const plan = await experimentsPlanner.plan(makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -139,7 +138,7 @@ function describeExperimentsPlanner() {
 
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await runPlanner(experimentsPlanner, makeCtx(api, DECLARED));
+    const plan = await experimentsPlanner.plan(makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -157,7 +156,7 @@ function describeExperimentsPlanner() {
 
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
-    await runPlanner(experimentsPlanner, makeCtx(api, DECLARED));
+    await experimentsPlanner.plan(makeCtx(api, DECLARED));
     expect(api.createVersionExperiment).toHaveBeenCalledTimes(0);
     expect(api.createExperimentTreatment).toHaveBeenCalledTimes(0);
   }

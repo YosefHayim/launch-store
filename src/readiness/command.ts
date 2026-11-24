@@ -20,7 +20,6 @@ import type {
 import { READINESS_EXIT, runProbes } from './orchestrator.ts';
 import { registerBuiltinProbes, selectReadinessProbes } from './registry.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 type ReadinessCategory = 'account' | 'iap' | 'listing' | 'privacy' | 'signing' | 'submit';
 
@@ -34,13 +33,6 @@ type ReadinessCommandInput = Readonly<{
   labels: ReadinessReportLabels;
   app: string | null;
   json: boolean;
-}>;
-
-type ReadinessCommandFailure = Readonly<{
-  _tag: 'ReadinessCommandFailure';
-  operation: string;
-  message: string;
-  cause?: unknown;
 }>;
 
 const readinessStores: readonly ReadinessStore[] = ['appstore', 'play'];
@@ -59,24 +51,6 @@ const readinessCategories: readonly ReadinessCategory[] = [
   'submit',
 ];
 
-function makeReadinessCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause?: unknown;
-}): ReadinessCommandFailure {
-  return { _tag: 'ReadinessCommandFailure', ...fields };
-}
-
-function commandFailure(operation: string, cause: unknown): ReadinessCommandFailure {
-  const failureMessage = errorMessage(cause);
-
-  return makeReadinessCommandFailure({
-    operation,
-    message: failureMessage,
-    cause,
-  });
-}
-
 function isReadinessCategory(candidate: unknown): candidate is ReadinessCategory {
   if (typeof candidate != 'string') {
     return false;
@@ -94,7 +68,7 @@ function readRequiredString(record: Record<string, unknown>, fieldName: string):
   const isString = typeof field == 'string';
 
   if (isString == false) {
-    throw commandFailure('decode readiness command', `Expected ${fieldName} to be a string.`);
+    throw new Error(`Expected ${fieldName} to be a string.`);
   }
 
   return field;
@@ -121,7 +95,7 @@ function readOptionalBoolean(record: Record<string, unknown>, fieldName: string)
   const isBoolean = typeof field == 'boolean';
 
   if (isBoolean == false) {
-    throw commandFailure('decode readiness command', `Expected ${fieldName} to be a boolean.`);
+    throw new Error(`Expected ${fieldName} to be a boolean.`);
   }
 
   return field;
@@ -132,14 +106,14 @@ function readReadinessCategory(candidate: unknown): ReadinessCategory {
     return candidate;
   }
 
-  throw commandFailure('decode readiness command', 'Readiness category is not recognized.');
+  throw new Error('Readiness category is not recognized.');
 }
 
 function decodeReadinessCommandInput(rawCommandInput: unknown): ReadinessCommandInput {
   const rawCommandInputObject = readPlainObject(rawCommandInput);
 
   if (rawCommandInputObject == null) {
-    throw commandFailure('decode readiness command', 'Readiness command input must be an object.');
+    throw new Error('Readiness command input must be an object.');
   }
 
   const category = readReadinessCategory(rawCommandInputObject['category']);
@@ -147,7 +121,7 @@ function decodeReadinessCommandInput(rawCommandInput: unknown): ReadinessCommand
   const labelsFieldObject = readPlainObject(labelsField);
 
   if (labelsFieldObject == null) {
-    throw commandFailure('decode readiness command', 'Readiness labels must be an object.');
+    throw new Error('Readiness labels must be an object.');
   }
 
   return {
@@ -341,10 +315,14 @@ export async function readinessCommandProgram(rawCommandInput: unknown): Promise
       throw cause;
     }
 
-    if (isFailureTag(cause, 'ReadinessCommandFailure')) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
       throw cause;
     }
 
-    throw commandFailure('run readiness checks', cause);
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }

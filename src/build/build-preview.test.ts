@@ -156,9 +156,8 @@ function describePreviewBuild() {
       previewBuild({ config: config(), apps: [app()], platform: 'ios', profile: 'ghost' });
       throw new Error('expected an unknown profile to fail');
     } catch (error) {
+      expect(error).toBeInstanceOf(Error);
       expect(error).toMatchObject({
-        _tag: 'BuildPreviewFailure',
-        requestedProfile: 'ghost',
         message: 'Unknown profile "ghost". Declared profiles: production, preview.',
       });
     }

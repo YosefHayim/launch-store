@@ -1,6 +1,6 @@
 // Refreshes stale stats, then assembles the report for the apps that were asked for.
 
-import { filterPortfolioApps, findAppsByName } from '../portfolio/portfolio-logic.ts';
+import { filterPortfolioApps, findAppsByName } from '../portfolio/portfolio-apps.ts';
 import type { PortfolioApp } from '../types/portfolio.ts';
 import type { AppCoverage, DailyStat, DateRange, StatsFreshness } from '../types/stats.ts';
 import type { AppStatsReport, StatsReport, StatsReportRequest } from '../types/stats-report.ts';
@@ -15,7 +15,7 @@ import {
   keepStatsInRange,
   listAppMessages,
   listMonthsInRange,
-} from './stats-report-logic.ts';
+} from './stats-series.ts';
 import { loadStatsPortfolio } from './sync-stats.ts';
 
 type StatsReportAppNotFoundFailure = Readonly<{

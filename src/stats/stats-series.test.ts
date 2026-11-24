@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { AppCoverage, DailyStat, StatsFreshness } from '../types/stats.ts';
-import type { MetricSeries, MetricTotal } from '../types/stats-report.ts';
+import type { MetricTotal } from '../types/stats-report.ts';
 import {
   createMetricSeries,
   foldMetricStats,
@@ -9,10 +9,9 @@ import {
   keepStatsInRange,
   listAppMessages,
   listMonthsInRange,
-  mergeHeadlinePoints,
   pickHeadlineTotals,
   readHeadlineTotal,
-} from './stats-report-logic.ts';
+} from './stats-series.ts';
 
 function stat(overrides: Partial<DailyStat>): DailyStat {
   return {
@@ -267,57 +266,6 @@ describe(
   'pickHeadlineTotals and readHeadlineTotal',
   describePickHeadlineTotalsAndReadHeadlineTotal,
 );
-
-function describeMergeHeadlinePoints() {
-  const series: MetricSeries[] = [
-    {
-      feed: 'app-store',
-      metric: 'downloads',
-      currency: null,
-      points: [
-        { date: '2026-10-02', amount: 2 },
-        { date: '2026-10-01', amount: 1 },
-      ],
-    },
-    {
-      feed: 'google-play',
-      metric: 'downloads',
-      currency: null,
-      points: [{ date: '2026-10-02', amount: 5 }],
-    },
-    { feed: 'ga4', metric: 'sessions', currency: null, points: [] },
-  ];
-
-  function addsFeedsPerDayAndSortsByDay() {
-    const headlinePoints = mergeHeadlinePoints(series, ['downloads']);
-
-    expect(headlinePoints).toEqual([
-      { date: '2026-10-01', amount: 1 },
-      { date: '2026-10-02', amount: 7 },
-    ]);
-  }
-
-  test('adds feeds per day and sorts by day', addsFeedsPerDayAndSortsByDay);
-
-  function skipsAMetricWhoseSeriesAreEmptyAndMovesToTheNext() {
-    const headlinePoints = mergeHeadlinePoints(series, ['sessions', 'downloads']);
-    expect(headlinePoints).toHaveLength(2);
-  }
-
-  test(
-    'skips a metric whose series are empty and moves to the next',
-    skipsAMetricWhoseSeriesAreEmptyAndMovesToTheNext,
-  );
-
-  function givesAnEmptyListWhenNothingMatches() {
-    const headlinePoints = mergeHeadlinePoints(series, ['crashRate']);
-    expect(headlinePoints).toEqual([]);
-  }
-
-  test('gives an empty list when nothing matches', givesAnEmptyListWhenNothingMatches);
-}
-
-describe('mergeHeadlinePoints', describeMergeHeadlinePoints);
 
 function describeIsAppStaleAndListAppMessages() {
   const report = {

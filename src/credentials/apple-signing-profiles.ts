@@ -16,13 +16,7 @@ import type { BundleIdResource, ProfileResource } from '../types/apple-catalog.t
 import type { SigningAssets } from '../types/credentials.ts';
 import { staleProfileCapabilities } from './capabilities.ts';
 import { DISTRIBUTION_CERT_NAME } from './apple-signing-certs.ts';
-import {
-  makeAppleSigningFailure,
-  type AppleSigningFailure,
-  type CertRecord,
-  type CredentialsIndex,
-  writeIndex,
-} from './apple-signing-index.ts';
+import { type CertRecord, type CredentialsIndex, writeIndex } from './apple-signing-index.ts';
 
 /** Pull a single `<key>...</key><string>...</string>` value out of a provisioning profile's plist XML. */
 function plistString(xml: string, key: string): string | null {
@@ -60,10 +54,8 @@ function plistFirstArrayString(xml: string, key: string): string | null {
   return matchedText;
 }
 
-function missingProfileMetadata(profilePath: string): AppleSigningFailure {
-  return makeAppleSigningFailure({
-    message: `Could not read UUID/Name from provisioning profile at ${profilePath}.`,
-  });
+function missingProfileMetadata(profilePath: string): never {
+  throw new Error(`Could not read UUID/Name from provisioning profile at ${profilePath}.`);
 }
 
 /** Decode an installed profile to read its UUID, name, and Team ID (Xcode's manual-signing inputs). */
@@ -180,7 +172,7 @@ export async function ensureRegisteredBundleId(
   );
 
   if (isRegistrationConfirmed == false) {
-    throw makeAppleSigningFailure({ message: bundleOptions.declineMessage });
+    throw new Error(bundleOptions.declineMessage);
   }
 
   const bundleIdPlatform = readBundleIdPlatform(bundleOptions.platform);

@@ -27,22 +27,6 @@ export type AscAppEventsApi = Readonly<{
   ) => Promise<AppEventLocalizationResource>;
 }>;
 
-/** An in-app-event request or validation step failed. */
-type AppEventFailure = Readonly<{
-  readonly _tag: 'AppEventFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeAppEventFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): AppEventFailure {
-  return { _tag: 'AppEventFailure', ...fields };
-}
-
 /** One event paired with its localizations. */
 export type AppEventWithLocalizations = Readonly<{
   event: AppEventResource;
@@ -73,15 +57,15 @@ type LocalizeResult = Readonly<{
   replaced: boolean;
 }>;
 
-/** Convert a transport failure into the in-app-event error channel. */
-function appEventFailure(operation: string, cause: unknown): AppEventFailure {
-  const fallback = `${operation} failed.`;
-
+/** Convert a transport failure into an Error. */
+function appEventFailure(operation: string, cause: unknown): never {
   const hasCauseMessage = hasMessage(cause);
 
-  if (hasCauseMessage) return makeAppEventFailure({ operation, message: cause.message, cause });
+  if (hasCauseMessage) {
+    throw new Error(cause.message, { cause });
+  }
 
-  return makeAppEventFailure({ operation, message: fallback, cause });
+  throw new Error(`${operation} failed.`, { cause });
 }
 
 /** Run one transport call in the in-app-event error channel. */
@@ -96,15 +80,13 @@ async function runEventRequest<Success>(
   }
 }
 
-/** Build the missing-App-Store-record failure shared by list and create. */
-function missingAppRecord(bundleId: string): AppEventFailure {
-  return makeAppEventFailure({
-    operation: 'resolve App Store app',
-    message:
-      `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this ` +
+/** Throw the missing-App-Store-record failure shared by list and create. */
+function missingAppRecord(bundleId: string): never {
+  throw new Error(
+    `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this ` +
       'account can access the app.',
-    cause: bundleId,
-  });
+    { cause: bundleId },
+  );
 }
 
 /** Validate and normalize an optional Apple enum attribute. */
@@ -127,11 +109,12 @@ function validateEventEnum(
     return normalizedField;
   }
 
-  throw makeAppEventFailure({
-    operation: `validate ${field}`,
-    message: `Invalid ${field} "${fieldText}". Valid ${field}s: ${allowedValues.join(', ')}.`,
-    cause: fieldText,
-  });
+  throw new Error(
+    `Invalid ${field} "${fieldText}". Valid ${field}s: ${allowedValues.join(', ')}.`,
+    {
+      cause: fieldText,
+    },
+  );
 }
 
 /** Lists, creates, localizes, and deletes in-app events for one app. */
@@ -178,9 +161,7 @@ export class AppEvents {
     const isReferenceNameMissing = referenceName.length == 0;
 
     if (isReferenceNameMissing) {
-      throw makeAppEventFailure({
-        operation: 'validate reference name',
-        message: 'A reference name is required to create an in-app event.',
+      throw new Error('A reference name is required to create an in-app event.', {
         cause: eventRequest.referenceName,
       });
     }
@@ -244,9 +225,7 @@ export class AppEvents {
     const isLocaleMissing = locale.length == 0;
 
     if (isLocaleMissing) {
-      throw makeAppEventFailure({
-        operation: 'validate event locale',
-        message: 'A locale is required to localize an in-app event.',
+      throw new Error('A locale is required to localize an in-app event.', {
         cause: localizationRequest.locale,
       });
     }
@@ -268,9 +247,7 @@ export class AppEvents {
     const hasNoCopy = Object.keys(localizationAttributes).length == 0;
 
     if (hasNoCopy) {
-      throw makeAppEventFailure({
-        operation: 'validate event localization',
-        message: 'Provide at least one of --name, --short, or --long to localize the event.',
+      throw new Error('Provide at least one of --name, --short, or --long to localize the event.', {
         cause: localizationRequest,
       });
     }

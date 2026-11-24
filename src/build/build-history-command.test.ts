@@ -9,7 +9,6 @@ import {
   formatBuildDetail,
   formatBuildsTable,
   formatPrunePreview,
-  makeBuildHistoryCommandFailure,
   parsePruneDays,
   pruneConfirmationBlocked,
   readBuildRow,
@@ -351,7 +350,6 @@ function describeParsePruneDays() {
   function rejectsZeroFractionsAndNonNumericPiece() {
     const zero = thrownPruneFailure('0');
 
-    expect(zero).toMatchObject({ operation: 'parse prune retention' });
     expect(zero).toMatchObject({ message: expect.stringContaining('0') });
 
     const fraction = thrownPruneFailure('1.5');
@@ -364,7 +362,8 @@ function describeParsePruneDays() {
 
     const empty = thrownPruneFailure('');
 
-    expect(empty).toMatchObject({ _tag: 'BuildHistoryCommandFailure' });
+    expect(empty).toBeInstanceOf(Error);
+    expect(empty).toMatchObject({ message: expect.stringContaining('""') });
   }
 
   it('rejects zero, fractions, and non-numeric text', rejectsZeroFractionsAndNonNumericPiece);
@@ -388,21 +387,3 @@ function describePruneConfirmationBlocked() {
 }
 
 describe('pruneConfirmationBlocked', describePruneConfirmationBlocked);
-
-function describeMakeBuildHistoryCommandFailure() {
-  function tagsCommandFailuresForTheEffectChannel() {
-    const failure = makeBuildHistoryCommandFailure({
-      operation: 'read build history',
-      message: 'disk full',
-      cause: new Error('disk full'),
-    });
-
-    expect(failure._tag).toBe('BuildHistoryCommandFailure');
-    expect(failure.operation).toBe('read build history');
-    expect(failure.message).toBe('disk full');
-  }
-
-  it('tags command failures for the Effect channel', tagsCommandFailuresForTheEffectChannel);
-}
-
-describe('makeBuildHistoryCommandFailure', describeMakeBuildHistoryCommandFailure);

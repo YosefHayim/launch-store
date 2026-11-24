@@ -25,21 +25,6 @@ export type AppClipsCommandInput = {
 };
 
 /** An App Clips command step failed. */
-type AppClipsCommandFailure = Readonly<{
-  readonly _tag: 'AppClipsCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeAppClipsCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): AppClipsCommandFailure {
-  return { _tag: 'AppClipsCommandFailure', ...fields };
-}
-
 function readFlag(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
   const isFlag = typeof field == 'boolean';
@@ -77,21 +62,22 @@ export function AppClipsCommandInputSchema(rawCommandInput: unknown): AppClipsCo
   return { app, dryRun, yes };
 }
 
-/** Convert a dependency failure into the App Clips command channel. */
-function appClipsFailure(operation: string, cause: unknown): AppClipsCommandFailure {
-  if (typeof cause == 'string') {
-    const hasCauseText = cause.length > 0;
+/** Convert a dependency failure into an Error. */
+function appClipsFailure(operation: string, cause: unknown): never {
+  const causeText = typeof cause == 'string' ? cause : '';
+  const isBlankCauseText = causeText.length == 0;
 
-    if (hasCauseText) {
-      return makeAppClipsCommandFailure({ operation, message: cause, cause });
-    }
+  if (isBlankCauseText == false) {
+    throw new Error(causeText, { cause });
   }
 
-  if (hasMessage(cause)) {
-    return makeAppClipsCommandFailure({ operation, message: cause.message, cause });
+  const causeHasMessage = hasMessage(cause);
+
+  if (causeHasMessage) {
+    throw new Error(cause.message, { cause });
   }
 
-  return makeAppClipsCommandFailure({ operation, message: `${operation} failed.`, cause });
+  throw new Error(`${operation} failed.`, { cause });
 }
 
 function isPlannedAction(plannedAction: PlannedAction): boolean {
@@ -121,11 +107,10 @@ async function resolveAppClipsTarget(
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
-    throw makeAppClipsCommandFailure({
-      operation: 'resolve App Clips bundle id',
-      message: `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
-      cause: storeAppContext.app,
-    });
+    throw new Error(
+      `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
+      { cause: storeAppContext.app },
+    );
   }
 
   const appClipsSection = storeAppContext.config.appClips?.[bundleId];
@@ -133,11 +118,10 @@ async function resolveAppClipsTarget(
   const isAppClipsMissing = appClipsSection == null;
 
   if (isAppClipsMissing) {
-    throw makeAppClipsCommandFailure({
-      operation: 'resolve App Clips config',
-      message: `No App Clips config for ${bundleId}. Add an appClips entry to launch.config.ts.`,
-      cause: bundleId,
-    });
+    throw new Error(
+      `No App Clips config for ${bundleId}. Add an appClips entry to launch.config.ts.`,
+      { cause: bundleId },
+    );
   }
 
   return { bundleId, appClipsConfig: appClipsSection };

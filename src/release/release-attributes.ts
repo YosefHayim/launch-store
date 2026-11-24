@@ -22,27 +22,6 @@ import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const DEMO_PASSWORD_KEY = 'demoAccountPassword';
 
-/** Release-attribute decoding or reconciliation failed. */
-type ReleaseAttributesFailure = Readonly<{
-  readonly _tag: 'ReleaseAttributesFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeReleaseAttributesFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): ReleaseAttributesFailure {
-  return {
-    _tag: 'ReleaseAttributesFailure',
-    operation: fields.operation,
-    message: fields.message,
-    cause: fields.cause,
-  };
-}
-
 /** Store API calls used by release-attribute reconciliation. */
 export type AscReleaseApi = Readonly<{
   getAppId: (bundleId: string) => Promise<string | null>;
@@ -89,24 +68,29 @@ type ReleaseReconcileInput = Readonly<{
 
 type SecretResolver = (secretReference: string, secretLabel: string) => Promise<string>;
 
+function releaseAttributesMessage(cause: unknown, explicitMessage?: string): string {
+  const hasExplicitMessage = explicitMessage != null;
+
+  if (hasExplicitMessage) {
+    return explicitMessage;
+  }
+
+  return errorMessage(cause);
+}
+
 function releaseAttributesFailure(
   operation: string,
   cause: unknown,
   explicitMessage?: string,
-): ReleaseAttributesFailure {
-  let message = explicitMessage;
-
-  if (message == null) {
-    message = errorMessage(cause);
-  }
-
-  const isMessageEmpty = message.length == 0;
+): Error {
+  const chosenMessage = releaseAttributesMessage(cause, explicitMessage);
+  const isMessageEmpty = chosenMessage.length == 0;
 
   if (isMessageEmpty) {
-    message = `${operation} failed.`;
+    return new Error(`${operation} failed.`, { cause });
   }
 
-  return makeReleaseAttributesFailure({ operation, message, cause });
+  return new Error(chosenMessage, { cause });
 }
 
 /** Record and optionally apply one non-destructive reconciliation action. */

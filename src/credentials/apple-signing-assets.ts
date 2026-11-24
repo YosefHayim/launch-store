@@ -21,11 +21,7 @@ import {
 import type { Platform } from '../types/app.ts';
 import type { ProfileResource } from '../types/apple-catalog.ts';
 import type { AscKey, SigningAssets } from '../types/credentials.ts';
-import {
-  decodeCredentialsIndex,
-  makeAppleSigningFailure,
-  readIndex,
-} from './apple-signing-index.ts';
+import { decodeCredentialsIndex, readIndex } from './apple-signing-index.ts';
 import { DISTRIBUTION_CERT_NAME, ensureDistributionCertificate } from './apple-signing-certs.ts';
 import {
   ensureAppStoreProfileForBundle,
@@ -256,16 +252,11 @@ function readAdHocProfileType(platform: Platform): 'IOS_APP_ADHOC' | 'TVOS_APP_A
   try {
     profileType = adHocProfileType(platform);
   } catch (cause) {
-    throw makeAppleSigningFailure({
-      message: `${platformLabel(platform)} ${AD_HOC_UNAVAILABLE_MESSAGE}`,
-      cause,
-    });
+    throw new Error(`${platformLabel(platform)} ${AD_HOC_UNAVAILABLE_MESSAGE}`, { cause });
   }
 
   if (profileType == null) {
-    throw makeAppleSigningFailure({
-      message: `${platformLabel(platform)} ${AD_HOC_UNAVAILABLE_MESSAGE}`,
-    });
+    throw new Error(`${platformLabel(platform)} ${AD_HOC_UNAVAILABLE_MESSAGE}`);
   }
 
   return profileType;
@@ -321,10 +312,9 @@ export async function ensureAdHocSigningCredentials(
   const hasNoDevices = enabledDevices.length == 0;
 
   if (hasNoDevices) {
-    throw makeAppleSigningFailure({
-      message:
-        'No registered devices for an ad-hoc build. Add one with `launch-store device add <udid> [name]` and retry.',
-    });
+    throw new Error(
+      'No registered devices for an ad-hoc build. Add one with `launch-store device add <udid> [name]` and retry.',
+    );
   }
 
   signingOptions.log.step(

@@ -19,36 +19,6 @@ type RunCommandInput = Readonly<{
   device?: string;
 }>;
 
-type RunCommandFailure = Readonly<{
-  readonly _tag: 'RunCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-function makeRunCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause?: unknown;
-}): RunCommandFailure {
-  const hasCause = fields.cause != null;
-
-  if (hasCause) {
-    return {
-      _tag: 'RunCommandFailure',
-      operation: fields.operation,
-      message: fields.message,
-      cause: fields.cause,
-    };
-  }
-
-  return {
-    _tag: 'RunCommandFailure',
-    operation: fields.operation,
-    message: fields.message,
-  };
-}
-
 function readOptionalString(record: Record<string, unknown>, key: string): string | null {
   const hasKey = Object.hasOwn(record, key);
 
@@ -207,10 +177,7 @@ async function installAppleArtifact(
     const applicationName = applicationNames.find(isApplicationBundle);
 
     if (applicationName == null) {
-      throw makeRunCommandFailure({
-        operation: 'unpack Apple artifact',
-        message: `No .app exists inside ${artifactPath}.`,
-      });
+      throw new Error(`No .app exists inside ${artifactPath}.`);
     }
 
     const logger = createLogger(false);
@@ -243,10 +210,7 @@ async function findRunnableArtifact(reference: string): Promise<BuildArtifact> {
   const artifact = findBuild(storedArtifacts, reference);
 
   if (artifact == null) {
-    throw makeRunCommandFailure({
-      operation: 'find stored artifact',
-      message: `No build matches "${reference}". Run \`launch-store builds list\` first.`,
-    });
+    throw new Error(`No build matches "${reference}". Run \`launch-store builds list\` first.`);
   }
 
   const artifactExists = await pathExists(artifact.path);
@@ -255,10 +219,7 @@ async function findRunnableArtifact(reference: string): Promise<BuildArtifact> {
     return artifact;
   }
 
-  throw makeRunCommandFailure({
-    operation: 'find stored artifact',
-    message: `The artifact for "${reference}" is gone from ${artifact.path}. Rebuild it.`,
-  });
+  throw new Error(`The artifact for "${reference}" is gone from ${artifact.path}. Rebuild it.`);
 }
 
 /** Decode one `launch-store run` request and install its stored artifact. */
@@ -282,12 +243,14 @@ export async function runCommandProgram(commandInput: unknown): Promise<void> {
 
     logger.ok("Installed. Launch it from the device's home screen.");
   } catch (error) {
+    const isAlreadyError = error instanceof Error;
+
+    if (isAlreadyError) {
+      throw error;
+    }
+
     const failureMessage = errorMessage(error);
 
-    throw makeRunCommandFailure({
-      operation: 'install stored artifact',
-      message: failureMessage,
-      cause: error,
-    });
+    throw new Error(failureMessage, { cause: error });
   }
 }

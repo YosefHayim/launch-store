@@ -10,6 +10,7 @@ import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { listSnapshots } from '../snapshot/store.ts';
 import type { Shell } from '../types/remote.ts';
+
 /** The shells `launch-store completion` supports, in the order help lists them; the first is the default fallback. */
 export const SHELLS: readonly Shell[] = ['bash', 'zsh', 'fish'] as const;
 /** The marker comments that fence Launch's managed block inside a shell rc file. */

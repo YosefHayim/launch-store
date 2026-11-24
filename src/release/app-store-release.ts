@@ -88,44 +88,25 @@ export type AscReleaseApi = {
   createAppStoreVersionReleaseRequest(versionId: string): Promise<void>;
 };
 
-type AppStoreReleaseFailure = Readonly<{
-  readonly _tag: 'AppStoreReleaseFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
+function releaseMessage(cause: unknown, explicitMessage?: string): string {
+  const hasExplicitMessage = explicitMessage != null;
 
-function makeAppStoreReleaseFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): AppStoreReleaseFailure {
-  return {
-    _tag: 'AppStoreReleaseFailure',
-    operation: fields.operation,
-    message: fields.message,
-    cause: fields.cause,
-  };
+  if (hasExplicitMessage) {
+    return explicitMessage;
+  }
+
+  return errorMessage(cause);
 }
 
-function releaseFailure(
-  operation: string,
-  cause: unknown,
-  explicitMessage?: string,
-): AppStoreReleaseFailure {
-  let message = explicitMessage;
-
-  if (message == null) {
-    message = errorMessage(cause);
-  }
-
-  const isMessageEmpty = message.length == 0;
+function releaseFailure(operation: string, cause: unknown, explicitMessage?: string): Error {
+  const chosenMessage = releaseMessage(cause, explicitMessage);
+  const isMessageEmpty = chosenMessage.length == 0;
 
   if (isMessageEmpty) {
-    message = `${operation} failed.`;
+    return new Error(`${operation} failed.`, { cause });
   }
 
-  return makeAppStoreReleaseFailure({ operation, message, cause });
+  return new Error(chosenMessage, { cause });
 }
 
 /** Apple platform filter/create value for App Store versions. iOS is all v1 covers. */

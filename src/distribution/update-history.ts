@@ -15,15 +15,6 @@ import {
 } from './over-the-air-manifest.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
-type UpdateHistoryFailure = Readonly<{
-  readonly _tag: 'UpdateHistoryFailure';
-  readonly message: string;
-}>;
-
-function makeUpdateHistoryFailure(message: string): UpdateHistoryFailure {
-  return { _tag: 'UpdateHistoryFailure', message };
-}
-
 function readString(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
 
@@ -438,9 +429,7 @@ export async function republishUpdate(input: RepublishUpdateInput): Promise<Repu
   const snapshotBytes = await storage.getObject(snapshotKey);
 
   if (snapshotBytes == null) {
-    throw makeUpdateHistoryFailure(
-      `No snapshot for update ${target.id} (runtime ${target.runtimeVersion}).`,
-    );
+    throw new Error(`No snapshot for update ${target.id} (runtime ${target.runtimeVersion}).`);
   }
 
   let previousManifest: UpdateManifest;
@@ -451,10 +440,10 @@ export async function republishUpdate(input: RepublishUpdateInput): Promise<Repu
     const isMalformed = cause != null;
 
     if (isMalformed) {
-      throw makeUpdateHistoryFailure(`Snapshot for update ${target.id} is malformed.`);
+      throw new Error(`Snapshot for update ${target.id} is malformed.`);
     }
 
-    throw makeUpdateHistoryFailure(`Snapshot for update ${target.id} is malformed.`);
+    throw new Error(`Snapshot for update ${target.id} is malformed.`);
   }
 
   const updateManifest: UpdateManifest = {

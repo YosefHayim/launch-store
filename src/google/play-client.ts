@@ -823,8 +823,10 @@ export class GooglePlayClient {
    * @see https://developers.google.com/android-publisher/api-ref/rest/v3/edits/insert
    */
   private async createEdit(packageName: string, fields: string | null = null): Promise<string> {
+    const editsInsert = withSelectedFields({ packageName }, fields);
+
     const editCreation = await this.executeGeneratedRequest('create edit', () =>
-      this.publisher.edits.insert(withSelectedFields({ packageName }, fields)),
+      this.publisher.edits.insert(editsInsert),
     );
 
     if (editCreation.id != null) {
@@ -848,8 +850,10 @@ export class GooglePlayClient {
     editId: string,
     fields: string | null = null,
   ): Promise<void> {
+    const editsCommit = withSelectedFields({ packageName, editId }, fields);
+
     await this.executeGeneratedRequest('commit edit', () =>
-      this.publisher.edits.commit(withSelectedFields({ packageName, editId }, fields)),
+      this.publisher.edits.commit(editsCommit),
     );
   }
 
@@ -863,8 +867,10 @@ export class GooglePlayClient {
     editId: string,
     fields: string | null = null,
   ): Promise<void> {
+    const editsDelete = withSelectedFields({ packageName, editId }, fields);
+
     await this.executeGeneratedRequest('delete edit', () =>
-      this.publisher.edits.delete(withSelectedFields({ packageName, editId }, fields)),
+      this.publisher.edits.delete(editsDelete),
     );
   }
 
@@ -916,8 +922,10 @@ export class GooglePlayClient {
    */
   async getLatestVersionCode(packageName: string, fields: string | null = null): Promise<number> {
     const readLatestVersionCode = async (editId: string): Promise<number> => {
+      const bundlesList = withSelectedFields({ packageName, editId }, fields);
+
       const bundlePage = await this.executeGeneratedRequest('list bundles', () =>
-        this.publisher.edits.bundles.list(withSelectedFields({ packageName, editId }, fields)),
+        this.publisher.edits.bundles.list(bundlesList),
       );
       const codes: number[] = [];
       const bundles = bundlePage.bundles;
@@ -958,8 +966,10 @@ export class GooglePlayClient {
     fields: string | null = null,
   ): Promise<PlayRelease[]> {
     const readTrackReleases = async (editId: string): Promise<PlayRelease[]> => {
+      const tracksGet = withSelectedFields({ packageName, editId, track }, fields);
+
       const trackSnapshot = await this.executeGeneratedRequest('get track', () =>
-        this.publisher.edits.tracks.get(withSelectedFields({ packageName, editId, track }, fields)),
+        this.publisher.edits.tracks.get(tracksGet),
       );
       return releasesFromGoogleTrack(trackSnapshot.releases);
     };
@@ -974,8 +984,10 @@ export class GooglePlayClient {
    */
   async listTracks(packageName: string, fields: string | null = null): Promise<PlayTrackInfo[]> {
     const readTracks = async (editId: string): Promise<PlayTrackInfo[]> => {
+      const tracksList = withSelectedFields({ packageName, editId }, fields);
+
       const trackCatalog = await this.executeGeneratedRequest('list tracks', () =>
-        this.publisher.edits.tracks.list(withSelectedFields({ packageName, editId }, fields)),
+        this.publisher.edits.tracks.list(tracksList),
       );
       const tracks: PlayTrackInfo[] = [];
       const googleTracks = trackCatalog.tracks;
@@ -1014,20 +1026,20 @@ export class GooglePlayClient {
   ): Promise<void> {
     const writeTrackReleases = async (editId: string): Promise<void> => {
       await this.executeGeneratedRequest('update track', () => {
-        return this.publisher.edits.tracks.update(
-          withSelectedFields(
-            {
-              packageName,
-              editId,
+        const tracksUpdate = withSelectedFields(
+          {
+            packageName,
+            editId,
+            track,
+            requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Track>({
               track,
-              requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Track>({
-                track,
-                releases,
-              }),
-            },
-            fields,
-          ),
+              releases,
+            }),
+          },
+          fields,
         );
+
+        return this.publisher.edits.tracks.update(tracksUpdate);
       });
     };
 
@@ -1048,17 +1060,17 @@ export class GooglePlayClient {
     fields: string | null = null,
   ): Promise<number> {
     const uploadAndRelease = async (editId: string): Promise<number> => {
+      const bundlesUpload = withSelectedFields(
+        {
+          packageName,
+          editId,
+          media: { mimeType: 'application/octet-stream', body: bundleStream },
+        },
+        fields,
+      );
+
       const uploadedBundle = await this.executeGeneratedRequest('upload bundle', () =>
-        this.publisher.edits.bundles.upload(
-          withSelectedFields(
-            {
-              packageName,
-              editId,
-              media: { mimeType: 'application/octet-stream', body: bundleStream },
-            },
-            fields,
-          ),
-        ),
+        this.publisher.edits.bundles.upload(bundlesUpload),
       );
       const versionCode = uploadedBundle.versionCode;
 
@@ -1068,20 +1080,20 @@ export class GooglePlayClient {
         const trackRelease: PlayRelease = { ...release, versionCodes: [String(versionCode)] };
 
         await this.executeGeneratedRequest('update track', () => {
-          return this.publisher.edits.tracks.update(
-            withSelectedFields(
-              {
-                packageName,
-                editId,
+          const trackReleaseUpdate = withSelectedFields(
+            {
+              packageName,
+              editId,
+              track,
+              requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Track>({
                 track,
-                requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Track>({
-                  track,
-                  releases: [trackRelease],
-                }),
-              },
-              fields,
-            ),
+                releases: [trackRelease],
+              }),
+            },
+            fields,
           );
+
+          return this.publisher.edits.tracks.update(trackReleaseUpdate);
         });
 
         return versionCode;
@@ -1108,10 +1120,10 @@ export class GooglePlayClient {
     fields: string | null = null,
   ): Promise<string[]> {
     const readTesters = async (editId: string): Promise<string[]> => {
+      const testersGet = withSelectedFields({ packageName, editId, track }, fields);
+
       const testerGroupSet = await this.executeGeneratedRequest('get testers', () =>
-        this.publisher.edits.testers.get(
-          withSelectedFields({ packageName, editId, track }, fields),
-        ),
+        this.publisher.edits.testers.get(testersGet),
       );
       const googleGroups = testerGroupSet.googleGroups;
 
@@ -1137,18 +1149,18 @@ export class GooglePlayClient {
     fields: string | null = null,
   ): Promise<void> {
     const writeTesters = async (editId: string): Promise<void> => {
+      const testersUpdate = withSelectedFields(
+        {
+          packageName,
+          editId,
+          track,
+          requestBody: { googleGroups: [...googleGroups] },
+        },
+        fields,
+      );
+
       await this.executeGeneratedRequest('update testers', () =>
-        this.publisher.edits.testers.update(
-          withSelectedFields(
-            {
-              packageName,
-              editId,
-              track,
-              requestBody: { googleGroups: [...googleGroups] },
-            },
-            fields,
-          ),
-        ),
+        this.publisher.edits.testers.update(testersUpdate),
       );
     };
 
@@ -1162,8 +1174,10 @@ export class GooglePlayClient {
    */
   async listListings(packageName: string, fields: string | null = null): Promise<PlayListing[]> {
     const readListings = async (editId: string): Promise<PlayListing[]> => {
+      const listingsList = withSelectedFields({ packageName, editId }, fields);
+
       const listingCatalog = await this.executeGeneratedRequest('list listings', () =>
-        this.publisher.edits.listings.list(withSelectedFields({ packageName, editId }, fields)),
+        this.publisher.edits.listings.list(listingsList),
       );
       const listings: PlayListing[] = [];
       const googleListings = listingCatalog.listings;
@@ -1197,17 +1211,17 @@ export class GooglePlayClient {
     const writeListings = async (editId: string): Promise<void> => {
       for (const listing of listings) {
         await this.executeGeneratedRequest('update listing', () => {
-          return this.publisher.edits.listings.patch(
-            withSelectedFields(
-              {
-                packageName,
-                editId,
-                language: listing.language,
-                requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Listing>(listing),
-              },
-              fields,
-            ),
+          const listingsPatch = withSelectedFields(
+            {
+              packageName,
+              editId,
+              language: listing.language,
+              requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Listing>(listing),
+            },
+            fields,
           );
+
+          return this.publisher.edits.listings.patch(listingsPatch);
         });
       }
     };
@@ -1226,12 +1240,11 @@ export class GooglePlayClient {
     fields: string | null = null,
   ): Promise<PlayCountryAvailability> {
     const readCountryAvailability = async (editId: string): Promise<PlayCountryAvailability> => {
+      const countryavailabilityGet = withSelectedFields({ packageName, editId, track }, fields);
+
       const countryAvailability = await this.executeGeneratedRequest(
         'get country availability',
-        () =>
-          this.publisher.edits.countryavailability.get(
-            withSelectedFields({ packageName, editId, track }, fields),
-          ),
+        () => this.publisher.edits.countryavailability.get(countryavailabilityGet),
       );
       const countries: { countryCode: string }[] = [];
       const googleCountries = countryAvailability.countries;
@@ -1353,16 +1366,16 @@ export class GooglePlayClient {
     product: InAppProductResource,
     fields: string | null = null,
   ): Promise<void> {
+    const inappproductsInsert = withSelectedFields(
+      {
+        packageName,
+        requestBody: { ...product, packageName },
+      },
+      fields,
+    );
+
     await this.executeGeneratedRequest('insert in-app product', () =>
-      this.publisher.inappproducts.insert(
-        withSelectedFields(
-          {
-            packageName,
-            requestBody: { ...product, packageName },
-          },
-          fields,
-        ),
-      ),
+      this.publisher.inappproducts.insert(inappproductsInsert),
     );
   }
 
@@ -1376,17 +1389,17 @@ export class GooglePlayClient {
     product: InAppProductResource,
     fields: string | null = null,
   ): Promise<void> {
+    const inappproductsUpdate = withSelectedFields(
+      {
+        packageName,
+        sku: product.sku,
+        requestBody: { ...product, packageName },
+      },
+      fields,
+    );
+
     await this.executeGeneratedRequest('update in-app product', () =>
-      this.publisher.inappproducts.update(
-        withSelectedFields(
-          {
-            packageName,
-            sku: product.sku,
-            requestBody: { ...product, packageName },
-          },
-          fields,
-        ),
-      ),
+      this.publisher.inappproducts.update(inappproductsUpdate),
     );
   }
 
@@ -1408,16 +1421,16 @@ export class GooglePlayClient {
       priceRequest.productTaxCategoryCode = productTaxCategoryCode;
     }
 
+    const monetizationConvertRegionPrices = withSelectedFields(
+      {
+        packageName,
+        requestBody: priceRequest,
+      },
+      fields,
+    );
+
     const priceConversion = await this.executeGeneratedRequest('convert region prices', () =>
-      this.publisher.monetization.convertRegionPrices(
-        withSelectedFields(
-          {
-            packageName,
-            requestBody: priceRequest,
-          },
-          fields,
-        ),
-      ),
+      this.publisher.monetization.convertRegionPrices(monetizationConvertRegionPrices),
     );
     const regions: ConvertedRegionPrice[] = [];
     const regionPrices = priceConversion.convertedRegionPrices;
@@ -1524,20 +1537,20 @@ export class GooglePlayClient {
     fields: string | null = null,
   ): Promise<void> {
     await this.executeGeneratedRequest('create subscription', () => {
-      return this.publisher.monetization.subscriptions.create(
-        withSelectedFields(
-          {
+      const subscriptionsCreate = withSelectedFields(
+        {
+          packageName,
+          productId: subscription.productId,
+          'regionsVersion.version': REGIONS_VERSION,
+          requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Subscription>({
+            ...subscription,
             packageName,
-            productId: subscription.productId,
-            'regionsVersion.version': REGIONS_VERSION,
-            requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Subscription>({
-              ...subscription,
-              packageName,
-            }),
-          },
-          fields,
-        ),
+          }),
+        },
+        fields,
       );
+
+      return this.publisher.monetization.subscriptions.create(subscriptionsCreate);
     });
   }
 
@@ -1553,21 +1566,21 @@ export class GooglePlayClient {
     fields: string | null = null,
   ): Promise<void> {
     await this.executeGeneratedRequest('patch subscription', () => {
-      return this.publisher.monetization.subscriptions.patch(
-        withSelectedFields(
-          {
+      const subscriptionsPatch = withSelectedFields(
+        {
+          packageName,
+          productId: subscription.productId,
+          updateMask,
+          'regionsVersion.version': REGIONS_VERSION,
+          requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Subscription>({
+            ...subscription,
             packageName,
-            productId: subscription.productId,
-            updateMask,
-            'regionsVersion.version': REGIONS_VERSION,
-            requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Subscription>({
-              ...subscription,
-              packageName,
-            }),
-          },
-          fields,
-        ),
+          }),
+        },
+        fields,
       );
+
+      return this.publisher.monetization.subscriptions.patch(subscriptionsPatch);
     });
   }
 
@@ -1583,18 +1596,18 @@ export class GooglePlayClient {
     basePlanId: string,
     fields: string | null = null,
   ): Promise<void> {
+    const basePlansActivate = withSelectedFields(
+      {
+        packageName,
+        productId,
+        basePlanId,
+        requestBody: { packageName, productId, basePlanId },
+      },
+      fields,
+    );
+
     await this.executeGeneratedRequest('activate base plan', () =>
-      this.publisher.monetization.subscriptions.basePlans.activate(
-        withSelectedFields(
-          {
-            packageName,
-            productId,
-            basePlanId,
-            requestBody: { packageName, productId, basePlanId },
-          },
-          fields,
-        ),
-      ),
+      this.publisher.monetization.subscriptions.basePlans.activate(basePlansActivate),
     );
   }
 
@@ -1675,22 +1688,22 @@ export class GooglePlayClient {
     }
 
     await this.executeGeneratedRequest('create subscription offer', () => {
-      return this.publisher.monetization.subscriptions.basePlans.offers.create(
-        withSelectedFields(
-          {
+      const offersCreate = withSelectedFields(
+        {
+          packageName,
+          productId,
+          basePlanId,
+          offerId: offer.offerId,
+          'regionsVersion.version': REGIONS_VERSION,
+          requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$SubscriptionOffer>({
+            ...offer,
             packageName,
-            productId,
-            basePlanId,
-            offerId: offer.offerId,
-            'regionsVersion.version': REGIONS_VERSION,
-            requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$SubscriptionOffer>({
-              ...offer,
-              packageName,
-            }),
-          },
-          fields,
-        ),
+          }),
+        },
+        fields,
       );
+
+      return this.publisher.monetization.subscriptions.basePlans.offers.create(offersCreate);
     });
   }
 
@@ -1706,19 +1719,19 @@ export class GooglePlayClient {
     offerId: string,
     fields: string | null = null,
   ): Promise<void> {
+    const offersActivate = withSelectedFields(
+      {
+        packageName,
+        productId,
+        basePlanId,
+        offerId,
+        requestBody: { packageName, productId, basePlanId, offerId },
+      },
+      fields,
+    );
+
     await this.executeGeneratedRequest('activate subscription offer', () =>
-      this.publisher.monetization.subscriptions.basePlans.offers.activate(
-        withSelectedFields(
-          {
-            packageName,
-            productId,
-            basePlanId,
-            offerId,
-            requestBody: { packageName, productId, basePlanId, offerId },
-          },
-          fields,
-        ),
-      ),
+      this.publisher.monetization.subscriptions.basePlans.offers.activate(offersActivate),
     );
   }
 
@@ -1794,8 +1807,10 @@ export class GooglePlayClient {
     fields: string | null = null,
   ): Promise<PlayReview | null> {
     try {
+      const reviewsGet = withSelectedFields({ packageName, reviewId }, fields);
+
       const googleReview = await this.executeGeneratedRequest('get review', () =>
-        this.publisher.reviews.get(withSelectedFields({ packageName, reviewId }, fields)),
+        this.publisher.reviews.get(reviewsGet),
       );
       const review = normalizeReview(googleReview);
 
@@ -1834,17 +1849,17 @@ export class GooglePlayClient {
     replyText: string,
     fields: string | null = null,
   ): Promise<PlayReplyResult> {
+    const reviewsReply = withSelectedFields(
+      {
+        packageName,
+        reviewId,
+        requestBody: { replyText },
+      },
+      fields,
+    );
+
     const replyConfirmation = await this.executeGeneratedRequest('reply to review', () =>
-      this.publisher.reviews.reply(
-        withSelectedFields(
-          {
-            packageName,
-            reviewId,
-            requestBody: { replyText },
-          },
-          fields,
-        ),
-      ),
+      this.publisher.reviews.reply(reviewsReply),
     );
     let storedReplyText = replyText;
     const confirmedReplyText = replyConfirmation.result?.replyText;

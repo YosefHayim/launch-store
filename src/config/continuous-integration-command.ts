@@ -7,20 +7,12 @@ import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 const WORKFLOW_PATH = '.github/workflows/launch.yml';
 
 type CiCommandInput = Readonly<{
   android: boolean;
   force: boolean;
-}>;
-
-type CiCommandFailure = Readonly<{
-  _tag: 'CiCommandFailure';
-  operation: string;
-  message: string;
-  cause?: unknown;
 }>;
 
 function decodeCiCommandInput(rawCommandInput: unknown): CiCommandInput {
@@ -174,11 +166,7 @@ export async function ciCommandProgram(rawCommandInput: unknown): Promise<void> 
     const refuseOverwrite = shouldRefuseOverwrite(workflowExists, commandInput.force);
 
     if (refuseOverwrite) {
-      throw {
-        _tag: 'CiCommandFailure',
-        operation: 'write CI workflow',
-        message: `${WORKFLOW_PATH} already exists. Re-run with --force to overwrite it.`,
-      } satisfies CiCommandFailure;
+      throw new Error(`${WORKFLOW_PATH} already exists. Re-run with --force to overwrite it.`);
     }
 
     const parentDirectory = dirname(workflowPath);
@@ -200,15 +188,14 @@ export async function ciCommandProgram(rawCommandInput: unknown): Promise<void> 
 
     logger.line('\nThen push a v* tag or use Run workflow to build and ship.');
   } catch (cause) {
-    if (isFailureTag(cause, 'CiCommandFailure')) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
       throw cause;
     }
 
-    throw {
-      _tag: 'CiCommandFailure',
-      operation: 'scaffold CI workflow',
-      message: errorMessage(cause),
-      cause,
-    } satisfies CiCommandFailure;
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }

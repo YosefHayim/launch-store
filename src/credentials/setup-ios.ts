@@ -12,7 +12,6 @@ import { requireMatchedAccount } from './apple-account-match.ts';
 import { ensureSigningCredentials } from './apple-signing-assets.ts';
 import { chooseAccountInteractive } from './choose-account-interactive.ts';
 import type { CredentialsCommandOptions } from './credentials-command-options.ts';
-import { failCommand } from './credentials-failure.ts';
 import { commandCanPrompt, firstDefinedText } from './credentials-prompt.ts';
 import { selectConfiguredApp } from './select-configured-app.ts';
 
@@ -25,7 +24,7 @@ async function selectAppleAccount(
   const selector = firstDefinedText(commandOptions.account, environment.values.appleAccount);
 
   if (selector != null) {
-    return requireMatchedAccount(accounts, selector, 'select Apple account');
+    return requireMatchedAccount(accounts, selector);
   }
 
   const activeAccount = await getActiveAccount();
@@ -35,10 +34,7 @@ async function selectAppleAccount(
   }
 
   if (canPrompt == false) {
-    failCommand(
-      'select Apple account',
-      'No active Apple account. Import one with `launch-store creds set-key`.',
-    );
+    throw new Error('No active Apple account. Import one with `launch-store creds set-key`.');
   }
 
   return chooseAccountInteractive(commandOptions);
@@ -53,8 +49,7 @@ export async function setupIos(
   const ascKey = await loadAscKeyById(account.keyId);
 
   if (ascKey == null) {
-    failCommand(
-      'set up Apple signing',
+    throw new Error(
       `Account "${account.label}" has no stored key. Re-import it with \`launch-store creds set-key\`.`,
     );
   }
@@ -64,10 +59,7 @@ export async function setupIos(
   const app = await selectConfiguredApp(loadedConfig.apps, commandOptions.app, canPrompt);
 
   if (app.bundleId == null) {
-    failCommand(
-      'set up Apple signing',
-      `No Apple bundle identifier is configured for ${app.name}.`,
-    );
+    throw new Error(`No Apple bundle identifier is configured for ${app.name}.`);
   }
 
   const logger = createLogger(false);

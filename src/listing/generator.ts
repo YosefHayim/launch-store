@@ -1,20 +1,11 @@
 // Builds a listing prompt, asks Anthropic, and parses the reply into a listing draft.
 
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
-import { hasMessage } from '../services/platform/error-message.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import type { DraftListing, ListingBrief } from '../types/listing.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import { APPLE_LIMITS, serializeKeywords } from './apply.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
-
-/** Anthropic listing generation or decoding failed. */
-interface ListingGenerationFailure {
-  readonly _tag: 'ListingGenerationFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}
 
 interface GeneratedListing {
   title?: string;
@@ -28,25 +19,6 @@ interface ListingCopyGenerator {
   readonly name: string;
 
   generate(brief: ListingBrief): Promise<DraftListing>;
-}
-
-/** Normalize a generator dependency failure. */
-function generationFailure(
-  operation: string,
-  cause: unknown,
-  explicitMessage?: string,
-): ListingGenerationFailure {
-  let message = `${operation} failed.`;
-
-  if (hasMessage(cause)) {
-    message = cause.message;
-  }
-
-  if (explicitMessage != null) {
-    message = explicitMessage;
-  }
-
-  return { _tag: 'ListingGenerationFailure', operation, message, cause };
 }
 
 function quotedListingText(label: string, listingText: string): string {
@@ -169,6 +141,10 @@ function normalizeGeneratedKeywords(
   return normalizedKeywords;
 }
 
+function invalidListingCopy(cause: unknown): never {
+  throw new Error('The model did not return valid JSON listing copy.', { cause });
+}
+
 function readOptionalGeneratedText(
   record: Record<string, unknown>,
   fieldName: string,
@@ -286,14 +262,6 @@ function draftFromGenerated(generatedListing: GeneratedListing): DraftListing {
   return listingDraft;
 }
 
-function invalidListingCopy(cause: unknown): ListingGenerationFailure {
-  return generationFailure(
-    'decode listing completion',
-    cause,
-    'The model did not return valid JSON listing copy.',
-  );
-}
-
 /** Decode model text into a usable listing draft. */
 export function parseDraftListing(completionText: string): DraftListing {
   let parsed: unknown;
@@ -302,13 +270,13 @@ export function parseDraftListing(completionText: string): DraftListing {
     const stripFence = stripJsonFence(completionText);
     parsed = JSON.parse(stripFence);
   } catch (cause) {
-    throw invalidListingCopy(cause);
+    throw new Error('The model did not return valid JSON listing copy.', { cause });
   }
 
   const parsedObject = readPlainObject(parsed);
 
   if (parsedObject == null) {
-    throw invalidListingCopy(parsed);
+    throw new Error('The model did not return valid JSON listing copy.', { cause: parsed });
   }
 
   const generatedListing = readGeneratedListing(parsedObject);
@@ -316,11 +284,7 @@ export function parseDraftListing(completionText: string): DraftListing {
   const hasUsableFields = Object.keys(listingDraft).length > 0;
 
   if (hasUsableFields == false) {
-    throw generationFailure(
-      'decode listing completion',
-      completionText,
-      'The model returned no usable listing fields.',
-    );
+    throw new Error('The model returned no usable listing fields.', { cause: completionText });
   }
 
   return listingDraft;
@@ -330,7 +294,7 @@ function readTextBlock(contentBlock: unknown): string {
   const contentBlockObject = readPlainObject(contentBlock);
 
   if (contentBlockObject == null) {
-    throw generationFailure('generate Anthropic listing', contentBlock);
+    throw new Error('generate Anthropic listing failed.', { cause: contentBlock });
   }
 
   if (contentBlockObject['type'] != 'text') {
@@ -349,19 +313,11 @@ function readCompletionText(anthropicMessage: unknown): string {
   const anthropicMessageObject = readPlainObject(anthropicMessage);
 
   if (anthropicMessageObject == null) {
-    throw generationFailure(
-      'read Anthropic completion',
-      anthropicMessage,
-      'Anthropic returned an empty completion.',
-    );
+    throw new Error('Anthropic returned an empty completion.', { cause: anthropicMessage });
   }
 
   if (Array.isArray(anthropicMessageObject['content']) == false) {
-    throw generationFailure(
-      'read Anthropic completion',
-      anthropicMessageObject,
-      'Anthropic returned an empty completion.',
-    );
+    throw new Error('Anthropic returned an empty completion.', { cause: anthropicMessageObject });
   }
 
   let completionText = '';
@@ -372,11 +328,7 @@ function readCompletionText(anthropicMessage: unknown): string {
   }
 
   if (completionText.length == 0) {
-    throw generationFailure(
-      'read Anthropic completion',
-      anthropicMessageObject,
-      'Anthropic returned an empty completion.',
-    );
+    throw new Error('Anthropic returned an empty completion.', { cause: anthropicMessageObject });
   }
 
   return completionText;
@@ -412,11 +364,9 @@ function isFailedStatus(status: number): boolean {
 }
 
 function failAnthropicStatus(anthropicReply: Response): never {
-  throw generationFailure(
-    'request Anthropic listing',
-    anthropicReply.status,
-    `Anthropic API error ${anthropicReply.status}.`,
-  );
+  throw new Error(`Anthropic API error ${anthropicReply.status}.`, {
+    cause: anthropicReply.status,
+  });
 }
 
 async function requestAnthropicListing(
@@ -446,7 +396,15 @@ async function requestAnthropicListing(
       body: serialized,
     });
   } catch (cause) {
-    throw generationFailure('generate Anthropic listing', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   const requestFailed = isFailedStatus(anthropicReply.status);
@@ -460,7 +418,15 @@ async function requestAnthropicListing(
   try {
     replyText = await anthropicReply.text();
   } catch (cause) {
-    throw generationFailure('generate Anthropic listing', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   let anthropicMessage: unknown;
@@ -468,7 +434,15 @@ async function requestAnthropicListing(
   try {
     anthropicMessage = JSON.parse(replyText);
   } catch (cause) {
-    throw generationFailure('generate Anthropic listing', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   const completionText = readCompletionText(anthropicMessage);
@@ -496,20 +470,23 @@ export function createAnthropicListingGenerator(
       const apiKey = pickApiKey(options.apiKey, launchEnvironment.values.anthropicApiKey);
 
       if (apiKey == null) {
-        throw generationFailure(
-          'authenticate Anthropic request',
-          'missing-api-key',
+        throw new Error(
           'Set ANTHROPIC_API_KEY to generate listing copy (create a key at https://console.anthropic.com/).',
+          { cause: 'missing-api-key' },
         );
       }
 
       return await requestAnthropicListing(apiKey, model, listingBrief);
     } catch (cause) {
-      if (isFailureTag(cause, 'ListingGenerationFailure')) {
+      const isAlreadyError = cause instanceof Error;
+
+      if (isAlreadyError) {
         throw cause;
       }
 
-      throw generationFailure('generate Anthropic listing', cause);
+      const failureMessage = errorMessage(cause);
+
+      throw new Error(failureMessage, { cause });
     }
   }
 

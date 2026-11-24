@@ -2,7 +2,6 @@
 
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { AppDescriptor } from '../types/app.ts';
-import { failCommand } from './credentials-failure.ts';
 
 async function findConfiguredApp(
   apps: readonly AppDescriptor[],
@@ -16,7 +15,7 @@ async function findConfiguredApp(
     }
   }
 
-  failCommand('select app', `No configured app named "${requestedApp}".`);
+  throw new Error(`No configured app named "${requestedApp}".`);
 }
 
 export async function selectConfiguredApp(
@@ -37,11 +36,11 @@ export async function selectConfiguredApp(
   }
 
   if (canPrompt == false) {
-    failCommand('select app', 'Pass --app <name>.');
+    throw new Error('Pass --app <name>.');
   }
 
   if (apps.length == 0) {
-    failCommand('select app', 'No applications were discovered.');
+    throw new Error('No applications were discovered.');
   }
 
   return new LaunchPrompt().select({

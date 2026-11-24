@@ -55,23 +55,6 @@ type ReportsCommandInput =
   | FinanceReportsCommandInput
   | AnalyticsReportsCommandInput;
 
-type ReportsOperation = ReportsCommandInput['operation'];
-
-type ReportsCommandFailure = Readonly<{
-  readonly _tag: 'ReportsCommandFailure';
-  readonly operation: ReportsOperation;
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-function makeReportsCommandFailure(fields: {
-  operation: ReportsOperation;
-  message: string;
-  cause?: unknown;
-}): ReportsCommandFailure {
-  return { _tag: 'ReportsCommandFailure', ...fields };
-}
-
 type WrittenReport = Readonly<{
   reportPath: string;
   reportEntryCount: number;
@@ -232,14 +215,6 @@ function decodeReportsCommandInput(rawCommandInput: unknown): ReportsCommandInpu
   throw new Error('Unknown reports command.');
 }
 
-function readReportsOperation(rawCommandInput: unknown): ReportsOperation | null {
-  try {
-    return decodeReportsCommandInput(rawCommandInput).operation;
-  } catch (cause) {
-    return null;
-  }
-}
-
 /** Select the explicit vendor number, falling back to the decoded environment setting. */
 function selectVendorNumber(explicitVendorNumber: string | undefined): string {
   const environment = readLaunchEnvironment();
@@ -252,19 +227,13 @@ function selectVendorNumber(explicitVendorNumber: string | undefined): string {
   }
 
   if (vendorNumber == null) {
-    throw makeReportsCommandFailure({
-      operation: 'sales',
-      message: VENDOR_NUMBER_MESSAGE,
-    });
+    throw new Error(VENDOR_NUMBER_MESSAGE);
   }
 
   const isVendorNumberBlank = vendorNumber.trim().length == 0;
 
   if (isVendorNumberBlank) {
-    throw makeReportsCommandFailure({
-      operation: 'sales',
-      message: VENDOR_NUMBER_MESSAGE,
-    });
+    throw new Error(VENDOR_NUMBER_MESSAGE);
   }
 
   return vendorNumber;
@@ -413,17 +382,11 @@ function selectSalesDates(commandInput: SalesReportsCommandInput): string[] {
     const lastReportDate = commandInput.to;
 
     if (firstReportDate == null) {
-      throw makeReportsCommandFailure({
-        operation: 'sales',
-        message: '--from requires a matching --to date.',
-      });
+      throw new Error('--from requires a matching --to date.');
     }
 
     if (lastReportDate == null) {
-      throw makeReportsCommandFailure({
-        operation: 'sales',
-        message: '--to requires a matching --from date.',
-      });
+      throw new Error('--to requires a matching --from date.');
     }
 
     try {
@@ -431,30 +394,20 @@ function selectSalesDates(commandInput: SalesReportsCommandInput): string[] {
     } catch (cause) {
       const failureMessage = errorMessage(cause);
 
-      throw makeReportsCommandFailure({
-        operation: 'sales',
-        message: failureMessage,
-        cause,
-      });
+      throw new Error(failureMessage, { cause });
     }
   }
 
   const hasFromOnly = hasOnlySalesFrom(commandInput);
 
   if (hasFromOnly) {
-    throw makeReportsCommandFailure({
-      operation: 'sales',
-      message: '--from requires a matching --to date.',
-    });
+    throw new Error('--from requires a matching --to date.');
   }
 
   const hasToOnly = hasOnlySalesTo(commandInput);
 
   if (hasToOnly) {
-    throw makeReportsCommandFailure({
-      operation: 'sales',
-      message: '--to requires a matching --from date.',
-    });
+    throw new Error('--to requires a matching --from date.');
   }
 
   const reportDate = commandInput.date;
@@ -465,10 +418,7 @@ function selectSalesDates(commandInput: SalesReportsCommandInput): string[] {
     return [reportDate];
   }
 
-  throw makeReportsCommandFailure({
-    operation: 'sales',
-    message: 'A date is required. Pass --date <YYYY-MM-DD> or a --from/--to range.',
-  });
+  throw new Error('A date is required. Pass --date <YYYY-MM-DD> or a --from/--to range.');
 }
 
 /** Download the requested Sales and Trends reports serially. */
@@ -513,10 +463,7 @@ async function downloadFinanceReport(commandInput: FinanceReportsCommandInput): 
   const isFiscalPeriodMissing = fiscalPeriod == null;
 
   if (isFiscalPeriodMissing) {
-    throw makeReportsCommandFailure({
-      operation: 'finance',
-      message: 'A fiscal period is required. Pass --date <YYYY-MM>.',
-    });
+    throw new Error('A fiscal period is required. Pass --date <YYYY-MM>.');
   }
 
   const logger = createLogger(false);
@@ -649,22 +596,15 @@ export async function reportsCommandProgram(rawCommandInput: unknown): Promise<v
 
     await downloadAnalyticsReports(commandInput);
   } catch (cause) {
-    let operation: ReportsOperation = 'sales';
-    const decodedOperation = readReportsOperation(rawCommandInput);
+    const isAlreadyError = cause instanceof Error;
 
-    const hasOperation = decodedOperation != null;
-
-    if (hasOperation) {
-      operation = decodedOperation;
+    if (isAlreadyError) {
+      throw cause;
     }
 
     const failureMessage = errorMessage(cause);
 
-    throw makeReportsCommandFailure({
-      operation,
-      message: failureMessage,
-      cause,
-    });
+    throw new Error(failureMessage, { cause });
   }
 }
 

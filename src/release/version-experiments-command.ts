@@ -30,37 +30,12 @@ export type VersionExperimentsCommandInput = {
   readonly yes: boolean;
 };
 
-/** A version experiments command step failed. */
-type VersionExperimentsCommandFailure = Readonly<{
-  readonly _tag: 'VersionExperimentsCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeVersionExperimentsCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): VersionExperimentsCommandFailure {
-  return {
-    _tag: 'VersionExperimentsCommandFailure',
-    operation: fields.operation,
-    message: fields.message,
-    cause: fields.cause,
-  };
-}
-
 function readBoolean(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
   const isBoolean = typeof field == 'boolean';
 
   if (isBoolean == false) {
-    throw makeVersionExperimentsCommandFailure({
-      operation: 'decode experiments command input',
-      message: `Experiments command ${fieldName} must be a boolean.`,
-      cause: record,
-    });
+    throw new Error(`Experiments command ${fieldName} must be a boolean.`, { cause: record });
   }
 
   return field;
@@ -77,9 +52,7 @@ function readAppSelector(record: Record<string, unknown>): string | undefined {
   const isAppText = typeof appField == 'string';
 
   if (isAppText == false) {
-    throw makeVersionExperimentsCommandFailure({
-      operation: 'decode experiments command input',
-      message: 'Experiments command app must be a string when it is present.',
+    throw new Error('Experiments command app must be a string when it is present.', {
       cause: record,
     });
   }
@@ -93,11 +66,7 @@ export function decodeVersionExperimentsCommandInput(
   const rawCommandInputObject = readPlainObject(rawCommandInput);
 
   if (rawCommandInputObject == null) {
-    throw makeVersionExperimentsCommandFailure({
-      operation: 'decode experiments command input',
-      message: 'Experiments command input must be an object.',
-      cause: rawCommandInput,
-    });
+    throw new Error('Experiments command input must be an object.', { cause: rawCommandInput });
   }
 
   const app = readAppSelector(rawCommandInputObject);
@@ -116,25 +85,26 @@ export function decodeVersionExperimentsCommandInput(
   return { ...decodedInput, app };
 }
 
-/** Convert a dependency failure into the experiments command channel. */
-function experimentsFailure(operation: string, cause: unknown): VersionExperimentsCommandFailure {
-  let message = `${operation} failed.`;
+function experimentsFailure(operation: string, cause: unknown): Error {
+  const causeHasMessage = hasMessage(cause);
+
+  if (causeHasMessage) {
+    return new Error(cause.message, { cause });
+  }
 
   const isText = typeof cause == 'string';
 
-  if (isText) {
-    const hasText = cause.length > 0;
-
-    if (hasText) {
-      message = cause;
-    }
+  if (isText == false) {
+    return new Error(`${operation} failed.`, { cause });
   }
 
-  if (hasMessage(cause)) {
-    message = cause.message;
+  const hasText = cause.length > 0;
+
+  if (hasText == false) {
+    return new Error(`${operation} failed.`, { cause });
   }
 
-  return makeVersionExperimentsCommandFailure({ operation, message, cause });
+  return new Error(cause, { cause });
 }
 
 type ExperimentsTarget = Readonly<{
@@ -185,11 +155,10 @@ async function resolveExperimentsTarget(
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
-    throw makeVersionExperimentsCommandFailure({
-      operation: 'resolve experiments bundle id',
-      message: `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
-      cause: storeAppContext.app,
-    });
+    throw new Error(
+      `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
+      { cause: storeAppContext.app },
+    );
   }
 
   const experimentsForBundle = storeAppContext.config.experiments?.[bundleId];
@@ -197,11 +166,10 @@ async function resolveExperimentsTarget(
   const isExperimentsMissing = experimentsForBundle == null;
 
   if (isExperimentsMissing) {
-    throw makeVersionExperimentsCommandFailure({
-      operation: 'resolve experiments config',
-      message: `No experiments for ${bundleId}. Add an experiments entry to launch.config.ts.`,
-      cause: bundleId,
-    });
+    throw new Error(
+      `No experiments for ${bundleId}. Add an experiments entry to launch.config.ts.`,
+      { cause: bundleId },
+    );
   }
 
   let loadedConfiguration: Awaited<ReturnType<typeof loadConfig>>;

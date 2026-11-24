@@ -34,14 +34,6 @@ export type MetadataCommandInput = {
   dryRun: boolean;
 };
 
-/** A metadata command step failed. */
-export type MetadataCommandFailure = Readonly<{
-  readonly _tag: 'MetadataCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
 type MetadataTarget = Readonly<{
   readonly app: AppDescriptor;
   readonly listing: StoreConfig | null;
@@ -52,76 +44,6 @@ type ListingAction = Readonly<{
   description: string;
   error?: string;
 }>;
-
-function makeMetadataCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): MetadataCommandFailure {
-  return { _tag: 'MetadataCommandFailure', ...fields };
-}
-
-function metadataFailure(
-  operation: string,
-  cause: unknown,
-  explicitMessage?: string,
-): MetadataCommandFailure {
-  let message = errorMessage(cause);
-
-  if (explicitMessage != null) {
-    message = explicitMessage;
-  }
-
-  return makeMetadataCommandFailure({ operation, message, cause });
-}
-
-function isMetadataCommandFailure(cause: unknown): cause is MetadataCommandFailure {
-  if (typeof cause != 'object') {
-    return false;
-  }
-
-  if (cause == null) {
-    return false;
-  }
-
-  if ('_tag' in cause == false) {
-    return false;
-  }
-
-  if (cause._tag != 'MetadataCommandFailure') {
-    return false;
-  }
-
-  if ('operation' in cause == false) {
-    return false;
-  }
-
-  if (typeof cause.operation != 'string') {
-    return false;
-  }
-
-  if ('message' in cause == false) {
-    return false;
-  }
-
-  if (typeof cause.message != 'string') {
-    return false;
-  }
-
-  if ('cause' in cause == false) {
-    return false;
-  }
-
-  return true;
-}
-
-function normalizeMetadataFailure(operation: string, cause: unknown): MetadataCommandFailure {
-  if (isMetadataCommandFailure(cause)) {
-    return cause;
-  }
-
-  return metadataFailure(operation, cause);
-}
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
@@ -201,11 +123,10 @@ export function assertListingPlatform(platform: Platform): void {
     return;
   }
 
-  throw metadataFailure(
-    'validate metadata platform',
-    platform,
-    `\`launch-store metadata\` syncs the iOS and Android store listing only - ${platformLabel(platform)} isn't supported yet. Build and ship it with \`launch-store build ${platform}\` / \`launch-store release ${platform}\`, and manage its listing in App Store Connect for now.`,
-  );
+  const storeName = platformLabel(platform);
+  const unsupportedListingMessage = `\`launch-store metadata\` syncs the iOS and Android store listing only - ${storeName} isn't supported yet. Build and ship it with \`launch-store build ${platform}\` / \`launch-store release ${platform}\`, and manage its listing in App Store Connect for now.`;
+
+  throw new Error(unsupportedListingMessage, { cause: platform });
 }
 
 function listingForKey(
@@ -245,7 +166,15 @@ async function selectMetadataTarget(appSelector: string | undefined): Promise<Me
   try {
     storeAppContext = await loadStoreAppContext(appSelector);
   } catch (cause) {
-    throw metadataFailure('select metadata app', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   const listing = declaredListing(storeAppContext.config, storeAppContext.app);
@@ -259,15 +188,21 @@ async function requireActiveAscKey(): Promise<AscKey> {
   try {
     ascKey = await loadActiveAscKey();
   } catch (cause) {
-    throw metadataFailure('load active Apple account', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   if (ascKey == null) {
-    throw metadataFailure(
-      'load active Apple account',
-      'missing-active-account',
-      'No active Apple account. Run `launch-store creds set-key` first.',
-    );
+    throw new Error('No active Apple account. Run `launch-store creds set-key` first.', {
+      cause: 'missing-active-account',
+    });
   }
 
   return ascKey;
@@ -279,7 +214,15 @@ async function requirePlayServiceAccount(packageName: string, appName: string): 
   try {
     serviceAccountJson = await loadServiceAccount(packageName);
   } catch (cause) {
-    throw metadataFailure('load Play service account', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   if (serviceAccountJson != null) {
@@ -291,10 +234,18 @@ async function requirePlayServiceAccount(packageName: string, appName: string): 
   try {
     missingMessage = await describeMissingPlayServiceAccount(appName);
   } catch (cause) {
-    throw metadataFailure('load Play service account', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
-  throw metadataFailure('load Play service account', 'missing-service-account', missingMessage);
+  throw new Error(missingMessage, { cause: 'missing-service-account' });
 }
 
 async function createAppleClient(): Promise<AppStoreConnect> {
@@ -309,7 +260,15 @@ async function createPlayClient(packageName: string, appName: string): Promise<G
   try {
     return new GoogleStoreClientService().createClient(serviceAccountJson);
   } catch (cause) {
-    throw metadataFailure('create Google Play client', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -319,15 +278,21 @@ async function requireAppId(ascClient: AppStoreConnect, bundleId: string): Promi
   try {
     appId = await ascClient.getAppId(bundleId);
   } catch (cause) {
-    throw metadataFailure('look up App Store app', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   if (appId == null) {
-    throw metadataFailure(
-      'look up App Store app',
-      bundleId,
-      `No App Store Connect app for ${bundleId}. Create it first (launch-store setup).`,
-    );
+    const missingAppMessage = `No App Store Connect app for ${bundleId}. Create it first (launch-store setup).`;
+
+    throw new Error(missingAppMessage, { cause: bundleId });
   }
 
   return appId;
@@ -344,7 +309,15 @@ export async function pullAppleListing(bundleId: string, dryRun: boolean): Promi
     try {
       appleListing = await readAppleListing(ascClient, appId);
     } catch (cause) {
-      throw metadataFailure('read App Store listing', cause);
+      const isAlreadyError = cause instanceof Error;
+
+      if (isAlreadyError) {
+        throw cause;
+      }
+
+      const failureMessage = errorMessage(cause);
+
+      throw new Error(failureMessage, { cause });
     }
 
     const localeCount = Object.keys(appleListing.info).length;
@@ -366,7 +339,15 @@ export async function pullAppleListing(bundleId: string, dryRun: boolean): Promi
       `read ${localeCount} App Store locale(s) for ${bundleId}. Add them under listing.${bundleId} in launch.config.ts.`,
     );
   } catch (cause) {
-    throw normalizeMetadataFailure('pull App Store metadata', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -399,7 +380,15 @@ async function pullAndroidListing(
     try {
       listings = await playClient.listListings(packageName);
     } catch (cause) {
-      throw metadataFailure('read Play listings', cause);
+      const isAlreadyError = cause instanceof Error;
+
+      if (isAlreadyError) {
+        throw cause;
+      }
+
+      const failureMessage = errorMessage(cause);
+
+      throw new Error(failureMessage, { cause });
     }
 
     const androidListing = androidStoreConfigFromListings(listings);
@@ -423,7 +412,15 @@ async function pullAndroidListing(
       `read ${localeCount} Play locale(s) for ${packageName}. Add them under listing.${packageName} in launch.config.ts.`,
     );
   } catch (cause) {
-    throw normalizeMetadataFailure('pull Play metadata', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -445,11 +442,9 @@ async function pushAppleListing(
     const appleListing = storeListing?.apple;
 
     if (appleListing == null) {
-      throw metadataFailure(
-        'read App Store metadata',
-        bundleId,
-        `No App Store listing for ${bundleId}. Add a listing entry to launch.config.ts.`,
-      );
+      const missingListingMessage = `No App Store listing for ${bundleId}. Add a listing entry to launch.config.ts.`;
+
+      throw new Error(missingListingMessage, { cause: bundleId });
     }
 
     const ascClient = await createAppleClient();
@@ -462,7 +457,15 @@ async function pushAppleListing(
         dryRun,
       });
     } catch (cause) {
-      throw metadataFailure('push App Store listing', cause);
+      const isAlreadyError = cause instanceof Error;
+
+      if (isAlreadyError) {
+        throw cause;
+      }
+
+      const failureMessage = errorMessage(cause);
+
+      throw new Error(failureMessage, { cause });
     }
 
     for (const action of reconciliation.actions) {
@@ -474,11 +477,9 @@ async function pushAppleListing(
     if (failedActions.length > 0) {
       const failureText = failedActions.map(describeFailedListingAction).join('; ');
 
-      throw metadataFailure(
-        'push App Store listing',
-        failureText,
-        `App Store push failed: ${failureText}`,
-      );
+      const pushFailureMessage = `App Store push failed: ${failureText}`;
+
+      throw new Error(pushFailureMessage, { cause: failureText });
     }
 
     if (dryRun) {
@@ -488,7 +489,15 @@ async function pushAppleListing(
 
     logger.step('metadata', `pushed App Store listing for ${bundleId}`);
   } catch (cause) {
-    throw normalizeMetadataFailure('push App Store metadata', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -518,11 +527,9 @@ async function pushAndroidListing(
     const androidListing = storeListing?.android;
 
     if (androidListing == null) {
-      throw metadataFailure(
-        'read Play metadata',
-        packageName,
-        `No Play listing for ${packageName}. Add a listing entry to launch.config.ts.`,
-      );
+      const missingListingMessage = `No Play listing for ${packageName}. Add a listing entry to launch.config.ts.`;
+
+      throw new Error(missingListingMessage, { cause: packageName });
     }
 
     const listings = listingsFromAndroidStoreConfig(androidListing);
@@ -552,12 +559,28 @@ async function pushAndroidListing(
     try {
       await playClient.updateListings(packageName, listings);
     } catch (cause) {
-      throw metadataFailure('upload Play listings', cause);
+      const isAlreadyError = cause instanceof Error;
+
+      if (isAlreadyError) {
+        throw cause;
+      }
+
+      const failureMessage = errorMessage(cause);
+
+      throw new Error(failureMessage, { cause });
     }
 
     logger.step('metadata', `pushed ${listings.length} Play listing(s) for ${packageName}`);
   } catch (cause) {
-    throw normalizeMetadataFailure('push Play metadata', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }
 
@@ -568,11 +591,9 @@ async function runAppleMetadataCommand(
   const bundleId = metadataTarget.app.bundleId;
 
   if (bundleId == null) {
-    throw metadataFailure(
-      'resolve App Store listing',
-      metadataTarget.app,
-      'No bundle identifier for this app (set ios.bundleIdentifier).',
-    );
+    throw new Error('No bundle identifier for this app (set ios.bundleIdentifier).', {
+      cause: metadataTarget.app,
+    });
   }
 
   if (commandInput.operation == 'pull') {
@@ -590,11 +611,9 @@ async function runAndroidMetadataCommand(
   const packageName = metadataTarget.app.packageName;
 
   if (packageName == null) {
-    throw metadataFailure(
-      'resolve Play listing',
-      metadataTarget.app,
-      'No Android application id for this app (set android.package).',
-    );
+    throw new Error('No Android application id for this app (set android.package).', {
+      cause: metadataTarget.app,
+    });
   }
 
   if (commandInput.operation == 'pull') {
@@ -618,7 +637,15 @@ export async function metadataCommandProgram(rawCommandInput: unknown): Promise<
   try {
     commandInput = decodeMetadataCommandInput(rawCommandInput);
   } catch (cause) {
-    throw metadataFailure('decode metadata command input', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   let platformText = 'ios';
@@ -632,7 +659,15 @@ export async function metadataCommandProgram(rawCommandInput: unknown): Promise<
   try {
     platform = await parsePlatform(platformText);
   } catch (cause) {
-    throw metadataFailure('parse metadata platform', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 
   assertListingPlatform(platform);

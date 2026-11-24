@@ -74,7 +74,6 @@ function describeListBetaFeedback() {
     const betaFeedback = listBetaFeedback(appleStore, 'com.x.missing');
 
     await expect(betaFeedback).rejects.toMatchObject({
-      _tag: 'TestflightFeedbackFailure',
       message: expect.stringContaining('No App Store Connect app record'),
     });
   }

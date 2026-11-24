@@ -29,15 +29,6 @@ function readPlayMoney(price: PlayPriceConfig): PlayMoney {
   return { priceMicros: price.priceMicros, currency: price.currency };
 }
 
-type PlayProductConfigFailure = Readonly<{
-  readonly _tag: 'PlayProductConfigFailure';
-  readonly message: string;
-}>;
-
-function makePlayProductConfigFailure(fields: { message: string }): PlayProductConfigFailure {
-  return { _tag: 'PlayProductConfigFailure', ...fields };
-}
-
 /** Build the Play product Launch wants from one declared in-app purchase. */
 export function readPlayProduct(purchase: InAppPurchaseConfig): InAppProductResource {
   const playOverrides = purchase.play;
@@ -51,9 +42,9 @@ export function readPlayProduct(purchase: InAppPurchaseConfig): InAppProductReso
   const defaultLocale = purchase.localizations[0]?.locale;
 
   if (defaultLocale == null) {
-    throw makePlayProductConfigFailure({
-      message: `Play product ${sku} needs at least one localization (used as its default language).`,
-    });
+    throw new Error(
+      `Play product ${sku} needs at least one localization (used as its default language).`,
+    );
   }
 
   const listings: Record<string, { title: string; description?: string }> = {};

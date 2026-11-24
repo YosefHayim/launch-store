@@ -332,16 +332,22 @@ export class PlayReportingClient {
       | playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1AnrRateMetricSet;
 
     switch (metric) {
-      case 'crash':
+      case 'crash': {
+        const crashrateGet = withSelectedFields({ name }, fields);
+
         metricSet = await this.executeGeneratedRequest('get crash-rate freshness', () =>
-          this.reporting.vitals.crashrate.get(withSelectedFields({ name }, fields)),
+          this.reporting.vitals.crashrate.get(crashrateGet),
         );
         break;
-      case 'anr':
+      }
+      case 'anr': {
+        const anrrateGet = withSelectedFields({ name }, fields);
+
         metricSet = await this.executeGeneratedRequest('get ANR-rate freshness', () =>
-          this.reporting.vitals.anrrate.get(withSelectedFields({ name }, fields)),
+          this.reporting.vitals.anrrate.get(anrrateGet),
         );
         break;
+      }
     }
 
     function isDailyFreshness(
@@ -450,20 +456,22 @@ export class PlayReportingClient {
         | playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1QueryAnrRateMetricSetResponse;
 
       switch (metric) {
-        case 'crash':
+        case 'crash': {
+          const crashrateQuery = withSelectedFields({ name, requestBody: queryRequest }, fields);
+
           metricPage = await this.executeGeneratedRequest('query crash-rate timeline', () =>
-            this.reporting.vitals.crashrate.query(
-              withSelectedFields({ name, requestBody: queryRequest }, fields),
-            ),
+            this.reporting.vitals.crashrate.query(crashrateQuery),
           );
           break;
-        case 'anr':
+        }
+        case 'anr': {
+          const anrrateQuery = withSelectedFields({ name, requestBody: queryRequest }, fields);
+
           metricPage = await this.executeGeneratedRequest('query ANR-rate timeline', () =>
-            this.reporting.vitals.anrrate.query(
-              withSelectedFields({ name, requestBody: queryRequest }, fields),
-            ),
+            this.reporting.vitals.anrrate.query(anrrateQuery),
           );
           break;
+        }
       }
 
       const metricRows = metricPage.rows;

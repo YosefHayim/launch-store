@@ -16,7 +16,7 @@ import {
   filterPortfolioApps,
   findAppsByAccount,
   findAppsByName,
-} from './portfolio-logic.ts';
+} from './portfolio-apps.ts';
 import { saveAppTags } from './tag-apps.ts';
 import { isFailureTag } from '../services/platform/tagged-failure.ts';
 

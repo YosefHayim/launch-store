@@ -103,22 +103,6 @@ function collectSubscriptionReviewScreenshots(products: AppProducts): {
   return reviewScreenshots;
 }
 
-/** An app selector named a discovered app that does not exist. */
-export type AppSelectionFailure = Readonly<{
-  readonly _tag: 'AppSelectionFailure';
-  readonly appName: string;
-  readonly discoveredApps: readonly string[];
-  readonly message: string;
-}>;
-
-function makeAppSelectionFailure(fields: {
-  appName: string;
-  discoveredApps: readonly string[];
-  message: string;
-}): AppSelectionFailure {
-  return { _tag: 'AppSelectionFailure', ...fields };
-}
-
 function trimName(name: string): string {
   return name.trim();
 }
@@ -165,11 +149,7 @@ export async function selectApps(
       discoveredAppList = 'none';
     }
 
-    throw makeAppSelectionFailure({
-      appName: selectedName,
-      discoveredApps: discoveredNames,
-      message: `Unknown app "${selectedName}". Discovered apps: ${discoveredAppList}.`,
-    });
+    throw new Error(`Unknown app "${selectedName}". Discovered apps: ${discoveredAppList}.`);
   }
 
   return selectedApps;

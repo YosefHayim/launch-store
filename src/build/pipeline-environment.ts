@@ -14,53 +14,6 @@ import type { Logger } from '../services/platform/logger.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 
-/** App selection failed before a build could start. */
-export type AppSelectionFailure = Readonly<{
-  readonly _tag: 'AppSelectionFailure';
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-function makeAppSelectionFailure(fields: {
-  message: string;
-  cause?: unknown;
-}): AppSelectionFailure {
-  const hasCause = fields.cause != null;
-
-  if (hasCause) {
-    return { _tag: 'AppSelectionFailure', message: fields.message, cause: fields.cause };
-  }
-
-  return { _tag: 'AppSelectionFailure', message: fields.message };
-}
-
-/** Build environment resolution or validation failed before artifact creation. */
-type BuildEnvironmentFailure = Readonly<{
-  readonly _tag: 'BuildEnvironmentFailure';
-  readonly stage: 'secrets' | 'validation';
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-function makeBuildEnvironmentFailure(fields: {
-  stage: 'secrets' | 'validation';
-  message: string;
-  cause?: unknown;
-}): BuildEnvironmentFailure {
-  const hasCause = fields.cause != null;
-
-  if (hasCause) {
-    return {
-      _tag: 'BuildEnvironmentFailure',
-      stage: fields.stage,
-      message: fields.message,
-      cause: fields.cause,
-    };
-  }
-
-  return { _tag: 'BuildEnvironmentFailure', stage: fields.stage, message: fields.message };
-}
-
 function isOnlyDiscoveredApp(
   apps: readonly AppDescriptor[],
   soleApp: AppDescriptor | undefined,
@@ -108,9 +61,7 @@ function findNamedApp(apps: readonly AppDescriptor[], appName: string): AppDescr
   if (isMissing) {
     const availableNames = apps.map(readAppName);
 
-    throw makeAppSelectionFailure({
-      message: `App "${appName}" not found. Available: ${availableNames.join(', ')}.`,
-    });
+    throw new Error(`App "${appName}" not found. Available: ${availableNames.join(', ')}.`);
   }
 
   return namedApp;
@@ -132,9 +83,7 @@ export async function selectApp(
   const hasNoApps = apps.length == 0;
 
   if (hasNoApps) {
-    throw makeAppSelectionFailure({
-      message: 'No apps found. Run Launch from a repo containing at least one app.json.',
-    });
+    throw new Error('No apps found. Run Launch from a repo containing at least one app.json.');
   }
 
   const hasRequestedName = appName != null;
@@ -178,7 +127,7 @@ export async function selectApp(
 
     return pickedApp;
   } catch (error) {
-    throw makeAppSelectionFailure({ message: selectionFailureMessage(error), cause: error });
+    throw new Error(selectionFailureMessage(error), { cause: error });
   }
 }
 
@@ -197,11 +146,7 @@ export async function resolveCommandEnv(request: CommandEnvironmentRequest): Pro
   try {
     secrets = await resolveBuildSecrets(request.app.name, request.profile.name);
   } catch (error) {
-    throw makeBuildEnvironmentFailure({
-      stage: 'secrets',
-      message: `Could not resolve build secrets for ${request.app.name}.`,
-      cause: error,
-    });
+    throw new Error(`Could not resolve build secrets for ${request.app.name}.`, { cause: error });
   }
 
   const resolvedEnvironment = await resolveEnv({
@@ -230,20 +175,13 @@ export async function validateResolvedEnv(
   try {
     missing = await missingKeys(appDir, resolved.values, exclude);
   } catch (error) {
-    throw makeBuildEnvironmentFailure({
-      stage: 'validation',
-      message: `Could not read ${appDir}/.env.example.`,
-      cause: error,
-    });
+    throw new Error(`Could not read ${appDir}/.env.example.`, { cause: error });
   }
 
   const hasMissingKeys = missing.length > 0;
 
   if (hasMissingKeys) {
-    throw makeBuildEnvironmentFailure({
-      stage: 'validation',
-      message: `Missing ${missing.length} env keys that .env.example lists.`,
-    });
+    throw new Error(`Missing ${missing.length} env keys that .env.example lists.`);
   }
 
   return applyBuildEnvironment(resolved, log);

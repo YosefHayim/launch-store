@@ -3,7 +3,6 @@
 import { writeFile } from 'node:fs/promises';
 import { createLogger } from '../services/platform/logger.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 import { isCommandExit } from '../terminal/command-exit.ts';
 import type { CaptureReport, Snapshot } from '../types/snapshot.ts';
 import { createSnapshot, type CreateCommand } from './create-snapshot.ts';
@@ -418,10 +417,12 @@ export async function snapshotCommandProgram(rawCommand: unknown): Promise<void>
       throw cause;
     }
 
-    if (isFailureTag(cause, 'SnapshotCommandFailure')) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
       throw cause;
     }
 
-    throw snapshotFailure('run snapshot command', cause);
+    snapshotFailure('run snapshot command', cause);
   }
 }

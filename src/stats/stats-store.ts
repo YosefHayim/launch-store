@@ -7,7 +7,7 @@ import {
 } from '../services/platform/atomic-document-file.ts';
 import { locateAppStatsDirectory } from '../services/platform/paths.ts';
 import type { DailyStat, StatsFeed, StatsMetric } from '../types/stats.ts';
-import { groupStatsByMonth, mergeStats } from './stats-logic.ts';
+import { groupStatsByMonth, mergeStats } from './daily-stats.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 const statsFeeds: readonly StatsFeed[] = ['app-store', 'google-play', 'ga4'];

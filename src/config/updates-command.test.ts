@@ -65,7 +65,7 @@ function describePlatformsForUpdatesFilter() {
 
   it('accepts ios or android alone', acceptsIosOrAndroidAlone);
 
-  function rejectsAnUnknownPlatformWithATaggedFailure() {
+  function rejectsAnUnknownPlatform() {
     var thrown: unknown = null;
 
     try {
@@ -74,17 +74,13 @@ function describePlatformsForUpdatesFilter() {
       thrown = cause;
     }
 
+    expect(thrown).toBeInstanceOf(Error);
     expect(thrown).toMatchObject({
-      _tag: 'UpdatesCommandFailure',
-      operation: 'parse update platform',
       message: 'Unknown --platform "web". Use "ios" or "android".',
     });
   }
 
-  it(
-    'rejects an unknown platform with a tagged failure',
-    rejectsAnUnknownPlatformWithATaggedFailure,
-  );
+  it('rejects an unknown platform', rejectsAnUnknownPlatform);
 }
 
 describe('platformsForUpdatesFilter', describePlatformsForUpdatesFilter);

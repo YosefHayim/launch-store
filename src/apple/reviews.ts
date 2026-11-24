@@ -21,22 +21,6 @@ export type AscReviewsApi = Readonly<{
   deleteCustomerReviewResponse: (reviewReplyId: string) => Promise<void>;
 }>;
 
-/** A customer-review validation or App Store request failed. */
-type ReviewFailure = Readonly<{
-  readonly _tag: 'ReviewFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeReviewFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): ReviewFailure {
-  return { _tag: 'ReviewFailure', ...fields };
-}
-
 /** Optional filters for App Store customer reviews. */
 type ReviewFilters = Readonly<{
   rating?: number | undefined;
@@ -50,15 +34,15 @@ type ReplyResult = Readonly<{
   replaced: boolean;
 }>;
 
-/** Convert a transport failure to the reviews error channel. */
-function reviewFailure(operation: string, cause: unknown): ReviewFailure {
-  const fallback = `${operation} failed.`;
-
+/** Convert a transport failure into an Error. */
+function reviewFailure(operation: string, cause: unknown): never {
   const hasCauseMessage = hasMessage(cause);
 
-  if (hasCauseMessage) return makeReviewFailure({ operation, message: cause.message, cause });
+  if (hasCauseMessage) {
+    throw new Error(cause.message, { cause });
+  }
 
-  return makeReviewFailure({ operation, message: fallback, cause });
+  throw new Error(`${operation} failed.`, { cause });
 }
 
 /** Run one App Store review request in the reviews error channel. */
@@ -89,13 +73,11 @@ export async function listReviews(
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
-    throw makeReviewFailure({
-      operation: 'resolve App Store app',
-      message:
-        `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this ` +
+    throw new Error(
+      `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this ` +
         'account can access the app.',
-      cause: bundleId,
-    });
+      { cause: bundleId },
+    );
   }
 
   const serverFilters: { rating?: number; territory?: string } = {};

@@ -6,15 +6,6 @@ import { readLaunchEnvironment } from '../services/platform/environment.ts';
 const ENV_PREFIX = 'env:';
 const KEYCHAIN_PREFIX = 'keychain:';
 
-export type SecretReferenceFailure = Readonly<{
-  _tag: 'SecretReferenceFailure';
-  message: string;
-}>;
-
-function makeSecretReferenceFailure(message: string): SecretReferenceFailure {
-  return { _tag: 'SecretReferenceFailure', message };
-}
-
 /** Resolve `secretReference` to a concrete secret. */
 export async function resolveSecretRef(secretReference: string, label = 'secret'): Promise<string> {
   const isEnvironmentReference = secretReference.startsWith(ENV_PREFIX);
@@ -38,7 +29,7 @@ async function readEnvironmentSecret(secretReference: string, label: string): Pr
   const isNameMissing = name == '';
 
   if (isNameMissing) {
-    throw makeSecretReferenceFailure(
+    throw new Error(
       `${label}: an \`env:\` reference needs a variable name (e.g. \`env:DEMO_PW\`).`,
     );
   }
@@ -48,7 +39,7 @@ async function readEnvironmentSecret(secretReference: string, label: string): Pr
   const isUnset = resolvedSecret == null;
 
   if (isUnset) {
-    throw makeSecretReferenceFailure(
+    throw new Error(
       `${label} references \`env:${name}\`, but the environment variable ${name} is not set.`,
     );
   }
@@ -62,7 +53,7 @@ async function readKeychainSecret(secretReference: string, label: string): Promi
   const isAccountMissing = account == '';
 
   if (isAccountMissing) {
-    throw makeSecretReferenceFailure(
+    throw new Error(
       `${label}: a \`keychain:\` reference needs an account name (e.g. \`keychain:my-app-review\`).`,
     );
   }
@@ -85,7 +76,7 @@ async function readKeychainSecret(secretReference: string, label: string): Promi
 }
 
 function missingKeychainSecret(label: string, account: string): never {
-  throw makeSecretReferenceFailure(
+  throw new Error(
     `${label} references \`keychain:${account}\`, but no secret is stored under that account ` +
       `(store one with \`launch-store creds\`).`,
   );

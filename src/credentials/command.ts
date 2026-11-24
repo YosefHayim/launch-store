@@ -3,11 +3,11 @@
 import { readFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import { loadConfig } from '../config/config.ts';
+import { errorMessage } from '../services/platform/error-message.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 import { parsePlatform } from '../services/stores/platform.ts';
 import { storeServiceAccount } from './android-keystore-assets.ts';
 import {
@@ -21,7 +21,6 @@ import {
 } from './apple-accounts.ts';
 import { offerSourceRemoval } from './credential-discovery.ts';
 import type { CredentialsCommandOptions } from './credentials-command-options.ts';
-import { commandFailure, failCommand } from './credentials-failure.ts';
 import { displayPath, expandHomePath } from './credentials-paths.ts';
 import { commandCanPrompt, firstDefinedText, requireText } from './credentials-prompt.ts';
 import { runPushKeyAction } from './push-keys.ts';
@@ -206,7 +205,7 @@ async function setGoogleKey(
   const keyExists = await pathExists(keyPath);
 
   if (keyExists == false) {
-    failCommand('import Google key', `No service-account JSON at ${enteredPath}.`);
+    throw new Error(`No service-account JSON at ${enteredPath}.`);
   }
 
   const launchPaths = readLaunchDirectories();
@@ -216,11 +215,11 @@ async function setGoogleKey(
   const packageName = app.packageName;
 
   if (packageName == null) {
-    failCommand('import Google key', 'Set android.package for the selected app.');
+    throw new Error('Set android.package for the selected app.');
   }
 
   if (packageName.length == 0) {
-    failCommand('import Google key', 'Set android.package for the selected app.');
+    throw new Error('Set android.package for the selected app.');
   }
 
   const serviceAccountJson = await readFile(keyPath, 'utf8');
@@ -253,7 +252,7 @@ async function executeCredentialsCommand(decodedCommand: CredentialsCommandInput
 
   if (decodedCommand.action == 'adopt') {
     if (platform != 'android') {
-      failCommand('adopt credentials', 'Pass --platform android.');
+      throw new Error('Pass --platform android.');
     }
 
     await adoptAndroid(decodedCommand.options);
@@ -340,10 +339,14 @@ export async function credentialsCommandProgram(commandInput: unknown): Promise<
 
     await executeCredentialsCommand(decodedCommand);
   } catch (cause) {
-    if (isFailureTag(cause, 'CredentialsCommandFailure')) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
       throw cause;
     }
 
-    throw commandFailure('run credentials command', cause);
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }

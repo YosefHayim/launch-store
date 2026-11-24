@@ -61,22 +61,6 @@ export function GameCenterCommandInputSchema(rawCommandInput: unknown): GameCent
   return { app, dryRun, yes };
 }
 
-/** A Game Center command step failed. */
-type GameCenterCommandFailure = Readonly<{
-  readonly _tag: 'GameCenterCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeGameCenterCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): GameCenterCommandFailure {
-  return { _tag: 'GameCenterCommandFailure', ...fields };
-}
-
 function readNonEmptyText(cause: unknown): string | null {
   const isNotText = typeof cause != 'string';
 
@@ -101,10 +85,11 @@ function readCauseMessage(cause: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Convert a dependency failure into the Game Center command channel. */
-function gameCenterFailure(operation: string, cause: unknown): GameCenterCommandFailure {
+/** Convert a dependency failure into an Error. */
+function gameCenterFailure(operation: string, cause: unknown): never {
   const message = readCauseMessage(cause, `${operation} failed.`);
-  return makeGameCenterCommandFailure({ operation, message, cause });
+
+  throw new Error(message, { cause });
 }
 
 /** Resolve the selected bundle id and its Game Center declaration. */
@@ -124,11 +109,10 @@ async function resolveGameCenterTarget(
   const isBundleMissing = bundleId == null;
 
   if (isBundleMissing) {
-    throw makeGameCenterCommandFailure({
-      operation: 'resolve Game Center bundle id',
-      message: `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
-      cause: storeAppContext.app,
-    });
+    throw new Error(
+      `No iOS bundle identifier for ${storeAppContext.app.name} (set ios.bundleIdentifier in app.json).`,
+      { cause: storeAppContext.app },
+    );
   }
 
   const gameCenterSection = storeAppContext.config.gameCenter?.[bundleId];
@@ -136,11 +120,10 @@ async function resolveGameCenterTarget(
   const isGameCenterMissing = gameCenterSection == null;
 
   if (isGameCenterMissing) {
-    throw makeGameCenterCommandFailure({
-      operation: 'resolve Game Center config',
-      message: `No Game Center config for ${bundleId}. Add a gameCenter entry to launch.config.ts.`,
-      cause: bundleId,
-    });
+    throw new Error(
+      `No Game Center config for ${bundleId}. Add a gameCenter entry to launch.config.ts.`,
+      { cause: bundleId },
+    );
   }
 
   return { bundleId, gameCenterConfig: gameCenterSection };
@@ -264,7 +247,13 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
 
     return gameCenterSummary.failed;
   } catch (cause) {
-    throw gameCenterFailure('run Game Center command', cause);
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
+    gameCenterFailure('run Game Center command', cause);
   }
 }
 

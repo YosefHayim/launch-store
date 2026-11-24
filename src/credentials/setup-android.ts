@@ -8,7 +8,6 @@ import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { ensureUploadKeystore, type KeystoreImport } from './android-keystore-assets.ts';
 import type { CredentialsCommandOptions } from './credentials-command-options.ts';
-import { failCommand } from './credentials-failure.ts';
 import { displayPath, expandHomePath } from './credentials-paths.ts';
 import { commandCanPrompt, requireText } from './credentials-prompt.ts';
 import { selectConfiguredApp } from './select-configured-app.ts';
@@ -24,7 +23,7 @@ async function requireSecret(
   }
 
   if (canPrompt == false) {
-    failCommand('read credentials input', nonInteractiveMessage);
+    throw new Error(nonInteractiveMessage);
   }
 
   return new LaunchPrompt().requiredSecret(promptMessage);
@@ -42,7 +41,7 @@ async function selectKeystoreImport(
   const keystoreExists = await pathExists(importedPath);
 
   if (keystoreExists == false) {
-    failCommand('import Android keystore', `No keystore at ${commandOptions.import}.`);
+    throw new Error(`No keystore at ${commandOptions.import}.`);
   }
 
   const environment = readLaunchEnvironment();
@@ -90,11 +89,11 @@ export async function setupAndroid(commandOptions: CredentialsCommandOptions): P
   const packageName = app.packageName;
 
   if (packageName == null) {
-    failCommand('setup Android', 'Set android.package for the selected app.');
+    throw new Error('Set android.package for the selected app.');
   }
 
   if (packageName.length == 0) {
-    failCommand('setup Android', 'Set android.package for the selected app.');
+    throw new Error('Set android.package for the selected app.');
   }
 
   function confirmCreate(message: string): Promise<boolean> {

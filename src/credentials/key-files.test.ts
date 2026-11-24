@@ -91,9 +91,7 @@ function describeReconcileKeyId() {
       return reconcileKeyId('WRONGKEY12', 'KEYABC1234');
     }
 
-    expect(callReconcileKeyId).toThrowError(
-      expect.objectContaining({ _tag: 'KeyIdentityFailure' }),
-    );
+    expect(callReconcileKeyId).toThrow('Key ID WRONGKEY12 does not match AuthKey_KEYABC1234.p8.');
   }
 
   it(

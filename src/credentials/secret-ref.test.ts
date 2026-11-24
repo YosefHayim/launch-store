@@ -50,10 +50,9 @@ function describeResolveSecretRef() {
   async function failsWhenAnEnvironmentReferenceNamesAnUnsetVariable() {
     const testReference = resolveTestReference(`env:${environmentVariableName}`);
 
-    await expect(testReference).rejects.toMatchObject({
-      _tag: 'SecretReferenceFailure',
-      message: expect.stringMatching(/environment variable LAUNCH_TEST_DEMO_PW is not set/),
-    });
+    await expect(testReference).rejects.toThrow(
+      /environment variable LAUNCH_TEST_DEMO_PW is not set/,
+    );
   }
 
   it(

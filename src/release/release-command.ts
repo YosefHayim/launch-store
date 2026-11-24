@@ -66,22 +66,6 @@ export type ReleaseCommandOptions = Readonly<{
   json: boolean;
 }>;
 
-/** A release operation failed before it could produce a store report. */
-export type ReleaseCommandFailure = Readonly<{
-  readonly _tag: 'ReleaseCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-export function makeReleaseCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): ReleaseCommandFailure {
-  return { _tag: 'ReleaseCommandFailure', ...fields };
-}
-
 /** Injectable terminal boundary for public release orchestration. */
 export type ReleaseCommandService = Readonly<{
   terminalIsInteractive: boolean;
@@ -103,20 +87,20 @@ type BuildSource =
 
 type SelectedStoreBuild = Readonly<{ storeBuild: BuildResource; versionString: string }>;
 
-function releaseFailure(
-  operation: string,
-  cause: unknown,
-  fallbackMessage?: string,
-): ReleaseCommandFailure {
-  if (fallbackMessage != null) {
-    return makeReleaseCommandFailure({ operation, message: fallbackMessage, cause });
+function releaseFailure(operation: string, cause: unknown, fallbackMessage?: string): Error {
+  const hasFallbackMessage = fallbackMessage != null;
+
+  if (hasFallbackMessage) {
+    return new Error(fallbackMessage, { cause });
   }
 
-  if (hasMessage(cause)) {
-    return makeReleaseCommandFailure({ operation, message: cause.message, cause });
+  const causeHasMessage = hasMessage(cause);
+
+  if (causeHasMessage) {
+    return new Error(cause.message, { cause });
   }
 
-  return makeReleaseCommandFailure({ operation, message: `${operation} failed.`, cause });
+  return new Error(`${operation} failed.`, { cause });
 }
 
 async function attemptRead<ReadOutput>(

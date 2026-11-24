@@ -16,6 +16,12 @@ import {
 } from './reports.ts';
 
 function readThrownMessage(cause: unknown): string | null {
+  const isError = cause instanceof Error;
+
+  if (isError) {
+    return cause.message;
+  }
+
   const isMissing = cause == null;
 
   if (isMissing) return null;

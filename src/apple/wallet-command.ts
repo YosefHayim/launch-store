@@ -22,21 +22,6 @@ type WalletCommandInput =
     }>
   | Readonly<{ operation: 'list' }>;
 
-type WalletCommandFailure = Readonly<{
-  readonly _tag: 'WalletCommandFailure';
-  readonly operation: WalletCommandInput['operation'];
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-function makeWalletCommandFailure(fields: {
-  operation: WalletCommandInput['operation'];
-  message: string;
-  cause?: unknown;
-}): WalletCommandFailure {
-  return { _tag: 'WalletCommandFailure', ...fields };
-}
-
 function readFlag(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
   const isFlag = typeof field == 'boolean';
@@ -72,14 +57,6 @@ function decodeWalletCommandInput(rawCommandInput: unknown): WalletCommandInput 
   throw new Error('Unknown wallet command.');
 }
 
-function readWalletOperation(rawCommandInput: unknown): WalletCommandInput['operation'] | null {
-  try {
-    return decodeWalletCommandInput(rawCommandInput).operation;
-  } catch (cause) {
-    return null;
-  }
-}
-
 function isFailedAction(plannedAction: PlannedAction): boolean {
   return plannedAction.status == 'failed';
 }
@@ -102,10 +79,7 @@ async function reconcileWallet(
   const isWalletMissing = walletSection == null;
 
   if (isWalletMissing) {
-    throw makeWalletCommandFailure({
-      operation: 'reconcile',
-      message: 'No wallet config. Add a wallet field to launch.config.ts.',
-    });
+    throw new Error('No wallet config. Add a wallet field to launch.config.ts.');
   }
 
   const appleStore = await loadActiveAppleStore();
@@ -220,21 +194,14 @@ export async function walletCommandProgram(rawCommandInput: unknown): Promise<vo
       throw cause;
     }
 
-    let operation: WalletCommandInput['operation'] = 'reconcile';
-    const decodedOperation = readWalletOperation(rawCommandInput);
+    const isAlreadyError = cause instanceof Error;
 
-    const hasDecodedOperation = decodedOperation != null;
-
-    if (hasDecodedOperation) {
-      operation = decodedOperation;
+    if (isAlreadyError) {
+      throw cause;
     }
 
     const failureMessage = errorMessage(cause);
 
-    throw makeWalletCommandFailure({
-      operation,
-      message: failureMessage,
-      cause,
-    });
+    throw new Error(failureMessage, { cause });
   }
 }

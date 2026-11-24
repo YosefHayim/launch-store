@@ -13,7 +13,6 @@ import {
   resolveClean,
 } from './build-fingerprint.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 type FingerprintCommandInput = Readonly<{
   app?: string;
@@ -28,31 +27,6 @@ export type FingerprintReport = Readonly<{
   stored: BuildState | null;
   decision: CleanDecision;
 }>;
-
-type FingerprintCommandFailure = Readonly<{
-  readonly _tag: 'FingerprintCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeFingerprintCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): FingerprintCommandFailure {
-  return {
-    _tag: 'FingerprintCommandFailure',
-    operation: fields.operation,
-    message: fields.message,
-    cause: fields.cause,
-  };
-}
-
-function fingerprintFailure(operation: string, cause: unknown): FingerprintCommandFailure {
-  const failureMessage = errorMessage(cause);
-  return makeFingerprintCommandFailure({ operation, message: failureMessage, cause });
-}
 
 /** Decode `launch-store fingerprint` input. Omitted optionals stay absent. */
 export function decodeFingerprintCommandInput(rawCommandInput: unknown): FingerprintCommandInput {
@@ -90,10 +64,6 @@ export function decodeFingerprintCommandInput(rawCommandInput: unknown): Fingerp
   }
 
   return { app: appName, json: jsonFlag };
-}
-
-function isFingerprintCommandFailure(cause: unknown): cause is FingerprintCommandFailure {
-  return isFailureTag(cause, 'FingerprintCommandFailure');
 }
 
 /** Shorten a hash for terminal comparison. */
@@ -175,12 +145,14 @@ export async function fingerprintCommandProgram(rawCommandInput: unknown): Promi
 
     logger.line(reportText);
   } catch (cause) {
-    const alreadyFingerprintFailure = isFingerprintCommandFailure(cause);
+    const isAlreadyError = cause instanceof Error;
 
-    if (alreadyFingerprintFailure) {
+    if (isAlreadyError) {
       throw cause;
     }
 
-    throw fingerprintFailure('run fingerprint command', cause);
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }

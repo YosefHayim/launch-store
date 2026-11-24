@@ -1,9 +1,9 @@
 // Pulls store stats again when a saved feed is stale or its last sync failed.
 
-import { findAppsByName } from '../portfolio/portfolio-logic.ts';
+import { findAppsByName } from '../portfolio/portfolio-apps.ts';
 import type { PortfolioApp } from '../types/portfolio.ts';
 import type { AppFeedSyncReport, StatsFreshness } from '../types/stats.ts';
-import { findFeedCoverage, isFeedCoverageStale } from './coverage-logic.ts';
+import { findFeedCoverage, isFeedCoverageStale } from './feed-coverage.ts';
 import { loadAppCoverage } from './coverage-store.ts';
 import { DEFAULT_SYNC_DAYS } from './date-range.ts';
 import { STATS_FEED_PLUGINS } from './feed-registry.ts';

@@ -11,7 +11,6 @@ import {
   setActiveKeyId,
 } from './accounts.ts';
 import type { CredentialsCommandOptions } from './credentials-command-options.ts';
-import { failCommand } from './credentials-failure.ts';
 import { importAppleKey, selectAppleKeyFile } from './set-apple-key.ts';
 
 export async function chooseAccountInteractive(
@@ -28,7 +27,7 @@ export async function chooseAccountInteractive(
     const importedAccount = await getActiveAccount();
 
     if (importedAccount == null) {
-      failCommand('choose Apple account', 'No active account after import.');
+      throw new Error('No active account after import.');
     }
 
     return importedAccount;

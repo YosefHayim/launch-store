@@ -12,12 +12,7 @@ import { resolveAccountCredentialsDirectory } from '../services/platform/paths.t
 import type { AppleCredentialsClient } from '../services/stores/apple-credentials-client.ts';
 import type { CertificateResource } from '../types/apple-catalog.ts';
 import { randomHexSecret } from './random-secret.ts';
-import {
-  makeAppleSigningFailure,
-  type CertRecord,
-  type CredentialsIndex,
-  writeIndex,
-} from './apple-signing-index.ts';
+import { type CertRecord, type CredentialsIndex, writeIndex } from './apple-signing-index.ts';
 
 /** Xcode identity name used for App Store and ad-hoc distribution certificates. */
 export const DISTRIBUTION_CERT_NAME = 'Apple Distribution';
@@ -350,9 +345,7 @@ export async function ensureDistributionCertificate(
   );
 
   if (isCreationConfirmed == false) {
-    throw makeAppleSigningFailure({
-      message: 'No usable distribution certificate. Re-run and confirm to create one.',
-    });
+    throw new Error('No usable distribution certificate. Re-run and confirm to create one.');
   }
 
   const cert = await createDistributionCertificate(

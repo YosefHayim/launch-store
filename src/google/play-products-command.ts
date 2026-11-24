@@ -22,37 +22,21 @@ export type PlayProductsCommandInput = {
   yes: boolean;
 };
 
-type PlayProductsCommandFailure = Readonly<{
-  readonly _tag: 'PlayProductsCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
+function productsFailure(operation: string, cause: unknown): never {
+  const causeText = typeof cause == 'string' ? cause : '';
+  const isBlankCauseText = causeText.length == 0;
 
-function makePlayProductsCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): PlayProductsCommandFailure {
-  return { _tag: 'PlayProductsCommandFailure', ...fields };
-}
-
-function productsFailure(operation: string, cause: unknown): PlayProductsCommandFailure {
-  let message = `${operation} failed.`;
-
-  if (typeof cause == 'string') {
-    const isBlank = cause.length == 0;
-
-    if (isBlank == false) {
-      message = cause;
-    }
+  if (isBlankCauseText == false) {
+    throw new Error(causeText, { cause });
   }
 
-  if (hasMessage(cause)) {
-    message = cause.message;
+  const causeHasMessage = hasMessage(cause);
+
+  if (causeHasMessage) {
+    throw new Error(cause.message, { cause });
   }
 
-  return makePlayProductsCommandFailure({ operation, message, cause });
+  throw new Error(`${operation} failed.`, { cause });
 }
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {

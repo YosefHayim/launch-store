@@ -267,7 +267,6 @@ function describeSelectApp() {
     const buildCoreTest = runBuildCoreTest(runBuildCoreTestPiece4);
 
     await expect(buildCoreTest).rejects.toMatchObject({
-      _tag: 'AppSelectionFailure',
       message: expect.stringMatching(/No apps found/),
     });
   }
@@ -305,7 +304,6 @@ function describeSelectApp() {
     }
 
     await expect(runBuildCoreTest(runBuildCoreTestPiece7)).rejects.toMatchObject({
-      _tag: 'AppSelectionFailure',
       message: expect.stringMatching(/App "gamma" not found/),
     });
   }

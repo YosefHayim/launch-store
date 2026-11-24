@@ -20,7 +20,6 @@ import type { KeystoreAssets, SigningAssets } from '../types/credentials.ts';
 import type { StorageProvider } from '../types/providers.ts';
 import { findBuild } from './build-history-command.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 const STORE_PASSWORD_VARIABLE = 'LAUNCH_KS_STOREPASS';
 const KEY_PASSWORD_VARIABLE = 'LAUNCH_KS_KEYPASS';
@@ -32,36 +31,6 @@ export type ResignCommandInput = Readonly<{
   output?: string;
   dryRun: boolean;
 }>;
-
-export type ResignCommandFailure = Readonly<{
-  readonly _tag: 'ResignCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-export function makeResignCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause?: unknown;
-}): ResignCommandFailure {
-  const hasCause = fields.cause != null;
-
-  if (hasCause) {
-    return {
-      _tag: 'ResignCommandFailure',
-      operation: fields.operation,
-      message: fields.message,
-      cause: fields.cause,
-    };
-  }
-
-  return {
-    _tag: 'ResignCommandFailure',
-    operation: fields.operation,
-    message: fields.message,
-  };
-}
 
 type AndroidResignSpec = Readonly<{
   readonly command: string;
@@ -76,11 +45,6 @@ type ResignWorkspace = Readonly<{
 }>;
 
 type OptionalResignKey = 'id' | 'app' | 'account' | 'output';
-
-function resignFailure(operation: string, cause: unknown): ResignCommandFailure {
-  const failureMessage = errorMessage(cause);
-  return makeResignCommandFailure({ operation, message: failureMessage, cause });
-}
 
 function readOptionalString(record: Record<string, unknown>, key: string): string | null {
   const hasKey = Object.hasOwn(record, key);
@@ -169,10 +133,9 @@ export function assertResignablePlatform(platform: Platform): void {
     return;
   }
 
-  throw makeResignCommandFailure({
-    operation: 'validate resign platform',
-    message: `${platformLabel(platform)} builds are .pkg installers; build:resign supports Apple .ipa and Android .aab/.apk artifacts.`,
-  });
+  throw new Error(
+    `${platformLabel(platform)} builds are .pkg installers; build:resign supports Apple .ipa and Android .aab/.apk artifacts.`,
+  );
 }
 
 /** Name a re-signed artifact from the source build's natural identifiers. */
@@ -322,10 +285,7 @@ async function selectAccountKeyId(selector: string | undefined): Promise<string>
       return activeKeyId;
     }
 
-    throw makeResignCommandFailure({
-      operation: 'select Apple account',
-      message: 'No active Apple account. Run `launch-store creds set-key` or pass --account.',
-    });
+    throw new Error('No active Apple account. Run `launch-store creds set-key` or pass --account.');
   }
 
   const accounts = await listAccounts();
@@ -337,10 +297,7 @@ async function selectAccountKeyId(selector: string | undefined): Promise<string>
     return matchedAccount.keyId;
   }
 
-  throw makeResignCommandFailure({
-    operation: 'select Apple account',
-    message: `No Apple account matching "${selector}".`,
-  });
+  throw new Error(`No Apple account matching "${selector}".`);
 }
 
 function isApplicationBundle(fileName: string): boolean {
@@ -370,10 +327,7 @@ async function resignAppleArtifact(
     const applicationName = applicationNames.find(isApplicationBundle);
 
     if (applicationName == null) {
-      throw makeResignCommandFailure({
-        operation: 'unpack Apple artifact',
-        message: `No .app exists inside ${artifact.path}.`,
-      });
+      throw new Error(`No .app exists inside ${artifact.path}.`);
     }
 
     const applicationPath = path.join(applicationDirectory, applicationName);
@@ -471,10 +425,7 @@ async function selectStoredArtifact(
   const artifact = findBuild(scopedHistory, reference);
 
   if (artifact == null) {
-    throw makeResignCommandFailure({
-      operation: 'select stored artifact',
-      message: `No stored build matches "${reference}".`,
-    });
+    throw new Error(`No stored build matches "${reference}".`);
   }
 
   const artifactExists = await pathExists(artifact.path);
@@ -483,10 +434,7 @@ async function selectStoredArtifact(
     return artifact;
   }
 
-  throw makeResignCommandFailure({
-    operation: 'select stored artifact',
-    message: `The artifact for ${artifact.appName} is gone from ${artifact.path}.`,
-  });
+  throw new Error(`The artifact for ${artifact.appName} is gone from ${artifact.path}.`);
 }
 
 function explicitOutputFile(enteredOutput: string | undefined): string | null {
@@ -522,11 +470,8 @@ function selectOutputPath(
   return resignOutputPath(artifact, enteredOutput, path.extname(artifact.path));
 }
 
-function missingBundleFailure(appName: string): ResignCommandFailure {
-  return makeResignCommandFailure({
-    operation: 'find Apple bundle identifier',
-    message: `No Apple bundle identifier is configured for ${appName}.`,
-  });
+function missingBundleFailure(appName: string): Error {
+  return new Error(`No Apple bundle identifier is configured for ${appName}.`);
 }
 
 function requireAppleBundleId(apps: readonly AppDescriptor[], appName: string): string {
@@ -558,10 +503,7 @@ async function runAppleResign(
   const signingAssets = await loadCachedSigningAssets(keyId, bundleId);
 
   if (signingAssets == null) {
-    throw makeResignCommandFailure({
-      operation: 'load Apple signing assets',
-      message: `No cached signing exists for ${bundleId} under account ${keyId}.`,
-    });
+    throw new Error(`No cached signing exists for ${bundleId} under account ${keyId}.`);
   }
 
   const isDryRun = commandInput.dryRun == true;
@@ -574,11 +516,8 @@ async function runAppleResign(
   await resignAppleArtifact(artifact, signingAssets, outputPath);
 }
 
-function missingAndroidPackageFailure(): ResignCommandFailure {
-  return makeResignCommandFailure({
-    operation: 'select Android app',
-    message: 'Select an app with android.package before re-signing.',
-  });
+function missingAndroidPackageFailure(): Error {
+  return new Error('Select an app with android.package before re-signing.');
 }
 
 function requireAndroidPackageName(apps: readonly AppDescriptor[], appName: string): string {
@@ -615,11 +554,9 @@ async function runAndroidResign(
   const keystore = await loadCachedKeystore(packageName);
 
   if (keystore == null) {
-    throw makeResignCommandFailure({
-      operation: 'load Android signing assets',
-      message:
-        'No cached upload keystore exists. Run `launch-store creds setup --platform android --app <name>`.',
-    });
+    throw new Error(
+      'No cached upload keystore exists. Run `launch-store creds setup --platform android --app <name>`.',
+    );
   }
 
   const isDryRun = commandInput.dryRun == true;
@@ -661,10 +598,14 @@ export async function resignCommandProgram(rawCommandInput: unknown): Promise<vo
 
     logger.ok(`Re-signed artifact written to ${outputPath}.`);
   } catch (error) {
-    if (isFailureTag(error, 'ResignCommandFailure')) {
+    const isAlreadyError = error instanceof Error;
+
+    if (isAlreadyError) {
       throw error;
     }
 
-    throw resignFailure('re-sign stored artifact', error);
+    const failureMessage = errorMessage(error);
+
+    throw new Error(failureMessage, { cause: error });
   }
 }

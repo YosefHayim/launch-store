@@ -16,7 +16,6 @@ import type { PlannedAction } from '../types/reconcile.ts';
 import { PLAN_EXIT, runPlanners, type PlanOutcome } from './orchestrator.ts';
 import { listSurfacePlanners, registerBuiltinPlanners } from './registry.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
 
 export type PlanCommandInput = Readonly<{
   operation: 'plan' | 'drift';
@@ -26,40 +25,16 @@ export type PlanCommandInput = Readonly<{
   json: boolean;
 }>;
 
-export type PlanCommandFailure = Readonly<{
-  _tag: 'PlanCommandFailure';
-  operation: string;
-  message: string;
-  cause: unknown;
-}>;
-
 type PlannedAppSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'app' }>;
 
 type PlannedTeamSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'team' }>;
-
-function makePlanCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): PlanCommandFailure {
-  return { _tag: 'PlanCommandFailure', ...fields };
-}
-
-function commandFailure(operation: string, cause: unknown): PlanCommandFailure {
-  const failureMessage = errorMessage(cause);
-  return makePlanCommandFailure({ operation, message: failureMessage, cause });
-}
-
-export function isPlanCommandFailure(cause: unknown): cause is PlanCommandFailure {
-  return isFailureTag(cause, 'PlanCommandFailure');
-}
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
   const field = record[fieldName];
   const isBoolean = typeof field == 'boolean';
 
   if (isBoolean == false) {
-    throw commandFailure('decode plan command', `Expected ${fieldName} to be a boolean.`);
+    throw new Error(`Expected ${fieldName} to be a boolean.`);
   }
 
   return field;
@@ -78,7 +53,7 @@ function readPlanOperation(operationField: unknown): PlanCommandInput['operation
     return 'drift';
   }
 
-  throw commandFailure('decode plan command', 'Plan operation must be plan or drift.');
+  throw new Error('Plan operation must be plan or drift.');
 }
 
 function readOptionalString(record: Record<string, unknown>, fieldName: string): string | null {
@@ -92,7 +67,7 @@ function readOptionalString(record: Record<string, unknown>, fieldName: string):
   const isString = typeof field == 'string';
 
   if (isString == false) {
-    throw commandFailure('decode plan command', `Expected ${fieldName} to be a string.`);
+    throw new Error(`Expected ${fieldName} to be a string.`);
   }
 
   return field;
@@ -102,7 +77,7 @@ export function decodePlanCommandInput(rawCommandInput: unknown): PlanCommandInp
   const rawCommandInputObject = readPlainObject(rawCommandInput);
 
   if (rawCommandInputObject == null) {
-    throw commandFailure('decode plan command', 'Plan command input must be an object.');
+    throw new Error('Plan command input must be an object.');
   }
 
   const operation = readPlanOperation(rawCommandInputObject['operation']);
@@ -364,10 +339,7 @@ export function selectPlanPlanners(
     availableSurfaces = 'none';
   }
 
-  throw commandFailure(
-    'select plan surface',
-    `Unknown surface "${surfaceName}". Available: ${availableSurfaces}.`,
-  );
+  throw new Error(`Unknown surface "${surfaceName}". Available: ${availableSurfaces}.`);
 }
 
 /** Load config, resolve store clients once, run planners, and print or emit JSON. */
@@ -386,7 +358,9 @@ export async function planCommandProgram(rawCommandInput: unknown): Promise<void
     try {
       selectedApps = await selectApps(loadedConfiguration.apps, commandInput.app);
     } catch (cause) {
-      throw commandFailure('select plan apps', cause);
+      const failureMessage = errorMessage(cause);
+
+      throw new Error(failureMessage, { cause });
     }
 
     const surfacePlanners = listSurfacePlanners();
@@ -428,10 +402,14 @@ export async function planCommandProgram(rawCommandInput: unknown): Promise<void
       throw cause;
     }
 
-    if (isPlanCommandFailure(cause)) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
       throw cause;
     }
 
-    throw commandFailure('run plan command', cause);
+    const failureMessage = errorMessage(cause);
+
+    throw new Error(failureMessage, { cause });
   }
 }

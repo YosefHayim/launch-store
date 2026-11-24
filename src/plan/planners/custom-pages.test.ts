@@ -1,7 +1,6 @@
-import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { customPagesPlanner } from './custom-pages.ts';
-import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import { makeAscApiFake } from '../../testkit/app-store-connect-surfaces.ts';
 import type { CustomProductPagesConfig } from '../../apple/custom-product-pages.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
@@ -59,7 +58,7 @@ const DECLARED: CustomProductPagesConfig = { pages: [{ name: 'page1' }] };
 function describeCustomPagesPlanner() {
   async function omitsItselfWhenNoCustomPagesSidecarIsPresent() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(customPagesPlanner, makeCtx(ascApiFake, null));
+    const plan = await customPagesPlanner.plan(makeCtx(ascApiFake, null));
 
     expect(plan.state).toBe('omitted');
   }
@@ -70,7 +69,7 @@ function describeCustomPagesPlanner() {
   );
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(customPagesPlanner, makeCtx(null, DECLARED));
+    const plan = await customPagesPlanner.plan(makeCtx(null, DECLARED));
 
     expect(plan.state).toBe('skipped');
 
@@ -86,7 +85,7 @@ function describeCustomPagesPlanner() {
 
   async function reportsThePageAFreshPieceWouldCreateTwoWay() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(customPagesPlanner, makeCtx(ascApiFake, DECLARED));
+    const plan = await customPagesPlanner.plan(makeCtx(ascApiFake, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -117,7 +116,7 @@ function describeCustomPagesPlanner() {
     const api = makeAscApiFake({
       listCustomProductPages: vi.fn().mockResolvedValue([{ id: 'pg1', name: 'page1' }]),
     });
-    const plan = await runPlanner(customPagesPlanner, makeCtx(api, DECLARED));
+    const plan = await customPagesPlanner.plan(makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -135,7 +134,7 @@ function describeCustomPagesPlanner() {
 
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await runPlanner(customPagesPlanner, makeCtx(api, DECLARED));
+    const plan = await customPagesPlanner.plan(makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -153,7 +152,7 @@ function describeCustomPagesPlanner() {
 
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
-    await runPlanner(customPagesPlanner, makeCtx(api, DECLARED));
+    await customPagesPlanner.plan(makeCtx(api, DECLARED));
     expect(api.createCustomProductPage).toHaveBeenCalledTimes(0);
     expect(api.createCustomProductPageLocalization).toHaveBeenCalledTimes(0);
   }

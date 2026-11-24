@@ -20,43 +20,21 @@ type AccessibilityCommandInput = Readonly<{
   yes: boolean;
 }>;
 
-/** Accessibility configuration or reconciliation failed. */
-type AccessibilityCommandFailure = Readonly<{
-  readonly _tag: 'AccessibilityCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeAccessibilityCommandFailure(fields: {
-  operation: string;
-  message: string;
-  cause: unknown;
-}): AccessibilityCommandFailure {
-  return { _tag: 'AccessibilityCommandFailure', ...fields };
-}
-
-/** Convert an unknown cause to the command's tagged channel. */
-function accessibilityFailure(
-  operation: string,
-  cause: unknown,
-  fallbackMessage?: string,
-): AccessibilityCommandFailure {
+/** Convert an unknown cause into an Error. */
+function accessibilityFailure(operation: string, cause: unknown, fallbackMessage?: string): never {
   const hasFallback = fallbackMessage != null;
 
   if (hasFallback) {
-    return makeAccessibilityCommandFailure({ operation, message: fallbackMessage, cause });
+    throw new Error(fallbackMessage, { cause });
   }
 
-  if (hasMessage(cause)) {
-    return makeAccessibilityCommandFailure({ operation, message: cause.message, cause });
+  const causeHasMessage = hasMessage(cause);
+
+  if (causeHasMessage) {
+    throw new Error(cause.message, { cause });
   }
 
-  return makeAccessibilityCommandFailure({
-    operation,
-    message: `${operation} failed.`,
-    cause,
-  });
+  throw new Error(`${operation} failed.`, { cause });
 }
 
 /** Render one accessibility action with an ASCII status marker. */

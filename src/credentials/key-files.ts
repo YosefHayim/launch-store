@@ -6,15 +6,6 @@ import { basename, join } from 'node:path';
 // AuthKey_<KEYID>.p8, with a Key ID of at least 8 letters or digits.
 const AUTH_KEY_FILENAME = /^AuthKey_([A-Z0-9]{8,})\.p8$/i;
 
-export type KeyIdentityFailure = Readonly<{
-  _tag: 'KeyIdentityFailure';
-  message: string;
-}>;
-
-function makeKeyIdentityFailure(message: string): KeyIdentityFailure {
-  return { _tag: 'KeyIdentityFailure', message };
-}
-
 function keyIdentifiersConflict(
   normalizedKeyId: string | undefined,
   filenameKeyId: string | null,
@@ -84,9 +75,7 @@ export function reconcileKeyId(
   const identifiersConflict = keyIdentifiersConflict(normalizedKeyId, filenameKeyId);
 
   if (identifiersConflict) {
-    throw makeKeyIdentityFailure(
-      `Key ID ${normalizedKeyId} does not match AuthKey_${filenameKeyId}.p8.`,
-    );
+    throw new Error(`Key ID ${normalizedKeyId} does not match AuthKey_${filenameKeyId}.p8.`);
   }
 
   if (normalizedKeyId != null) {

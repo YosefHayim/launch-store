@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { DailyStat } from '../types/stats.ts';
-import { groupStatsByMonth, mergeStats } from './stats-logic.ts';
+import { groupStatsByMonth, mergeStats } from './daily-stats.ts';
 
 function createStat(overrides: Partial<DailyStat>): DailyStat {
   return {

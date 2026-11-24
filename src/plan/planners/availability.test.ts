@@ -1,7 +1,6 @@
-import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { availabilityPlanner } from './availability.ts';
-import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import { makeAscApiFake } from '../../testkit/app-store-connect-surfaces.ts';
 import type { AvailabilityConfig } from '../../apple/availability.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
@@ -57,7 +56,7 @@ function makeCtx(
 function describeAvailabilityPlanner() {
   async function omitsItselfWhenNoAvailabilitySidecarIsPresent() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(availabilityPlanner, makeCtx(ascApiFake, null));
+    const plan = await availabilityPlanner.plan(makeCtx(ascApiFake, null));
 
     expect(plan.state).toBe('omitted');
   }
@@ -68,7 +67,7 @@ function describeAvailabilityPlanner() {
   );
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(availabilityPlanner, makeCtx(null, { territories: ['USA'] }));
+    const plan = await availabilityPlanner.plan(makeCtx(null, { territories: ['USA'] }));
 
     expect(plan.state).toBe('skipped');
 
@@ -84,10 +83,7 @@ function describeAvailabilityPlanner() {
 
   async function reportsTheTerritoryChangeAFreshPieceWouldApplyTwoWay() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(
-      availabilityPlanner,
-      makeCtx(ascApiFake, { territories: ['USA'] }),
-    );
+    const plan = await availabilityPlanner.plan(makeCtx(ascApiFake, { territories: ['USA'] }));
 
     expect(plan.state).toBe('planned');
 
@@ -122,8 +118,7 @@ function describeAvailabilityPlanner() {
         availableTerritories: ['USA'],
       }),
     });
-    const plan = await runPlanner(
-      availabilityPlanner,
+    const plan = await availabilityPlanner.plan(
       makeCtx(api, { territories: ['USA'], availableInNewTerritories: false }),
     );
 
@@ -143,7 +138,7 @@ function describeAvailabilityPlanner() {
 
   async function capturesAMissingAppPieceAsAPerAppErrorNotAThrownPlan() {
     const api = makeAscApiFake({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await runPlanner(availabilityPlanner, makeCtx(api, { territories: ['USA'] }));
+    const plan = await availabilityPlanner.plan(makeCtx(api, { territories: ['USA'] }));
 
     expect(plan.state).toBe('planned');
 
@@ -161,7 +156,7 @@ function describeAvailabilityPlanner() {
 
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
-    await runPlanner(availabilityPlanner, makeCtx(api, { territories: ['USA'] }));
+    await availabilityPlanner.plan(makeCtx(api, { territories: ['USA'] }));
     expect(api.createAppAvailability).toHaveBeenCalledTimes(0);
     expect(api.updateAppAvailabilityTerritories).toHaveBeenCalledTimes(0);
   }

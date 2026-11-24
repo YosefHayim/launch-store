@@ -37,36 +37,15 @@ type ReviewsCommandInput =
   | ReviewReplyCommandInput
   | Readonly<{ operation: 'delete'; reviewId: string; yes: boolean }>;
 
-/** A customer-reviews command failed before it could complete. */
-type ReviewsCommandFailure = Readonly<{
-  readonly _tag: 'ReviewsCommandFailure';
-  readonly operation: ReviewsCommandInput['operation'];
-  readonly message: string;
-  readonly cause: unknown;
-}>;
+/** Convert any dependency failure into an Error. */
+function reviewsFailure(operation: ReviewsCommandInput['operation'], cause: unknown): never {
+  const causeHasMessage = hasMessage(cause);
 
-function makeReviewsCommandFailure(fields: {
-  operation: ReviewsCommandInput['operation'];
-  message: string;
-  cause: unknown;
-}): ReviewsCommandFailure {
-  return { _tag: 'ReviewsCommandFailure', ...fields };
-}
-
-/** Convert any dependency failure into the reviews command channel. */
-function reviewsFailure(
-  operation: ReviewsCommandInput['operation'],
-  cause: unknown,
-): ReviewsCommandFailure {
-  if (hasMessage(cause)) {
-    return makeReviewsCommandFailure({ operation, message: cause.message, cause });
+  if (causeHasMessage) {
+    throw new Error(cause.message, { cause });
   }
 
-  return makeReviewsCommandFailure({
-    operation,
-    message: `Reviews ${operation} failed.`,
-    cause,
-  });
+  throw new Error(`Reviews ${operation} failed.`, { cause });
 }
 
 function isValidReviewRating(isWholeNumber: boolean, parsedRating: number): boolean {
@@ -100,9 +79,7 @@ export function parseReviewRating(ratingText: string | undefined): number | unde
     return parsedRating;
   }
 
-  throw makeReviewsCommandFailure({
-    operation: 'list',
-    message: `--rating must be a whole number 1-5 (got "${ratingText}").`,
+  throw new Error(`--rating must be a whole number 1-5 (got "${ratingText}").`, {
     cause: ratingText,
   });
 }
@@ -190,11 +167,7 @@ async function confirmReviewWrite(
         'Refusing to delete without confirmation. Re-run with --yes (non-interactive).';
     }
 
-    throw makeReviewsCommandFailure({
-      operation,
-      message: refusalMessage,
-      cause: 'confirmation-required',
-    });
+    throw new Error(refusalMessage, { cause: 'confirmation-required' });
   }
 
   let shouldWrite = false;
@@ -291,9 +264,7 @@ async function readReplyText(commandInput: ReviewReplyCommandInput): Promise<str
     return commandInput.message;
   }
 
-  throw makeReviewsCommandFailure({
-    operation: 'reply',
-    message: 'A reply is required. Pass -m/--message <text> or --file <path>.',
+  throw new Error('A reply is required. Pass -m/--message <text> or --file <path>.', {
     cause: 'missing-reply',
   });
 }

@@ -81,7 +81,9 @@ function describeReleasePieceSchema() {
     });
     await expect(
       decodeReleaseDocument({ categories: [], reviewDetails: [] }),
-    ).rejects.toMatchObject({ _tag: 'ReleaseAttributesFailure' });
+    ).rejects.toMatchObject({
+      message: 'launch.config.ts releaseAttributes: categories must be an object.',
+    });
   }
 
   it(

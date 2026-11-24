@@ -34,7 +34,7 @@ One TypeScript / Node ESM package. Two kinds of code sit next to each other unde
 | `src/services` | Paths, exec, logger, prompts, secrets, and the store client adapters. `services/stores` is the door into the Apple and Google HTTP clients. |
 | `src/types` | Shared domain shapes. |
 | `src/providers` | Swappable backends for build, storage, credentials, submit, and compute. |
-| `src/testkit` | Shared fakes named `*-testkit.ts`. They are not tests. Do not rename them to `.test.ts` or `.spec.ts`. |
+| `src/testkit` | Shared stand-ins the tests import. Vitest and Jest treat `*.test.*` and `*.spec.*` as suites to run, so these files are named for the job and do not use that suffix. |
 | `schema/` | Published `launch.config.schema.json`. `launch-store config` reads it. It ships in the npm package. Do not delete it. |
 
 A file that performs one documented Apple or Google request belongs in `src/apple` or `src/google`. A file that decides something for Launch belongs in the job folder. Do not add `src/core` back.
@@ -87,7 +87,7 @@ Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys,
 - **Prose naming.** Generic bindings such as `data`, `result`, and `value` are banned. `build` is reserved for the real build domain.
 - **Comments explain hidden intent.** No narrated headers or TSDoc that restates types.
 - **ASCII output.** Logging uses `[RUN]`, `[OK]`, `[WARN]`, `[ERROR]`, and `[SKIP]`. JSON stays machine-clean.
-- **Tests are colocated.** Vitest, no snapshots, hand fakes, shared testkit in `src/testkit/`. A test covers the contract a caller sees: inputs, outputs, errors, and side effects ([Vitest: testing in practice](https://vitest.dev/guide/learn/testing-in-practice.html)). Do not add a test that only copies a catalog, checks README prose, or asserts which names a module exports.
+- **Tests are colocated.** Vitest, no snapshots, hand fakes in `src/testkit/`. A test covers the contract a caller sees: inputs, outputs, errors, and side effects ([Vitest: testing in practice](https://vitest.dev/guide/learn/testing-in-practice.html)). Do not add a test that only copies a catalog, checks README prose, or asserts which names a module exports. A function that production never calls, and a test that only exists to call it, do not stay.
 
 ## Style Is Enforced, Not Re-Explained
 

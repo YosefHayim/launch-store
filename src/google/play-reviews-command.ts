@@ -34,40 +34,24 @@ export type PlayReviewsReplyInput = {
 
 type PlayReviewsCommandInput = PlayReviewsListInput | PlayReviewsReplyInput;
 
-type PlayReviewsCommandFailure = Readonly<{
-  readonly _tag: 'PlayReviewsCommandFailure';
-  readonly operation: PlayReviewsCommandInput['operation'];
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makePlayReviewsCommandFailure(fields: {
-  operation: PlayReviewsCommandInput['operation'];
-  message: string;
-  cause: unknown;
-}): PlayReviewsCommandFailure {
-  return { _tag: 'PlayReviewsCommandFailure', ...fields };
-}
-
 function playReviewsFailure(
   operation: PlayReviewsCommandInput['operation'],
   cause: unknown,
-): PlayReviewsCommandFailure {
-  let message = `Play reviews ${operation} failed.`;
+): never {
+  const causeText = typeof cause == 'string' ? cause : '';
+  const isBlankCauseText = causeText.length == 0;
 
-  if (typeof cause == 'string') {
-    const isBlank = cause.length == 0;
-
-    if (isBlank == false) {
-      message = cause;
-    }
+  if (isBlankCauseText == false) {
+    throw new Error(causeText, { cause });
   }
 
-  if (hasMessage(cause)) {
-    message = cause.message;
+  const causeHasMessage = hasMessage(cause);
+
+  if (causeHasMessage) {
+    throw new Error(cause.message, { cause });
   }
 
-  return makePlayReviewsCommandFailure({ operation, message, cause });
+  throw new Error(`Play reviews ${operation} failed.`, { cause });
 }
 
 function readRequiredBoolean(record: Record<string, unknown>, fieldName: string): boolean {
@@ -194,9 +178,7 @@ function decodePlayReviewsCommandInput(rawCommandInput: unknown): PlayReviewsCom
 export const PlayReviewsCommandInputSchema = decodePlayReviewsCommandInput;
 
 function rejectRating(ratingText: string): never {
-  throw makePlayReviewsCommandFailure({
-    operation: 'list',
-    message: `--rating must be a whole number 1-5 (got "${ratingText}").`,
+  throw new Error(`--rating must be a whole number 1-5 (got "${ratingText}").`, {
     cause: ratingText,
   });
 }
@@ -292,9 +274,7 @@ async function readPlayReplyText(commandInput: PlayReviewsReplyInput): Promise<s
     return commandInput.message;
   }
 
-  throw makePlayReviewsCommandFailure({
-    operation: 'reply',
-    message: 'A reply body is required. Pass -m/--message <text> or --file <path>.',
+  throw new Error('A reply body is required. Pass -m/--message <text> or --file <path>.', {
     cause: 'missing-reply',
   });
 }

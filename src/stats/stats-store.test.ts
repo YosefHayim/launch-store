@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
-} from '../testkit/launch-home-testkit.ts';
+} from '../testkit/temporary-launch-home.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import type { DailyStat } from '../types/stats.ts';
 import { saveDailyStats } from './stats-store.ts';
@@ -105,9 +105,7 @@ function describeSaveDailyStats() {
 
   async function failsForAnAppKeyThatIsNotValid() {
     const stat = createStat({});
-    await expect(saveDailyStats('bad key', [stat])).rejects.toMatchObject({
-      _tag: 'InvalidAppKeyFailure',
-    });
+    await expect(saveDailyStats('bad key', [stat])).rejects.toThrow('not a valid app key');
   }
 
   test('fails for an app key that is not valid', failsForAnAppKeyThatIsNotValid);

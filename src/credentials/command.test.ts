@@ -5,18 +5,12 @@ import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
-} from '../testkit/launch-home-testkit.ts';
+} from '../testkit/temporary-launch-home.ts';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
 import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { CredentialsCommandInputSchema, credentialsCommandProgram } from './command.ts';
 import { credentialSearchDirectories, isCredentialDiscoveryFile } from './credential-discovery.ts';
-import type { CredentialsCommandFailure } from './credentials-failure.ts';
-import { isFailureTag } from '../services/platform/tagged-failure.ts';
-
-function isCredentialsFailure(cause: unknown): cause is CredentialsCommandFailure {
-  return isFailureTag(cause, 'CredentialsCommandFailure');
-}
 
 function discoveryMatches(filePath: string): boolean {
   const searchDirectories = credentialSearchDirectories('/Users/example', '/workspace/app');
@@ -24,15 +18,17 @@ function discoveryMatches(filePath: string): boolean {
   return isCredentialDiscoveryFile(filePath, searchDirectories);
 }
 
-async function runCredentialsFailure(commandInput: unknown): Promise<CredentialsCommandFailure> {
+async function runCredentialsFailure(commandInput: unknown): Promise<Error> {
   try {
     await credentialsCommandProgram(commandInput);
   } catch (cause) {
-    if (isCredentialsFailure(cause)) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
       return cause;
     }
 
-    throw cause;
+    throw new Error('Expected the credentials command to fail.', { cause });
   }
 
   throw new Error('Expected the credentials command to fail.');
@@ -132,36 +128,34 @@ function describeCredentialsCommandPieceSchema() {
 describe('CredentialsCommandInputSchema', describeCredentialsCommandPieceSchema);
 
 function describeCredentialsCommandProgramValidation() {
-  async function preservesTheRenameOperationTagWhenArgumentsAreMissing() {
+  async function failsWithTheRenameUsageWhenArgumentsAreMissing() {
     const failure = await runCredentialsFailure({
       action: 'rename',
       options: { yes: true },
     });
 
-    expect(failure._tag).toBe('CredentialsCommandFailure');
-    expect(failure.operation).toBe('rename Apple account');
+    expect(failure).toBeInstanceOf(Error);
     expect(failure.message).toContain('launch-store creds rename');
   }
 
   it(
-    'preserves the rename operation tag when arguments are missing',
-    preservesTheRenameOperationTagWhenArgumentsAreMissing,
+    'fails with the rename usage when arguments are missing',
+    failsWithTheRenameUsageWhenArgumentsAreMissing,
   );
 
-  async function preservesTheRemoveOperationTagWhenTheAccountSelectorIsMissing() {
+  async function failsWithTheRemoveUsageWhenTheAccountSelectorIsMissing() {
     const failure = await runCredentialsFailure({
       action: 'remove',
       options: { yes: true },
     });
 
-    expect(failure._tag).toBe('CredentialsCommandFailure');
-    expect(failure.operation).toBe('remove Apple account');
+    expect(failure).toBeInstanceOf(Error);
     expect(failure.message).toContain('launch-store creds remove');
   }
 
   it(
-    'preserves the remove operation tag when the account selector is missing',
-    preservesTheRemoveOperationTagWhenTheAccountSelectorIsMissing,
+    'fails with the remove usage when the account selector is missing',
+    failsWithTheRemoveUsageWhenTheAccountSelectorIsMissing,
   );
 
   async function requiresAnAccountSelectorForNonInteractiveUse() {
@@ -170,8 +164,7 @@ function describeCredentialsCommandProgramValidation() {
       options: { yes: true },
     });
 
-    expect(failure._tag).toBe('CredentialsCommandFailure');
-    expect(failure.operation).toBe('use Apple account');
+    expect(failure).toBeInstanceOf(Error);
     expect(failure.message).toContain('account label or Key ID');
   }
 
@@ -187,8 +180,7 @@ function describeCredentialsCommandProgramValidation() {
       options: { yes: true },
     });
 
-    expect(failure._tag).toBe('CredentialsCommandFailure');
-    expect(failure.operation).toBe('run APNs command');
+    expect(failure).toBeInstanceOf(Error);
     expect(failure.message).toContain('import, status, or export');
   }
 
@@ -204,8 +196,7 @@ function describeCredentialsCommandProgramValidation() {
       options: { yes: true },
     });
 
-    expect(failure._tag).toBe('CredentialsCommandFailure');
-    expect(failure.operation).toBe('export APNs key');
+    expect(failure).toBeInstanceOf(Error);
     expect(failure.message).toContain('push-key export');
   }
 
@@ -296,8 +287,8 @@ function describeSetVendorNumberAction() {
     const withoutAccount = await runInTemporaryHome({ vendorNumber: '1' });
     const withoutNumber = await runInTemporaryHome({ account: 'alpha' });
 
-    expect(withoutAccount.failed).toMatchObject({ _tag: 'CredentialsCommandFailure' });
-    expect(withoutNumber.failed).toMatchObject({ _tag: 'CredentialsCommandFailure' });
+    expect(withoutAccount.failed).toBeInstanceOf(Error);
+    expect(withoutNumber.failed).toBeInstanceOf(Error);
   }
 
   it('asks for both flags', asksForBothFlags);
@@ -305,8 +296,8 @@ function describeSetVendorNumberAction() {
   async function rejectsAVendorNumberThatIsNotDigits() {
     const { failed } = await runInTemporaryHome({ account: 'alpha', vendorNumber: 'abc' });
 
+    expect(failed).toBeInstanceOf(Error);
     expect(failed).toMatchObject({
-      _tag: 'CredentialsCommandFailure',
       message: expect.stringContaining('digits only'),
     });
   }
@@ -401,9 +392,9 @@ function describeSetPlayReportsBucketAction() {
     const withoutFlag = await runInTemporaryHome({});
     const withWrongBucket = await runInTemporaryHome({ playReportsBucket: 'gs://my-bucket/' });
 
-    expect(withoutFlag.failed).toMatchObject({ _tag: 'CredentialsCommandFailure' });
+    expect(withoutFlag.failed).toBeInstanceOf(Error);
+    expect(withWrongBucket.failed).toBeInstanceOf(Error);
     expect(withWrongBucket.failed).toMatchObject({
-      _tag: 'CredentialsCommandFailure',
       message: expect.stringContaining('pubsite_prod_rev_'),
     });
   }

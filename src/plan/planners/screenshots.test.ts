@@ -1,10 +1,9 @@
-import { runPlanner } from './planner-testkit.ts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { screenshotsPlanner } from './screenshots.ts';
-import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import { makeAscApiFake } from '../../testkit/app-store-connect-surfaces.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
@@ -99,7 +98,7 @@ function apiWithLocale(overrides: Partial<AscSurfacesApi> = {}): AscSurfacesApi 
 
 function describeScreenshotsPlanner() {
   async function omitsItselfWhenNoInScopeAppHasOnDiskAssets() {
-    const plan = await runPlanner(screenshotsPlanner, makeCtx(apiWithLocale(), makeApp(false)));
+    const plan = await screenshotsPlanner.plan(makeCtx(apiWithLocale(), makeApp(false)));
     expect(plan.state).toBe('omitted');
   }
 
@@ -109,7 +108,7 @@ function describeScreenshotsPlanner() {
   );
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(screenshotsPlanner, makeCtx(null, makeApp(true)));
+    const plan = await screenshotsPlanner.plan(makeCtx(null, makeApp(true)));
 
     expect(plan.state).toBe('skipped');
 
@@ -124,7 +123,7 @@ function describeScreenshotsPlanner() {
   );
 
   async function reportsAnAdditivePlanToUploadALocalScreenshotAppleDoesnTHave() {
-    const plan = await runPlanner(screenshotsPlanner, makeCtx(apiWithLocale(), makeApp(true)));
+    const plan = await screenshotsPlanner.plan(makeCtx(apiWithLocale(), makeApp(true)));
 
     expect(plan.state).toBe('planned');
 
@@ -159,7 +158,7 @@ function describeScreenshotsPlanner() {
   async function isStrictlyReadOnlyNeverInvokesAnUploadEndpoint() {
     const api = apiWithLocale();
 
-    await runPlanner(screenshotsPlanner, makeCtx(api, makeApp(true)));
+    await screenshotsPlanner.plan(makeCtx(api, makeApp(true)));
     expect(api.createScreenshotSet).toHaveBeenCalledTimes(0);
     expect(api.uploadScreenshot).toHaveBeenCalledTimes(0);
     expect(api.uploadPreview).toHaveBeenCalledTimes(0);
@@ -172,7 +171,7 @@ function describeScreenshotsPlanner() {
 
   async function flagsAnOffSpecScreenshotWhosePixelsFallOutsideItsDisplayType() {
     const appWithShot = makeAppWithShot(1080, 1920);
-    const plan = await runPlanner(screenshotsPlanner, makeCtx(apiWithLocale(), appWithShot));
+    const plan = await screenshotsPlanner.plan(makeCtx(apiWithLocale(), appWithShot));
 
     expect(plan.state).toBe('planned');
 
@@ -203,11 +202,8 @@ function describeScreenshotsPlanner() {
 
   async function doesNotFlagAnInSpecScreenshotNorAnUnmeasurableNonImageOne() {
     const appWithShot = makeAppWithShot(1290, 2796);
-    const inSpec = await runPlanner(screenshotsPlanner, makeCtx(apiWithLocale(), appWithShot));
-    const unmeasurable = await runPlanner(
-      screenshotsPlanner,
-      makeCtx(apiWithLocale(), makeApp(true)),
-    );
+    const inSpec = await screenshotsPlanner.plan(makeCtx(apiWithLocale(), appWithShot));
+    const unmeasurable = await screenshotsPlanner.plan(makeCtx(apiWithLocale(), makeApp(true)));
 
     for (const plan of [inSpec, unmeasurable]) {
       if (plan.state != 'planned') throw new Error('expected an app-scoped plan');

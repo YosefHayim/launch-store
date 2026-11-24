@@ -1,7 +1,6 @@
-import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { walletPlanner } from './wallet.ts';
-import { makeAscApiFake } from '../../testkit/app-store-connect-api-fake-testkit.ts';
+import { makeAscApiFake } from '../../testkit/app-store-connect-surfaces.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscSurfacesApi, PlanContext } from '../../types/plan.ts';
 import type { WalletConfig } from '../../types/store-surface.ts';
@@ -38,14 +37,14 @@ function makeCtx(api: AscSurfacesApi | null, wallet?: WalletConfig): PlanContext
 function describeWalletPlanner() {
   async function omitsItselfWhenNoWalletIdsAreDeclared() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(walletPlanner, makeCtx(ascApiFake));
+    const plan = await walletPlanner.plan(makeCtx(ascApiFake));
     expect(plan.state).toBe('omitted');
   }
 
   it('omits itself when no wallet ids are declared', omitsItselfWhenNoWalletIdsAreDeclared);
 
   async function skipsWithACredsHintWhenNoAppleAccountIsActive() {
-    const plan = await runPlanner(walletPlanner, makeCtx(null, DECLARED));
+    const plan = await walletPlanner.plan(makeCtx(null, DECLARED));
 
     expect(plan.state).toBe('skipped');
 
@@ -61,7 +60,7 @@ function describeWalletPlanner() {
 
   async function reportsATeamScopedAdditivePlanForAFreshMerchantId() {
     const ascApiFake = makeAscApiFake();
-    const plan = await runPlanner(walletPlanner, makeCtx(ascApiFake, DECLARED));
+    const plan = await walletPlanner.plan(makeCtx(ascApiFake, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -94,7 +93,7 @@ function describeWalletPlanner() {
         .fn()
         .mockResolvedValue([{ id: 'm1', identifier: 'merchant.com.acme.app' }]),
     });
-    const plan = await runPlanner(walletPlanner, makeCtx(api, DECLARED));
+    const plan = await walletPlanner.plan(makeCtx(api, DECLARED));
 
     expect(plan.state).toBe('planned');
 
@@ -112,7 +111,7 @@ function describeWalletPlanner() {
 
   async function isStrictlyReadOnlyNeverInvokesAWriteEndpoint() {
     const api = makeAscApiFake();
-    await runPlanner(walletPlanner, makeCtx(api, DECLARED));
+    await walletPlanner.plan(makeCtx(api, DECLARED));
     expect(api.createMerchantId).toHaveBeenCalledTimes(0);
     expect(api.createPassTypeId).toHaveBeenCalledTimes(0);
   }

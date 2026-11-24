@@ -1,4 +1,3 @@
-import { runPlanner } from './planner-testkit.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { playProductsPlanner } from './play-products.ts';
 import type { AppDescriptor } from '../../types/app.ts';
@@ -117,8 +116,7 @@ function makeCtx(
 function describePlayProductsPlanner() {
   async function omitsItselfWhenNoAppDeclaresAPlayOverriddenProduct() {
     const playApi = makePlayApi();
-    const plan = await runPlanner(
-      playProductsPlanner,
+    const plan = await playProductsPlanner.plan(
       makeCtx(playApi, {
         'com.acme.alpha': {
           inAppPurchases: [
@@ -149,8 +147,7 @@ function describePlayProductsPlanner() {
       bundleId: 'com.acme.alpha',
     };
     const playApi = makePlayApi();
-    const plan = await runPlanner(
-      playProductsPlanner,
+    const plan = await playProductsPlanner.plan(
       makeCtx(playApi, { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }, [noPackage]),
     );
 
@@ -163,8 +160,7 @@ function describePlayProductsPlanner() {
   );
 
   async function skipsWithAnActionableHintWhenNoPlayServiceAccountIsConfigured() {
-    const plan = await runPlanner(
-      playProductsPlanner,
+    const plan = await playProductsPlanner.plan(
       makeCtx(null, { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }),
     );
 
@@ -183,8 +179,7 @@ function describePlayProductsPlanner() {
 
   async function reportsThePerAppDiffAFreshPlayProductWouldCreate() {
     const playApi = makePlayApi();
-    const plan = await runPlanner(
-      playProductsPlanner,
+    const plan = await playProductsPlanner.plan(
       makeCtx(playApi, { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }),
     );
 
@@ -222,8 +217,7 @@ function describePlayProductsPlanner() {
     const api = makePlayApi({
       assertAppExists: vi.fn(mockCall12),
     });
-    const plan = await runPlanner(
-      playProductsPlanner,
+    const plan = await playProductsPlanner.plan(
       makeCtx(api, { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }),
     );
 
@@ -245,8 +239,7 @@ function describePlayProductsPlanner() {
   async function isStrictlyReadOnlyNeverInvokesAPlayWriteEndpoint() {
     const api = makePlayApi();
 
-    await runPlanner(
-      playProductsPlanner,
+    await playProductsPlanner.plan(
       makeCtx(api, { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }),
     );
     expect(api.listInAppProducts).toHaveBeenCalled();

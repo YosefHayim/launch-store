@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { InAppProductResource } from '../types/google-play.ts';
 import type { InAppPurchaseConfig } from '../types/catalog.ts';
-import { expectArrayElement } from '../testkit/assertions-testkit.ts';
+import { expectArrayElement } from '../testkit/expect-defined.ts';
 import {
   type PlayProductsApi,
   productInSync,

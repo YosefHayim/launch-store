@@ -128,8 +128,8 @@ function describeStatsPaths() {
       failure = caught;
     }
 
+    expect(failure).toBeInstanceOf(Error);
     expect(failure).toMatchObject({
-      _tag: 'InvalidAppKeyFailure',
       message: expect.stringContaining('not a valid app key'),
     });
   }

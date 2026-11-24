@@ -37,32 +37,6 @@ type SecretRemoveInput = Readonly<{
 
 type SecretCommandInput = SecretListInput | SecretSetInput | SecretRemoveInput;
 
-type SecretCommandFailure = Readonly<{
-  readonly _tag: 'SecretCommandFailure';
-  readonly action: string;
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-
-function makeSecretCommandFailure(fields: {
-  action: string;
-  message: string;
-  cause?: unknown;
-}): SecretCommandFailure {
-  const hasCause = fields.cause != null;
-
-  if (hasCause) {
-    return {
-      _tag: 'SecretCommandFailure',
-      action: fields.action,
-      message: fields.message,
-      cause: fields.cause,
-    };
-  }
-
-  return { _tag: 'SecretCommandFailure', action: fields.action, message: fields.message };
-}
-
 function readOptionalString(record: Record<string, unknown>, key: string): string | undefined {
   const hasKey = Object.hasOwn(record, key);
 
@@ -260,13 +234,13 @@ async function readSecretText(commandInput: SecretSetInput): Promise<string> {
   const assumesYes = commandInput.yes == true;
 
   if (assumesYes) {
-    throw makeSecretCommandFailure({ action: 'set', message: MISSING_SECRET_VALUE });
+    throw new Error(MISSING_SECRET_VALUE);
   }
 
   const terminalIsInteractive = checkTerminalIsInteractive();
 
   if (terminalIsInteractive == false) {
-    throw makeSecretCommandFailure({ action: 'set', message: MISSING_SECRET_VALUE });
+    throw new Error(MISSING_SECRET_VALUE);
   }
 
   const promptedSecret = await new LaunchPrompt().requiredSecret(`Value for ${commandInput.name}`);
@@ -279,20 +253,17 @@ async function setSecretValue(commandInput: SecretSetInput): Promise<void> {
   const nameIsMissing = commandInput.name == null;
 
   if (nameIsMissing) {
-    throw makeSecretCommandFailure({
-      action: 'set',
-      message:
-        'Usage: launch-store secret set <NAME> [--value <v>] [--app <app>] [--profile <profile>].',
-    });
+    throw new Error(
+      'Usage: launch-store secret set <NAME> [--value <v>] [--app <app>] [--profile <profile>].',
+    );
   }
 
   const nameIsValid = /^[A-Za-z_][A-Za-z0-9_]*$/.test(commandInput.name);
 
   if (nameIsValid == false) {
-    throw makeSecretCommandFailure({
-      action: 'set',
-      message: `"${commandInput.name}" is not a valid env var name (letters, digits, underscores).`,
-    });
+    throw new Error(
+      `"${commandInput.name}" is not a valid env var name (letters, digits, underscores).`,
+    );
   }
 
   const selectedApp = await selectStoreApp(commandInput.app);
@@ -317,10 +288,7 @@ async function removeSecretValue(commandInput: SecretRemoveInput): Promise<void>
   const nameIsMissing = commandInput.name == null;
 
   if (nameIsMissing) {
-    throw makeSecretCommandFailure({
-      action: commandInput.action,
-      message: 'Usage: launch-store secret rm <NAME> [--app <app>] [--profile <profile>].',
-    });
+    throw new Error('Usage: launch-store secret rm <NAME> [--app <app>] [--profile <profile>].');
   }
 
   const selectedApp = await selectStoreApp(commandInput.app);
@@ -392,12 +360,14 @@ export async function secretCommandProgram(rawCommandInput: unknown): Promise<vo
         return;
     }
   } catch (cause) {
+    const isAlreadyError = cause instanceof Error;
+
+    if (isAlreadyError) {
+      throw cause;
+    }
+
     const failureMessage = errorMessage(cause);
 
-    throw makeSecretCommandFailure({
-      action: 'run',
-      message: failureMessage,
-      cause,
-    });
+    throw new Error(failureMessage, { cause });
   }
 }
