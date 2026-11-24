@@ -18,8 +18,8 @@ function refName(ref: string): string {
   return decodeURIComponent(referenceSegment);
 }
 
-/** Resolve a `{@link Foo}` / `{@link Foo display}` / `{@link Foo | display}` tag down to plain */
-function resolveLink(inner: string): string {
+/** Read a `{@link Foo}` / `{@link Foo display}` / `{@link Foo | display}` tag down to plain */
+function readLink(inner: string): string {
   const [target, ...rest] = inner.split('|');
 
   if (rest.length > 0) return rest.join('|').trim();
@@ -48,7 +48,7 @@ function cleanDescription(description: string | undefined): string {
   if (!description) return '';
 
   function replacePiece(_match: string, inner: string) {
-    return resolveLink(inner);
+    return readLink(inner);
   }
 
   return description

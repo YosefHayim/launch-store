@@ -190,7 +190,7 @@ function showInitReceipt(writtenFiles: string): void {
   );
 }
 
-function resolveInitArtifactDirectory(artifactDir: string, projectDirectory: string): string {
+function readInitArtifactDirectory(artifactDir: string, projectDirectory: string): string {
   const directories = readLaunchDirectories();
   const configuredDirectory = artifactDir.trim();
 
@@ -270,12 +270,9 @@ export async function runInitProgram(rawCommandInput: unknown): Promise<boolean>
 
     const joinedPath = join(workingDirectory, '.env.example');
     const environmentExampleWritten = await writeFileIfAbsent(joinedPath, ENV_EXAMPLE_TEMPLATE);
-    const resolvedArtifactDirectory = resolveInitArtifactDirectory(
-      artifactDirectory,
-      workingDirectory,
-    );
+    const projectArtifactDirectory = readInitArtifactDirectory(artifactDirectory, workingDirectory);
     const gitignoreChange = await ensureArtifactDirIgnored(
-      resolvedArtifactDirectory,
+      projectArtifactDirectory,
       workingDirectory,
     );
     const writtenFiles = ['launch.config.ts'];

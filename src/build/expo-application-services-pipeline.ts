@@ -2,9 +2,9 @@
 
 import type { BuildArtifact } from '../types/artifacts.ts';
 import { confirmUpload, reportSize, renderReceipt } from './pipeline-artifact.ts';
-import { resolveSizeBudgetMB } from './pipeline-providers.ts';
+import { readSizeBudgetMB } from './pipeline-providers.ts';
 import type { BuildRunOptions, PreparedBuild } from '../types/build-run.ts';
-import { resolveStorageProvider } from '../distribution/storage.ts';
+import { readStorageProvider } from '../distribution/storage.ts';
 import { getHostedBuildProvider } from '../services/provider-support/registry.ts';
 
 function readAppVersion(version: string | undefined): string {
@@ -69,7 +69,7 @@ export async function runEasBuild(
     clean: true,
     createdAt: new Date().toISOString(),
   };
-  const storageProvider = await resolveStorageProvider(launchConfig);
+  const storageProvider = await readStorageProvider(launchConfig);
   const stored = await storageProvider.put(artifact);
 
   log.step('store', stored.location);
@@ -77,7 +77,7 @@ export async function runEasBuild(
   const shouldSubmit = buildOptions.submit == true;
 
   if (shouldSubmit) {
-    const sizeBudgetMB = resolveSizeBudgetMB(buildOptions, profile);
+    const sizeBudgetMB = readSizeBudgetMB(buildOptions, profile);
 
     await confirmUpload({
       report: built.sizeReport,

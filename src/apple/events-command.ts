@@ -5,7 +5,7 @@ import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import { AppEvents, type AppEventWithLocalizations } from './app-events.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
-import { resolveStoreBundleId } from '../store/shared/select-store-app.ts';
+import { readStoreBundleId } from '../store/shared/select-store-app.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 
 /** Options for creating a draft in-app event. */
@@ -102,7 +102,7 @@ async function listEventsProgram(
   commandInput: Extract<EventsCommandInput, { operation: 'list' }>,
 ): Promise<void> {
   try {
-    const bundleId = await resolveStoreBundleId(commandInput.app);
+    const bundleId = await readStoreBundleId(commandInput.app);
     const appleStore = await loadActiveAppleStore();
     const events = new AppEvents(appleStore);
     const appEvents = await events.list(bundleId);
@@ -143,7 +143,7 @@ async function listEventsProgram(
 /** Create one validated draft in-app event. */
 async function createEventProgram(commandInput: CreateEventCommandInput): Promise<void> {
   try {
-    const bundleId = await resolveStoreBundleId(commandInput.app);
+    const bundleId = await readStoreBundleId(commandInput.app);
     const appleStore = await loadActiveAppleStore();
     const events = new AppEvents(appleStore);
     const createdEvent = await events.create(bundleId, {

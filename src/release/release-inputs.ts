@@ -24,8 +24,8 @@ function readScheduledInstant(scheduled: string | undefined): string | null {
   return scheduled;
 }
 
-/** Resolve the per-run release type, with `--scheduled`/`--manual` overriding the config default. */
-export function resolveReleaseType(
+/** Read the per-run release type, with `--scheduled`/`--manual` overriding the config default. */
+export function readReleaseType(
   release: ReleaseConfig | undefined,
   overrides: ReleaseTypeOverrides,
 ): {
@@ -60,7 +60,7 @@ export function resolveReleaseType(
 }
 
 /** Normalize config release notes (a bare string targets the primary locale) into a per-locale map. */
-export function resolveReleaseNotes(
+export function readReleaseNotes(
   release: ReleaseConfig | undefined,
   primaryLocale: string,
 ): Record<string, string> {
@@ -154,7 +154,7 @@ function readListingReleaseNotes(
 }
 
 /** What's New for one app. Listing release notes override `release.releaseNotes` per locale. */
-export async function resolveWhatsNew(
+export async function readWhatsNew(
   launchFile: LaunchConfig,
   app: Pick<AppDescriptor, 'dir' | 'bundleId' | 'packageName'>,
 ): Promise<Record<string, string>> {
@@ -169,7 +169,7 @@ export async function resolveWhatsNew(
   const listingReleaseNotes = readListingReleaseNotes(appLaunch, app);
 
   return {
-    ...resolveReleaseNotes(release, primaryLocale),
+    ...readReleaseNotes(release, primaryLocale),
     ...listingReleaseNotes,
   };
 }

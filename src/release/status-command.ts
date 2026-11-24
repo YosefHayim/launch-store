@@ -363,20 +363,16 @@ async function readOneAppStatus(
   selectedApp: StatusApp,
   isBuildListWanted: boolean,
 ): Promise<AppReleaseStatus> {
-  let appId: string;
-
   try {
-    appId = await readAppStoreAppId(appleClient, selectedApp.bundleId);
+    var appId = await readAppStoreAppId(appleClient, selectedApp.bundleId);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
 
     throw new Error(failureMessage, { cause });
   }
 
-  let releaseStatus: ReleaseStatus;
-
   try {
-    releaseStatus = await readReleaseStatusForApp(
+    var releaseStatus = await readReleaseStatusForApp(
       appleClient,
       appId,
       selectedApp.bundleId,
@@ -393,10 +389,8 @@ async function readOneAppStatus(
   }
 
   const recentBuildCount = 25;
-  let recentBuilds: BuildResource[];
-
   try {
-    recentBuilds = await appleClient.listBuilds(appId, recentBuildCount);
+    var recentBuilds = await appleClient.listBuilds(appId, recentBuildCount);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
 
@@ -497,10 +491,8 @@ type BuildWatchRequest = Readonly<{
 }>;
 
 async function watchBuildProcessing(buildWatchRequest: BuildWatchRequest): Promise<BuildResource> {
-  let appId: string;
-
   try {
-    appId = await readAppStoreAppId(
+    var appId = await readAppStoreAppId(
       buildWatchRequest.appleClient,
       buildWatchRequest.selectedApp.bundleId,
     );

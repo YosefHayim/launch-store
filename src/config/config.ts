@@ -475,9 +475,7 @@ async function readAppAt(appDirectory: string): Promise<AppDescriptor | null> {
   return appDescriptorFromConfig(chosenConfig.rawConfig, appDirectory, chosenConfig.path);
 }
 
-export async function readResolvedConfig(
-  appDirectory: string,
-): Promise<Record<string, unknown> | null> {
+export async function readAppConfig(appDirectory: string): Promise<Record<string, unknown> | null> {
   const appConfigDocument = await loadAppConfigDocument(appDirectory);
 
   if (appConfigDocument == null) {
@@ -685,17 +683,17 @@ export async function loadConfig(requestedDirectory?: string): Promise<LoadedCon
     configuredRoots = [rootDirectory];
   }
 
-  function resolveRoot(appRoot: string): string {
+  function readRoot(appRoot: string): string {
     return resolve(rootDirectory, appRoot);
   }
 
-  const resolvedRoots = configuredRoots.map(resolveRoot);
+  const roots = configuredRoots.map(readRoot);
 
   function discoverRoot(appRoot: string): Promise<AppDescriptor[]> {
     return discoverApps(appRoot);
   }
 
-  const discoveredAppGroups = await Promise.all(resolvedRoots.map(discoverRoot));
+  const discoveredAppGroups = await Promise.all(roots.map(discoverRoot));
   const apps = discoveredAppGroups.flat();
 
   return { config, apps, directory: loadedLaunch.directory };

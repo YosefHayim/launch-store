@@ -2,7 +2,7 @@
 
 import type { AppDescriptor, Distribution, Platform, PlayTrack } from './app.ts';
 import type { SizeReport } from './artifacts.ts';
-import type { LaunchConfig, ResolvedBuildContext } from './config.ts';
+import type { LaunchConfig, BuildContext } from './config.ts';
 import type { MutableDeep } from './mutable.ts';
 import type { RemoteTarget } from './remote.ts';
 import type { Logger } from '../services/platform/logger.ts';
@@ -36,9 +36,9 @@ export type BuildRunOptions = {
 export type PreparedBuild = {
   config: LaunchConfig;
   app: MutableDeep<AppDescriptor>;
-  profile: ResolvedBuildContext['profile'];
+  profile: BuildContext['profile'];
   env: Record<string, string>;
-  buildContext: MutableDeep<ResolvedBuildContext>;
+  buildContext: MutableDeep<BuildContext>;
   log: Logger;
 };
 

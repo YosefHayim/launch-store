@@ -7,7 +7,7 @@ import { loadConfig } from '../config/config.ts';
 import { getActiveKeyId, listAccounts } from '../credentials/accounts.ts';
 import { loadCachedKeystore } from '../credentials/android-keystore-assets.ts';
 import { loadCachedSigningAssets } from '../credentials/apple-signing-assets.ts';
-import { resolveStorageProvider } from '../distribution/storage.ts';
+import { readStorageProvider } from '../distribution/storage.ts';
 import { pathExists } from '../path-exists.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { captureCommandOutput, executeCommand } from '../services/platform/execute-command.ts';
@@ -257,7 +257,7 @@ export function androidResignSpec(
 async function loadResignWorkspace(): Promise<ResignWorkspace> {
   const launchPaths = readLaunchDirectories();
   const loadedLaunch = await loadConfig(launchPaths.workingDirectory);
-  const storageProvider = await resolveStorageProvider(
+  const storageProvider = await readStorageProvider(
     loadedLaunch.config,
     launchPaths.workingDirectory,
   );

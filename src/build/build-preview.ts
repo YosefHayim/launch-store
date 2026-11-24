@@ -4,9 +4,9 @@ import { isApplePlatform } from '../services/stores/platform.ts';
 import type { AppDescriptor, Platform, PlayTrack } from '../types/app.ts';
 import type { LaunchConfig } from '../types/config.ts';
 import {
-  resolveAndroidRelease,
-  resolveBuildEngineName,
-  resolveSubmitterName,
+  readAndroidRelease,
+  readBuildEngineName,
+  readSubmitterName,
 } from './pipeline-providers.ts';
 import type { BuildRunOptions } from '../types/build-run.ts';
 
@@ -39,7 +39,7 @@ export type BuildPreviewInput = Readonly<{
   readonly rollout?: number;
 }>;
 
-/** Resolve the store identifier an app exposes for the selected platform. */
+/** Read the store identifier an app exposes for the selected platform. */
 function identifierFor(appDescriptor: AppDescriptor, platform: Platform): string | undefined {
   const isApple = isApplePlatform(platform);
 
@@ -50,11 +50,8 @@ function identifierFor(appDescriptor: AppDescriptor, platform: Platform): string
   return appDescriptor.packageName;
 }
 
-/** Resolve the configured profile name or fail for an explicit unknown profile. */
-function resolveProfileName(
-  launchConfig: LaunchConfig,
-  requestedProfile: string | undefined,
-): string {
+/** Read the configured profile name or fail for an explicit unknown profile. */
+function readProfileName(launchConfig: LaunchConfig, requestedProfile: string | undefined): string {
   const profileNames = Object.keys(launchConfig.profiles);
 
   const hasRequestedProfile = requestedProfile != null;
@@ -109,8 +106,8 @@ function planApp(
     const identifier = identifierFor(appDescriptor, previewInput.platform);
     let appPlan: AppBuildPlan = {
       app: appDescriptor.name,
-      buildEngine: resolveBuildEngineName(previewInput.config, previewInput.platform),
-      submitter: resolveSubmitterName(previewInput.config, previewInput.platform),
+      buildEngine: readBuildEngineName(previewInput.config, previewInput.platform),
+      submitter: readSubmitterName(previewInput.config, previewInput.platform),
     };
 
     const hasIdentifier = identifier != null;
@@ -139,7 +136,7 @@ function planApp(
       releaseOptions = { ...releaseOptions, rollout: previewInput.rollout };
     }
 
-    const androidRelease = resolveAndroidRelease(releaseOptions, buildProfile);
+    const androidRelease = readAndroidRelease(releaseOptions, buildProfile);
 
     return { ...appPlan, ...androidRelease };
   };
@@ -156,7 +153,7 @@ function readPreviewDistribution(distribution: string | undefined): string {
 }
 
 export function previewBuild(previewInput: BuildPreviewInput): BuildPreview {
-  const profileName = resolveProfileName(previewInput.config, previewInput.profile);
+  const profileName = readProfileName(previewInput.config, previewInput.profile);
   const distribution = readPreviewDistribution(previewInput.distribution);
 
   return {

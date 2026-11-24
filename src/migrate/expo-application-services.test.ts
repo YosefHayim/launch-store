@@ -14,7 +14,7 @@ import {
   collectEnvironmentKeys,
   credentialsSummaryFromJson,
   describeRuntimeVersion,
-  expoFactsFromResolvedConfig,
+  expoFactsFromConfig,
   launchProfilesFromEas,
   migrateEas,
   notesFromCredentialsSummary,
@@ -421,7 +421,7 @@ describe(
 
 function describeExpoFactsFromResolvedPieceNotesFromExpoFacts() {
   function readsWrappedExpoFactsAndDescribesPolicyRuntimeVersions() {
-    const expoFacts = expoFactsFromResolvedConfig({
+    const expoFacts = expoFactsFromConfig({
       expo: {
         owner: 'acme-org',
         runtimeVersion: { policy: 'sdkVersion' },
@@ -477,7 +477,7 @@ function describeExpoFactsFromResolvedPieceNotesFromExpoFacts() {
   );
 
   function acceptsABareExpoDocumentAndAStringRuntimeVersion() {
-    const expoFacts = expoFactsFromResolvedConfig({
+    const expoFacts = expoFactsFromConfig({
       owner: 'solo',
       runtimeVersion: '1.2.3',
     });
@@ -500,7 +500,7 @@ function describeExpoFactsFromResolvedPieceNotesFromExpoFacts() {
 }
 
 describe(
-  'expoFactsFromResolvedConfig / notesFromExpoFacts',
+  'expoFactsFromConfig / notesFromExpoFacts',
   describeExpoFactsFromResolvedPieceNotesFromExpoFacts,
 );
 

@@ -17,7 +17,7 @@ import { createLogger, type Logger } from '../services/platform/logger.ts';
 import {
   checkIsMacOperatingSystem,
   readHostResources,
-  resolveHostOperatingSystemLabel,
+  readHostOperatingSystemLabel,
 } from '../services/platform/host-operating-system.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { isApplePlatform, platformLabel } from '../services/stores/platform.ts';
@@ -196,7 +196,7 @@ function workspaceSuffix(workspace: { kind: string } | null): string {
 
 async function environmentReadinessRows(): Promise<ReadinessRow[]> {
   const hostResources = readHostResources();
-  const operatingSystemLabel = resolveHostOperatingSystemLabel();
+  const operatingSystemLabel = readHostOperatingSystemLabel();
   const launchDirectories = readLaunchDirectories();
   const packageSetup = await inspectPackageSetup(launchDirectories.workingDirectory);
 
@@ -586,7 +586,7 @@ async function collectReadiness(
   return { groups: readinessGroups };
 }
 
-function resolveConfiguredArtifactDirectory(artifactDir: string, projectDirectory: string): string {
+function readConfiguredArtifactDirectory(artifactDir: string, projectDirectory: string): string {
   const directories = readLaunchDirectories();
   const configuredDirectory = artifactDir.trim();
 
@@ -617,7 +617,7 @@ function resolveConfiguredArtifactDirectory(artifactDir: string, projectDirector
   return resolve(projectDirectory, configuredDirectory);
 }
 
-function resolveSetupArtifactDirectory(
+function readSetupArtifactDirectory(
   artifactDir: string | undefined,
   projectDirectory: string,
 ): string {
@@ -626,7 +626,7 @@ function resolveSetupArtifactDirectory(
     return join(launchDirectories.homeDirectory, '.launch', 'artifacts');
   }
 
-  return resolveConfiguredArtifactDirectory(artifactDir, projectDirectory);
+  return readConfiguredArtifactDirectory(artifactDir, projectDirectory);
 }
 
 async function scaffoldConfig(apps: readonly AppDescriptor[]): Promise<void> {
@@ -645,7 +645,7 @@ async function scaffoldConfig(apps: readonly AppDescriptor[]): Promise<void> {
     await writeFile(environmentExamplePath, ENV_EXAMPLE_TEMPLATE);
   }
 
-  const setupArtifactDirectory = resolveSetupArtifactDirectory(
+  const setupArtifactDirectory = readSetupArtifactDirectory(
     DEFAULT_IN_REPO_ARTIFACT_DIR,
     projectDirectory,
   );

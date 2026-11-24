@@ -61,45 +61,30 @@ export function GameCenterCommandInputSchema(rawCommandInput: unknown): GameCent
   return { app, dryRun, yes };
 }
 
-function readNonEmptyText(cause: unknown): string | null {
-  const isNotText = typeof cause != 'string';
+/** Convert a dependency failure into an Error. */
+function gameCenterFailure(operation: string, cause: unknown): never {
+  const causeText = typeof cause == 'string' ? cause : '';
+  const isBlankCauseText = causeText.length == 0;
 
-  if (isNotText) return null;
-
-  const isEmpty = cause.length == 0;
-
-  if (isEmpty) return null;
-
-  return cause;
-}
-
-function readCauseMessage(cause: unknown, fallback: string): string {
-  const textMessage = readNonEmptyText(cause);
-
-  if (textMessage != null) return textMessage;
+  if (isBlankCauseText == false) {
+    throw new Error(causeText, { cause });
+  }
 
   const hasCauseMessage = hasMessage(cause);
 
-  if (hasCauseMessage) return cause.message;
+  if (hasCauseMessage) {
+    throw new Error(cause.message, { cause });
+  }
 
-  return fallback;
+  throw new Error(`${operation} failed.`, { cause });
 }
 
-/** Convert a dependency failure into an Error. */
-function gameCenterFailure(operation: string, cause: unknown): never {
-  const message = readCauseMessage(cause, `${operation} failed.`);
-
-  throw new Error(message, { cause });
-}
-
-/** Resolve the selected bundle id and its Game Center declaration. */
-async function resolveGameCenterTarget(
+/** Read the selected bundle id and its Game Center declaration. */
+async function readGameCenterTarget(
   commandInput: GameCenterCommandInput,
 ): Promise<Readonly<{ bundleId: string; gameCenterConfig: GameCenterConfig }>> {
-  let storeAppContext: Awaited<ReturnType<typeof loadStoreAppContext>>;
-
   try {
-    storeAppContext = await loadStoreAppContext(commandInput.app);
+    var storeAppContext = await loadStoreAppContext(commandInput.app);
   } catch (cause) {
     throw gameCenterFailure('select Game Center app', cause);
   }
@@ -136,28 +121,22 @@ function isPlannedAction(plannedAction: { status: string }): boolean {
 /** Plan, confirm, and apply Game Center changes. */
 async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
   try {
-    let commandInput: GameCenterCommandInput;
-
     try {
-      commandInput = GameCenterCommandInputSchema(rawCommandInput);
+      var commandInput = GameCenterCommandInputSchema(rawCommandInput);
     } catch (cause) {
       throw gameCenterFailure('decode Game Center command input', cause);
     }
 
-    const gameCenterTarget = await resolveGameCenterTarget(commandInput);
+    const gameCenterTarget = await readGameCenterTarget(commandInput);
     const logger = createLogger(false);
-    let appleStore: Awaited<ReturnType<typeof loadActiveAppleStore>>;
-
     try {
-      appleStore = await loadActiveAppleStore();
+      var appleStore = await loadActiveAppleStore();
     } catch (cause) {
       throw gameCenterFailure('load App Store Connect client', cause);
     }
 
-    let gameCenterPlan: Awaited<ReturnType<typeof reconcileGameCenter>>;
-
     try {
-      gameCenterPlan = await reconcileGameCenter(appleStore, {
+      var gameCenterPlan = await reconcileGameCenter(appleStore, {
         bundleId: gameCenterTarget.bundleId,
         config: gameCenterTarget.gameCenterConfig,
         dryRun: true,
@@ -203,10 +182,8 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
       return 0;
     }
 
-    let confirmed = false;
-
     try {
-      confirmed = await confirmStoreSurfaceWrite(
+      var confirmed = await confirmStoreSurfaceWrite(
         `Apply ${plannedActions.length} Game Center change(s) to App Store Connect?`,
         commandInput.yes,
       );
@@ -220,10 +197,8 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
       return 0;
     }
 
-    let appliedGameCenter: Awaited<ReturnType<typeof reconcileGameCenter>>;
-
     try {
-      appliedGameCenter = await reconcileGameCenter(appleStore, {
+      var appliedGameCenter = await reconcileGameCenter(appleStore, {
         bundleId: gameCenterTarget.bundleId,
         config: gameCenterTarget.gameCenterConfig,
         dryRun: false,

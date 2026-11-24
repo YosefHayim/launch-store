@@ -79,10 +79,10 @@ function makeCtx(api: AscSurfacesApi | null, app: AppDescriptor): PlanContext {
   return {
     config,
     apps: [app],
-    resolveAscApi() {
+    readAscApi() {
       return Promise.resolve(api);
     },
-    resolvePlayApi() {
+    readPlayApi() {
       return Promise.resolve(null);
     },
   };

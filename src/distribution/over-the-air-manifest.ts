@@ -21,7 +21,7 @@ export type UpdateManifest = {
   extra: Record<string, never>;
 };
 
-/** Resolve a file's content type from its extension, defaulting to a binary stream. */
+/** Read a file's content type from its extension, defaulting to a binary stream. */
 export function contentTypeFor(filePath: string): string {
   const contentType = {
     '.js': 'application/javascript',

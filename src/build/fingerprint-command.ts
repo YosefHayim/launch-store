@@ -10,7 +10,7 @@ import {
   type CleanDecision,
   gatherIosFingerprint,
   readBuildState,
-  resolveClean,
+  pickClean,
 } from './build-fingerprint.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
@@ -133,7 +133,7 @@ export async function fingerprintCommandProgram(rawCommandInput: unknown): Promi
       platform: 'ios',
       current: currentFingerprint,
       stored: storedBuild,
-      decision: resolveClean(false, storedBuild, currentFingerprint),
+      decision: pickClean(false, storedBuild, currentFingerprint),
     };
     let reportText = formatFingerprintReport(fingerprintReport);
 

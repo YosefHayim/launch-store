@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
 import { gradleBuildArguments, makeGradleBuildEngine, parseBundletoolSize } from './gradle.ts';
 
@@ -103,7 +103,7 @@ function describeGradleBuildEngineDryRunRehearsesWithoutBuildingOrSigning() {
     explain: false,
     dryRun: true,
     forceClean: false,
-  } satisfies ResolvedBuildContext;
+  } satisfies BuildContext;
   const buildCredentials: BuildCredentials = { platform: 'android', serviceAccountJson: '' };
 
   async function returnsAZeroByteReportAndNeverTouchesTheKeystore() {

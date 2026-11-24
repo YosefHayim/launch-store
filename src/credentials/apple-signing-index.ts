@@ -3,7 +3,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
-import { resolveAccountCredentialsDirectory } from '../services/platform/paths.ts';
+import { readAccountCredentialsDirectory } from '../services/platform/paths.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /** Persisted record of the distribution certificate Launch created and backed up. */
@@ -155,7 +155,7 @@ export function decodeCredentialsIndex(candidate: unknown): CredentialsIndex | n
 
 /** Absolute path to one account's signing index. */
 function indexPath(keyId: string): string {
-  const accountCredentialsDirectory = resolveAccountCredentialsDirectory(keyId);
+  const accountCredentialsDirectory = readAccountCredentialsDirectory(keyId);
   return join(accountCredentialsDirectory, 'index.json');
 }
 
@@ -192,7 +192,7 @@ export async function readIndex(keyId: string): Promise<CredentialsIndex> {
 
 /** Write an account's credentials index back to disk. */
 export async function writeIndex(keyId: string, credentialsIndex: CredentialsIndex): Promise<void> {
-  const credentialsDirectory = resolveAccountCredentialsDirectory(keyId);
+  const credentialsDirectory = readAccountCredentialsDirectory(keyId);
   await mkdir(credentialsDirectory, { recursive: true });
   const indexText = JSON.stringify(credentialsIndex, null, 2);
   await writeFile(indexPath(keyId), indexText);

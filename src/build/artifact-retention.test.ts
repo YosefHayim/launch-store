@@ -8,8 +8,8 @@ import {
   DEFAULT_RETENTION_DAYS,
   planPrune,
   readArtifactIndex,
-  resolveCommandRetentionDays,
-  resolveRetentionDays,
+  readCommandRetentionDays,
+  readRetentionDays,
   runArtifactPrune,
   writeArtifactIndex,
 } from './artifact-retention.ts';
@@ -215,21 +215,21 @@ describe(
 
 function describeResolveRetentionDaysTheAutomaticSweepSWindow() {
   function defaultsTo30WhenUnset() {
-    const retentionDays = resolveRetentionDays(config());
+    const retentionDays = readRetentionDays(config());
     expect(retentionDays).toBe(DEFAULT_RETENTION_DAYS);
   }
 
   it('defaults to 30 when unset', defaultsTo30WhenUnset);
 
   function returnsAConfiguredPieceVerbatim() {
-    const retentionDays = resolveRetentionDays(config({ artifactRetentionDays: 14 }));
+    const retentionDays = readRetentionDays(config({ artifactRetentionDays: 14 }));
     expect(retentionDays).toBe(14);
   }
 
   it('returns a configured value verbatim', returnsAConfiguredPieceVerbatim);
 
   function returns0WhenExplicitlyDisabledThePipelineReadsThisAsSkip() {
-    const retentionDays = resolveRetentionDays(config({ artifactRetentionDays: 0 }));
+    const retentionDays = readRetentionDays(config({ artifactRetentionDays: 0 }));
     expect(retentionDays).toBe(0);
   }
 
@@ -240,13 +240,13 @@ function describeResolveRetentionDaysTheAutomaticSweepSWindow() {
 }
 
 describe(
-  "resolveRetentionDays - the automatic sweep's window",
+  "readRetentionDays - the automatic sweep's window",
   describeResolveRetentionDaysTheAutomaticSweepSWindow,
 );
 
 function describeResolveCommandRetentionDaysTheExplicitBuildsPruneWindow() {
   function usesTheConfiguredPieceWhenNoOverrideIsGiven() {
-    const commandRetentionDays = resolveCommandRetentionDays(config({ artifactRetentionDays: 14 }));
+    const commandRetentionDays = readCommandRetentionDays(config({ artifactRetentionDays: 14 }));
     expect(commandRetentionDays).toBe(14);
   }
 
@@ -256,10 +256,7 @@ function describeResolveCommandRetentionDaysTheExplicitBuildsPruneWindow() {
   );
 
   function letsADaysOverrideWinOverPiece() {
-    const commandRetentionDays = resolveCommandRetentionDays(
-      config({ artifactRetentionDays: 14 }),
-      7,
-    );
+    const commandRetentionDays = readCommandRetentionDays(config({ artifactRetentionDays: 14 }), 7);
 
     expect(commandRetentionDays).toBe(7);
   }
@@ -267,7 +264,7 @@ function describeResolveCommandRetentionDaysTheExplicitBuildsPruneWindow() {
   it('lets a --days override win over config', letsADaysOverrideWinOverPiece);
 
   function fallsBackToTheDefaultWhenAutoIsDisabled0AnExplicitPruneStillDoesSomething() {
-    const commandRetentionDays = resolveCommandRetentionDays(config({ artifactRetentionDays: 0 }));
+    const commandRetentionDays = readCommandRetentionDays(config({ artifactRetentionDays: 0 }));
     expect(commandRetentionDays).toBe(DEFAULT_RETENTION_DAYS);
   }
 
@@ -277,7 +274,7 @@ function describeResolveCommandRetentionDaysTheExplicitBuildsPruneWindow() {
   );
 
   function defaultsTo30WhenNothingIsConfiguredOrPassed() {
-    const commandRetentionDays = resolveCommandRetentionDays(config());
+    const commandRetentionDays = readCommandRetentionDays(config());
     expect(commandRetentionDays).toBe(DEFAULT_RETENTION_DAYS);
   }
 
@@ -288,7 +285,7 @@ function describeResolveCommandRetentionDaysTheExplicitBuildsPruneWindow() {
 }
 
 describe(
-  'resolveCommandRetentionDays - the explicit `builds prune` window',
+  'readCommandRetentionDays - the explicit `builds prune` window',
   describeResolveCommandRetentionDaysTheExplicitBuildsPruneWindow,
 );
 

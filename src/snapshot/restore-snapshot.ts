@@ -54,10 +54,10 @@ function restoreContextFromSession(storeSession: SnapshotStoreSession): RestoreC
   return {
     config: storeSession.config,
     apps: storeSession.apps,
-    resolveAscWriteClient: function resolveAscWriteClient() {
+    readAscWriteClient: function readAscWriteClient() {
       return Promise.resolve(storeSession.ascClient);
     },
-    resolvePlayWriteClient: storeSession.playClient,
+    readPlayWriteClient: storeSession.playClient,
   };
 }
 

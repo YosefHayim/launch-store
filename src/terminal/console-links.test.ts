@@ -168,31 +168,31 @@ describe('parseOpenTarget', describeParseOpenTarget);
 
 function describeResolveOpenPlatform() {
   function honorsAnExplicitPlatformFlag() {
-    const openPlatform = consoleLinks.resolveOpenPlatform('asc', 'android');
+    const openPlatform = consoleLinks.readOpenPlatform('asc', 'android');
     expect(openPlatform).toBe('android');
-    expect(consoleLinks.resolveOpenPlatform('play', 'ios')).toBe('ios');
+    expect(consoleLinks.readOpenPlatform('play', 'ios')).toBe('ios');
   }
 
   it('honors an explicit platform flag', honorsAnExplicitPlatformFlag);
 
   function infersAndroidForThePlayTarget() {
-    const openPlatform = consoleLinks.resolveOpenPlatform('play', undefined);
+    const openPlatform = consoleLinks.readOpenPlatform('play', undefined);
     expect(openPlatform).toBe('android');
   }
 
   it('infers android for the play target', infersAndroidForThePlayTarget);
 
   function defaultsToIosForEveryOtherTarget() {
-    const openPlatform = consoleLinks.resolveOpenPlatform('asc', undefined);
+    const openPlatform = consoleLinks.readOpenPlatform('asc', undefined);
     expect(openPlatform).toBe('ios');
-    expect(consoleLinks.resolveOpenPlatform('testflight', undefined)).toBe('ios');
+    expect(consoleLinks.readOpenPlatform('testflight', undefined)).toBe('ios');
   }
 
   it('defaults to ios for every other target', defaultsToIosForEveryOtherTarget);
 
   function rejectsAnInvalidPlatform() {
     const platformAttempt = thrownCause(function readPlatform() {
-      consoleLinks.resolveOpenPlatform('asc', 'web');
+      consoleLinks.readOpenPlatform('asc', 'web');
     });
 
     expect(platformAttempt).toMatchObject({
@@ -203,7 +203,7 @@ function describeResolveOpenPlatform() {
   it('rejects an invalid platform', rejectsAnInvalidPlatform);
 }
 
-describe('resolveOpenPlatform', describeResolveOpenPlatform);
+describe('readOpenPlatform', describeResolveOpenPlatform);
 
 function describeSelectOpenApp() {
   const discoveredApps = [

@@ -4,7 +4,7 @@ import {
   assembleArchiveArguments,
   assembleExportArguments,
   computeParallelJobLimit,
-  resolveCcacheEnvironment,
+  readCcacheEnvironment,
 } from './build-flags.ts';
 import type { ArchiveArgsInput } from './build-flags.ts';
 
@@ -65,7 +65,7 @@ describe(
 function describeResolveCcacheEnvironmentWiresTheCompilerCacheOn() {
   function setsOnlyUSECCACHECcacheUsesItsOwnDefaultCacheDir() {
     useLaunchEnvironment({});
-    const ccacheEnvironment = resolveCcacheEnvironment();
+    const ccacheEnvironment = readCcacheEnvironment();
     expect(ccacheEnvironment).toEqual({ USE_CCACHE: '1' });
   }
 
@@ -76,7 +76,7 @@ function describeResolveCcacheEnvironmentWiresTheCompilerCacheOn() {
 
   function returnsEmptyWhenExplicitlyDisabledViaParameter() {
     useLaunchEnvironment({ USE_CCACHE: '0' });
-    const ccacheEnvironment = resolveCcacheEnvironment(true);
+    const ccacheEnvironment = readCcacheEnvironment(true);
     expect(ccacheEnvironment).toEqual({});
   }
 
@@ -87,7 +87,7 @@ function describeResolveCcacheEnvironmentWiresTheCompilerCacheOn() {
 
   function returnsEmptyWhenUSECCACHE0IsSetInTheEnvironment() {
     useLaunchEnvironment({ USE_CCACHE: '0' });
-    const ccacheEnvironment = resolveCcacheEnvironment();
+    const ccacheEnvironment = readCcacheEnvironment();
     expect(ccacheEnvironment).toEqual({});
   }
 
@@ -98,7 +98,7 @@ function describeResolveCcacheEnvironmentWiresTheCompilerCacheOn() {
 }
 
 describe(
-  'resolveCcacheEnvironment - wires the compiler cache on',
+  'readCcacheEnvironment - wires the compiler cache on',
   describeResolveCcacheEnvironmentWiresTheCompilerCacheOn,
 );
 

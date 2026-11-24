@@ -9,8 +9,8 @@ import {
   writeDocumentFileAtomically,
 } from '../services/platform/atomic-document-file.ts';
 import {
-  resolveReleaseTrainFilePath,
-  resolveReleaseTrainsDirectory,
+  readReleaseTrainFilePath,
+  readReleaseTrainsDirectory,
 } from '../services/platform/paths.ts';
 import type {
   Car,
@@ -372,7 +372,7 @@ function releaseTrainDirectory(directoryOverride: string | undefined): string {
     return directoryOverride;
   }
 
-  return resolveReleaseTrainsDirectory();
+  return readReleaseTrainsDirectory();
 }
 
 function trainRecordPath(trainId: string, directoryOverride: string | undefined): string {
@@ -382,7 +382,7 @@ function trainRecordPath(trainId: string, directoryOverride: string | undefined)
     return join(directoryOverride, fileName);
   }
 
-  return resolveReleaseTrainFilePath(trainId);
+  return readReleaseTrainFilePath(trainId);
 }
 
 /** Persist a train record, creating the release-trains directory when needed. */
@@ -450,10 +450,8 @@ async function readListedTrains(
 /** List every valid persisted train newest-first. */
 export async function listTrainRecords(directoryOverride?: string): Promise<TrainRecord[]> {
   const directoryPath = releaseTrainDirectory(directoryOverride);
-  let directoryPresent = false;
-
   try {
-    directoryPresent = await pathExists(directoryPath);
+    var directoryPresent = await pathExists(directoryPath);
   } catch (cause) {
     throw recordFailure('list release-train records', cause);
   }
@@ -462,10 +460,8 @@ export async function listTrainRecords(directoryOverride?: string): Promise<Trai
     return [];
   }
 
-  let directoryEntries: string[];
-
   try {
-    directoryEntries = await readdir(directoryPath);
+    var directoryEntries = await readdir(directoryPath);
   } catch (cause) {
     throw recordFailure('list release-train records', cause);
   }
@@ -475,7 +471,7 @@ export async function listTrainRecords(directoryOverride?: string): Promise<Trai
   return trainRecords.filter(isPresentTrain).sort(compareNewestFirst);
 }
 
-/** Resolve the newest live train, then the newest train of any state. */
+/** Read the newest live train, then the newest train of any state. */
 export async function latestTrainRecord(directoryOverride?: string): Promise<TrainRecord | null> {
   const trainRecords = await listTrainRecords(directoryOverride);
   const liveTrain = trainRecords.find(isLiveTrain);

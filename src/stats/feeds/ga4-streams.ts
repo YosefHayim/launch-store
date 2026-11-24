@@ -280,10 +280,8 @@ async function listPages(
     propertyId: pagedList.propertyId,
   });
 
-  let nextPageToken: string | null;
-
   try {
-    nextPageToken = readNextPageToken(pageDocument);
+    var nextPageToken = readNextPageToken(pageDocument);
   } catch (cause) {
     throw createGa4Failure(session, 'Unreadable Google Analytics page', cause);
   }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LaunchConfig } from '../types/config.ts';
-import { resolveReleaseNotes, resolveReleaseType, resolveWhatsNew } from './release-inputs.ts';
+import { readReleaseNotes, readReleaseType, readWhatsNew } from './release-inputs.ts';
 
 function launchFile(
   listing?: LaunchConfig['listing'],
@@ -30,7 +30,7 @@ const releaseApp = { dir: '/no/such/app', bundleId: 'com.acme.app' };
 
 function describeResolveReleaseTypeCLIFlagsOverrideTheConfiguredDefault() {
   function defaultsToAFTERAPPROVALWithNoPieceAndNoOverrides() {
-    const releaseType = resolveReleaseType(undefined, {});
+    const releaseType = readReleaseType(undefined, {});
     expect(releaseType).toEqual({ releaseType: 'AFTER_APPROVAL' });
   }
 
@@ -41,7 +41,7 @@ function describeResolveReleaseTypeCLIFlagsOverrideTheConfiguredDefault() {
 
   function passesTheConfiguredReleaseTypeAndEarliestReleaseDateThrough() {
     expect(
-      resolveReleaseType(
+      readReleaseType(
         { releaseType: 'SCHEDULED', earliestReleaseDate: '2026-07-01T00:00:00Z' },
         {},
       ),
@@ -57,7 +57,7 @@ function describeResolveReleaseTypeCLIFlagsOverrideTheConfiguredDefault() {
   );
 
   function scheduledForcesSCHEDULEDAtTheGivenInstant() {
-    const releaseType = resolveReleaseType(undefined, { scheduled: '2026-08-01T12:00:00Z' });
+    const releaseType = readReleaseType(undefined, { scheduled: '2026-08-01T12:00:00Z' });
 
     expect(releaseType).toEqual({
       releaseType: 'SCHEDULED',
@@ -71,7 +71,7 @@ function describeResolveReleaseTypeCLIFlagsOverrideTheConfiguredDefault() {
   );
 
   function manualForcesMANUAL() {
-    expect(resolveReleaseType({ releaseType: 'AFTER_APPROVAL' }, { manual: true })).toEqual({
+    expect(readReleaseType({ releaseType: 'AFTER_APPROVAL' }, { manual: true })).toEqual({
       releaseType: 'MANUAL',
     });
   }
@@ -79,7 +79,7 @@ function describeResolveReleaseTypeCLIFlagsOverrideTheConfiguredDefault() {
   it('--manual forces MANUAL', manualForcesMANUAL);
 
   function scheduledBeatsManualWhenBothAreSet() {
-    const releaseType = resolveReleaseType(undefined, {
+    const releaseType = readReleaseType(undefined, {
       scheduled: '2026-08-01T12:00:00Z',
       manual: true,
     });
@@ -94,20 +94,20 @@ function describeResolveReleaseTypeCLIFlagsOverrideTheConfiguredDefault() {
 }
 
 describe(
-  'resolveReleaseType - CLI flags override the configured default',
+  'readReleaseType - CLI flags override the configured default',
   describeResolveReleaseTypeCLIFlagsOverrideTheConfiguredDefault,
 );
 
 function describeResolveReleaseNotesPieceNotesPerLocaleMap() {
   function returnsWhenNoNotesAreConfigured() {
-    const releaseNotes = resolveReleaseNotes(undefined, 'en-US');
+    const releaseNotes = readReleaseNotes(undefined, 'en-US');
     expect(releaseNotes).toEqual({});
   }
 
   it('returns {} when no notes are configured', returnsWhenNoNotesAreConfigured);
 
   function targetsThePrimaryLocaleForABareString() {
-    expect(resolveReleaseNotes({ releaseNotes: 'Bug fixes.' }, 'en-GB')).toEqual({
+    expect(readReleaseNotes({ releaseNotes: 'Bug fixes.' }, 'en-GB')).toEqual({
       'en-GB': 'Bug fixes.',
     });
   }
@@ -117,20 +117,20 @@ function describeResolveReleaseNotesPieceNotesPerLocaleMap() {
   function passesAPerLocaleMapThroughUnchanged() {
     const notes = { 'en-US': 'A', 'fr-FR': 'B' };
 
-    expect(resolveReleaseNotes({ releaseNotes: notes }, 'en-US')).toEqual(notes);
+    expect(readReleaseNotes({ releaseNotes: notes }, 'en-US')).toEqual(notes);
   }
 
   it('passes a per-locale map through unchanged', passesAPerLocaleMapThroughUnchanged);
 }
 
 describe(
-  'resolveReleaseNotes - config notes -> per-locale map',
+  'readReleaseNotes - config notes -> per-locale map',
   describeResolveReleaseNotesPieceNotesPerLocaleMap,
 );
 
 function describeListingReleaseNotes() {
   async function returnsAnEmptyMapWhenTheListingHasNoReleaseNotes() {
-    const whatsNew = await resolveWhatsNew(launchFile(), releaseApp);
+    const whatsNew = await readWhatsNew(launchFile(), releaseApp);
 
     expect(whatsNew).toEqual({});
   }
@@ -141,7 +141,7 @@ function describeListingReleaseNotes() {
   );
 
   async function readsEachLocaleAndSkipsLocalesWithoutReleaseNotes() {
-    const whatsNew = await resolveWhatsNew(
+    const whatsNew = await readWhatsNew(
       launchFile({
         'com.acme.app': {
           apple: {
@@ -165,7 +165,7 @@ describe('listing release notes', describeListingReleaseNotes);
 
 function describeResolveWhatsNew() {
   async function letsListingReleaseNotesOverrideReleaseReleaseNotesPerLocale() {
-    const merged = await resolveWhatsNew(
+    const merged = await readWhatsNew(
       launchFile(
         {
           'com.acme.app': {
@@ -186,7 +186,7 @@ function describeResolveWhatsNew() {
   );
 
   async function usesReleaseReleaseNotesWhenTheListingHasNone() {
-    const whatsNew = await resolveWhatsNew(
+    const whatsNew = await readWhatsNew(
       launchFile(undefined, { releaseNotes: 'Just the config.' }),
       releaseApp,
     );
@@ -200,4 +200,4 @@ function describeResolveWhatsNew() {
   );
 }
 
-describe('resolveWhatsNew', describeResolveWhatsNew);
+describe('readWhatsNew', describeResolveWhatsNew);

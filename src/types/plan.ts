@@ -88,9 +88,9 @@ export type PlanContext = Readonly<{
   /** Directory of the launch.config.ts that supplied `config`, when one was loaded. */
   configDirectory?: string | null;
 
-  resolveAscApi(): Promise<AscSurfacesApi | null>;
+  readAscApi(): Promise<AscSurfacesApi | null>;
 
-  resolvePlayApi(packageName?: string): Promise<PlayCatalogApi | null>;
+  readPlayApi(packageName?: string): Promise<PlayCatalogApi | null>;
 }>;
 
 /** One config-as-code surface's planner. */

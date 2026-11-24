@@ -33,10 +33,8 @@ async function readExtensionBundleIds(
     return [];
   }
 
-  let directoryNames: string[];
-
   try {
-    directoryNames = await readdir(nativeDirectory);
+    var directoryNames = await readdir(nativeDirectory);
   } catch (error) {
     throw new Error(`Could not read ${nativeDirectory}`, { cause: error });
   }
@@ -58,10 +56,8 @@ async function readExtensionBundleIds(
     return [];
   }
 
-  let projectText: string;
-
   try {
-    projectText = await readFile(projectFile, 'utf8');
+    var projectText = await readFile(projectFile, 'utf8');
   } catch (error) {
     throw new Error(`Could not read ${projectFile}`, { cause: error });
   }
@@ -71,8 +67,8 @@ async function readExtensionBundleIds(
   return splitMainAndExtensions(targets, mainBundleId).extensions;
 }
 
-/** Resolve the embedded-extension bundle ids to grade */
-export async function resolveExtensionBundleIdsForApp(app: AppDescriptor): Promise<string[]> {
+/** Read the embedded-extension bundle ids to grade */
+export async function readExtensionBundleIdsForApp(app: AppDescriptor): Promise<string[]> {
   let configured: readonly string[] = [];
 
   if (app.iosExtensions != null) {

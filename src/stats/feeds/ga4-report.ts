@@ -188,10 +188,8 @@ async function loadReportPages(
     propertyId: report.propertyId,
   });
 
-  let reportReply: Ga4ReportReply;
-
   try {
-    reportReply = decodeReportReply(reportDocument);
+    var reportReply = decodeReportReply(reportDocument);
   } catch (cause) {
     throw createGa4Failure(session, 'Unreadable GA4 report', cause);
   }

@@ -102,13 +102,13 @@ function makeCtx(
     apps: [app],
     // Widen the catalog-only fake to the full surface API the context now exposes; the listing methods
     // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
-    resolveAscApi() {
+    readAscApi() {
       if (api == null) return Promise.resolve(null);
 
       const ascApiFake = makeAscApiFake(api);
       return Promise.resolve(ascApiFake);
     },
-    resolvePlayApi() {
+    readPlayApi() {
       return Promise.resolve(null);
     },
   };

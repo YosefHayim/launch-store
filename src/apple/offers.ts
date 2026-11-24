@@ -13,7 +13,7 @@ import type {
   PricePointResource,
   PromotionalOfferCreate,
   PromotionalOfferResource,
-  ResolvedOfferPrice,
+  StoreOfferPrice,
   SubscriptionGroupResource,
   SubscriptionResource,
   WinBackOfferCreate,
@@ -86,12 +86,12 @@ type OffersContext = ReconcileContext & {
   api: AscOffersApi;
 };
 
-async function resolvePrices(
+async function readPrices(
   api: AscOffersApi,
   subscriptionId: string,
   prices: readonly OfferPrice[],
-): Promise<ResolvedOfferPrice[]> {
-  const resolved: ResolvedOfferPrice[] = [];
+): Promise<StoreOfferPrice[]> {
+  const storePrices: StoreOfferPrice[] = [];
 
   for (const price of prices) {
     let territory = 'USA';
@@ -115,10 +115,10 @@ async function resolvePrices(
       throw new Error(`no ${territory} price point matches ${price.customerPrice}`);
     }
 
-    resolved.push({ territory, pricePointId: point.id });
+    storePrices.push({ territory, pricePointId: point.id });
   }
 
-  return resolved;
+  return storePrices;
 }
 
 function freeTrialPriceError(priceCount: number): string | null {
@@ -158,26 +158,26 @@ function priceModeError(
 }
 
 /** Plan/apply a create that resolves optional declared prices first. */
-async function createWithResolvedPrices(
+async function createWithStorePrices(
   offersContext: OffersContext,
   subscriptionId: string,
   description: string,
   prices: readonly OfferPrice[] | undefined,
-  write: (resolvedPrices: ResolvedOfferPrice[]) => Promise<void>,
+  write: (storePrices: StoreOfferPrice[]) => Promise<void>,
 ): Promise<void> {
-  async function writeResolvedPrices(): Promise<void> {
+  async function writeStorePrices(): Promise<void> {
     let offerPrices: readonly OfferPrice[] = [];
 
     if (prices != null) {
       offerPrices = prices;
     }
 
-    const resolvedPrices = await resolvePrices(offersContext.api, subscriptionId, offerPrices);
+    const storePrices = await readPrices(offersContext.api, subscriptionId, offerPrices);
 
-    await write(resolvedPrices);
+    await write(storePrices);
   }
 
-  await act(offersContext, description, writeResolvedPrices);
+  await act(offersContext, description, writeStorePrices);
 }
 
 /** Reconcile a subscription's offer-code campaigns - create each declared `name` Apple doesn't have yet. */
@@ -210,7 +210,7 @@ async function reconcileOfferCodes(
       continue;
     }
 
-    async function writeOfferCode(resolvedPrices: ResolvedOfferPrice[]): Promise<void> {
+    async function writeOfferCode(storePrices: StoreOfferPrice[]): Promise<void> {
       const create: OfferCodeCreate = {
         subscriptionId,
         name: offer.name,
@@ -219,13 +219,13 @@ async function reconcileOfferCodes(
         duration: offer.duration,
         offerMode: offer.offerMode,
         numberOfPeriods: offer.numberOfPeriods,
-        prices: resolvedPrices,
+        prices: storePrices,
       };
 
       await offersContext.api.createSubscriptionOfferCode(create);
     }
 
-    await createWithResolvedPrices(
+    await createWithStorePrices(
       offersContext,
       subscriptionId,
       `create offer code "${offer.name}" on ${productId} (${offer.offerMode})`,
@@ -269,7 +269,7 @@ async function reconcilePromotionalOffers(
       continue;
     }
 
-    async function writePromotionalOffer(resolvedPrices: ResolvedOfferPrice[]): Promise<void> {
+    async function writePromotionalOffer(storePrices: StoreOfferPrice[]): Promise<void> {
       const create: PromotionalOfferCreate = {
         subscriptionId,
         name: offer.name,
@@ -277,13 +277,13 @@ async function reconcilePromotionalOffers(
         duration: offer.duration,
         offerMode: offer.offerMode,
         numberOfPeriods: offer.numberOfPeriods,
-        prices: resolvedPrices,
+        prices: storePrices,
       };
 
       await offersContext.api.createPromotionalOffer(create);
     }
 
-    await createWithResolvedPrices(
+    await createWithStorePrices(
       offersContext,
       subscriptionId,
       `create promotional offer "${offer.offerCode}" on ${productId} (${offer.offerMode})`,
@@ -370,21 +370,19 @@ async function reconcileIntroductoryOffers(
     }
 
     async function writeIntroductoryOffer(): Promise<void> {
-      let resolvedPrice: ResolvedOfferPrice | null = null;
+      let offerPrice: StoreOfferPrice | null = null;
       const declaredPrice = offer.price;
 
       const hasDeclaredPrice = declaredPrice != null;
 
       if (hasDeclaredPrice) {
-        const resolvedPrices = await resolvePrices(offersContext.api, subscriptionId, [
-          declaredPrice,
-        ]);
-        const firstPrice = resolvedPrices[0];
+        const storePrices = await readPrices(offersContext.api, subscriptionId, [declaredPrice]);
+        const firstPrice = storePrices[0];
 
         const hasFirstPrice = firstPrice != null;
 
         if (hasFirstPrice) {
-          resolvedPrice = firstPrice;
+          offerPrice = firstPrice;
         }
       }
 
@@ -393,7 +391,7 @@ async function reconcileIntroductoryOffers(
         duration: offer.duration,
         offerMode: offer.offerMode,
         numberOfPeriods: offer.numberOfPeriods,
-        price: resolvedPrice,
+        price: offerPrice,
         territory,
       };
       const startDate = offer.startDate;
@@ -469,7 +467,7 @@ async function reconcileWinBackOffers(
       continue;
     }
 
-    async function writeWinBackOffer(resolvedPrices: ResolvedOfferPrice[]): Promise<void> {
+    async function writeWinBackOffer(storePrices: StoreOfferPrice[]): Promise<void> {
       let priority: WinBackOfferCreate['priority'] = 'NORMAL';
       const declaredPriority = offer.priority;
 
@@ -490,7 +488,7 @@ async function reconcileWinBackOffers(
         monthsSinceLastSubscribed: offer.monthsSinceLastSubscribed,
         startDate: offer.startDate,
         priority,
-        prices: resolvedPrices,
+        prices: storePrices,
       };
       const waitBetweenOffersMonths = offer.waitBetweenOffersMonths;
 
@@ -519,7 +517,7 @@ async function reconcileWinBackOffers(
       await offersContext.api.createWinBackOffer(create);
     }
 
-    await createWithResolvedPrices(
+    await createWithStorePrices(
       offersContext,
       subscriptionId,
       `create win-back offer "${offer.offerId}" on ${productId} (${offer.offerMode})`,

@@ -3,7 +3,7 @@ import type { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
 import type { PlayRelease } from '../../types/google/edits-tracks.ts';
 
@@ -63,8 +63,8 @@ const artifact = { path: aabPath, version: '1.4.0', buildNumber: 7 };
 const credentials: BuildCredentials = { platform: 'android', serviceAccountJson: '{}' };
 
 function androidContext(
-  android: ResolvedBuildContext['android'] = { track: 'internal', rollout: 1 },
-): ResolvedBuildContext {
+  android: BuildContext['android'] = { track: 'internal', rollout: 1 },
+): BuildContext {
   return {
     platform: 'android',
     app: {

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { Platform } from '../../types/app.ts';
 import type { SizeReportEntry } from '../../types/artifacts.ts';
-import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildContext } from '../../types/config.ts';
 import type { BuildCredentials, SigningAssets } from '../../types/credentials.ts';
 import { makeProviderInputFailure, type BuildEngine } from '../../types/providers.ts';
 import {
@@ -28,8 +28,8 @@ import {
   estimateFor,
   gatherIosFingerprint,
   readBuildState,
-  resolveCcacheEnvironment,
-  resolveClean,
+  readCcacheEnvironment,
+  pickClean,
   updateEstimate,
   writeBuildState,
   writeManualSigningToProject,
@@ -42,8 +42,8 @@ import {
   platformLabel,
 } from '../../services/stores/platform.ts';
 
-/** Resolve an app's native Xcode project directory to an absolute path. */
-export function resolveNativeDir(appDirectory: string, platform: Platform): string {
+/** Read an app's native Xcode project directory to an absolute path. */
+export function readNativeDir(appDirectory: string, platform: Platform): string {
   const nativeDirectoryName = nativeProjectDirName(platform);
 
   return resolve(appDirectory, nativeDirectoryName);
@@ -131,7 +131,7 @@ async function installPods(
 }
 
 async function buildAppleArtifact(
-  buildContext: ResolvedBuildContext,
+  buildContext: BuildContext,
   buildCredentials: BuildCredentials,
 ): Promise<{
   artifactPath: string;
@@ -175,11 +175,11 @@ async function buildAppleArtifact(
     });
   }
 
-  const nativeDirectory = resolveNativeDir(buildContext.app.dir, buildContext.platform);
+  const nativeDirectory = readNativeDir(buildContext.app.dir, buildContext.platform);
   const workspaceAndScheme = await findWorkspace(nativeDirectory);
   const fingerprint = await gatherIosFingerprint(nativeDirectory, buildContext.app.configPath);
   const storedBuild = await readBuildState(buildContext.app.name, buildContext.platform);
-  const cleanDecision = resolveClean(buildContext.forceClean, storedBuild, fingerprint);
+  const cleanDecision = pickClean(buildContext.forceClean, storedBuild, fingerprint);
   let buildKind: 'clean' | 'incremental' = 'incremental';
 
   if (cleanDecision.clean) {
@@ -192,7 +192,7 @@ async function buildAppleArtifact(
 
   if (hasCcache) {
     const ccacheDisabled = buildContext.ccache == false;
-    ccacheVariables = await resolveCcacheEnvironment(ccacheDisabled);
+    ccacheVariables = await readCcacheEnvironment(ccacheDisabled);
   }
 
   const nativeDependenciesChanged = cleanDecision.nativeChanged;

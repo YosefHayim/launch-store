@@ -65,10 +65,8 @@ export async function confirmPlayCatalogWrite(
     );
   }
 
-  let confirmed = false;
-
   try {
-    confirmed = await new LaunchPrompt().confirm(confirmationMessageText);
+    var confirmed = await new LaunchPrompt().confirm(confirmationMessageText);
   } catch (cause) {
     const failureMessage = confirmationMessage(cause);
 

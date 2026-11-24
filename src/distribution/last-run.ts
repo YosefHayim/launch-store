@@ -2,7 +2,7 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { resolveLastRunFilePath } from '../services/platform/paths.ts';
+import { readLastRunFilePath } from '../services/platform/paths.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import { pathExists } from '../path-exists.ts';
 import type { BumpKind } from '../release/version.ts';
@@ -41,10 +41,8 @@ function readBump(candidate: unknown): BumpKind | null | undefined {
 }
 
 function decodeLastRun(memoryText: string): LastRunState | null {
-  let parsed: unknown;
-
   try {
-    parsed = JSON.parse(memoryText);
+    var parsed = JSON.parse(memoryText);
   } catch (cause) {
     const isUnreadable = cause != null;
 
@@ -103,17 +101,17 @@ function decodeLastRun(memoryText: string): LastRunState | null {
   return { ...memory, lastApp };
 }
 
-function resolveMemoryFilePath(filePath: string | undefined): string {
+function readMemoryFilePath(filePath: string | undefined): string {
   if (filePath != null) {
     return filePath;
   }
 
-  return resolveLastRunFilePath();
+  return readLastRunFilePath();
 }
 
 /** Reads remembered build choices, treating absent or malformed state as empty. */
 export async function readLastRun(filePath?: string): Promise<LastRunState> {
-  const memoryFilePath = resolveMemoryFilePath(filePath);
+  const memoryFilePath = readMemoryFilePath(filePath);
   const memoryExists = await pathExists(memoryFilePath);
 
   if (memoryExists == false) {
@@ -175,7 +173,7 @@ export async function rememberLastRun(
   bump?: BumpKind,
   filePath?: string,
 ): Promise<void> {
-  const memoryFilePath = resolveMemoryFilePath(filePath);
+  const memoryFilePath = readMemoryFilePath(filePath);
   const memory = await readLastRun(memoryFilePath);
   let nextApps = memory.apps;
 

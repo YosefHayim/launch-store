@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
 import {
   resetLaunchDirectories,
-  resolvePushKeysFilePath,
+  readPushKeysFilePath,
   useLaunchDirectories,
 } from '../services/platform/paths.ts';
 import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './push-key-store.ts';
@@ -27,7 +27,7 @@ function prepare() {
   useLaunchDirectories({ homeDirectory, workingDirectory: homeDirectory });
   useSecretStore(secrets);
 
-  const pushKeysFilePath = resolvePushKeysFilePath();
+  const pushKeysFilePath = readPushKeysFilePath();
 
   rmSync(pushKeysFilePath, { force: true });
 }

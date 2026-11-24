@@ -18,10 +18,10 @@ function contextFor(api: AscSurfacesApi | null, launchFile: LaunchConfig): PlanC
   return {
     config: launchFile,
     apps: [alpha],
-    resolveAscApi() {
+    readAscApi() {
       return Promise.resolve(api);
     },
-    resolvePlayApi() {
+    readPlayApi() {
       return Promise.resolve(null);
     },
   };

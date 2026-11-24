@@ -95,8 +95,8 @@ function renderApplied(plannedAction: PlannedAction): string {
   return renderAppliedStoreSurfaceAction(plannedAction);
 }
 
-/** Resolve the selected bundle id and its custom pages declaration. */
-async function resolveCustomPagesTarget(
+/** Read the selected bundle id and its custom pages declaration. */
+async function readCustomPagesTarget(
   commandInput: CustomProductPagesCommandInput,
 ): Promise<Readonly<{ bundleId: string; customPagesConfig: CustomProductPagesConfig }>> {
   try {
@@ -133,15 +133,13 @@ async function resolveCustomPagesTarget(
 /** Plan, confirm, and apply custom product page changes. */
 async function executeCustomProductPages(rawCommandInput: unknown): Promise<number> {
   try {
-    let commandInput: CustomProductPagesCommandInput;
-
     try {
-      commandInput = CustomProductPagesCommandInputSchema(rawCommandInput);
+      var commandInput = CustomProductPagesCommandInputSchema(rawCommandInput);
     } catch (cause) {
       throw customPagesFailure('decode custom pages command input', cause);
     }
 
-    const customPagesTarget = await resolveCustomPagesTarget(commandInput);
+    const customPagesTarget = await readCustomPagesTarget(commandInput);
     const logger = createLogger(false);
 
     try {
@@ -191,10 +189,8 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
       return 0;
     }
 
-    let confirmed = false;
-
     try {
-      confirmed = await confirmStoreSurfaceWrite(
+      var confirmed = await confirmStoreSurfaceWrite(
         `Apply ${plannedActions.length} custom-page change(s) to App Store Connect?`,
         commandInput.yes,
       );

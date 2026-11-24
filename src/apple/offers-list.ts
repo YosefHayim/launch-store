@@ -1,9 +1,8 @@
 // Lists the offer-code campaigns for one subscription on App Store Connect.
 
 import { createLogger } from '../services/platform/logger.ts';
-import type { OfferCodeResource } from '../types/apple/subscriptions.ts';
 import type { OffersListInput } from './offers-command.ts';
-import { offersFailure, resolveSubscription } from './offers-subscription.ts';
+import { offersFailure, readSubscription } from './offers-subscription.ts';
 
 /** Render an offer-code campaign without Unicode status glyphs. */
 export function renderOfferCodeState(
@@ -20,15 +19,10 @@ export function renderOfferCodeState(
 export async function executeListOfferCodes(commandInput: OffersListInput): Promise<void> {
   try {
     const logger = createLogger(false);
-    const resolvedSubscription = await resolveSubscription(
-      commandInput.app,
-      commandInput.productId,
-    );
-    let offerCodes: OfferCodeResource[];
-
+    const chosenSubscription = await readSubscription(commandInput.app, commandInput.productId);
     try {
-      offerCodes = await resolvedSubscription.appleStore.listSubscriptionOfferCodes(
-        resolvedSubscription.subscriptionId,
+      var offerCodes = await chosenSubscription.appleStore.listSubscriptionOfferCodes(
+        chosenSubscription.subscriptionId,
       );
     } catch (cause) {
       throw offersFailure('list offer-code campaigns', cause);
@@ -37,7 +31,7 @@ export async function executeListOfferCodes(commandInput: OffersListInput): Prom
     const hasNoOfferCodes = offerCodes.length == 0;
 
     if (hasNoOfferCodes) {
-      logger.note(`No offer codes on ${commandInput.productId} (${resolvedSubscription.appName}).`);
+      logger.note(`No offer codes on ${commandInput.productId} (${chosenSubscription.appName}).`);
       return;
     }
 
@@ -49,7 +43,7 @@ export async function executeListOfferCodes(commandInput: OffersListInput): Prom
     }
 
     logger.notice(
-      `Offer codes - ${commandInput.productId} (${resolvedSubscription.appName})`,
+      `Offer codes - ${commandInput.productId} (${chosenSubscription.appName})`,
       ...offerLines,
     );
   } catch (cause) {

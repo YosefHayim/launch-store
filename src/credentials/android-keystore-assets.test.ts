@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
 import {
   resetLaunchDirectories,
-  resolveAndroidCredentialsIndexPath,
+  readAndroidCredentialsIndexPath,
   useLaunchDirectories,
 } from '../services/platform/paths.ts';
 import {
@@ -124,7 +124,7 @@ function describeDescribeStoredAndroidCredentials() {
   it('reports the service account once imported', reportsTheServiceAccountOnceImported);
 
   async function failsInsteadOfReadingACorruptCredentialsIndexAsEmpty() {
-    const indexPath = resolveAndroidCredentialsIndexPath('com.example.app');
+    const indexPath = readAndroidCredentialsIndexPath('com.example.app');
 
     const parentDirectory = dirname(indexPath);
 

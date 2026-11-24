@@ -4,7 +4,7 @@ import { loadConfig } from '../config/config.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
 import type { AppStoreConnect } from '../apple/app-store-connect.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
-import { createPlayClientResolver } from '../store/shared/store-clients.ts';
+import { createPlayClientReader } from '../store/shared/store-clients.ts';
 import { selectApps } from '../store/shared/sync-jobs.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type { LaunchConfig } from '../types/config.ts';
@@ -13,13 +13,13 @@ import { snapshotFailure } from './snapshot-failure.ts';
 
 export const LIVE_SNAPSHOT = 'live';
 
-export type PlayClientResolver = ReturnType<typeof createPlayClientResolver>;
+export type PlayClientReader = ReturnType<typeof createPlayClientReader>;
 
 export type SnapshotStoreSession = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
   ascClient: AppStoreConnect | null;
-  playClient: PlayClientResolver;
+  playClient: PlayClientReader;
 }>;
 
 export function currentIsoTime(): string {
@@ -48,18 +48,14 @@ function createAscClient(ascKey: NonNullable<Awaited<ReturnType<typeof loadActiv
 export async function loadSnapshotStoreSession(
   appSelector: string | undefined,
 ): Promise<SnapshotStoreSession> {
-  let loadedConfiguration: Awaited<ReturnType<typeof loadConfig>>;
-
   try {
-    loadedConfiguration = await loadConfig();
+    var loadedConfiguration = await loadConfig();
   } catch (cause) {
     throw snapshotFailure('load Launch configuration', cause);
   }
 
-  let ascKey: Awaited<ReturnType<typeof loadActiveAscKey>>;
-
   try {
-    ascKey = await loadActiveAscKey();
+    var ascKey = await loadActiveAscKey();
   } catch (cause) {
     throw snapshotFailure('load active Apple account', cause);
   }
@@ -70,7 +66,7 @@ export async function loadSnapshotStoreSession(
     ascClient = createAscClient(ascKey);
   }
 
-  const playClient = createPlayClientResolver();
+  const playClient = createPlayClientReader();
   const selectedApps = await selectSnapshotApps(loadedConfiguration.apps, appSelector);
 
   return {
@@ -85,9 +81,9 @@ export function captureContextFromSession(storeSession: SnapshotStoreSession): S
   return {
     config: storeSession.config,
     apps: storeSession.apps,
-    resolveAscApi: function resolveAscApi() {
+    readAscApi: function readAscApi() {
       return Promise.resolve(storeSession.ascClient);
     },
-    resolvePlayApi: storeSession.playClient,
+    readPlayApi: storeSession.playClient,
   };
 }

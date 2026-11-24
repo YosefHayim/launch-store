@@ -25,10 +25,10 @@ function makeCtx(api: AscSurfacesApi | null, wallet?: WalletConfig): PlanContext
   return {
     config,
     apps: [],
-    resolveAscApi() {
+    readAscApi() {
       return Promise.resolve(api);
     },
-    resolvePlayApi() {
+    readPlayApi() {
       return Promise.resolve(null);
     },
   };

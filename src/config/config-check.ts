@@ -3,7 +3,7 @@
 import { basename } from 'node:path';
 import { isApplePlatform } from '../services/stores/platform.ts';
 import type { AppDescriptor, Platform } from '../types/app.ts';
-import { readResolvedConfig } from './config.ts';
+import { readAppConfig } from './config.ts';
 
 type FindingSeverity = 'error' | 'warn';
 
@@ -274,7 +274,7 @@ function readAdaptiveSplash(
 }
 
 export async function checkApp(app: AppDescriptor, platform: Platform): Promise<ConfigFinding[]> {
-  const raw = await readResolvedConfig(app.dir);
+  const raw = await readAppConfig(app.dir);
 
   if (raw == null) {
     return [];

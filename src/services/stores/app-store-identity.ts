@@ -8,12 +8,12 @@ export type AppStoreIdentity = Readonly<{
   apps: string[];
 }>;
 
-async function readIdentity(ascKey: AscKey): Promise<AppStoreIdentity> {
+async function fetchIdentity(ascKey: AscKey): Promise<AppStoreIdentity> {
   const appStoreClient = new AppleStoreClientService().createClient(ascKey);
 
-  async function readTeamId(): Promise<string | null> {
+  async function teamIdOrNull(): Promise<string | null> {
     try {
-      return await appStoreClient.resolveTeamId();
+      return await appStoreClient.readTeamId();
     } catch (error) {
       const isMissing = error != null;
 
@@ -39,7 +39,7 @@ async function readIdentity(ascKey: AscKey): Promise<AppStoreIdentity> {
     }
   }
 
-  const teamId = await readTeamId();
+  const teamId = await teamIdOrNull();
   const apps = await readAppNames();
 
   return { teamId, apps };
@@ -50,10 +50,10 @@ export class AppStoreIdentityService {
     const appStoreClient = new AppleStoreClientService().createClient(ascKey);
     await appStoreClient.assertReady();
 
-    return readIdentity(ascKey);
+    return fetchIdentity(ascKey);
   }
 
-  resolveIdentity(ascKey: AscKey): Promise<AppStoreIdentity> {
-    return readIdentity(ascKey);
+  readIdentity(ascKey: AscKey): Promise<AppStoreIdentity> {
+    return fetchIdentity(ascKey);
   }
 }

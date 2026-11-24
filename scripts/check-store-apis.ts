@@ -462,10 +462,8 @@ async function readPackageVersion(packageJsonPath: string): Promise<string> {
     throw new Error(`Could not read ${packageJsonPath}`, { cause: error });
   }
 
-  let parsed: unknown = null;
-
   try {
-    parsed = JSON.parse(packageSource);
+    var parsed = JSON.parse(packageSource);
   } catch (error) {
     throw new Error(`Could not parse ${packageJsonPath}`, { cause: error });
   }

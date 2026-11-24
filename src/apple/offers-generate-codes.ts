@@ -2,7 +2,7 @@
 
 import { createLogger } from '../services/platform/logger.ts';
 import type { OffersGenerateCodesInput } from './offers-command.ts';
-import { findOfferCode, offersFailure, resolveSubscription } from './offers-subscription.ts';
+import { findOfferCode, offersFailure, readSubscription } from './offers-subscription.ts';
 
 function isInvalidCodeCount(codeCount: number): boolean {
   const isWholeNumber = Number.isInteger(codeCount);
@@ -30,12 +30,9 @@ export async function executeGenerateCodes(commandInput: OffersGenerateCodesInpu
       );
     }
 
-    const resolvedSubscription = await resolveSubscription(
-      commandInput.app,
-      commandInput.productId,
-    );
+    const chosenSubscription = await readSubscription(commandInput.app, commandInput.productId);
     const offerCode = await findOfferCode(
-      resolvedSubscription,
+      chosenSubscription,
       commandInput.productId,
       commandInput.offerName,
     );
@@ -45,7 +42,7 @@ export async function executeGenerateCodes(commandInput: OffersGenerateCodesInpu
 
     if (hasCustomCode) {
       try {
-        await resolvedSubscription.appleStore.createOfferCodeCustomCode(
+        await chosenSubscription.appleStore.createOfferCodeCustomCode(
           offerCode.id,
           customCode,
           codeCount,
@@ -86,7 +83,7 @@ export async function executeGenerateCodes(commandInput: OffersGenerateCodesInpu
     }
 
     try {
-      await resolvedSubscription.appleStore.createOfferCodeOneTimeUseBatch(
+      await chosenSubscription.appleStore.createOfferCodeOneTimeUseBatch(
         offerCode.id,
         codeCount,
         expirationDate,

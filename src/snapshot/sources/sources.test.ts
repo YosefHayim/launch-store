@@ -37,10 +37,10 @@ function snapshotContext(over: Partial<SnapshotContext>): SnapshotContext {
   return {
     config: CONFIG,
     apps: [],
-    resolveAscApi() {
+    readAscApi() {
       return Promise.resolve(null);
     },
-    resolvePlayApi() {
+    readPlayApi() {
       return Promise.resolve(null);
     },
     ...over,
@@ -157,7 +157,7 @@ function describeAppleProductsPiece() {
   async function capturesEachInAppPurchaseKeyedByProductId() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
-      resolveAscApi() {
+      readAscApi() {
         return Promise.resolve(ascApi);
       },
     });
@@ -182,7 +182,7 @@ function describeAppleProductsPiece() {
   async function dropsAnAppWithNoAppStoreConnectPieceYet() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
-      resolveAscApi() {
+      readAscApi() {
         return Promise.resolve({
           ...ascApi,
           getAppId() {
@@ -207,7 +207,7 @@ function describeAppleSubscriptionsPiece() {
   async function flattensSubscriptionsAcrossGroupsKeyedByProductIdWithTheGroupRecorded() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
-      resolveAscApi() {
+      readAscApi() {
         return Promise.resolve(ascApi);
       },
     });
@@ -236,7 +236,7 @@ function describeAppleListingPiece() {
   async function mergesAppPieceAndVersionListingFieldsIntoOneEntityPerLocale() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
-      resolveAscApi() {
+      readAscApi() {
         return Promise.resolve(ascApi);
       },
     });
@@ -269,7 +269,7 @@ function describeAppleListingPiece() {
   async function capturesAnEmptyListingWhenTheAppHasNoListingYet() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
-      resolveAscApi() {
+      readAscApi() {
         return Promise.resolve({
           ...ascApi,
           getCurrentAppInfoId() {
@@ -296,7 +296,7 @@ function describeAppleListingPiece() {
   async function dropsAnAppWithNoAppStoreConnectPieceYet2() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
-      resolveAscApi() {
+      readAscApi() {
         return Promise.resolve({
           ...ascApi,
           getAppId() {
@@ -329,7 +329,7 @@ function describePlayProductsPiece() {
   async function capturesManagedProductsKeyedBySKUDroppingTheFannedOutRegionPrices() {
     const snapshot = snapshotContext({
       apps: [app({ packageName: 'com.acme.alpha' })],
-      resolvePlayApi() {
+      readPlayApi() {
         return Promise.resolve(playApi);
       },
     });
@@ -364,7 +364,7 @@ function describePlaySubscriptionsPiece() {
   async function capturesSubscriptionsWithBasePlansAndListingsKeyedByProductId() {
     const snapshot = snapshotContext({
       apps: [app({ packageName: 'com.acme.alpha' })],
-      resolvePlayApi() {
+      readPlayApi() {
         return Promise.resolve(playApi);
       },
     });
@@ -420,7 +420,7 @@ function describeAppleCapabilitiesPiece() {
   async function capturesEnabledCapabilitiesKeyedAndSortedByCapabilityType() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
-      resolveAscApi() {
+      readAscApi() {
         return Promise.resolve(ascApi);
       },
     });
@@ -446,7 +446,7 @@ function describeAppleCapabilitiesPiece() {
   async function capturesAnEmptyListWhenTheAppIDIsnTRegisteredYet() {
     const snapshot = snapshotContext({
       apps: [app({ bundleId: 'com.acme.alpha' })],
-      resolveAscApi() {
+      readAscApi() {
         return Promise.resolve({
           ...ascApi,
           findBundleId() {
@@ -509,10 +509,10 @@ function describeAppleListingPieceRestore() {
       ctx: {
         config: CONFIG,
         apps: [],
-        resolveAscWriteClient() {
+        readAscWriteClient() {
           return Promise.resolve(null);
         },
-        resolvePlayWriteClient() {
+        readPlayWriteClient() {
           return Promise.resolve(null);
         },
       },
@@ -547,10 +547,10 @@ function describeAppleListingPieceRestore() {
         ctx: {
           config: CONFIG,
           apps: [],
-          resolveAscWriteClient() {
+          readAscWriteClient() {
             return Promise.resolve(api);
           },
-          resolvePlayWriteClient() {
+          readPlayWriteClient() {
             return Promise.resolve(null);
           },
         },
@@ -608,10 +608,10 @@ function describeAppleListingPieceRestore() {
         ctx: {
           config: CONFIG,
           apps: [],
-          resolveAscWriteClient() {
+          readAscWriteClient() {
             return Promise.resolve(api);
           },
-          resolvePlayWriteClient() {
+          readPlayWriteClient() {
             return Promise.resolve(null);
           },
         },
@@ -721,10 +721,10 @@ function restoreCtx(over: Partial<RestoreContext> = {}): RestoreContext {
   return {
     config: CONFIG,
     apps: [],
-    resolveAscWriteClient() {
+    readAscWriteClient() {
       return Promise.resolve(null);
     },
-    resolvePlayWriteClient() {
+    readPlayWriteClient() {
       return Promise.resolve(null);
     },
     ...over,
@@ -786,7 +786,7 @@ function describePlayProductsPieceRestore() {
   async function plansACreateInADryRunWithoutInserting() {
     const api = makePlayApi();
     const restore = restoreCtx({
-      resolvePlayWriteClient() {
+      readPlayWriteClient() {
         return Promise.resolve(api);
       },
     });
@@ -803,7 +803,7 @@ function describePlayProductsPieceRestore() {
   async function appliesACreateInvertingTheCapturedListingAndDefaultPrice() {
     const api = makePlayApi();
     const restore = restoreCtx({
-      resolvePlayWriteClient() {
+      readPlayWriteClient() {
         return Promise.resolve(api);
       },
     });
@@ -844,7 +844,7 @@ function describePlayProductsPieceRestore() {
   async function skipsAProductWithNoCapturedListing() {
     const api = makePlayApi();
     const restore = restoreCtx({
-      resolvePlayWriteClient() {
+      readPlayWriteClient() {
         return Promise.resolve(api);
       },
     });
@@ -937,7 +937,7 @@ function describePlaySubscriptionsPieceRestore() {
   async function plansTheCreateBasePlanActivationInADryRunWithoutWriting() {
     const api = makePlayApi();
     const restore = restoreCtx({
-      resolvePlayWriteClient() {
+      readPlayWriteClient() {
         return Promise.resolve(api);
       },
     });
@@ -980,7 +980,7 @@ function describePlaySubscriptionsPieceRestore() {
   async function appliesTheCreateInvertingTheBasePlanSPeriodAndPrices() {
     const api = makePlayApi();
     const restore = restoreCtx({
-      resolvePlayWriteClient() {
+      readPlayWriteClient() {
         return Promise.resolve(api);
       },
     });
@@ -1007,7 +1007,7 @@ function describePlaySubscriptionsPieceRestore() {
   async function skipsASubscriptionWhoseBasePlanHasNoKnownPeriodOrPrices() {
     const api = makePlayApi();
     const restore = restoreCtx({
-      resolvePlayWriteClient() {
+      readPlayWriteClient() {
         return Promise.resolve(api);
       },
     });
@@ -1058,7 +1058,7 @@ function describeMixedAndroidSnapshotCapture() {
           app({ name: 'alpha', packageName: 'com.acme.alpha' }),
           app({ name: 'beta', packageName: 'com.acme.beta' }),
         ],
-        resolvePlayApi(packageName) {
+        readPlayApi(packageName) {
           return Promise.resolve(packageName == 'com.acme.alpha' ? playApi : null);
         },
       });

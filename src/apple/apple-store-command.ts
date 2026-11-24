@@ -4,14 +4,11 @@ import type { AppStoreConnect } from './app-store-connect.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
-import type { AscKey } from '../types/credentials.ts';
 
 /** Load the active keychain-backed Apple account and create its transport client. */
 export async function loadActiveAppleStore(): Promise<AppStoreConnect> {
-  let ascKey: AscKey | null = null;
-
   try {
-    ascKey = await loadActiveAscKey();
+    var ascKey = await loadActiveAscKey();
   } catch (cause) {
     const failureMessage = errorMessage(cause);
 

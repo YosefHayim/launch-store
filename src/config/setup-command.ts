@@ -84,15 +84,15 @@ type SetupAccount = Readonly<{
   ascKey: AscKey;
 }>;
 
-function setupFailure(operation: SetupOperation, message: string): SetupCommandFailure {
-  return { _tag: 'SetupCommandFailure', operation, message };
-}
-
-function setupFailureWithCause(
+function setupFailure(
   operation: SetupOperation,
   message: string,
-  cause: unknown,
+  cause?: unknown,
 ): SetupCommandFailure {
+  if (cause == null) {
+    return { _tag: 'SetupCommandFailure', operation, message };
+  }
+
   return { _tag: 'SetupCommandFailure', operation, message, cause };
 }
 
@@ -216,7 +216,7 @@ async function withAppleRole<Success>(
     return await appleCall;
   } catch (cause) {
     if (isForbiddenApple(cause)) {
-      throw setupFailureWithCause('ios', roleErrorMessage(feature), cause);
+      throw setupFailure('ios', roleErrorMessage(feature), cause);
     }
 
     throw cause;
@@ -565,13 +565,13 @@ export async function setupCommandProgram(rawCommandInput: unknown): Promise<voi
     var commandInput = decodeSetupCommandInput(rawCommandInput);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
-    throw setupFailureWithCause('auto', failureMessage, cause);
+    throw setupFailure('auto', failureMessage, cause);
   }
 
   try {
     await runDecodedSetupCommand(commandInput);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
-    throw setupFailureWithCause(commandInput.operation, failureMessage, cause);
+    throw setupFailure(commandInput.operation, failureMessage, cause);
   }
 }

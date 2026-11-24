@@ -17,10 +17,10 @@ const readinessContext: ReadinessContext = {
     submit: 'app-store-connect',
   },
   apps: [],
-  resolveAscApi() {
+  readAscApi() {
     return Promise.resolve(null);
   },
-  resolvePlayApi() {
+  readPlayApi() {
     return Promise.resolve(null);
   },
 };

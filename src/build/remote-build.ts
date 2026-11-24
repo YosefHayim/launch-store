@@ -70,7 +70,7 @@ async function withRemoteStaging<Staged>(
   }
 }
 
-/** Resolve the stable work tree and a fresh secrets dir, then create both. */
+/** Read the stable work tree and a fresh secrets dir, then create both. */
 export async function openRemoteSession(
   target: SshTarget,
   appName: string,

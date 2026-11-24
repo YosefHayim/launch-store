@@ -26,10 +26,8 @@ export type ExportMetadata = {
 };
 
 function decodeExportMetadata(metadataText: string, metadataFilePath: string): ExportMetadata {
-  let parsed: unknown;
-
   try {
-    parsed = JSON.parse(metadataText);
+    var parsed = JSON.parse(metadataText);
   } catch (cause) {
     const isUnreadable = cause != null;
 

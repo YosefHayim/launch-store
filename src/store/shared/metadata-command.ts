@@ -22,7 +22,6 @@ import { loadStoreAppContext } from './select-store-app.ts';
 import type {
   AndroidLocaleInfo,
   AndroidStoreConfig,
-  AppleStoreConfig,
   StoreConfig,
 } from './store-config.ts';
 import { readPlainObject } from '../../services/platform/plain-object.ts';
@@ -161,10 +160,8 @@ function declaredListing(launchFile: LaunchConfig, app: AppDescriptor): StoreCon
 }
 
 async function selectMetadataTarget(appSelector: string | undefined): Promise<MetadataTarget> {
-  let storeAppContext: Awaited<ReturnType<typeof loadStoreAppContext>>;
-
   try {
-    storeAppContext = await loadStoreAppContext(appSelector);
+    var storeAppContext = await loadStoreAppContext(appSelector);
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
 
@@ -183,10 +180,8 @@ async function selectMetadataTarget(appSelector: string | undefined): Promise<Me
 }
 
 async function requireActiveAscKey(): Promise<AscKey> {
-  let ascKey: AscKey | null = null;
-
   try {
-    ascKey = await loadActiveAscKey();
+    var ascKey = await loadActiveAscKey();
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
 
@@ -209,10 +204,8 @@ async function requireActiveAscKey(): Promise<AscKey> {
 }
 
 async function requirePlayServiceAccount(packageName: string, appName: string): Promise<string> {
-  let serviceAccountJson: string | null = null;
-
   try {
-    serviceAccountJson = await loadServiceAccount(packageName);
+    var serviceAccountJson = await loadServiceAccount(packageName);
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
 
@@ -229,10 +222,8 @@ async function requirePlayServiceAccount(packageName: string, appName: string): 
     return serviceAccountJson;
   }
 
-  let missingMessage = '';
-
   try {
-    missingMessage = await describeMissingPlayServiceAccount(appName);
+    var missingMessage = await describeMissingPlayServiceAccount(appName);
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
 
@@ -273,10 +264,8 @@ async function createPlayClient(packageName: string, appName: string): Promise<G
 }
 
 async function requireAppId(ascClient: AppStoreConnect, bundleId: string): Promise<string> {
-  let appId: string | null = null;
-
   try {
-    appId = await ascClient.getAppId(bundleId);
+    var appId = await ascClient.getAppId(bundleId);
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
 
@@ -304,10 +293,8 @@ export async function pullAppleListing(bundleId: string, dryRun: boolean): Promi
     const logger = createLogger(false);
     const ascClient = await createAppleClient();
     const appId = await requireAppId(ascClient, bundleId);
-    let appleListing: AppleStoreConfig;
-
     try {
-      appleListing = await readAppleListing(ascClient, appId);
+      var appleListing = await readAppleListing(ascClient, appId);
     } catch (cause) {
       const isAlreadyError = cause instanceof Error;
 
@@ -375,10 +362,8 @@ async function pullAndroidListing(
   try {
     const logger = createLogger(false);
     const playClient = await createPlayClient(packageName, appName);
-    let listings: readonly PlayListing[] = [];
-
     try {
-      listings = await playClient.listListings(packageName);
+      var listings = await playClient.listListings(packageName);
     } catch (cause) {
       const isAlreadyError = cause instanceof Error;
 
@@ -448,10 +433,8 @@ async function pushAppleListing(
     }
 
     const ascClient = await createAppleClient();
-    let reconciliation: { actions: readonly ListingAction[] };
-
     try {
-      reconciliation = await reconcileAppListing(ascClient, {
+      var reconciliation = await reconcileAppListing(ascClient, {
         bundleId,
         listing: appleListing,
         dryRun,
@@ -632,10 +615,8 @@ async function runAndroidMetadataCommand(
 
 /** Decode and run one metadata pull or push. */
 export async function metadataCommandProgram(rawCommandInput: unknown): Promise<void> {
-  let commandInput: MetadataCommandInput;
-
   try {
-    commandInput = decodeMetadataCommandInput(rawCommandInput);
+    var commandInput = decodeMetadataCommandInput(rawCommandInput);
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
 

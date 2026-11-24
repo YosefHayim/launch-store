@@ -82,10 +82,8 @@ export async function confirmStoreSurfaceWrite(
     );
   }
 
-  let confirmed = false;
-
   try {
-    confirmed = await new LaunchPrompt().confirm(confirmationMessage);
+    var confirmed = await new LaunchPrompt().confirm(confirmationMessage);
   } catch (cause) {
     throw surfaceFailure('confirm store surface write', cause);
   }

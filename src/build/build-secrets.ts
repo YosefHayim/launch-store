@@ -3,7 +3,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
-import { resolveSecretsFilePath } from '../services/platform/paths.ts';
+import { readSecretsFilePath } from '../services/platform/paths.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /** Non-secret coordinates for one app/profile environment secret. */
@@ -17,7 +17,7 @@ type SecretsIndex = Readonly<{ secrets: readonly SecretRef[] }>;
 
 const EMPTY_SECRETS_INDEX: SecretsIndex = { secrets: [] };
 
-/** Resolve the secret-store account for one scoped build secret. */
+/** Read the secret-store account for one scoped build secret. */
 function secretAccount(secretReference: SecretRef): string {
   let profile = '*';
 
@@ -121,7 +121,7 @@ function decodeSecretsIndex(decoded: unknown): SecretsIndex | null {
 
 /** Read and decode the non-secret index, degrading missing or malformed files to an empty index. */
 async function readIndex(): Promise<SecretsIndex> {
-  const indexPath = resolveSecretsFilePath();
+  const indexPath = readSecretsFilePath();
 
   try {
     var encodedIndex = await readFile(indexPath, 'utf8');
@@ -148,7 +148,7 @@ async function readIndex(): Promise<SecretsIndex> {
 
 /** Persist the non-secret index, creating its parent directory first. */
 async function writeIndex(secretIndex: SecretsIndex): Promise<void> {
-  const indexPath = resolveSecretsFilePath();
+  const indexPath = readSecretsFilePath();
   const parentDirectory = path.dirname(indexPath);
 
   await mkdir(parentDirectory, { recursive: true });
@@ -243,8 +243,8 @@ export function effectiveRefs(
   return [...appReferences.filter(isAppWide), ...appReferences.filter(matchesProfile(profileName))];
 }
 
-/** Resolve keychain values for one build, with profile-specific values overriding app-wide values. */
-export async function resolveBuildSecrets(
+/** Read keychain values for one build, with profile-specific values overriding app-wide values. */
+export async function readBuildSecrets(
   appName: string,
   profileName: string,
 ): Promise<Record<string, string>> {

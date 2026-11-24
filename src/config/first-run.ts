@@ -4,8 +4,8 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import {
   ensureDirectoryExists,
-  resolveLaunchHomeDirectory,
-  resolveStateFilePath,
+  readLaunchHomeDirectory,
+  readStateFilePath,
 } from '../services/platform/paths.ts';
 
 type FirstRunState = {
@@ -36,7 +36,7 @@ function isFirstRunState(candidate: unknown): candidate is FirstRunState {
 
 /** Reads first-run state, treating absent or malformed state as empty. */
 export async function readFirstRunState(): Promise<FirstRunState> {
-  const stateFilePath = resolveStateFilePath();
+  const stateFilePath = readStateFilePath();
   const stateExists = await pathExists(stateFilePath);
 
   if (stateExists == false) {
@@ -66,8 +66,8 @@ export async function readFirstRunState(): Promise<FirstRunState> {
 
 /** Merges one first-run flag without replacing unrelated state. */
 async function patchFirstRunState(statePatch: Partial<FirstRunState>): Promise<void> {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
-  const stateFilePath = resolveStateFilePath();
+  const launchHomeDirectory = readLaunchHomeDirectory();
+  const stateFilePath = readStateFilePath();
   const currentState = await readFirstRunState();
 
   await ensureDirectoryExists(launchHomeDirectory);

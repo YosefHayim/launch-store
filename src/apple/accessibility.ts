@@ -314,12 +314,10 @@ async function createDeclaration(
     return;
   }
 
-  let createdId: string | null = null;
-
   try {
     const created = await api.createAccessibilityDeclaration(appId, deviceFamily, desired);
     create.status = 'applied';
-    createdId = created.id;
+    var createdId = created.id;
   } catch (writeFailure) {
     create.status = 'failed';
     create.error = errorMessage(writeFailure);

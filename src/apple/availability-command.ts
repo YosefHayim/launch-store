@@ -116,10 +116,10 @@ async function confirmAvailabilityWrite(
     );
   }
 
-  let confirmed = false;
-
   try {
-    confirmed = await new LaunchPrompt().confirm(availabilityConfirmationMessage(plannedAction));
+    var confirmed = await new LaunchPrompt().confirm(
+      availabilityConfirmationMessage(plannedAction),
+    );
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
 

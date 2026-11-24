@@ -55,10 +55,8 @@ async function readLocalizedNotes(
     return { [commandInput.locale]: commandInput.whatsNew };
   }
 
-  let storeAppContext: Awaited<ReturnType<typeof loadStoreAppContext>>;
-
   try {
-    storeAppContext = await loadStoreAppContext(commandInput.app);
+    var storeAppContext = await loadStoreAppContext(commandInput.app);
   } catch (cause) {
     let message = 'Could not load the selected app.';
 

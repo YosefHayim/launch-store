@@ -26,7 +26,7 @@ export function offersFailure(operation: string, cause: unknown, explicitMessage
   return new Error(failureMessage, { cause });
 }
 
-type ResolvedSubscription = Readonly<{
+type ChosenSubscription = Readonly<{
   readonly appleStore: AppStoreConnect;
   readonly appName: string;
   readonly subscriptionId: string;
@@ -120,33 +120,27 @@ function pickSubscriptionApp(
   );
 }
 
-/** Resolve an App Store subscription id for an imperative offer-code command. */
-export async function resolveSubscription(
+/** Read an App Store subscription id for an imperative offer-code command. */
+export async function readSubscription(
   appSelector: string | undefined,
   productId: string,
-): Promise<ResolvedSubscription> {
+): Promise<ChosenSubscription> {
   const launchPaths = readLaunchDirectories();
-  let loadedConfiguration: Awaited<ReturnType<typeof loadConfig>>;
-
   try {
-    loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
+    var loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
   } catch (cause) {
     throw offersFailure('load offer-code configuration', cause);
   }
 
   const selectedApp = pickSubscriptionApp(loadedConfiguration.apps, appSelector);
-  let appleStore: AppStoreConnect;
-
   try {
-    appleStore = await loadActiveAppleStore();
+    var appleStore = await loadActiveAppleStore();
   } catch (cause) {
     throw offersFailure('load App Store Connect client', cause);
   }
 
-  let appId: string | null;
-
   try {
-    appId = await appleStore.getAppId(selectedApp.bundleId);
+    var appId = await appleStore.getAppId(selectedApp.bundleId);
   } catch (cause) {
     throw offersFailure('find App Store Connect app', cause);
   }
@@ -198,15 +192,13 @@ export async function resolveSubscription(
 
 /** Find an offer-code campaign by its configured name. */
 export async function findOfferCode(
-  resolvedSubscription: ResolvedSubscription,
+  chosenSubscription: ChosenSubscription,
   productId: string,
   offerName: string,
 ): Promise<OfferCodeResource> {
-  let offerCodes: OfferCodeResource[];
-
   try {
-    offerCodes = await resolvedSubscription.appleStore.listSubscriptionOfferCodes(
-      resolvedSubscription.subscriptionId,
+    var offerCodes = await chosenSubscription.appleStore.listSubscriptionOfferCodes(
+      chosenSubscription.subscriptionId,
     );
   } catch (cause) {
     throw offersFailure('list offer-code campaigns', cause);
@@ -230,7 +222,7 @@ export async function findOfferCode(
     throw offersFailure(
       'find offer-code campaign',
       offerName,
-      `No offer code named "${offerName}" on ${productId} (${resolvedSubscription.appName}).`,
+      `No offer code named "${offerName}" on ${productId} (${chosenSubscription.appName}).`,
     );
   }
 

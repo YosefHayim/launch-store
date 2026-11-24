@@ -3,9 +3,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
-  resolveCommandEnv,
+  readCommandEnv,
   selectApp,
-  validateResolvedEnv,
+  checkLaunchEnvironment,
 } from '../build/pipeline-environment.ts';
 import { ensureCodeSigner } from '../credentials/code-sign.ts';
 import { publishOtaPlatform, readExportMetadata } from '../distribution/over-the-air-publish.ts';
@@ -13,7 +13,7 @@ import {
   updatesAppConfigSnippet,
   updatesWorkerScript,
 } from '../distribution/over-the-air-manifest.ts';
-import { isCloudStorage, resolveStorageProvider } from '../distribution/storage.ts';
+import { isCloudStorage, readStorageProvider } from '../distribution/storage.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 import {
   executeCommand,
@@ -118,7 +118,7 @@ function runtimeVersionFromRecord(candidate: Record<string, unknown>): string | 
   return null;
 }
 
-export async function resolveRuntimeVersion(
+export async function loadRuntimeVersion(
   appDescriptor: AppDescriptor,
   override: string | undefined,
 ): Promise<string> {
@@ -132,18 +132,14 @@ export async function resolveRuntimeVersion(
     }
   }
 
-  let appConfigText: string;
-
   try {
-    appConfigText = await readFile(appDescriptor.configPath, 'utf8');
+    var appConfigText = await readFile(appDescriptor.configPath, 'utf8');
   } catch (cause) {
     throw updateFailure('read app runtime version', cause);
   }
 
-  let parsedConfig: unknown;
-
   try {
-    parsedConfig = JSON.parse(appConfigText);
+    var parsedConfig = JSON.parse(appConfigText);
   } catch (cause) {
     throw updateFailure('decode app runtime version', cause);
   }
@@ -215,18 +211,14 @@ function readExportOptions(
 export async function updateCommandProgram(commandInput: UpdateCommandInput): Promise<void> {
   const logger = createLogger(false);
   const platforms = platformsFor(commandInput.platform);
-  let loadedConfiguration: Awaited<ReturnType<typeof loadConfig>>;
-
   try {
-    loadedConfiguration = await loadConfig();
+    var loadedConfiguration = await loadConfig();
   } catch (cause) {
     throw updateFailure('load Launch configuration', cause);
   }
 
-  let selectedApp: AppDescriptor;
-
   try {
-    selectedApp = await selectApp(loadedConfiguration.apps, commandInput.app);
+    var selectedApp = await selectApp(loadedConfiguration.apps, commandInput.app);
   } catch (cause) {
     let failureMessage: string | undefined;
 
@@ -243,11 +235,9 @@ export async function updateCommandProgram(commandInput: UpdateCommandInput): Pr
     buildProfile = { name: commandInput.profile };
   }
 
-  const runtimeVersion = await resolveRuntimeVersion(selectedApp, commandInput.runtimeVersion);
-  let environmentOverrides: ReturnType<typeof parseCliEnv>;
-
+  const runtimeVersion = await loadRuntimeVersion(selectedApp, commandInput.runtimeVersion);
   try {
-    environmentOverrides = parseCliEnv([...commandInput.env]);
+    var environmentOverrides = parseCliEnv([...commandInput.env]);
   } catch (cause) {
     let failureMessage: string | undefined;
 
@@ -258,10 +248,10 @@ export async function updateCommandProgram(commandInput: UpdateCommandInput): Pr
     throw updateFailure('parse environment overrides', cause, failureMessage);
   }
 
-  let resolvedEnvironment: Awaited<ReturnType<typeof resolveCommandEnv>>;
+  let commandEnvironment: Awaited<ReturnType<typeof readCommandEnv>>;
 
   try {
-    resolvedEnvironment = await resolveCommandEnv({
+    commandEnvironment = await readCommandEnv({
       app: selectedApp,
       profile: buildProfile,
       cliEnv: environmentOverrides,
@@ -273,9 +263,9 @@ export async function updateCommandProgram(commandInput: UpdateCommandInput): Pr
   }
 
   try {
-    resolvedEnvironment = await validateResolvedEnv(
+    commandEnvironment = await checkLaunchEnvironment(
       selectedApp.dir,
-      resolvedEnvironment,
+      commandEnvironment,
       logger,
       loadedConfiguration.config.envExclude,
     );
@@ -298,10 +288,8 @@ export async function updateCommandProgram(commandInput: UpdateCommandInput): Pr
     `${selectedApp.name} - channel ${commandInput.channel} - rtv ${runtimeVersion} - ${platforms.join('+')}`,
   );
 
-  let storageProvider: Awaited<ReturnType<typeof resolveStorageProvider>>;
-
   try {
-    storageProvider = await resolveStorageProvider(loadedConfiguration.config);
+    var storageProvider = await readStorageProvider(loadedConfiguration.config);
   } catch (cause) {
     throw updateFailure('resolve OTA storage', cause);
   }
@@ -341,7 +329,7 @@ export async function updateCommandProgram(commandInput: UpdateCommandInput): Pr
   const excludedEnvironmentNames = loadedConfiguration.config.envExclude;
   const exportOptions = readExportOptions(
     selectedApp.dir,
-    resolvedEnvironment.values,
+    commandEnvironment.values,
     excludedEnvironmentNames,
   );
 
@@ -357,10 +345,8 @@ export async function updateCommandProgram(commandInput: UpdateCommandInput): Pr
 
   logger.ok(`Exported JS bundle - ${selectedApp.name}`);
 
-  let exportMetadata: Awaited<ReturnType<typeof readExportMetadata>>;
-
   try {
-    exportMetadata = await readExportMetadata(distributionDirectory);
+    var exportMetadata = await readExportMetadata(distributionDirectory);
   } catch (cause) {
     throw updateFailure('read update export metadata', cause);
   }

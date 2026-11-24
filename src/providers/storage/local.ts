@@ -9,13 +9,13 @@ import {
   runArtifactPrune,
   writeArtifactIndex,
 } from '../../build/artifact-retention.ts';
-import { resolveArtifactsDirectory } from '../../services/platform/paths.ts';
+import { readArtifactsDirectory } from '../../services/platform/paths.ts';
 import type { BuildArtifact, PruneOptions } from '../../types/artifacts.ts';
 import {
   makeProviderInputFailure,
   type StorageProvider,
   type StorageProviderOptions,
-  type StorageProviderResolver,
+  type StorageProviderReader,
 } from '../../types/providers.ts';
 
 function storageRoot(directoryOverride?: string): string {
@@ -23,7 +23,7 @@ function storageRoot(directoryOverride?: string): string {
     return directoryOverride;
   }
 
-  return resolveArtifactsDirectory();
+  return readArtifactsDirectory();
 }
 
 function isSafeObjectKey(objectKey: string): boolean {
@@ -259,10 +259,10 @@ function makeLocalStorageProvider(directoryOverride?: string): StorageProvider {
   };
 }
 
-export function makeLocalStorageProviderResolver(): StorageProviderResolver {
+export function makeLocalStorageProviderReader(): StorageProviderReader {
   return {
     name: 'local',
-    resolveStorageProvider(providerOptions: StorageProviderOptions) {
+    readStorageProvider(providerOptions: StorageProviderOptions) {
       const localStorageProvider = makeLocalStorageProvider(providerOptions.artifactDirectory);
       return Promise.resolve(localStorageProvider);
     },

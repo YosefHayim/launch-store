@@ -3,7 +3,7 @@
 import { ccacheOfferDeclined, markCcacheOfferDeclined } from '../config/first-run.ts';
 import { ensureArtifactDirIgnored } from '../config/gitignore.ts';
 import { ensureCcacheInstalled } from '../config/toolchain.ts';
-import { resolveArtifactDir, resolveStorageProvider } from '../distribution/storage.ts';
+import { readArtifactDir, readStorageProvider } from '../distribution/storage.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
 import { captureCommandOutput, checkCommandExists } from '../services/platform/execute-command.ts';
 import type { Logger } from '../services/platform/logger.ts';
@@ -23,14 +23,14 @@ import { ConsoleLinks } from '../terminal/console-links.ts';
 import type { ExplainTerm } from '../terminal/explain-terms.ts';
 import type { AppDescriptor, Platform, PlayTrack } from '../types/app.ts';
 import type { BuildArtifact, SizeReport } from '../types/artifacts.ts';
-import type { LaunchConfig, PrebuildMode, ResolvedBuildContext } from '../types/config.ts';
+import type { LaunchConfig, PrebuildMode, BuildContext } from '../types/config.ts';
 import type { AppleCredentials, BuildCredentials } from '../types/credentials.ts';
 import type { SubmitArtifact } from '../types/providers.ts';
 import { pathExists } from '../path-exists.ts';
 import { join } from 'node:path';
-import { resolveRetentionDays } from './artifact-retention.ts';
+import { readRetentionDays } from './artifact-retention.ts';
 import { beginBuildLog, buildLogId, endBuildLog } from './build-log.ts';
-import { mb, resolveSizeBudgetMB, submitToStores } from './pipeline-providers.ts';
+import { mb, readSizeBudgetMB, submitToStores } from './pipeline-providers.ts';
 import type {
   BuildOutput,
   BuildRunOptions,
@@ -97,7 +97,7 @@ async function ensureLocalArtifactDirIgnored(
     return;
   }
 
-  const artifactDirectory = await resolveArtifactDir(launchConfig.artifactDir);
+  const artifactDirectory = await readArtifactDir(launchConfig.artifactDir);
   const ignored = await ensureArtifactDirIgnored(artifactDirectory);
   const wasAdded = ignored.added == true;
 
@@ -191,7 +191,7 @@ export async function storeArtifact(
     clean: cleanBuilt,
     createdAt: new Date().toISOString(),
   };
-  const storageProvider = await resolveStorageProvider(launchConfig);
+  const storageProvider = await readStorageProvider(launchConfig);
 
   await ensureLocalArtifactDirIgnored(launchConfig, log);
 
@@ -199,7 +199,7 @@ export async function storeArtifact(
 
   log.step('store', stored.location);
 
-  const retentionDays = resolveRetentionDays(launchConfig);
+  const retentionDays = readRetentionDays(launchConfig);
 
   const shouldSweep = retentionDays > 0;
 
@@ -262,10 +262,8 @@ export async function reportCcacheStats(log: Logger): Promise<void> {
     return;
   }
 
-  let statsOutput: string;
-
   try {
-    statsOutput = await captureCommandOutput('ccache', ['-s']);
+    var statsOutput = await captureCommandOutput('ccache', ['-s']);
   } catch (error) {
     const statsFailed = error != null;
 
@@ -300,7 +298,7 @@ export function makeNativeProjectFailure(fields: {
 }
 
 async function runExpoPrebuild(
-  buildContext: ResolvedBuildContext,
+  buildContext: BuildContext,
   log: Logger,
   platform: 'ios' | 'android',
   reason: string,
@@ -347,7 +345,7 @@ function needsCommittedNativeProject(platform: Platform): boolean {
 
 /** Ensure the Apple native project exists. */
 export async function ensureNativeProject(
-  buildContext: ResolvedBuildContext,
+  buildContext: BuildContext,
   log: Logger,
   prebuild: PrebuildMode = 'missing',
 ): Promise<void> {
@@ -395,7 +393,7 @@ export async function ensureNativeProject(
 
 /** Run `expo prebuild` when android/ is missing, or on every build with `prebuild: 'always'`. */
 export async function ensureAndroidProject(
-  buildContext: ResolvedBuildContext,
+  buildContext: BuildContext,
   log: Logger,
   prebuild: PrebuildMode = 'missing',
 ): Promise<void> {
@@ -642,7 +640,7 @@ export async function previousBuild(
   platform: Platform,
   currentBuildNumber: number,
 ): Promise<PreviousDownload | undefined> {
-  const storageProvider = await resolveStorageProvider(launchConfig);
+  const storageProvider = await readStorageProvider(launchConfig);
   const artifactHistory = await storageProvider.list();
   const buildProgram = isEarlierBuild(app.name, platform, currentBuildNumber);
   const priorArtifact = artifactHistory.find(buildProgram);
@@ -779,7 +777,7 @@ export async function uploadIosBuild(
     artifact.buildNumber,
   );
 
-  const sizeBudgetMB = resolveSizeBudgetMB(buildOptions, prepared.profile);
+  const sizeBudgetMB = readSizeBudgetMB(buildOptions, prepared.profile);
 
   await confirmUpload({
     report: sizeReport,
@@ -824,7 +822,7 @@ export function receiptDestination(
 }
 
 /** Best-effort deep link to the uploaded build. Falls back to the console home. Never fails the build. */
-export async function resolveAscBuildLink(
+export async function readAscBuildLink(
   ascKey: AppleCredentials['ascKey'],
   bundleId: string,
 ): Promise<string> {

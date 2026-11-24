@@ -8,7 +8,7 @@ import type { PlayRelease } from '../types/google/edits-tracks.ts';
 import {
   confirmGoogleStoreWrite,
   loadActiveGoogleStore,
-  resolveGoogleStoreApp,
+  readGoogleStoreApp,
 } from './google-store-command.ts';
 import {
   buildRelease,
@@ -277,7 +277,7 @@ function chosenReleaseStatus(commandInput: PlayTracksPromoteInput): string {
   return 'completed';
 }
 
-function resolveReleaseStatus(commandInput: PlayTracksPromoteInput): PlayReleaseStatus {
+function readReleaseStatus(commandInput: PlayTracksPromoteInput): PlayReleaseStatus {
   const releaseStatus = chosenReleaseStatus(commandInput);
 
   if (isReleaseStatus(releaseStatus)) {
@@ -303,7 +303,7 @@ function coversRestOfWorld(countryAvailability: PlayCountryAvailability | null):
 }
 
 async function showTrackStatus(commandInput: PlayTracksStatusInput): Promise<void> {
-  const selectedApp = await resolveGoogleStoreApp(commandInput.app);
+  const selectedApp = await readGoogleStoreApp(commandInput.app);
   const googleStore = await loadActiveGoogleStore(selectedApp.packageName, selectedApp.appName);
   const trackCatalog = await googleStore.listTracks(selectedApp.packageName);
 
@@ -392,7 +392,7 @@ async function readReleaseNotes(
 }
 
 async function promoteTrackRelease(commandInput: PlayTracksPromoteInput): Promise<void> {
-  const selectedApp = await resolveGoogleStoreApp(commandInput.app);
+  const selectedApp = await readGoogleStoreApp(commandInput.app);
   const googleStore = await loadActiveGoogleStore(selectedApp.packageName, selectedApp.appName);
   let versionCode = commandInput.versionCode;
 
@@ -409,7 +409,7 @@ async function promoteTrackRelease(commandInput: PlayTracksPromoteInput): Promis
     versionCode = String(latestVersionCode);
   }
 
-  const releaseStatus = resolveReleaseStatus(commandInput);
+  const releaseStatus = readReleaseStatus(commandInput);
   let rolloutFraction: number | undefined;
   const rolloutText = commandInput.rollout;
 
@@ -473,7 +473,7 @@ function formatTesterGroup(groupEmail: string): string {
 }
 
 async function manageTrackTesters(commandInput: PlayTracksTestersInput): Promise<void> {
-  const selectedApp = await resolveGoogleStoreApp(commandInput.app);
+  const selectedApp = await readGoogleStoreApp(commandInput.app);
   const googleStore = await loadActiveGoogleStore(selectedApp.packageName, selectedApp.appName);
   const logger = createLogger(false);
 
@@ -522,10 +522,8 @@ async function runPlayTracksOperation(commandInput: PlayTracksCommandInput): Pro
 
 /** Run one schema-decoded Play tracks operation. */
 export async function playTracksCommandProgram(rawCommandInput: unknown): Promise<void> {
-  let commandInput: PlayTracksCommandInput;
-
   try {
-    commandInput = decodePlayTracksCommandInput(rawCommandInput);
+    var commandInput = decodePlayTracksCommandInput(rawCommandInput);
   } catch (cause) {
     throw tracksFailure('status', cause);
   }

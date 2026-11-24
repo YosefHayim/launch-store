@@ -80,10 +80,10 @@ function makeCtx(
   return {
     config,
     apps: [alpha],
-    resolveAscApi() {
+    readAscApi() {
       return Promise.resolve(api);
     },
-    resolvePlayApi() {
+    readPlayApi() {
       return Promise.resolve(null);
     },
   };

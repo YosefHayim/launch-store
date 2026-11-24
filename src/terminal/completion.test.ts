@@ -17,7 +17,7 @@ import {
   type InstallResult,
   managedBlock,
   parseShell,
-  resolveCompletions,
+  readCompletions,
   spliceManagedBlock,
   zshCompletionScript,
 } from './completion.ts';
@@ -43,7 +43,7 @@ async function runCompletionResolution(words: string[], program: Command): Promi
   });
 
   try {
-    return await resolveCompletions(words, program);
+    return await readCompletions(words, program);
   } finally {
     useLaunchDirectories(previousDirectories);
   }
@@ -502,6 +502,6 @@ function describeResolveCompletionsTheCompleteCallback() {
 }
 
 describe(
-  'resolveCompletions (the __complete callback)',
+  'readCompletions (the __complete callback)',
   describeResolveCompletionsTheCompleteCallback,
 );

@@ -22,7 +22,7 @@ export function computeParallelJobLimit(
   return undefined;
 }
 
-export function resolveCcacheEnvironment(disabled?: boolean): Record<string, string> {
+export function readCcacheEnvironment(disabled?: boolean): Record<string, string> {
   const launchEnvironment = readLaunchEnvironment();
 
   const isDisabled = disabled == true;

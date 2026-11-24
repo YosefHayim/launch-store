@@ -122,18 +122,14 @@ export async function releaseConfigCommandProgram(
   commandInput: ReleaseConfigCommandInput,
 ): Promise<void> {
   const logger = createLogger(false);
-  let loadedConfiguration: Awaited<ReturnType<typeof loadConfig>>;
-
   try {
-    loadedConfiguration = await loadConfig();
+    var loadedConfiguration = await loadConfig();
   } catch (cause) {
     throw releaseConfigFailure('load Launch configuration', cause);
   }
 
-  let selectedApp: Awaited<ReturnType<typeof selectApp>>;
-
   try {
-    selectedApp = await selectApp(loadedConfiguration.apps, commandInput.app);
+    var selectedApp = await selectApp(loadedConfiguration.apps, commandInput.app);
   } catch (cause) {
     let explicitMessage: string | undefined;
 
@@ -158,10 +154,8 @@ export async function releaseConfigCommandProgram(
     );
   }
 
-  let appLaunch: Awaited<ReturnType<typeof launchConfigForApp>>;
-
   try {
-    appLaunch = await launchConfigForApp(loadedConfiguration.config, selectedApp.dir);
+    var appLaunch = await launchConfigForApp(loadedConfiguration.config, selectedApp.dir);
   } catch (cause) {
     throw releaseConfigFailure('load release attributes', cause);
   }
@@ -178,10 +172,8 @@ export async function releaseConfigCommandProgram(
     );
   }
 
-  let ascKey: Awaited<ReturnType<typeof loadActiveAscKey>>;
-
   try {
-    ascKey = await loadActiveAscKey();
+    var ascKey = await loadActiveAscKey();
   } catch (cause) {
     throw releaseConfigFailure('load active Apple account', cause);
   }
@@ -198,18 +190,14 @@ export async function releaseConfigCommandProgram(
     );
   }
 
-  let ascClient: ReturnType<AppleStoreClientService['createClient']>;
-
   try {
-    ascClient = new AppleStoreClientService().createClient(activeAscKey);
+    var ascClient = new AppleStoreClientService().createClient(activeAscKey);
   } catch (cause) {
     throw releaseConfigFailure('create App Store client', cause);
   }
 
-  let releasePlan: Awaited<ReturnType<typeof reconcileRelease>>;
-
   try {
-    releasePlan = await reconcileRelease(ascClient, {
+    var releasePlan = await reconcileRelease(ascClient, {
       bundleId,
       config: releaseAttributes,
       dryRun: true,
@@ -262,10 +250,8 @@ export async function releaseConfigCommandProgram(
     return;
   }
 
-  let appliedRelease: Awaited<ReturnType<typeof reconcileRelease>>;
-
   try {
-    appliedRelease = await reconcileRelease(ascClient, {
+    var appliedRelease = await reconcileRelease(ascClient, {
       bundleId,
       config: releaseAttributes,
       dryRun: false,

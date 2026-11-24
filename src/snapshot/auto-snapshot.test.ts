@@ -18,10 +18,10 @@ function snapshotContext(over: Partial<SnapshotContext> = {}): SnapshotContext {
   return {
     config: sampleLaunchConfig,
     apps: [],
-    resolveAscApi() {
+    readAscApi() {
       return Promise.resolve(null);
     },
-    resolvePlayApi() {
+    readPlayApi() {
       return Promise.resolve(null);
     },
     ...over,

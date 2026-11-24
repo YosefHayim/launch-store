@@ -199,9 +199,9 @@ export type ReadinessContext = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
 
-  resolveAscApi(): Promise<AscReadinessApi | null>;
+  readAscApi(): Promise<AscReadinessApi | null>;
 
-  resolvePlayApi(packageName?: string): Promise<PlayReadinessApi | null>;
+  readPlayApi(packageName?: string): Promise<PlayReadinessApi | null>;
 }>;
 
 /** Registered read-only probe selected by category. */

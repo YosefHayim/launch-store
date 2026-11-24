@@ -6,11 +6,11 @@ import {
   registerCredentialsProvider,
   registerHostedBuildProvider,
   registerStorageProvider,
-  registerStorageProviderResolver,
+  registerStorageProviderReader,
   registerSubmitter,
 } from '../services/provider-support/registry.ts';
 import { makeLocalCredentialsProvider } from './credentials/local.ts';
-import { makeLocalStorageProviderResolver } from './storage/local.ts';
+import { makeLocalStorageProviderReader } from './storage/local.ts';
 import { makeXcodeBuildEngine } from './build/xcode.ts';
 import { makeGradleBuildEngine } from './build/gradle.ts';
 import { easHostedBuildProvider } from './build/expo-application-services.ts';
@@ -25,11 +25,11 @@ export async function registerBuiltins(): Promise<void> {
 
   registerCredentialsProvider(localCredentialsProvider);
 
-  const localStorageResolver = makeLocalStorageProviderResolver();
+  const localStorageReader = makeLocalStorageProviderReader();
 
-  registerStorageProviderResolver(localStorageResolver);
+  registerStorageProviderReader(localStorageReader);
 
-  const localStorage = await localStorageResolver.resolveStorageProvider({});
+  const localStorage = await localStorageReader.readStorageProvider({});
 
   registerStorageProvider(localStorage);
 

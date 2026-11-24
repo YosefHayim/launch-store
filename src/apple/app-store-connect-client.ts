@@ -468,8 +468,8 @@ export class AppStoreConnectClient implements AscHost {
     return this.apps.checkRequiredAgreements();
   }
 
-  async resolveTeamId(listQuery: AppleListQuery | null = null): Promise<string | null> {
-    return this.apps.resolveTeamId(listQuery);
+  async readTeamId(listQuery: AppleListQuery | null = null): Promise<string | null> {
+    return this.apps.readTeamId(listQuery);
   }
 
   async listAppNames(listQuery: AppleListQuery | null = null): Promise<string[]> {

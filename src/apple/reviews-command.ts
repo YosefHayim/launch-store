@@ -7,7 +7,7 @@ import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import type { CustomerReviewResource } from '../types/apple/customer-reviews.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { deleteReviewResponse, listReviews, replyToReview } from './reviews.ts';
-import { resolveStoreBundleId } from '../store/shared/select-store-app.ts';
+import { readStoreBundleId } from '../store/shared/select-store-app.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
@@ -170,10 +170,8 @@ async function confirmReviewWrite(
     throw new Error(refusalMessage, { cause: 'confirmation-required' });
   }
 
-  let shouldWrite = false;
-
   try {
-    shouldWrite = await new LaunchPrompt().confirm(confirmationMessage);
+    var shouldWrite = await new LaunchPrompt().confirm(confirmationMessage);
   } catch (cause) {
     throw reviewsFailure(operation, cause);
   }
@@ -209,7 +207,7 @@ async function listReviewsProgram(commandInput: ReviewsListCommandInput): Promis
       reviewFilters.territory = commandInput.territory;
     }
 
-    const bundleId = await resolveStoreBundleId(commandInput.app);
+    const bundleId = await readStoreBundleId(commandInput.app);
     const appleStore = await loadActiveAppleStore();
     const customerReviews = await listReviews(appleStore, bundleId, reviewFilters);
     const logger = createLogger(false);
@@ -245,7 +243,7 @@ async function listReviewsProgram(commandInput: ReviewsListCommandInput): Promis
   }
 }
 
-/** Resolve a developer reply from inline text or a file. */
+/** Read a developer reply from inline text or a file. */
 async function readReplyText(commandInput: ReviewReplyCommandInput): Promise<string> {
   const hasFile = commandInput.file != null;
 

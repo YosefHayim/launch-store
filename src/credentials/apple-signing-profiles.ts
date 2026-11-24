@@ -6,8 +6,8 @@ import { extractProfileEntitlements } from '../adopt/profile-entitlements.ts';
 import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import {
-  resolveAccountCredentialsDirectory,
-  resolveProvisioningProfilesDirectory,
+  readAccountCredentialsDirectory,
+  readProvisioningProfilesDirectory,
 } from '../services/platform/paths.ts';
 import type { AppleCredentialsClient } from '../services/stores/apple-credentials-client.ts';
 import { appStoreProfileType, readBundleIdPlatform } from '../services/stores/platform.ts';
@@ -98,7 +98,7 @@ export async function installProfile(
   teamId: string | null;
   installedPath: string;
 }> {
-  const credentialsDirectory = resolveAccountCredentialsDirectory(keyId);
+  const credentialsDirectory = readAccountCredentialsDirectory(keyId);
 
   await mkdir(credentialsDirectory, { recursive: true });
 
@@ -108,7 +108,7 @@ export async function installProfile(
   await writeFile(backupPath, bufferBytes);
 
   const profileMetadata = await readProfileMetadata(backupPath);
-  const provisioningProfilesDirectory = resolveProvisioningProfilesDirectory();
+  const provisioningProfilesDirectory = readProvisioningProfilesDirectory();
 
   await mkdir(provisioningProfilesDirectory, { recursive: true });
 
@@ -128,7 +128,7 @@ export async function installProfile(
 }
 
 /** Prefer the installed profile's team and fall back to the App ID team when absent. */
-export function resolveProfileTeamId(
+export function readProfileTeamId(
   installedTeamId: string | null,
   bundleTeamId: string | undefined,
 ): string {
@@ -344,7 +344,7 @@ export async function ensureAppStoreProfileForBundle(
     );
   }
 
-  const profile = await resolveAppStoreProfile({
+  const profile = await readAppStoreProfile({
     profileOptions,
     bundleIdResourceId: bundle.id,
     profileName,
@@ -356,7 +356,7 @@ export async function ensureAppStoreProfileForBundle(
     profileOptions.bundleId,
     profile.profileContent,
   );
-  const teamId = resolveProfileTeamId(installed.teamId, bundle.seedId);
+  const teamId = readProfileTeamId(installed.teamId, bundle.seedId);
 
   profileOptions.index.profiles[profileOptions.bundleId] = {
     id: profile.id,
@@ -378,7 +378,7 @@ export async function ensureAppStoreProfileForBundle(
   };
 }
 
-async function resolveAppStoreProfile(profileRequest: {
+async function readAppStoreProfile(profileRequest: {
   profileOptions: EnsureProfileForBundleOptions;
   bundleIdResourceId: string;
   profileName: string;

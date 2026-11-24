@@ -518,7 +518,7 @@ function readHeldScreenshots(existingScreenshots: readonly ScreenshotResource[])
   return heldScreenshots;
 }
 
-/** Resolve (or create) one display-type set, then upload the local screenshots Apple doesn't already have. */
+/** Read (or create) one display-type set, then upload the local screenshots Apple doesn't already have. */
 async function reconcileScreenshotSet(
   api: ScreenshotSetApi,
   log: ActionLog,
@@ -869,7 +869,7 @@ function readUploadedPreviewChecksums(existingPreviews: readonly PreviewResource
   return uploadedChecksums;
 }
 
-/** Resolve (or create) one preview-type set, then upload the local previews Apple doesn't already have. */
+/** Read (or create) one preview-type set, then upload the local previews Apple doesn't already have. */
 async function reconcilePreviewSet(
   api: PreviewsApi,
   log: ActionLog,

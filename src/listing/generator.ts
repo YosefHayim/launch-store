@@ -264,11 +264,9 @@ function draftFromGenerated(generatedListing: GeneratedListing): DraftListing {
 
 /** Decode model text into a usable listing draft. */
 export function parseDraftListing(completionText: string): DraftListing {
-  let parsed: unknown;
-
   try {
     const stripFence = stripJsonFence(completionText);
-    parsed = JSON.parse(stripFence);
+    var parsed = JSON.parse(stripFence);
   } catch (cause) {
     throw new Error('The model did not return valid JSON listing copy.', { cause });
   }
@@ -381,12 +379,10 @@ async function requestAnthropicListing(
     messages: [{ role: 'user', content: buildListingPrompt(listingBrief) }],
   };
 
-  let anthropicReply: Response;
-
   try {
     const serialized = JSON.stringify(requestDocument);
 
-    anthropicReply = await fetch('https://api.anthropic.com/v1/messages', {
+    var anthropicReply = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -413,10 +409,8 @@ async function requestAnthropicListing(
     return failAnthropicStatus(anthropicReply);
   }
 
-  let replyText: string;
-
   try {
-    replyText = await anthropicReply.text();
+    var replyText = await anthropicReply.text();
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
 
@@ -429,10 +423,8 @@ async function requestAnthropicListing(
     throw new Error(failureMessage, { cause });
   }
 
-  let anthropicMessage: unknown;
-
   try {
-    anthropicMessage = JSON.parse(replyText);
+    var anthropicMessage = JSON.parse(replyText);
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
 

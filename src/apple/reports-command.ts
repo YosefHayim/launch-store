@@ -10,7 +10,7 @@ import { readLaunchDirectories } from '../services/platform/paths.ts';
 import type { FinanceReportQuery, SalesReportQuery } from '../types/apple/reporting.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { collectAnalyticsSegments, decompressReport, eachDate, parseTsv } from './reports.ts';
-import { resolveStoreBundleId } from '../store/shared/select-store-app.ts';
+import { readStoreBundleId } from '../store/shared/select-store-app.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
@@ -501,7 +501,7 @@ function noteMissingAnalytics(logger: Logger, requestCreated: boolean): void {
 /** Request and download every matching App Store analytics segment. */
 async function downloadAnalyticsReports(commandInput: AnalyticsReportsCommandInput): Promise<void> {
   const logger = createLogger(false);
-  const bundleId = await resolveStoreBundleId(commandInput.app);
+  const bundleId = await readStoreBundleId(commandInput.app);
   const outputDirectory = projectOutputDirectory(commandInput.out);
   const appleStore = await loadActiveAppleStore();
   const analyticsQuery: {

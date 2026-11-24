@@ -221,10 +221,10 @@ function createReadinessContext(args: {
   return {
     config: config(args.products, args.listing),
     apps: args.apps,
-    resolveAscApi() {
+    readAscApi() {
       return Promise.resolve(appleStore);
     },
-    resolvePlayApi() {
+    readPlayApi() {
       return Promise.resolve(googleStore);
     },
   };

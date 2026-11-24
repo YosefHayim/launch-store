@@ -5,7 +5,7 @@ import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { pathExists } from '../path-exists.ts';
 import {
   getStorageProvider,
-  getStorageProviderResolver,
+  getStorageProviderReader,
 } from '../services/provider-support/registry.ts';
 import type { Platform } from '../types/app.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
@@ -39,8 +39,8 @@ function makeArtifactUnavailableFailure(fields: {
   };
 }
 
-/** Resolve `config.artifactDir` to the absolute base directory the `local` provider writes into. */
-export function resolveArtifactDir(artifactDir: string | undefined, projectRoot?: string): string {
+/** Read `config.artifactDir` to the absolute base directory the `local` provider writes into. */
+export function readArtifactDir(artifactDir: string | undefined, projectRoot?: string): string {
   const launchPaths = readLaunchDirectories();
   let projectDirectory = launchPaths.workingDirectory;
 
@@ -76,17 +76,17 @@ export function resolveArtifactDir(artifactDir: string | undefined, projectRoot?
 }
 
 /** Build (or look up) the storage provider named by `config.storage` */
-export async function resolveStorageProvider(
+export async function readStorageProvider(
   config: LaunchConfig,
   projectRoot?: string,
 ): Promise<StorageProvider> {
-  let providerResolver: ReturnType<typeof getStorageProviderResolver> | undefined;
+  let providerReader: ReturnType<typeof getStorageProviderReader> | undefined;
 
   try {
-    providerResolver = getStorageProviderResolver(config.storage);
+    providerReader = getStorageProviderReader(config.storage);
   } catch (cause) {
     if (isFailureTag(cause, 'ProviderNotRegistered')) {
-      providerResolver = undefined;
+      providerReader = undefined;
     } else {
       throw cause;
     }
@@ -101,12 +101,12 @@ export async function resolveStorageProvider(
     });
   }
 
-  if (providerResolver == null) {
+  if (providerReader == null) {
     return getStorageProvider(config.storage);
   }
 
-  return providerResolver.resolveStorageProvider({
-    artifactDirectory: resolveArtifactDir(config.artifactDir, projectRoot),
+  return providerReader.readStorageProvider({
+    artifactDirectory: readArtifactDir(config.artifactDir, projectRoot),
   });
 }
 

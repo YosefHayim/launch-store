@@ -19,7 +19,7 @@ type PricedDeclaration = {
 
 type PricePoint = Readonly<{ id: string }> | null;
 
-type PricePointResolver = (
+type PricePointReader = (
   liveProductId: string,
   territory: string,
   customerPrice: number,
@@ -92,7 +92,7 @@ async function gradePrice(
   appName: string,
   declaration: PricedDeclaration,
   liveProductId: string | undefined,
-  resolvePricePoint: PricePointResolver,
+  readPricePoint: PricePointReader,
 ): Promise<AppReadiness> {
   const price = declaration.price;
   let territory = 'USA';
@@ -111,7 +111,7 @@ async function gradePrice(
     };
   }
 
-  const matchedPricePoint = await resolvePricePoint(liveProductId, territory, price.customerPrice);
+  const matchedPricePoint = await readPricePoint(liveProductId, territory, price.customerPrice);
 
   if (isPricePointMissing(matchedPricePoint)) {
     return {
@@ -232,7 +232,7 @@ export const iapPricingProbe = {
       return OMITTED_PROBE;
     }
 
-    const appleStore = await readinessContext.resolveAscApi();
+    const appleStore = await readinessContext.readAscApi();
 
     if (isAppleAccountMissing(appleStore)) {
       return SKIPPED_NO_APPLE_ACCOUNT;

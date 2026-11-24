@@ -21,7 +21,7 @@ export function makeReleaseConfirmationRequired(fields: {
   return { _tag: 'ReleaseConfirmationRequired', message: fields.message };
 }
 
-export function resolveReleaseConfirmationMode(
+export function readReleaseConfirmationMode(
   confirmation: ReleaseConfirmationRequest,
 ): ReleaseConfirmationMode {
   if (confirmation.yes) {

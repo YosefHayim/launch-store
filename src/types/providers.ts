@@ -7,7 +7,7 @@ import type {
   SizeReport,
   StoredArtifact,
 } from './artifacts.ts';
-import type { ResolvedBuildContext } from './config.ts';
+import type { BuildContext } from './config.ts';
 import type { BuildCredentials } from './credentials.ts';
 import type { AllocateRequest, HostHandle, HostStatus } from './remote.ts';
 
@@ -46,11 +46,11 @@ export function makeStoreUploadFailure(fields: {
   };
 }
 
-/** Resolves and persists the credentials a build needs */
+/** Reads and persists the credentials a build needs */
 export type CredentialsProvider = Readonly<{
   readonly name: string;
 
-  resolveBuildCredentials(buildContext: ResolvedBuildContext): Promise<BuildCredentials>;
+  readBuildCredentials(buildContext: BuildContext): Promise<BuildCredentials>;
 
   status(packageNames?: readonly string[]): Promise<string>;
 }>;
@@ -60,7 +60,7 @@ export type BuildEngine = Readonly<{
   readonly name: string;
 
   buildArtifact(
-    buildContext: ResolvedBuildContext,
+    buildContext: BuildContext,
     buildCredentials: BuildCredentials,
   ): Promise<
     Readonly<{
@@ -80,7 +80,7 @@ export type HostedBuildProvider = Readonly<{
   authenticate(): Promise<string>;
 
   build(
-    buildContext: ResolvedBuildContext,
+    buildContext: BuildContext,
     profileName: string,
   ): Promise<
     Readonly<{
@@ -90,11 +90,7 @@ export type HostedBuildProvider = Readonly<{
     }>
   >;
 
-  submit(
-    buildContext: ResolvedBuildContext,
-    artifactPath: string,
-    profileName: string,
-  ): Promise<void>;
+  submit(buildContext: BuildContext, artifactPath: string, profileName: string): Promise<void>;
 }>;
 
 /** Persists build artifacts and hands back a retrievable location. */
@@ -124,9 +120,9 @@ export type StorageProviderOptions = Readonly<{
   readonly artifactDirectory?: string;
 }>;
 
-export type StorageProviderResolver = Readonly<{
+export type StorageProviderReader = Readonly<{
   readonly name: string;
-  readonly resolveStorageProvider: (
+  readonly readStorageProvider: (
     providerOptions: StorageProviderOptions,
   ) => Promise<StorageProvider>;
 }>;
@@ -141,7 +137,7 @@ export type Submitter = Readonly<{
   submit(
     artifact: SubmitArtifact,
     buildCredentials: BuildCredentials,
-    buildContext: ResolvedBuildContext,
+    buildContext: BuildContext,
   ): Promise<void>;
 }>;
 

@@ -6,7 +6,7 @@ import type {
   CredentialsProvider,
   HostedBuildProvider,
   StorageProvider,
-  StorageProviderResolver,
+  StorageProviderReader,
   Submitter,
 } from '../../types/providers.ts';
 
@@ -14,7 +14,7 @@ const credentialsProviders = new Map<string, CredentialsProvider>();
 const buildEngines = new Map<string, BuildEngine>();
 const hostedBuildProviders = new Map<string, HostedBuildProvider>();
 const storageProviders = new Map<string, StorageProvider>();
-const storageProviderResolvers = new Map<string, StorageProviderResolver>();
+const storageProviderReaders = new Map<string, StorageProviderReader>();
 const submitters = new Map<string, Submitter>();
 const computeHosts = new Map<string, ComputeHost>();
 
@@ -38,9 +38,9 @@ export function registerStorageProvider(provider: StorageProvider): void {
   storageProviders.set(provider.name, provider);
 }
 
-/** Register a configured storage-provider resolver under its `name`. */
-export function registerStorageProviderResolver(resolver: StorageProviderResolver): void {
-  storageProviderResolvers.set(resolver.name, resolver);
+/** Register a configured storage-provider reader under its `name`. */
+export function registerStorageProviderReader(reader: StorageProviderReader): void {
+  storageProviderReaders.set(reader.name, reader);
 }
 
 /** Register a submitter under its `name`. */
@@ -103,8 +103,8 @@ export function getStorageProvider(name: string) {
   return lookup('storage provider', name, storageProviders);
 }
 
-export function getStorageProviderResolver(name: string) {
-  return lookup('storage provider resolver', name, storageProviderResolvers);
+export function getStorageProviderReader(name: string) {
+  return lookup('storage provider reader', name, storageProviderReaders);
 }
 
 export function getSubmitter(name: string) {

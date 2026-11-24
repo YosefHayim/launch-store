@@ -10,7 +10,7 @@ import { createLogger } from '../services/platform/logger.ts';
 import {
   ensureDirectoryExists,
   readLaunchDirectories,
-  resolveUpdateStateFilePath,
+  readUpdateStateFilePath,
 } from '../services/platform/paths.ts';
 import { mergeChildEnv } from '../terminal/locale.ts';
 import { isCommandExit, makeCommandExit } from '../terminal/command-exit.ts';
@@ -148,7 +148,7 @@ export type UpdateCheckDeps = {
   isTTY: boolean;
   scriptPath: string;
 
-  resolveInstaller(): Promise<GlobalInstaller | null>;
+  readInstaller(): Promise<GlobalInstaller | null>;
 
   readState(): UpdateState | null;
 
@@ -199,7 +199,7 @@ export async function maybeAutoUpgrade(deps: UpdateCheckDeps): Promise<void> {
     return;
   }
 
-  const installer = await deps.resolveInstaller();
+  const installer = await deps.readInstaller();
 
   if (installer == null) {
     await deps.notify(`launch-store ${latest} is available - you have ${deps.currentVersion}`);
@@ -420,10 +420,8 @@ function reexecLaunch(
 }
 
 function pnpmGlobalPath(listingText: string): string | null {
-  let parsedListing: unknown;
-
   try {
-    parsedListing = JSON.parse(listingText);
+    var parsedListing = JSON.parse(listingText);
   } catch (error) {
     const isInvalid = error != null;
 
@@ -475,7 +473,7 @@ function launchStorePath(globalProject: Record<string, unknown>): string | null 
   return null;
 }
 
-async function resolveGlobalPackagePath(
+async function readGlobalPackagePath(
   installer: GlobalInstaller,
   homeDirectory: string,
 ): Promise<string | null> {
@@ -496,12 +494,12 @@ async function resolveGlobalPackagePath(
   return pnpmGlobalPath(globalListingText);
 }
 
-async function resolveGlobalEntryPath(
+async function readGlobalEntryPath(
   installer: GlobalInstaller,
   homeDirectory: string,
 ): Promise<string | null> {
   try {
-    const globalPackagePath = await resolveGlobalPackagePath(installer, homeDirectory);
+    const globalPackagePath = await readGlobalPackagePath(installer, homeDirectory);
 
     if (globalPackagePath == null) {
       return null;
@@ -538,7 +536,7 @@ async function isRunningGlobalInstall(
   realScriptPath: string,
   homeDirectory: string,
 ): Promise<boolean> {
-  const globalEntryPath = await resolveGlobalEntryPath(installer, homeDirectory);
+  const globalEntryPath = await readGlobalEntryPath(installer, homeDirectory);
 
   if (globalEntryPath == null) {
     return false;
@@ -549,7 +547,7 @@ async function isRunningGlobalInstall(
   return realGlobalEntryPath == realScriptPath;
 }
 
-async function resolveRunningInstaller(
+async function readRunningInstaller(
   realScriptPath: string,
   homeDirectory: string,
 ): Promise<GlobalInstaller | null> {
@@ -577,7 +575,7 @@ async function relaunchUpgradedLaunch(
   environmentVariables: Readonly<Record<string, string | undefined>>,
   homeDirectory: string,
 ): Promise<void> {
-  const relaunchScript = await resolveGlobalEntryPath(installer, homeDirectory);
+  const relaunchScript = await readGlobalEntryPath(installer, homeDirectory);
   const logger = createLogger(false);
 
   if (relaunchScript == null) {
@@ -604,13 +602,13 @@ export async function runAutoUpgrade(
   try {
     const environment = readLaunchEnvironment();
     const directories = readLaunchDirectories();
-    const stateFilePath = resolveUpdateStateFilePath();
+    const stateFilePath = readUpdateStateFilePath();
     const currentState = await readStoredState(stateFilePath);
     let realScriptPath = runtime.scriptPath;
-    const resolvedScriptPath = await realPathOrNull(runtime.scriptPath);
+    const installerScriptPath = await realPathOrNull(runtime.scriptPath);
 
-    if (resolvedScriptPath != null) {
-      realScriptPath = resolvedScriptPath;
+    if (installerScriptPath != null) {
+      realScriptPath = installerScriptPath;
     }
 
     await maybeAutoUpgrade({
@@ -621,8 +619,8 @@ export async function runAutoUpgrade(
       environmentVariables: environment.rawVariables,
       isTTY: runtime.terminalIsInteractive,
       scriptPath: runtime.scriptPath,
-      resolveInstaller() {
-        return resolveRunningInstaller(realScriptPath, directories.homeDirectory);
+      readInstaller() {
+        return readRunningInstaller(realScriptPath, directories.homeDirectory);
       },
       readState() {
         return currentState;

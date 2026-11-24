@@ -87,7 +87,7 @@ function registerLaunchStoreHooks(): void {
   hooksAreRegistered = true;
   keepTypeStripWarningQuiet();
   registerHooks({
-    resolve: resolveLaunchStore,
+    resolve: readLaunchStore,
     load: loadLaunchStoreSource,
   });
 }
@@ -121,7 +121,7 @@ function isTypeStripWarning(warning: Error): boolean {
   return warning.message.includes('stripTypeScriptTypes');
 }
 
-function resolveLaunchStore(
+function readLaunchStore(
   specifier: string,
   context: { parentURL?: string },
   nextResolve: (specifier: string, context: { parentURL?: string }) => { url: string },
@@ -211,10 +211,10 @@ function typescriptSiblingUrl(specifier: string, parentURL: string | undefined):
 
   const parentPath = fileURLToPath(parentURL);
   const parentDirectory = dirname(parentPath);
-  const resolvedPath = join(parentDirectory, specifier);
-  const existingPath = existingSourceFile(resolvedPath);
+  const path = join(parentDirectory, specifier);
+  const existingPath = existingSourceFile(path);
 
-  const changed = existingPath != resolvedPath;
+  const changed = existingPath != path;
 
   if (changed) {
     return pathToFileURL(existingPath).href;

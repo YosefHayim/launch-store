@@ -188,7 +188,7 @@ export const ENV_SOURCE = {
 } as const;
 
 /** The resolved build/update/release environment plus where each value came from. */
-export type ResolvedEnv = {
+export type LaunchEnvironment = {
   values: Record<string, string>;
   sources: Record<string, string>;
   excluded: string[];
@@ -216,22 +216,22 @@ function shouldOmitFromBuild(
 }
 
 /** Drop file and profile secrets. Keychain values and `--env` overrides stay. */
-export function keepBuildEnvironment(resolved: ResolvedEnv): {
-  environment: ResolvedEnv;
+export function keepBuildEnvironment(commandEnvironment: LaunchEnvironment): {
+  environment: LaunchEnvironment;
   omittedCount: number;
 } {
   const values: Record<string, string> = {};
   const sources: Record<string, string> = {};
   let omittedCount = 0;
 
-  for (const environmentName of Object.keys(resolved.values)) {
-    const environmentValue = resolved.values[environmentName];
+  for (const environmentName of Object.keys(commandEnvironment.values)) {
+    const environmentValue = commandEnvironment.values[environmentName];
 
     if (environmentValue == null) {
       continue;
     }
 
-    const environmentSource = resolved.sources[environmentName];
+    const environmentSource = commandEnvironment.sources[environmentName];
     const omitName = shouldOmitFromBuild(environmentName, environmentSource);
 
     if (omitName) {
@@ -247,13 +247,13 @@ export function keepBuildEnvironment(resolved: ResolvedEnv): {
   }
 
   return {
-    environment: { values, sources, excluded: resolved.excluded },
+    environment: { values, sources, excluded: commandEnvironment.excluded },
     omittedCount,
   };
 }
 
-/** Inputs to {@link resolveEnv}. */
-type ResolveEnvInput = {
+/** Inputs to {@link readEnv}. */
+type LaunchEnvironmentInput = {
   appDir: string;
   profileName: string;
   profileEnv?: Record<string, string> | undefined;
@@ -269,8 +269,8 @@ type EnvLayer = {
   vars: Record<string, string>;
 };
 
-/** Resolve env through the single precedence ladder (lowest -> highest, later overrides earlier) */
-export async function resolveEnv(input: ResolveEnvInput): Promise<ResolvedEnv> {
+/** Read env through the single precedence ladder (lowest -> highest, later overrides earlier) */
+export async function readEnv(input: LaunchEnvironmentInput): Promise<LaunchEnvironment> {
   let baseFile = '.env';
 
   if (input.envFile != null) {

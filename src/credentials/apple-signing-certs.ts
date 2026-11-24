@@ -8,7 +8,7 @@ import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import type { Logger } from '../services/platform/logger.ts';
-import { resolveAccountCredentialsDirectory } from '../services/platform/paths.ts';
+import { readAccountCredentialsDirectory } from '../services/platform/paths.ts';
 import type { AppleCredentialsClient } from '../services/stores/apple-credentials-client.ts';
 import type { CertificateResource } from '../types/apple/provisioning.ts';
 import { randomHexSecret } from './random-secret.ts';
@@ -188,7 +188,7 @@ async function createCertificateForUpload(
   try {
     const generated = await generateKeypairAndCsr(workDirectory);
     const created = await client.createCertificate(generated.csrPem);
-    const credentialsDirectory = resolveAccountCredentialsDirectory(keyId);
+    const credentialsDirectory = readAccountCredentialsDirectory(keyId);
 
     await mkdir(credentialsDirectory, { recursive: true });
 
@@ -308,7 +308,7 @@ async function createDistributionCertificate(
   return createCertificateForUpload(client, password, keyId);
 }
 
-/** Resolve the team distribution certificate shared by every bundle */
+/** Read the team distribution certificate shared by every bundle */
 export async function ensureDistributionCertificate(
   certificateOptions: EnsureDistributionCertificateOptions,
 ): Promise<EnsuredDistributionCertificate> {

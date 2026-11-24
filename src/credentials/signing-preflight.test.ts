@@ -6,7 +6,7 @@ import type { AppDescriptor } from '../types/app.ts';
 import {
   appGroupPreflightNotice,
   gatherTargetSigningReadiness,
-  resolveExtensionBundleIdsForApp,
+  readExtensionBundleIdsForApp,
   signingPreflightWarnings,
 } from './signing-preflight.ts';
 
@@ -28,7 +28,7 @@ function describeResolveExtensionBundleIdsForApp() {
 
     try {
       const appPath = join(root, 'app');
-      const extensionBundleIdsForApp = resolveExtensionBundleIdsForApp(
+      const extensionBundleIdsForApp = readExtensionBundleIdsForApp(
         app({
           dir: appPath,
           iosExtensions: ['com.example.sampleapp.widget'],
@@ -123,7 +123,7 @@ function describeResolveExtensionBundleIdsForApp() {
   `,
       );
 
-      const extensionBundleIdsForApp = resolveExtensionBundleIdsForApp(app({ dir: appDir }));
+      const extensionBundleIdsForApp = readExtensionBundleIdsForApp(app({ dir: appDir }));
 
       await expect(extensionBundleIdsForApp).resolves.toEqual(['com.example.sampleapp.widget']);
     } finally {
@@ -137,7 +137,7 @@ function describeResolveExtensionBundleIdsForApp() {
   );
 }
 
-describe('resolveExtensionBundleIdsForApp', describeResolveExtensionBundleIdsForApp);
+describe('readExtensionBundleIdsForApp', describeResolveExtensionBundleIdsForApp);
 
 function describeAppGroupPreflightNotice() {
   function returnsThePortalNoticeWhenAppGroupsAreDeclared() {

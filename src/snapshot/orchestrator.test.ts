@@ -21,10 +21,10 @@ function makeCtx(): SnapshotContext {
   return {
     config,
     apps: [],
-    resolveAscApi() {
+    readAscApi() {
       return Promise.resolve(null);
     },
-    resolvePlayApi() {
+    readPlayApi() {
       return Promise.resolve(null);
     },
   };

@@ -2,7 +2,7 @@
 
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadConfig, readResolvedConfig } from '../config/config.ts';
+import { loadConfig, readAppConfig } from '../config/config.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { pathExists } from '../path-exists.ts';
@@ -199,15 +199,15 @@ async function inspectPrivacySurface(appDescriptor: AppDescriptor): Promise<Priv
     return nativeSurface.privacySurface;
   }
 
-  const resolvedExpoConfiguration = await readResolvedConfig(appDescriptor.dir);
+  const expoConfiguration = await readAppConfig(appDescriptor.dir);
 
-  const hasNoExpoConfig = resolvedExpoConfiguration == null;
+  const hasNoExpoConfig = expoConfiguration == null;
 
   if (hasNoExpoConfig) {
     return surfaceFromExpoConfig({});
   }
 
-  return surfaceFromExpoConfig(resolvedExpoConfiguration);
+  return surfaceFromExpoConfig(expoConfiguration);
 }
 
 function appNameFromFinding(appFindingSet: { appName: string }): string {

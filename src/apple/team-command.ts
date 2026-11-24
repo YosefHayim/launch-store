@@ -213,10 +213,8 @@ async function confirmTeamWrite(confirmationMessage: string, assumeYes: boolean)
     );
   }
 
-  let confirmed = false;
-
   try {
-    confirmed = await new LaunchPrompt().confirm(confirmationMessage);
+    var confirmed = await new LaunchPrompt().confirm(confirmationMessage);
   } catch (cause) {
     throw teamCommandFailure('invite', cause);
   }
@@ -336,10 +334,8 @@ async function runTeamOperation(commandInput: TeamCommandInput): Promise<void> {
 
 /** Run one decoded team command. Decode failures are reported as list. */
 export async function teamCommandProgram(rawCommandInput: unknown): Promise<void> {
-  let commandInput: TeamCommandInput;
-
   try {
-    commandInput = TeamCommandInputSchema(rawCommandInput);
+    var commandInput = TeamCommandInputSchema(rawCommandInput);
   } catch (cause) {
     throw teamCommandFailure('list', cause);
   }

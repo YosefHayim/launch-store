@@ -115,10 +115,10 @@ function makeCtx(
   return {
     config,
     apps,
-    resolveAscApi() {
+    readAscApi() {
       return Promise.resolve(null);
     },
-    resolvePlayApi() {
+    readPlayApi() {
       return Promise.resolve(api);
     },
   };

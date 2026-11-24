@@ -238,7 +238,7 @@ export class ConnectApps {
    *
    * @see https://developer.apple.com/documentation/appstoreconnectapi/get-v1-bundleids
    */
-  async resolveTeamId(listQuery: AppleListQuery | null = null): Promise<string | null> {
+  async readTeamId(listQuery: AppleListQuery | null = null): Promise<string | null> {
     const { data: appleResources } = await this.client.request<
       ResourceList<{
         seedId?: string;

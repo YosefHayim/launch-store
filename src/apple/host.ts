@@ -280,7 +280,7 @@ export interface AscHost {
 
   checkRequiredAgreements(): Promise<boolean>;
 
-  resolveTeamId(listQuery?: AppleListQuery | null): Promise<string | null>;
+  readTeamId(listQuery?: AppleListQuery | null): Promise<string | null>;
 
   listAppNames(listQuery?: AppleListQuery | null): Promise<string[]>;
 

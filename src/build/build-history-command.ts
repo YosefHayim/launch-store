@@ -1,7 +1,7 @@
 // Lists, shows, and prunes binaries Launch has already stored for an app.
 
-import { loadConfig, type LoadedConfig } from '../config/config.ts';
-import { resolveStorageProvider } from '../distribution/storage.ts';
+import { loadConfig } from '../config/config.ts';
+import { readStorageProvider } from '../distribution/storage.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import { executeCommand } from '../services/platform/execute-command.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
@@ -14,7 +14,7 @@ import type { Platform } from '../types/app.ts';
 import type { LaunchConfig } from '../types/config.ts';
 import type { BuildArtifact, PrunedArtifact } from '../types/artifacts.ts';
 import type { StorageProvider } from '../types/providers.ts';
-import { resolveCommandRetentionDays } from './artifact-retention.ts';
+import { readCommandRetentionDays } from './artifact-retention.ts';
 import { buildLogId, buildLogPath, readBuildLog } from './build-log.ts';
 import { sizeSummary, worstDownloadBytes } from './pipeline-artifact.ts';
 import { mb } from './pipeline-providers.ts';
@@ -385,18 +385,14 @@ export function parsePruneDays(daysText: string | undefined): number | undefined
 }
 
 async function loadBuildStorageSession(): Promise<BuildStorageSession> {
-  let loadedConfiguration: LoadedConfig;
-
   try {
-    loadedConfiguration = await loadConfig();
+    var loadedConfiguration = await loadConfig();
   } catch (error) {
     throw buildHistoryFailure('load Launch configuration', error);
   }
 
-  let storageProvider: StorageProvider;
-
   try {
-    storageProvider = await resolveStorageProvider(loadedConfiguration.config);
+    var storageProvider = await readStorageProvider(loadedConfiguration.config);
   } catch (error) {
     throw buildHistoryFailure('resolve storage provider', error);
   }
@@ -557,7 +553,7 @@ async function runPrune(commandOptions: PruneCommandOptions): Promise<void> {
     );
   }
 
-  const retentionDays = resolveCommandRetentionDays(storageSession.config, requestedRetentionDays);
+  const retentionDays = readCommandRetentionDays(storageSession.config, requestedRetentionDays);
   const pruneFilter: {
     now: number;
     retentionDays: number;
@@ -574,10 +570,8 @@ async function runPrune(commandOptions: PruneCommandOptions): Promise<void> {
     pruneFilter.platform = platform;
   }
 
-  let prunePreview: PrunePreview;
-
   try {
-    prunePreview = await storageSession.storageProvider.prune({ ...pruneFilter, dryRun: true });
+    var prunePreview = await storageSession.storageProvider.prune({ ...pruneFilter, dryRun: true });
   } catch (error) {
     throw buildHistoryFailure('preview build cleanup', error);
   }
@@ -622,10 +616,11 @@ async function runPrune(commandOptions: PruneCommandOptions): Promise<void> {
     }
   }
 
-  let pruneOutcome: PrunePreview;
-
   try {
-    pruneOutcome = await storageSession.storageProvider.prune({ ...pruneFilter, dryRun: false });
+    var pruneOutcome = await storageSession.storageProvider.prune({
+      ...pruneFilter,
+      dryRun: false,
+    });
   } catch (error) {
     throw buildHistoryFailure('prune build history', error);
   }

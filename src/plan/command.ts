@@ -4,13 +4,9 @@ import { loadConfig } from '../config/config.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
-import {
-  createAscClientResolver,
-  createPlayClientResolver,
-} from '../store/shared/store-clients.ts';
+import { createAscClientReader, createPlayClientReader } from '../store/shared/store-clients.ts';
 import { selectApps } from '../store/shared/sync-jobs.ts';
 import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
-import type { AppDescriptor } from '../types/app.ts';
 import type { PlanContext, PlanStore, SurfacePlan, SurfacePlanner } from '../types/plan.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import { PLAN_EXIT, runPlanners, type PlanOutcome } from './orchestrator.ts';
@@ -353,10 +349,8 @@ export async function planCommandProgram(rawCommandInput: unknown): Promise<void
 
     const loadedConfiguration = await loadConfig(launchDirectories.workingDirectory);
 
-    let selectedApps: readonly AppDescriptor[];
-
     try {
-      selectedApps = await selectApps(loadedConfiguration.apps, commandInput.app);
+      var selectedApps = await selectApps(loadedConfiguration.apps, commandInput.app);
     } catch (cause) {
       const failureMessage = errorMessage(cause);
 
@@ -373,17 +367,17 @@ export async function planCommandProgram(rawCommandInput: unknown): Promise<void
       check = true;
     }
 
-    const resolveAscClient = createAscClientResolver();
-    const ascClient = await resolveAscClient();
-    const resolvePlayClient = await createPlayClientResolver();
+    const readAscClient = createAscClientReader();
+    const ascClient = await readAscClient();
+    const readPlayClient = await createPlayClientReader();
     const planContext: PlanContext = {
       config: loadedConfiguration.config,
       apps: selectedApps,
       configDirectory: loadedConfiguration.directory,
-      resolveAscApi: async function resolveAscApi() {
+      readAscApi: async function readAscApi() {
         return ascClient;
       },
-      resolvePlayApi: resolvePlayClient,
+      readPlayApi: readPlayClient,
     };
     const planOutcome = await runPlanners(planContext, selectedPlanners, { check });
 

@@ -65,10 +65,8 @@ export async function loadStoreAppContext(
   appSelector: string | undefined,
 ): Promise<StoreAppContext> {
   const launchPaths = readLaunchDirectories();
-  let loadedConfiguration: { config: LaunchConfig; apps: readonly AppDescriptor[] };
-
   try {
-    loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
+    var loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
   } catch (cause) {
     throw new Error('Could not load the Launch configuration.', { cause });
   }
@@ -131,8 +129,8 @@ export async function selectStoreApp(appSelector: string | undefined): Promise<A
   return storeAppContext.app;
 }
 
-/** Resolve the selected app's iOS bundle identifier. */
-export async function resolveStoreBundleId(appSelector: string | undefined): Promise<string> {
+/** Read the selected app's iOS bundle identifier. */
+export async function readStoreBundleId(appSelector: string | undefined): Promise<string> {
   const selectedApp = await selectStoreApp(appSelector);
 
   if (selectedApp.bundleId != null) {

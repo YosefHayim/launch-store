@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   resetLaunchDirectories,
-  resolveProvisioningProfilesDirectory,
+  readProvisioningProfilesDirectory,
   useLaunchDirectories,
 } from '../services/platform/paths.ts';
 import { createLogger } from '../services/platform/logger.ts';
@@ -67,7 +67,7 @@ function seedCredentials(
 
   writeFileSync(indexPath, serialized);
 
-  const provisioningProfilesDirectory = resolveProvisioningProfilesDirectory();
+  const provisioningProfilesDirectory = readProvisioningProfilesDirectory();
 
   mkdirSync(provisioningProfilesDirectory, { recursive: true });
 

@@ -23,8 +23,8 @@ import {
   releaseCommandProgram,
   type ReleaseCommandOptions,
   type ReleaseCommandService,
-  resolveAndroidRollout,
-  resolveVersionString,
+  readAndroidRollout,
+  readVersionString,
   shouldNudgeRelease,
 } from './release-command.ts';
 
@@ -153,7 +153,7 @@ function describeResolveVersionString() {
 
   async function usesAPromotedBuildSOwnMarketingVersionOverAppPiece() {
     const promotedBuild = storeBuild({ version: '591', marketingVersion: '6.11.77' });
-    const versionString = await resolveVersionString(
+    const versionString = await readVersionString(
       ascClient,
       appDescriptor,
       'com.acme.app',
@@ -170,7 +170,7 @@ function describeResolveVersionString() {
 
   async function fallsBackToAppPieceWhenTheBuildHasNoMarketingVersion() {
     const buildProgram = storeBuild();
-    const versionString = await resolveVersionString(
+    const versionString = await readVersionString(
       ascClient,
       appDescriptor,
       'com.acme.app',
@@ -187,32 +187,32 @@ function describeResolveVersionString() {
   );
 }
 
-describe('resolveVersionString', describeResolveVersionString);
+describe('readVersionString', describeResolveVersionString);
 
 function describeResolveAndroidRollout() {
   function prefersTheCLIFlagOverTheProfileDefault() {
-    const androidRollout = resolveAndroidRollout(0.25, 0.5);
+    const androidRollout = readAndroidRollout(0.25, 0.5);
     expect(androidRollout).toBe(0.5);
   }
 
   it('prefers the CLI flag over the profile default', prefersTheCLIFlagOverTheProfileDefault);
 
   function usesTheProfileFractionWhenNoFlagIsPassed() {
-    const androidRollout = resolveAndroidRollout(0.1, undefined);
+    const androidRollout = readAndroidRollout(0.1, undefined);
     expect(androidRollout).toBe(0.1);
   }
 
   it('uses the profile fraction when no flag is passed', usesTheProfileFractionWhenNoFlagIsPassed);
 
   function defaultsToAFullProductionRollout() {
-    const androidRollout = resolveAndroidRollout(undefined, undefined);
+    const androidRollout = readAndroidRollout(undefined, undefined);
     expect(androidRollout).toBe(1);
   }
 
   it('defaults to a full production rollout', defaultsToAFullProductionRollout);
 }
 
-describe('resolveAndroidRollout', describeResolveAndroidRollout);
+describe('readAndroidRollout', describeResolveAndroidRollout);
 
 function describeAndroidReleasePlanLines() {
   function namesTheBuildTheProductionTrackAndTheRollout() {

@@ -241,7 +241,7 @@ async function captureOneSubscriptionApp(
   snapshotContext: SnapshotContext,
   app: { name: string; identifier: string },
 ): Promise<PlayCaptureEntry> {
-  const client = await snapshotContext.resolvePlayApi(app.identifier);
+  const client = await snapshotContext.readPlayApi(app.identifier);
 
   if (client == null) {
     return {
@@ -314,7 +314,7 @@ async function restorePlaySubscriptions({ ctx: restoreContext, saved, dryRun }: 
   const actions: PlannedAction[] = [];
 
   for (const app of saved) {
-    const client = await restoreContext.resolvePlayWriteClient(app.identifier);
+    const client = await restoreContext.readPlayWriteClient(app.identifier);
 
     if (client == null) {
       actions.push(
@@ -359,7 +359,7 @@ async function restorePlaySubscriptions({ ctx: restoreContext, saved, dryRun }: 
 }
 
 async function reconcileSubscriptionActions(
-  client: NonNullable<Awaited<ReturnType<RestoreInput['ctx']['resolvePlayWriteClient']>>>,
+  client: NonNullable<Awaited<ReturnType<RestoreInput['ctx']['readPlayWriteClient']>>>,
   packageName: string,
   subscriptions: SubscriptionConfig[],
   dryRun: boolean,

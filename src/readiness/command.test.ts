@@ -30,8 +30,8 @@ vi.mock('../config/config.ts', function mockPiece() {
 });
 vi.mock('../store/shared/store-clients.ts', function mockStoreClients() {
   return {
-    createAscClientResolver: () => async () => null,
-    createPlayClientResolver: () => async () => null,
+    createAscClientReader: () => async () => null,
+    createPlayClientReader: () => async () => null,
   };
 });
 vi.mock('./registry.ts', function mockRegistry() {

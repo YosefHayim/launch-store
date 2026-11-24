@@ -90,10 +90,10 @@ async function confirmClear(targetLabel: string, confirmed: boolean): Promise<bo
     );
   }
 
-  let shouldClear = false;
-
   try {
-    shouldClear = await new LaunchPrompt().confirm(`Clear purchase history for ${targetLabel}?`);
+    var shouldClear = await new LaunchPrompt().confirm(
+      `Clear purchase history for ${targetLabel}?`,
+    );
   } catch (cause) {
     throw sandboxFailure('clear', cause);
   }

@@ -2,7 +2,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { readResolvedConfig } from '../config/config.ts';
+import { readAppConfig } from '../config/config.ts';
 import { configTemplate, detectAppRoot } from '../config/config-scaffold.ts';
 import { pathExists } from '../path-exists.ts';
 import type { AppDescriptor, BuildProfile, PlayTrack } from '../types/app.ts';
@@ -479,10 +479,8 @@ function decodeEasDocument(rawDocument: unknown): EasJson {
 
 /** Decode the EAS fields that Launch migrates and discard unsupported fields at the boundary. */
 export function parseEasJson(easJsonSource: string): EasJson {
-  let parsedDocument: unknown;
-
   try {
-    parsedDocument = JSON.parse(easJsonSource);
+    var parsedDocument = JSON.parse(easJsonSource);
   } catch (cause) {
     throw makeEasMigrationFailure({ reason: 'InvalidEasJson', cause });
   }
@@ -985,10 +983,8 @@ function credentialsSummaryFromDocument(credentialsDocument: {
 
 /** Decode credentials.json source and keep only non-secret path/alias facts. */
 export function credentialsSummaryFromJson(credentialsSource: string): CredentialsSummary | null {
-  let parsedDocument: unknown;
-
   try {
-    parsedDocument = JSON.parse(credentialsSource);
+    var parsedDocument = JSON.parse(credentialsSource);
   } catch (error) {
     const isInvalidJson = error != null;
 
@@ -1222,8 +1218,8 @@ function decodeExpoWrapper(rawDocument: unknown): { expo?: ExpoFacts } | null {
   return { expo: expoFacts };
 }
 
-function wrappedExpoFacts(resolvedConfiguration: Record<string, unknown>): ExpoFacts | null {
-  const decodedWrapper = decodeExpoWrapper(resolvedConfiguration);
+function wrappedExpoFacts(configuration: Record<string, unknown>): ExpoFacts | null {
+  const decodedWrapper = decodeExpoWrapper(configuration);
 
   if (decodedWrapper == null) {
     return null;
@@ -1237,16 +1233,14 @@ function wrappedExpoFacts(resolvedConfiguration: Record<string, unknown>): ExpoF
 }
 
 /** Read Expo/EAS project facts from either a wrapped or bare app config document. */
-export function expoFactsFromResolvedConfig(
-  resolvedConfiguration: Record<string, unknown>,
-): ExpoFacts | null {
-  const wrappedFacts = wrappedExpoFacts(resolvedConfiguration);
+export function expoFactsFromConfig(configuration: Record<string, unknown>): ExpoFacts | null {
+  const wrappedFacts = wrappedExpoFacts(configuration);
 
   if (wrappedFacts != null) {
     return wrappedFacts;
   }
 
-  return decodeExpoFacts(resolvedConfiguration);
+  return decodeExpoFacts(configuration);
 }
 
 /** Human-readable runtimeVersion label for info notes. */
@@ -1324,13 +1318,13 @@ async function notesFromAppExpoFacts(apps: AppDescriptor[]): Promise<MigrationNo
   const migrationNotes: MigrationNote[] = [];
 
   for (const app of apps) {
-    const resolvedConfiguration = await readResolvedConfig(app.dir);
+    const configuration = await readAppConfig(app.dir);
 
-    if (resolvedConfiguration == null) {
+    if (configuration == null) {
       continue;
     }
 
-    const expoFacts = expoFactsFromResolvedConfig(resolvedConfiguration);
+    const expoFacts = expoFactsFromConfig(configuration);
 
     if (expoFacts == null) {
       continue;
@@ -1354,10 +1348,8 @@ export async function migrateEas(
     throw makeEasMigrationFailure({ reason: 'MissingEasConfig', sourcePath: easPath });
   }
 
-  let easJsonSource = '';
-
   try {
-    easJsonSource = await readFile(easPath, 'utf8');
+    var easJsonSource = await readFile(easPath, 'utf8');
   } catch (cause) {
     throw makeEasMigrationFailure({ reason: 'InvalidEasJson', sourcePath: easPath, cause });
   }

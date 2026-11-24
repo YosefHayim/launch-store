@@ -3,7 +3,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
-import { resolveLaunchHomeDirectory, resolvePushKeysFilePath } from '../services/platform/paths.ts';
+import { readLaunchHomeDirectory, readPushKeysFilePath } from '../services/platform/paths.ts';
 import { decodeP8, encodeP8 } from './accounts.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
@@ -128,7 +128,7 @@ function decodePushKeyFile(candidate: unknown): readonly ApnsKeyRecord[] | null 
 
 /** Read the vault index, returning an empty list when the file is absent or malformed. */
 export async function listPushKeys(): Promise<readonly ApnsKeyRecord[]> {
-  const pushKeysFilePath = resolvePushKeysFilePath();
+  const pushKeysFilePath = readPushKeysFilePath();
   const indexExists = await pathExists(pushKeysFilePath);
 
   if (indexExists == false) {
@@ -158,12 +158,12 @@ export async function listPushKeys(): Promise<readonly ApnsKeyRecord[]> {
 
 /** Write the vault index back to disk (pretty-printed; non-secret metadata only). */
 async function writePushKeys(keys: readonly ApnsKeyRecord[]): Promise<void> {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  const launchHomeDirectory = readLaunchHomeDirectory();
 
   await mkdir(launchHomeDirectory, { recursive: true });
 
   const indexText = JSON.stringify({ keys }, null, 2);
-  const pushKeysFilePath = resolvePushKeysFilePath();
+  const pushKeysFilePath = readPushKeysFilePath();
 
   await writeFile(pushKeysFilePath, indexText);
 }

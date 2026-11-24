@@ -4,7 +4,7 @@ import { mkdtemp, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { SizeReport } from '../../types/artifacts.ts';
-import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildContext } from '../../types/config.ts';
 import { makeProviderInputFailure, type HostedBuildProvider } from '../../types/providers.ts';
 import {
   captureCommandOutput,
@@ -281,10 +281,8 @@ export function parseBuildNumber(jsonText: string): number {
 }
 
 async function downloadFile(artifactUrl: string, destinationPath: string): Promise<void> {
-  let artifactReply: Response;
-
   try {
-    artifactReply = await fetch(artifactUrl);
+    var artifactReply = await fetch(artifactUrl);
   } catch (cause) {
     const asString = String(cause);
 
@@ -303,10 +301,8 @@ async function downloadFile(artifactUrl: string, destinationPath: string): Promi
     });
   }
 
-  let artifactBytes: ArrayBuffer;
-
   try {
-    artifactBytes = await artifactReply.arrayBuffer();
+    var artifactBytes = await artifactReply.arrayBuffer();
   } catch (cause) {
     const asString = String(cause);
 
@@ -320,7 +316,7 @@ async function downloadFile(artifactUrl: string, destinationPath: string): Promi
 }
 
 async function easBuildToIpa(
-  buildContext: ResolvedBuildContext,
+  buildContext: BuildContext,
   profileName: string,
 ): Promise<{ ipaPath: string; sizeReport: SizeReport; buildNumber: number }> {
   const easInvocation = await readEasCommand();
@@ -366,7 +362,7 @@ async function easBuildToIpa(
 }
 
 export async function easSubmit(
-  buildContext: ResolvedBuildContext,
+  buildContext: BuildContext,
   ipaPath: string,
   profileName: string,
 ): Promise<void> {
@@ -390,7 +386,7 @@ export async function easSubmit(
 }
 
 async function buildHostedArtifact(
-  buildContext: ResolvedBuildContext,
+  buildContext: BuildContext,
   profileName: string,
 ): Promise<{ artifactPath: string; sizeReport: SizeReport; buildNumber: number }> {
   const builtIpa = await easBuildToIpa(buildContext, profileName);

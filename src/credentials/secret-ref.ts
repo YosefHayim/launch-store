@@ -6,8 +6,8 @@ import { readLaunchEnvironment } from '../services/platform/environment.ts';
 const ENV_PREFIX = 'env:';
 const KEYCHAIN_PREFIX = 'keychain:';
 
-/** Resolve `secretReference` to a concrete secret. */
-export async function resolveSecretRef(secretReference: string, label = 'secret'): Promise<string> {
+/** Read `secretReference` to a concrete secret. */
+export async function readSecretRef(secretReference: string, label = 'secret'): Promise<string> {
   const isEnvironmentReference = secretReference.startsWith(ENV_PREFIX);
 
   if (isEnvironmentReference) {
@@ -34,9 +34,9 @@ async function readEnvironmentSecret(secretReference: string, label: string): Pr
     );
   }
 
-  const resolvedSecret = readLaunchEnvironment().readSecret(name);
+  const secret = readLaunchEnvironment().readSecret(name);
 
-  const isUnset = resolvedSecret == null;
+  const isUnset = secret == null;
 
   if (isUnset) {
     throw new Error(
@@ -44,7 +44,7 @@ async function readEnvironmentSecret(secretReference: string, label: string): Pr
     );
   }
 
-  return resolvedSecret;
+  return secret;
 }
 
 async function readKeychainSecret(secretReference: string, label: string): Promise<string> {
@@ -58,21 +58,21 @@ async function readKeychainSecret(secretReference: string, label: string): Promi
     );
   }
 
-  const resolvedSecret = await new LaunchSecretStore().readSecret(account);
+  const secret = await new LaunchSecretStore().readSecret(account);
 
-  const isMissing = resolvedSecret == null;
+  const isMissing = secret == null;
 
   if (isMissing) {
     return missingKeychainSecret(label, account);
   }
 
-  const isEmpty = resolvedSecret == '';
+  const isEmpty = secret == '';
 
   if (isEmpty) {
     return missingKeychainSecret(label, account);
   }
 
-  return resolvedSecret;
+  return secret;
 }
 
 function missingKeychainSecret(label: string, account: string): never {

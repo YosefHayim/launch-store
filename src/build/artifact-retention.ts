@@ -3,7 +3,7 @@
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathExists } from '../path-exists.ts';
-import { resolveArtifactIndexFilePath } from '../services/platform/paths.ts';
+import { readArtifactIndexFilePath } from '../services/platform/paths.ts';
 import type { Platform } from '../types/app.ts';
 import type {
   BuildArtifact,
@@ -20,14 +20,14 @@ export const DEFAULT_RETENTION_DAYS = 30;
 const dayMs = 24 * 60 * 60 * 1000;
 const artifactPlatforms: readonly Platform[] = ['ios', 'android', 'tvos', 'macos', 'visionos'];
 
-function resolveArtifactIndexPath(indexPath: string | undefined): string {
+function readArtifactIndexPath(indexPath: string | undefined): string {
   const hasIndexPath = indexPath != null;
 
   if (hasIndexPath) {
     return indexPath;
   }
 
-  return resolveArtifactIndexFilePath();
+  return readArtifactIndexFilePath();
 }
 
 function isPlatform(candidate: unknown): candidate is Platform {
@@ -161,7 +161,7 @@ function decodeArtifactIndex(encodedIndex: string): readonly BuildArtifact[] {
 }
 
 export async function readArtifactIndex(indexPath?: string): Promise<readonly BuildArtifact[]> {
-  const artifactIndexPath = resolveArtifactIndexPath(indexPath);
+  const artifactIndexPath = readArtifactIndexPath(indexPath);
   const indexExists = await pathExists(artifactIndexPath);
 
   if (indexExists == false) {
@@ -178,7 +178,7 @@ export async function writeArtifactIndex(
   artifactIndex: readonly BuildArtifact[],
   indexPath?: string,
 ): Promise<void> {
-  const artifactIndexPath = resolveArtifactIndexPath(indexPath);
+  const artifactIndexPath = readArtifactIndexPath(indexPath);
   const parentDirectory = path.dirname(artifactIndexPath);
 
   await mkdir(parentDirectory, { recursive: true });
@@ -189,7 +189,7 @@ export async function writeArtifactIndex(
 }
 
 /** Automatic post-store retention window from config (default 30; 0 disables). */
-export function resolveRetentionDays(launchConfig: LaunchConfig): number {
+export function readRetentionDays(launchConfig: LaunchConfig): number {
   const configuredRetentionDays = launchConfig.artifactRetentionDays;
 
   const isUnset = configuredRetentionDays == null;
@@ -202,7 +202,7 @@ export function resolveRetentionDays(launchConfig: LaunchConfig): number {
 }
 
 /** Explicit `builds prune` window */
-export function resolveCommandRetentionDays(
+export function readCommandRetentionDays(
   launchConfig: LaunchConfig,
   retentionDaysOverride?: number,
 ): number {

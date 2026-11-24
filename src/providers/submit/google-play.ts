@@ -2,7 +2,7 @@
 
 import { createReadStream } from 'node:fs';
 import type { AndroidReleaseNote, PlayTrack } from '../../types/app.ts';
-import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
 import type { PlayRelease } from '../../types/google/edits-tracks.ts';
 import {
@@ -44,7 +44,7 @@ function playReleaseFor(
 async function submitAndroidBundle(
   artifact: SubmitArtifact,
   buildCredentials: BuildCredentials,
-  buildContext: ResolvedBuildContext,
+  buildContext: BuildContext,
 ): Promise<void> {
   const isAndroidCredential = buildCredentials.platform == 'android';
 

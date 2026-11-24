@@ -16,19 +16,15 @@ export async function loadActiveGoogleStore(
   packageName: string,
   appName: string,
 ): Promise<GooglePlayClient> {
-  let serviceAccountJson: string | null = null;
-
   try {
-    serviceAccountJson = await loadServiceAccount(packageName);
+    var serviceAccountJson = await loadServiceAccount(packageName);
   } catch (cause) {
     throw new Error('Could not load the Play service account.', { cause });
   }
 
   if (serviceAccountJson == null) {
-    let missingMessage = '';
-
     try {
-      missingMessage = await describeMissingPlayServiceAccount(appName);
+      var missingMessage = await describeMissingPlayServiceAccount(appName);
     } catch (cause) {
       throw new Error('Could not read legacy Play credentials.', { cause });
     }
@@ -43,8 +39,8 @@ export async function loadActiveGoogleStore(
   }
 }
 
-/** Resolve the selected app's Google Play package name. */
-export async function resolveGoogleStoreApp(
+/** Read the selected app's Google Play package name. */
+export async function readGoogleStoreApp(
   appSelector: string | undefined,
 ): Promise<{ packageName: string; appName: string }> {
   const selectedApp = await selectStoreApp(appSelector);
@@ -57,14 +53,6 @@ export async function resolveGoogleStoreApp(
     `No Android application id for ${selectedApp.name} (set android.package in app.json).`,
     { cause: selectedApp },
   );
-}
-
-function confirmationCauseMessage(cause: unknown): string {
-  if (hasMessage(cause)) {
-    return cause.message;
-  }
-
-  return 'Google Play confirmation failed.';
 }
 
 /** Confirm an outward-facing Google Play write. */
@@ -84,14 +72,16 @@ export async function confirmGoogleStoreWrite(
     throw new Error(refusalMessage, { cause: 'confirmation-required' });
   }
 
-  let confirmed = false;
-
   try {
-    confirmed = await new LaunchPrompt().confirm(confirmationMessageText);
+    var confirmed = await new LaunchPrompt().confirm(confirmationMessageText);
   } catch (cause) {
-    const failureMessage = confirmationCauseMessage(cause);
+    const hasCauseMessage = hasMessage(cause);
 
-    throw new Error(failureMessage, { cause });
+    if (hasCauseMessage) {
+      throw new Error(cause.message, { cause });
+    }
+
+    throw new Error('Google Play confirmation failed.', { cause });
   }
 
   if (confirmed) {

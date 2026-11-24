@@ -2,7 +2,7 @@
 
 import { basename } from 'node:path';
 import type { BuildUploadProblem } from '../../types/apple/builds.ts';
-import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
 import {
   makeProviderInputFailure,
@@ -124,7 +124,7 @@ async function waitForBuildUpload(
 async function submitAppleBuild(
   artifact: SubmitArtifact,
   buildCredentials: BuildCredentials,
-  buildContext: ResolvedBuildContext,
+  buildContext: BuildContext,
   pollIntervalMilliseconds: number,
   uploadWaitMilliseconds: number,
 ): Promise<void> {

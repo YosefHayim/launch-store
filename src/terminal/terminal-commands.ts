@@ -14,7 +14,7 @@ import {
   detectShell,
   installCompletion,
   parseShell,
-  resolveCompletions,
+  readCompletions,
   SHELLS,
 } from './completion.ts';
 import { ConsoleLinks } from './console-links.ts';
@@ -215,7 +215,7 @@ export class TerminalCommands {
       }
 
       const consoleLinks = new ConsoleLinks();
-      const consoleUrl = await consoleLinks.resolveOpenUrl(commandInput.target, openChoice);
+      const consoleUrl = await consoleLinks.readOpenUrl(commandInput.target, openChoice);
       const logger = createLogger(false);
 
       logger.line(`Opening ${consoleUrl}`);
@@ -327,7 +327,7 @@ export class TerminalCommands {
     words: readonly string[],
     commandTree: Command,
   ): Promise<void> {
-    const candidates = await resolveCompletions([...words], commandTree);
+    const candidates = await readCompletions([...words], commandTree);
 
     stdout.write(`${candidates.join('\n')}\n`);
   }

@@ -51,7 +51,7 @@ export const appRecordProbe = {
       return OMITTED_PROBE;
     }
 
-    const api = await readinessContext.resolveAscApi();
+    const api = await readinessContext.readAscApi();
 
     if (isAppleAccountMissing(api)) {
       return SKIPPED_NO_APPLE_ACCOUNT;

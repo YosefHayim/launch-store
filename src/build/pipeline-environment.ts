@@ -3,12 +3,12 @@
 import type { AppDescriptor, BuildProfile } from '../types/app.ts';
 import { pickOne, type PickOneArgs } from '../services/platform/prompt.ts';
 import { readLastApp } from '../distribution/last-run.ts';
-import { resolveBuildSecrets } from './build-secrets.ts';
+import { readBuildSecrets } from './build-secrets.ts';
 import {
   keepBuildEnvironment,
   missingKeys,
-  resolveEnv,
-  type ResolvedEnv,
+  readEnv,
+  type LaunchEnvironment,
 } from '../config/environment-file.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
@@ -139,17 +139,17 @@ type CommandEnvironmentRequest = {
   envExclude?: readonly string[] | undefined;
 };
 
-/** Resolve keychain, dotenv, profile env, and --env flags for a command. */
-export async function resolveCommandEnv(request: CommandEnvironmentRequest): Promise<ResolvedEnv> {
-  let secrets: Awaited<ReturnType<typeof resolveBuildSecrets>>;
-
+/** Read keychain, dotenv, profile env, and --env flags for a command. */
+export async function readCommandEnv(
+  request: CommandEnvironmentRequest,
+): Promise<LaunchEnvironment> {
   try {
-    secrets = await resolveBuildSecrets(request.app.name, request.profile.name);
+    var secrets = await readBuildSecrets(request.app.name, request.profile.name);
   } catch (error) {
     throw new Error(`Could not resolve build secrets for ${request.app.name}.`, { cause: error });
   }
 
-  const resolvedEnvironment = await resolveEnv({
+  const commandEnvironment = await readEnv({
     appDir: request.app.dir,
     profileName: request.profile.name,
     profileEnv: request.profile.env,
@@ -160,20 +160,18 @@ export async function resolveCommandEnv(request: CommandEnvironmentRequest): Pro
     envExclude: request.envExclude,
   });
 
-  return resolvedEnvironment;
+  return commandEnvironment;
 }
 
 /** Hard-fail on missing `.env.example` keys, then drop file secrets from the build env. */
-export async function validateResolvedEnv(
+export async function checkLaunchEnvironment(
   appDir: string,
-  resolved: ResolvedEnv,
+  commandEnvironment: LaunchEnvironment,
   log: Logger,
   exclude: readonly string[] = [],
-): Promise<ResolvedEnv> {
-  let missing: string[];
-
+): Promise<LaunchEnvironment> {
   try {
-    missing = await missingKeys(appDir, resolved.values, exclude);
+    var missing = await missingKeys(appDir, commandEnvironment.values, exclude);
   } catch (error) {
     throw new Error(`Could not read ${appDir}/.env.example.`, { cause: error });
   }
@@ -184,12 +182,15 @@ export async function validateResolvedEnv(
     throw new Error(`Missing ${missing.length} env keys that .env.example lists.`);
   }
 
-  return applyBuildEnvironment(resolved, log);
+  return applyBuildEnvironment(commandEnvironment, log);
 }
 
 /** Keep keychain and `--env` secrets. Leave file and profile secrets out of the build. */
-export function applyBuildEnvironment(resolved: ResolvedEnv, log: Logger): ResolvedEnv {
-  const kept = keepBuildEnvironment(resolved);
+export function applyBuildEnvironment(
+  commandEnvironment: LaunchEnvironment,
+  log: Logger,
+): LaunchEnvironment {
+  const kept = keepBuildEnvironment(commandEnvironment);
   const hasOmitted = kept.omittedCount > 0;
 
   if (hasOmitted) {

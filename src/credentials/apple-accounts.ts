@@ -230,7 +230,7 @@ async function refreshOneAccount(account: AccountRecord, logger: Logger): Promis
     return;
   }
 
-  const identity = await new AppStoreIdentityService().resolveIdentity(ascKey);
+  const identity = await new AppStoreIdentityService().readIdentity(ascKey);
 
   await updateAccountIdentity(account.keyId, identity.teamId, identity.apps);
   logger.ok(`Refreshed "${account.label}" (${identity.apps.length} apps).`);

@@ -195,7 +195,7 @@ function descendCommandTree(
   return { command, commandPath };
 }
 
-/** Resolve the completion candidates for a partially-typed `launch-store` command line */
+/** Read the completion candidates for a partially-typed `launch-store` command line */
 function readEarlierWord(words: readonly string[]): string | null {
   const hasEarlierWord = words.length >= 2;
 
@@ -236,7 +236,7 @@ async function readFlagCandidates(previousWord: string | null): Promise<string[]
   return readCompletionCandidates(flagSource);
 }
 
-export async function resolveCompletions(words: string[], program: Command): Promise<string[]> {
+export async function readCompletions(words: string[], program: Command): Promise<string[]> {
   const descended = descendCommandTree(program, words);
   const lastWord = words[words.length - 1];
   let currentWord = '';

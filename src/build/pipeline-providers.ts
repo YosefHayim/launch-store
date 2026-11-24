@@ -8,11 +8,11 @@ import type {
   BuildProfile,
   Platform,
 } from '../types/app.ts';
-import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';
+import type { LaunchConfig, BuildContext } from '../types/config.ts';
 import type { BuildCredentials } from '../types/credentials.ts';
 import type { SubmitArtifact } from '../types/providers.ts';
 import type { RemoteTarget } from '../types/remote.ts';
-import { resolveWhatsNew } from '../release/release-inputs.ts';
+import { readWhatsNew } from '../release/release-inputs.ts';
 import { parseReleaseNotesJson } from '../google/play-tracks.ts';
 import { getSubmitter } from '../services/provider-support/registry.ts';
 import { platformLabel } from '../services/stores/platform.ts';
@@ -31,7 +31,7 @@ const ANDROID_SUBMITTER = 'google-play';
 const appleOnlyBuildEngines = new Set(['xcode', 'remote-mac', 'eas']);
 
 /** The build engine name for a platform, swapping an Apple-only engine (`xcode`, `remote-mac`, `eas`) for `gradle` on Android. */
-export function resolveBuildEngineName(launchConfig: LaunchConfig, platform: Platform): string {
+export function readBuildEngineName(launchConfig: LaunchConfig, platform: Platform): string {
   const isAndroid = platform == 'android';
 
   if (isAndroid == false) {
@@ -86,7 +86,7 @@ function configuredSubmitters(
 }
 
 /** The store(s) a build for `platform` is submitted to. */
-export function resolveSubmitters(launchConfig: LaunchConfig, platform: Platform): string[] {
+export function readSubmitters(launchConfig: LaunchConfig, platform: Platform): string[] {
   const submitSetting = launchConfig.submit;
 
   const isMap = isSubmitByPlatform(submitSetting);
@@ -110,9 +110,9 @@ export function resolveSubmitters(launchConfig: LaunchConfig, platform: Platform
   return [submitSetting];
 }
 
-/** The primary store for a platform - the first of {@link resolveSubmitters}. */
-export function resolveSubmitterName(launchConfig: LaunchConfig, platform: Platform): string {
-  const primarySubmitter = resolveSubmitters(launchConfig, platform)[0];
+/** The primary store for a platform - the first of {@link readSubmitters}. */
+export function readSubmitterName(launchConfig: LaunchConfig, platform: Platform): string {
+  const primarySubmitter = readSubmitters(launchConfig, platform)[0];
 
   const isMissing = primarySubmitter == null;
 
@@ -129,9 +129,9 @@ export async function submitToStores(
   platform: Platform,
   artifact: SubmitArtifact,
   credentials: BuildCredentials,
-  buildContext: ResolvedBuildContext,
+  buildContext: BuildContext,
 ): Promise<string[]> {
-  const stores = resolveSubmitters(launchConfig, platform);
+  const stores = readSubmitters(launchConfig, platform);
 
   for (const storeName of stores) {
     const submitter = getSubmitter(storeName);
@@ -181,8 +181,8 @@ function readReleaseRollout(
   return profileRollout;
 }
 
-/** Resolve the Android track + rollout for one invocation */
-export function resolveAndroidRelease(
+/** Read the Android track + rollout for one invocation */
+export function readAndroidRelease(
   buildOptions: Pick<BuildRunOptions, 'track' | 'rollout'>,
   profile: BuildProfile,
 ): AndroidReleaseOptions {
@@ -203,8 +203,8 @@ export function androidReleaseNotesFromLocaleMap(
   return Object.entries(releaseNotesByLocale).map(releaseNoteFromEntry);
 }
 
-/** Resolve Play release notes for an Android ship */
-export async function resolveAndroidSubmitReleaseNotes(
+/** Read Play release notes for an Android ship */
+export async function readAndroidSubmitReleaseNotes(
   launchConfig: LaunchConfig,
   app: Pick<AppDescriptor, 'dir' | 'bundleId' | 'packageName'>,
   notesPath: string | undefined,
@@ -220,13 +220,13 @@ export async function resolveAndroidSubmitReleaseNotes(
     });
   }
 
-  const releaseNotesByLocale = await resolveWhatsNew(launchConfig, app);
+  const releaseNotesByLocale = await readWhatsNew(launchConfig, app);
 
   return androidReleaseNotesFromLocaleMap(releaseNotesByLocale);
 }
 
 /** The soft size budget (MB) the pre-upload gate enforces */
-export function resolveSizeBudgetMB(
+export function readSizeBudgetMB(
   buildOptions: Pick<BuildRunOptions, 'sizeBudgetMB'>,
   profile: Pick<BuildProfile, 'sizeBudgetMB'>,
 ): number {
@@ -305,7 +305,7 @@ function localAppleTransport(
 }
 
 /** Pick the build fork for one run. */
-export function resolveBuildTransport(
+export function readBuildTransport(
   platform: Platform,
   buildEngine: string,
   remoteFlag: RemoteTarget | undefined,

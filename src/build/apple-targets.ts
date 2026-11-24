@@ -80,14 +80,14 @@ function parseNativeTargets(lines: string[]): NativeTargetRef[] {
     }
 
     if (name != null && buildConfigurationListId != null) {
-      let resolvedProductType = '';
+      let targetProductType = '';
 
-      if (productType != null) resolvedProductType = productType;
+      if (productType != null) targetProductType = productType;
 
       targets.push({
         name,
         buildConfigurationListId,
-        productType: resolvedProductType,
+        productType: targetProductType,
       });
     }
   }

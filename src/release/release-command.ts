@@ -2,17 +2,13 @@
 
 import { parseBuildRollout } from '../build/build-command-input.ts';
 import { worstDownloadBytes } from '../build/pipeline-artifact.ts';
-import {
-  applyBuildEnvironment,
-  resolveCommandEnv,
-  selectApp,
-} from '../build/pipeline-environment.ts';
+import { applyBuildEnvironment, readCommandEnv, selectApp } from '../build/pipeline-environment.ts';
 import { mb, submitToStores } from '../build/pipeline-providers.ts';
-import { resolveIosAccount } from '../build/pipeline-signing.ts';
+import { readIosAccount } from '../build/pipeline-signing.ts';
 import { loadConfig } from '../config/config.ts';
-import { parseCliEnv, type ResolvedEnv } from '../config/environment-file.ts';
+import { parseCliEnv, type LaunchEnvironment } from '../config/environment-file.ts';
 import { loadAscKeyById } from '../credentials/accounts.ts';
-import { ensureArtifactPresent, resolveStorageProvider } from '../distribution/storage.ts';
+import { ensureArtifactPresent, readStorageProvider } from '../distribution/storage.ts';
 import { errorMessage, hasMessage } from '../services/platform/error-message.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { LaunchPrompt, pickOne } from '../services/platform/prompt.ts';
@@ -31,7 +27,7 @@ import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import type { AndroidReleaseOptions, AppDescriptor, BuildProfile, Platform } from '../types/app.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
 import type { BuildResource } from '../types/apple/builds.ts';
-import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';
+import type { LaunchConfig, BuildContext } from '../types/config.ts';
 import {
   releaseApp,
   waitForValidBuild,
@@ -40,8 +36,8 @@ import {
   type ReleaseInput,
   type ReleaseReport,
 } from './app-store-release.ts';
-import { resolveReleaseConfirmationMode } from './confirmation.ts';
-import { resolveReleaseType, resolveWhatsNew } from './release-inputs.ts';
+import { readReleaseConfirmationMode } from './confirmation.ts';
+import { readReleaseType, readWhatsNew } from './release-inputs.ts';
 
 /** Parsed flags accepted by the public release command. */
 export type ReleaseCommandOptions = Readonly<{
@@ -161,8 +157,8 @@ export function parseAppStoreBuildSelector(selector: string): AppStoreBuildSelec
   return { kind: 'number', buildNumber };
 }
 
-/** Resolve the staged-rollout fraction for a Play production release. */
-export function resolveAndroidRollout(
+/** Read the staged-rollout fraction for a Play production release. */
+export function readAndroidRollout(
   profileRollout: number | undefined,
   rolloutFlag: number | undefined,
 ): number {
@@ -301,7 +297,7 @@ function ReleaseCommandServiceLive(): ReleaseCommandService {
   return { terminalIsInteractive, confirmRelease, cancelRelease };
 }
 
-export async function resolveVersionString(
+export async function readVersionString(
   ascClient: Pick<AscReleaseApi, 'getLatestMarketingVersion'>,
   appDescriptor: AppDescriptor,
   bundleId: string,
@@ -341,7 +337,7 @@ async function confirmPublicRelease(
   commandOptions: ReleaseCommandOptions,
 ): Promise<boolean> {
   try {
-    const confirmationMode = resolveReleaseConfirmationMode({
+    const confirmationMode = readReleaseConfirmationMode({
       yes: commandOptions.yes == true,
       canPrompt: commandService.terminalIsInteractive,
     });
@@ -483,7 +479,7 @@ function exitMissingAppRecord(bundleId: string, logger: Logger): void {
   completeCommand(1, missingRecordMessage);
 }
 
-async function resolveBuildToPromote(
+async function readBuildToPromote(
   ascClient: AscReleaseApi,
   appId: string,
   appName: string,
@@ -551,7 +547,7 @@ function shouldExplainMissingBuild(
   return terminalIsInteractive;
 }
 
-async function resolveBuildSource(
+async function readBuildSource(
   ascClient: AscReleaseApi,
   appId: string,
   appName: string,
@@ -564,7 +560,7 @@ async function resolveBuildSource(
   }
 
   if (commandOptions.build != null) {
-    const storeBuild = await resolveBuildToPromote(ascClient, appId, appName, commandOptions.build);
+    const storeBuild = await readBuildToPromote(ascClient, appId, appName, commandOptions.build);
 
     return { kind: 'promote', storeBuild };
   }
@@ -645,18 +641,18 @@ function describePromotionQuestion(promotion: {
   return `Submit ${promotion.appName} ${promotion.versionString} (build ${promotion.buildLabel}) for App Store review?`;
 }
 
-async function resolveIosBuild(
+async function readIosBuild(
   ascClient: AscReleaseApi,
   appId: string,
   appDescriptor: AppDescriptor,
   bundleId: string,
   launchConfig: LaunchConfig,
   commandOptions: ReleaseCommandOptions,
-  buildContext: ResolvedBuildContext,
+  buildContext: BuildContext,
   logger: Logger,
   commandService: ReleaseCommandService,
 ): Promise<SelectedStoreBuild | null> {
-  const buildSource = await resolveBuildSource(
+  const buildSource = await readBuildSource(
     ascClient,
     appId,
     appDescriptor.name,
@@ -666,7 +662,7 @@ async function resolveIosBuild(
   );
 
   if (buildSource.kind == 'promote') {
-    const versionString = await resolveVersionString(
+    const versionString = await readVersionString(
       ascClient,
       appDescriptor,
       bundleId,
@@ -687,7 +683,7 @@ async function resolveIosBuild(
     return { storeBuild: buildSource.storeBuild, versionString };
   }
 
-  const storageProvider = await readStorageProvider(launchConfig);
+  const storageProvider = await loadStorageProvider(launchConfig);
   const storedBuilds = await readStoredBuilds(storageProvider);
   const artifact = findStoredPlatformBuild(storedBuilds, appDescriptor.name, buildContext.platform);
 
@@ -734,7 +730,7 @@ async function resolveIosBuild(
     return null;
   }
 
-  const buildCredentials = await readBuildCredentials(launchConfig, buildContext);
+  const buildCredentials = await loadBuildCredentials(launchConfig, buildContext);
 
   logger.step(
     'upload',
@@ -782,16 +778,16 @@ function readDownloadNotice(downloadBytes: number): string[] {
   return [];
 }
 
-async function readStorageProvider(launchConfig: LaunchConfig) {
+async function loadStorageProvider(launchConfig: LaunchConfig) {
   try {
-    return await resolveStorageProvider(launchConfig);
+    return await readStorageProvider(launchConfig);
   } catch (error) {
     throw releaseFailure('resolve storage provider', error);
   }
 }
 
 async function readStoredBuilds(
-  storageProvider: Awaited<ReturnType<typeof resolveStorageProvider>>,
+  storageProvider: Awaited<ReturnType<typeof loadStorageProvider>>,
 ): Promise<readonly BuildArtifact[]> {
   try {
     return await storageProvider.list();
@@ -800,10 +796,7 @@ async function readStoredBuilds(
   }
 }
 
-async function readBuildCredentials(
-  launchConfig: LaunchConfig,
-  buildContext: ResolvedBuildContext,
-) {
+async function loadBuildCredentials(launchConfig: LaunchConfig, buildContext: BuildContext) {
   var credentialsProvider: ReturnType<typeof getCredentialsProvider>;
 
   try {
@@ -813,7 +806,7 @@ async function readBuildCredentials(
   }
 
   try {
-    return await credentialsProvider.resolveBuildCredentials(buildContext);
+    return await credentialsProvider.readBuildCredentials(buildContext);
   } catch (error) {
     throw releaseFailure('resolve build credentials', error);
   }
@@ -837,7 +830,7 @@ function readReleaseInputCommon(
   commandOptions: ReleaseCommandOptions,
   whatsNew: Record<string, string>,
 ): ReleaseInputCommon {
-  const releaseTypeSettings = resolveReleaseType(launchConfig.release, commandOptions);
+  const releaseTypeSettings = readReleaseType(launchConfig.release, commandOptions);
   const releaseInputCommon: ReleaseInputCommon = {
     bundleId,
     platform,
@@ -873,7 +866,7 @@ async function releaseAppleBuild(
   buildProfile: BuildProfile,
   commandOptions: ReleaseCommandOptions,
   launchConfig: LaunchConfig,
-  resolvedEnvironment: ResolvedEnv,
+  commandEnvironment: LaunchEnvironment,
   commandService: ReleaseCommandService,
 ): Promise<void> {
   const logger = createLogger(commandOptions.explain);
@@ -887,7 +880,7 @@ async function releaseAppleBuild(
     );
   }
 
-  const accountRecord = await readIosAccount(commandOptions, logger);
+  const accountRecord = await loadIosAccount(commandOptions, logger);
   const ascKey = await readAscKey(accountRecord.keyId, accountRecord.label);
 
   var ascClient: AscReleaseApi;
@@ -912,7 +905,7 @@ async function releaseAppleBuild(
     return;
   }
 
-  const whatsNew = await readWhatsNew(launchConfig, appDescriptor);
+  const whatsNew = await loadWhatsNew(launchConfig, appDescriptor);
 
   const whatsNewIsEmpty = Object.keys(whatsNew).length == 0;
 
@@ -953,16 +946,16 @@ async function releaseAppleBuild(
     return;
   }
 
-  const buildContext: ResolvedBuildContext = {
+  const buildContext: BuildContext = {
     platform,
     app: appDescriptor,
     profile: buildProfile,
-    env: resolvedEnvironment.values,
+    env: commandEnvironment.values,
     explain: commandOptions.explain,
     dryRun: false,
     forceClean: false,
   };
-  const selectedBuild = await resolveIosBuild(
+  const selectedBuild = await readIosBuild(
     ascClient,
     appId,
     appDescriptor,
@@ -1012,9 +1005,9 @@ async function releaseAppleBuild(
   logger.note(`Track the review with \`launch-store status -a ${appDescriptor.name} --watch\`.`);
 }
 
-async function readIosAccount(commandOptions: ReleaseCommandOptions, logger: Logger) {
+async function loadIosAccount(commandOptions: ReleaseCommandOptions, logger: Logger) {
   try {
-    return await resolveIosAccount(commandOptions, logger);
+    return await readIosAccount(commandOptions, logger);
   } catch (error) {
     throw releaseFailure('resolve Apple account', error);
   }
@@ -1040,9 +1033,9 @@ async function readAscKey(keyId: string, accountLabel: string) {
   return ascKey;
 }
 
-async function readWhatsNew(launchConfig: LaunchConfig, app: AppDescriptor) {
+async function loadWhatsNew(launchConfig: LaunchConfig, app: AppDescriptor) {
   try {
-    return await resolveWhatsNew(launchConfig, app);
+    return await readWhatsNew(launchConfig, app);
   } catch (error) {
     throw releaseFailure('read release notes', error);
   }
@@ -1067,7 +1060,7 @@ async function readPlannedStoreBuild(
     return null;
   }
 
-  return resolveBuildToPromote(ascClient, appId, appName, commandOptions.build);
+  return readBuildToPromote(ascClient, appId, appName, commandOptions.build);
 }
 
 async function planAppleRelease(
@@ -1092,7 +1085,7 @@ async function planAppleRelease(
     );
   }
 
-  const versionString = await resolveVersionString(ascClient, appDescriptor, bundleId, storeBuild);
+  const versionString = await readVersionString(ascClient, appDescriptor, bundleId, storeBuild);
   const releaseReport = await attemptRead(
     'plan App Store release',
     releaseApp(ascClient, {
@@ -1126,12 +1119,12 @@ async function releaseAndroidBuild(
   buildProfile: BuildProfile,
   commandOptions: ReleaseCommandOptions,
   launchConfig: LaunchConfig,
-  resolvedEnvironment: ResolvedEnv,
+  commandEnvironment: LaunchEnvironment,
   commandService: ReleaseCommandService,
 ): Promise<void> {
   const logger = createLogger(commandOptions.explain);
   const rolloutFlag = readRolloutFlag(commandOptions.rollout);
-  const storageProvider = await readStorageProvider(launchConfig);
+  const storageProvider = await loadStorageProvider(launchConfig);
   const storedBuilds = await readStoredBuilds(storageProvider);
   const latestBuild = findStoredPlatformBuild(storedBuilds, appDescriptor.name, 'android');
 
@@ -1149,7 +1142,7 @@ async function releaseAndroidBuild(
     throw releaseFailure('verify Android release build', error);
   }
 
-  const rollout = resolveAndroidRollout(buildProfile.rollout, rolloutFlag);
+  const rollout = readAndroidRollout(buildProfile.rollout, rolloutFlag);
 
   if (commandOptions.dryRun == true) {
     logger.box(
@@ -1182,17 +1175,17 @@ async function releaseAndroidBuild(
   }
 
   const android: AndroidReleaseOptions = { track: 'production', rollout };
-  const buildContext: ResolvedBuildContext = {
+  const buildContext: BuildContext = {
     platform: 'android',
     app: appDescriptor,
     profile: buildProfile,
-    env: resolvedEnvironment.values,
+    env: commandEnvironment.values,
     explain: commandOptions.explain,
     dryRun: false,
     forceClean: false,
     android,
   };
-  const buildCredentials = await readBuildCredentials(launchConfig, buildContext);
+  const buildCredentials = await loadBuildCredentials(launchConfig, buildContext);
 
   try {
     await submitToStores(launchConfig, 'android', latestBuild, buildCredentials, buildContext);
@@ -1262,7 +1255,7 @@ export async function releaseCommandProgram(
     commandOptions.profile,
   );
   const environmentOverrides = readEnvironmentOverrides(commandOptions.env);
-  const resolvedEnvironment = await readResolvedEnvironment(
+  const commandEnvironment = await readReleaseEnvironment(
     appDescriptor,
     buildProfile,
     environmentOverrides,
@@ -1277,7 +1270,7 @@ export async function releaseCommandProgram(
       buildProfile,
       commandOptions,
       loadedConfiguration.config,
-      resolvedEnvironment,
+      commandEnvironment,
       commandService,
     );
 
@@ -1289,7 +1282,7 @@ export async function releaseCommandProgram(
     buildProfile,
     commandOptions,
     loadedConfiguration.config,
-    resolvedEnvironment,
+    commandEnvironment,
     commandService,
   );
 }
@@ -1329,17 +1322,15 @@ function readEnvironmentOverrides(pairs: string[]): Record<string, string> {
   }
 }
 
-async function readResolvedEnvironment(
+async function readReleaseEnvironment(
   appDescriptor: AppDescriptor,
   buildProfile: BuildProfile,
   environmentOverrides: Record<string, string>,
   commandOptions: ReleaseCommandOptions,
   envExclude: readonly string[] | undefined,
 ) {
-  let resolved: Awaited<ReturnType<typeof resolveCommandEnv>>;
-
   try {
-    resolved = await resolveCommandEnv({
+    var commandEnvironment = await readCommandEnv({
       app: appDescriptor,
       profile: buildProfile,
       cliEnv: environmentOverrides,
@@ -1350,5 +1341,5 @@ async function readResolvedEnvironment(
     throw releaseFailure('resolve release environment', error);
   }
 
-  return applyBuildEnvironment(resolved, createLogger(false));
+  return applyBuildEnvironment(commandEnvironment, createLogger(false));
 }

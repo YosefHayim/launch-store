@@ -227,7 +227,7 @@ export const subscriptionOffersProbe = {
       return OMITTED_PROBE;
     }
 
-    const appleStore = await readinessContext.resolveAscApi();
+    const appleStore = await readinessContext.readAscApi();
 
     if (isAppleAccountMissing(appleStore)) {
       return SKIPPED_NO_APPLE_ACCOUNT;

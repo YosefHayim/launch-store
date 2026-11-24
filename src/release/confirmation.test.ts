@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { makeReleaseConfirmationRequired, resolveReleaseConfirmationMode } from './confirmation.ts';
+import { makeReleaseConfirmationRequired, readReleaseConfirmationMode } from './confirmation.ts';
 
 function describeResolveReleaseConfirmationMode() {
   function confirmsImmediatelyWhenYesWasPassed() {
-    const releaseConfirmationMode = resolveReleaseConfirmationMode({ yes: true, canPrompt: false });
+    const releaseConfirmationMode = readReleaseConfirmationMode({ yes: true, canPrompt: false });
     expect(releaseConfirmationMode).toBe('confirmed');
   }
 
   it('confirms immediately when --yes was passed', confirmsImmediatelyWhenYesWasPassed);
 
   function allowsTheCLIToPromptWhenATTYIsAvailable() {
-    const releaseConfirmationMode = resolveReleaseConfirmationMode({ yes: false, canPrompt: true });
+    const releaseConfirmationMode = readReleaseConfirmationMode({ yes: false, canPrompt: true });
     expect(releaseConfirmationMode).toBe('prompt');
   }
 
@@ -18,7 +18,7 @@ function describeResolveReleaseConfirmationMode() {
 
   function failsClearlyWhenANonInteractiveReleaseHasNoYes() {
     function callResolveReleaseConfirmationMode() {
-      return resolveReleaseConfirmationMode({ yes: false, canPrompt: false });
+      return readReleaseConfirmationMode({ yes: false, canPrompt: false });
     }
 
     expect(callResolveReleaseConfirmationMode).toThrowError(
@@ -44,4 +44,4 @@ function describeResolveReleaseConfirmationMode() {
   it('uses the typed confirmation-required error', usesTheTypedConfirmationRequiredError);
 }
 
-describe('resolveReleaseConfirmationMode', describeResolveReleaseConfirmationMode);
+describe('readReleaseConfirmationMode', describeResolveReleaseConfirmationMode);

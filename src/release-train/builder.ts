@@ -1,7 +1,7 @@
 // Assembles store submit and over-the-air publish calls for one release train.
 
 import { join } from 'node:path';
-import { resolveAndroidSubmitReleaseNotes, submitToStores } from '../build/pipeline-providers.ts';
+import { readAndroidSubmitReleaseNotes, submitToStores } from '../build/pipeline-providers.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
 import {
   describeMissingPlayServiceAccount,
@@ -12,7 +12,7 @@ import { publishOtaPlatform, readExportMetadata } from '../distribution/over-the
 import {
   ensureArtifactPresent,
   isCloudStorage,
-  resolveStorageProvider,
+  readStorageProvider,
 } from '../distribution/storage.ts';
 import {
   IOS_PLATFORM,
@@ -22,7 +22,7 @@ import {
   type AscReleaseApi,
   type ReleaseInput,
 } from '../release/app-store-release.ts';
-import { resolveReleaseType, resolveWhatsNew } from '../release/release-inputs.ts';
+import { readReleaseType, readWhatsNew } from '../release/release-inputs.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import {
   executeCommand,
@@ -38,8 +38,7 @@ import type { GooglePlayClient } from '../google/play-client.ts';
 import { GoogleStoreClientService } from '../services/stores/google-store-client.ts';
 import type { AndroidReleaseOptions, AppDescriptor, BuildProfile } from '../types/app.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
-import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';
-import type { CredentialsProvider } from '../types/providers.ts';
+import type { LaunchConfig, BuildContext } from '../types/config.ts';
 import type { NativeCar, NativeCarState, OtaCar } from '../types/release-train.ts';
 import { androidCarState, iosCarState } from './engine.ts';
 import type { TrainEngine } from './orchestrator.ts';
@@ -234,10 +233,8 @@ export function createTrainRuntime(
     const isAccountMissing = loadedServiceAccount == null;
 
     if (isAccountMissing) {
-      let missingAccountMessage = '';
-
       try {
-        missingAccountMessage = await describeMissingPlayServiceAccount(appDescriptor.name);
+        var missingAccountMessage = await describeMissingPlayServiceAccount(appDescriptor.name);
       } catch (cause) {
         throw trainRuntimeFailure('load Google Play service account', cause);
       }
@@ -351,10 +348,10 @@ export function createTrainRuntime(
       );
     }
 
-    const releaseTypeSettings = resolveReleaseType(launchConfiguration.release, {
+    const releaseTypeSettings = readReleaseType(launchConfiguration.release, {
       manual: holdReleases,
     });
-    const whatsNew = resolveWhatsNew(launchConfiguration, appDescriptor);
+    const whatsNew = readWhatsNew(launchConfiguration, appDescriptor);
     const releaseNotes = await runTrainStep('read iOS release notes', whatsNew);
     let releaseInput: ReleaseInput = {
       bundleId,
@@ -414,7 +411,7 @@ export function createTrainRuntime(
 
     const storageProvider = await runTrainStep(
       'resolve build storage',
-      resolveStorageProvider(launchConfiguration),
+      readStorageProvider(launchConfiguration),
     );
     const storedBuilds = await runTrainStep('read stored Android builds', storageProvider.list());
 
@@ -440,7 +437,7 @@ export function createTrainRuntime(
 
     const rollout = readRolloutFraction(buildProfile.rollout);
     let androidRelease: AndroidReleaseOptions = { track: 'production', rollout };
-    const androidSubmitReleaseNotes = resolveAndroidSubmitReleaseNotes(
+    const androidSubmitReleaseNotes = readAndroidSubmitReleaseNotes(
       launchConfiguration,
       appDescriptor,
       undefined,
@@ -456,7 +453,7 @@ export function createTrainRuntime(
       androidRelease = { ...androidRelease, releaseNotes };
     }
 
-    const buildContext: ResolvedBuildContext = {
+    const buildContext: BuildContext = {
       platform: 'android',
       app: appDescriptor,
       profile: buildProfile,
@@ -466,17 +463,15 @@ export function createTrainRuntime(
       forceClean: false,
       android: androidRelease,
     };
-    let credentialsProvider: CredentialsProvider;
-
     try {
-      credentialsProvider = getCredentialsProvider(launchConfiguration.credentials);
+      var credentialsProvider = getCredentialsProvider(launchConfiguration.credentials);
     } catch (cause) {
       throw trainRuntimeFailure('resolve credentials provider', cause);
     }
 
     const buildCredentials = await runTrainStep(
       'resolve Android credentials',
-      credentialsProvider.resolveBuildCredentials(buildContext),
+      credentialsProvider.readBuildCredentials(buildContext),
     );
 
     await runTrainStep(
@@ -619,7 +614,7 @@ export function createTrainRuntime(
 
     const storageProvider = await runTrainStep(
       'resolve OTA storage',
-      resolveStorageProvider(launchConfiguration),
+      readStorageProvider(launchConfiguration),
     );
     const distributionDirectory = join(appDescriptor.dir, 'dist');
 

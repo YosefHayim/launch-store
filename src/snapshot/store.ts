@@ -3,7 +3,7 @@
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
-import { resolveSnapshotFilePath, resolveSnapshotsDirectory } from '../services/platform/paths.ts';
+import { readSnapshotFilePath, readSnapshotsDirectory } from '../services/platform/paths.ts';
 import type {
   AppEntities,
   CaptureOutcome,
@@ -253,12 +253,12 @@ function snapshotDirectory(directoryOverride: string | undefined): string {
     return directoryOverride;
   }
 
-  return resolveSnapshotsDirectory();
+  return readSnapshotsDirectory();
 }
 
 function snapshotFilePath(snapshotName: string, directoryOverride: string | undefined): string {
   if (directoryOverride == null) {
-    return resolveSnapshotFilePath(snapshotName);
+    return readSnapshotFilePath(snapshotName);
   }
 
   // Keeps letters, digits, underscores, and hyphens; drops the rest of the name.
@@ -345,10 +345,8 @@ export async function listSnapshots(directoryOverride?: string): Promise<readonl
     return [];
   }
 
-  let entryNames: string[] = [];
-
   try {
-    entryNames = await readdir(directoryPath);
+    var entryNames = await readdir(directoryPath);
   } catch (cause) {
     const isUnreadable = cause != null;
 

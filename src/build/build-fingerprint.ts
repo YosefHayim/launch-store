@@ -5,7 +5,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
 import { captureCommandOutput } from '../services/platform/execute-command.ts';
-import { ensureDirectoryExists, resolveLaunchHomeDirectory } from '../services/platform/paths.ts';
+import { ensureDirectoryExists, readLaunchHomeDirectory } from '../services/platform/paths.ts';
 import type { Platform } from '../types/app.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
@@ -186,7 +186,7 @@ export function computeBuildFingerprint(fingerprintParts: FingerprintParts): str
 }
 
 /** Decide whether the next build can reuse native caches. */
-export function resolveClean(
+export function pickClean(
   forceClean: boolean,
   storedBuild: BuildState | null,
   currentFingerprint: string,
@@ -224,7 +224,7 @@ function buildStateDirectory(directoryOverride: string | undefined): string {
     return directoryOverride;
   }
 
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  const launchHomeDirectory = readLaunchHomeDirectory();
 
   return join(launchHomeDirectory, 'build-state');
 }

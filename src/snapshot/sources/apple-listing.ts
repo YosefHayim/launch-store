@@ -91,7 +91,7 @@ async function captureAppleListing(snapshotContext: SnapshotContext) {
     return { state: 'omitted' as const };
   }
 
-  const api = await snapshotContext.resolveAscApi();
+  const api = await snapshotContext.readAscApi();
 
   if (api == null) {
     return {
@@ -111,7 +111,7 @@ async function captureAppleListing(snapshotContext: SnapshotContext) {
 }
 
 async function restoreOneListing(
-  client: NonNullable<Awaited<ReturnType<RestoreInput['ctx']['resolveAscWriteClient']>>>,
+  client: NonNullable<Awaited<ReturnType<RestoreInput['ctx']['readAscWriteClient']>>>,
   app: AppEntities,
   dryRun: boolean,
 ): Promise<PlannedAction[]> {
@@ -155,7 +155,7 @@ async function restoreAppleListing({
   saved,
   dryRun,
 }: RestoreInput): Promise<{ actions: readonly PlannedAction[] }> {
-  const client = await restoreContext.resolveAscWriteClient();
+  const client = await restoreContext.readAscWriteClient();
 
   if (client == null) {
     const skippedListing: PlannedAction = {

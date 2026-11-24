@@ -80,9 +80,9 @@ function ignoreGap(existingText: string): string {
   return '\n';
 }
 
-/** Ensure `resolvedDir` (an absolute artifact directory) is git-ignored when it lives inside */
+/** Ensure `artifactDirectory` (an absolute artifact directory) is git-ignored when it lives inside */
 export async function ensureArtifactDirIgnored(
-  resolvedDir: string,
+  artifactDirectory: string,
   requestedProjectDirectory?: string,
 ): Promise<GitignoreChange> {
   let projectDirectory = readLaunchDirectories().workingDirectory;
@@ -99,7 +99,7 @@ export async function ensureArtifactDirIgnored(
     return { added: false };
   }
 
-  const relativePath = relative(root, resolvedDir);
+  const relativePath = relative(root, artifactDirectory);
 
   const isRepoRoot = relativePath == '';
 
@@ -119,7 +119,7 @@ export async function ensureArtifactDirIgnored(
     return { added: false };
   }
 
-  const isIgnored = await alreadyIgnored(root, resolvedDir);
+  const isIgnored = await alreadyIgnored(root, artifactDirectory);
 
   if (isIgnored) {
     return { added: false };

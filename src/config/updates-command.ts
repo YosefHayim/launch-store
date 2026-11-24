@@ -9,7 +9,7 @@ import {
   type UpdateHistoryEntry,
   type UpdateManifest,
 } from '../distribution/over-the-air-manifest.ts';
-import { isCloudStorage, resolveStorageProvider } from '../distribution/storage.ts';
+import { isCloudStorage, readStorageProvider } from '../distribution/storage.ts';
 import {
   findHistoryEntry,
   readHistory,
@@ -541,7 +541,7 @@ async function openUpdatesSession(): Promise<UpdatesSession> {
   );
 
   try {
-    const storageProvider = await resolveStorageProvider(loadedConfiguration.config);
+    const storageProvider = await readStorageProvider(loadedConfiguration.config);
 
     return { loadedConfiguration, storageProvider };
   } catch (cause) {

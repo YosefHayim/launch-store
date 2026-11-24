@@ -2,7 +2,7 @@
 
 import { LocalCredentialsStore } from '../../services/credentials/local-credentials-store.ts';
 import { isApplePlatform } from '../../services/stores/platform.ts';
-import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
 import type { CredentialsProvider } from '../../types/providers.ts';
 
@@ -52,8 +52,8 @@ function makeMissingCredentialsFailure(fields: {
   return { _tag: 'MissingCredentialsFailure', ...fields };
 }
 
-async function resolveAppleCredentials(
-  buildContext: ResolvedBuildContext,
+async function readAppleCredentials(
+  buildContext: BuildContext,
   credentialStore: CredentialsReader,
 ): Promise<BuildCredentials> {
   const ascKey = await credentialStore.loadAppleKey(buildContext.account);
@@ -93,9 +93,9 @@ async function resolveAppleCredentials(
   return { ...appleCredentials, signing: signingAssets };
 }
 
-async function resolveAndroidCredentials(
+async function readAndroidCredentials(
   credentialStore: CredentialsReader,
-  buildContext: ResolvedBuildContext,
+  buildContext: BuildContext,
 ): Promise<BuildCredentials> {
   const packageName = buildContext.app.packageName;
 
@@ -236,16 +236,16 @@ async function statusReport(
 export function makeLocalCredentialsProvider(): CredentialsProvider {
   return {
     name: 'local',
-    async resolveBuildCredentials(buildContext): Promise<BuildCredentials> {
+    async readBuildCredentials(buildContext): Promise<BuildCredentials> {
       const credentialStore = readCredentials();
 
       const isApple = isApplePlatform(buildContext.platform);
 
       if (isApple) {
-        return resolveAppleCredentials(buildContext, credentialStore);
+        return readAppleCredentials(buildContext, credentialStore);
       }
 
-      return resolveAndroidCredentials(credentialStore, buildContext);
+      return readAndroidCredentials(credentialStore, buildContext);
     },
     status(packageNames) {
       const credentials = readCredentials();

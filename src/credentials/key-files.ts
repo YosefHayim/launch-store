@@ -35,10 +35,8 @@ export function extractKeyId(p8Path: string): string | null {
 
 /** List matching Apple key files in one directory, returning an empty list when unavailable. */
 export async function findAuthKeyFiles(directoryPath: string): Promise<readonly string[]> {
-  let directoryNames: string[];
-
   try {
-    directoryNames = await readdir(directoryPath);
+    var directoryNames = await readdir(directoryPath);
   } catch (error) {
     // A missing search directory means there are no keys there yet.
     const isDirectoryUnavailable = error != null;

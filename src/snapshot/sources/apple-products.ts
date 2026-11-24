@@ -63,7 +63,7 @@ async function captureAppleProducts(snapshotContext: SnapshotContext): Promise<S
     return { state: 'omitted' };
   }
 
-  const api = await snapshotContext.resolveAscApi();
+  const api = await snapshotContext.readAscApi();
 
   if (api == null) {
     return {

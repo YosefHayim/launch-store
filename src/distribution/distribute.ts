@@ -6,7 +6,7 @@ import type { Logger } from '../services/platform/logger.ts';
 import { isApplePlatform } from '../services/stores/platform.ts';
 import type { AppDescriptor, Platform } from '../types/app.ts';
 import type { LaunchConfig } from '../types/config.ts';
-import { isCloudStorage, resolveStorageProvider } from './storage.ts';
+import { isCloudStorage, readStorageProvider } from './storage.ts';
 import {
   installLandingPage,
   iosInstallManifestPlist,
@@ -61,7 +61,7 @@ async function publishAppleInstallPage(distributeOptions: DistributeOptions): Pr
     throw makeDistributionFailure('BundleIdentifierRequired', platform);
   }
 
-  const storageProvider = await resolveStorageProvider(config);
+  const storageProvider = await readStorageProvider(config);
   const objectPrefix = `internal/${app.name}/${platform}/${buildNumber}`;
   const landingPageKey = `${objectPrefix}/index.html`;
   const landingPageUrl = storageProvider.publicUrl(landingPageKey);
@@ -111,7 +111,7 @@ async function publishAppleInstallPage(distributeOptions: DistributeOptions): Pr
 async function publishDirectInstallPage(distributeOptions: DistributeOptions): Promise<void> {
   const { config, app, platform, artifactPath, version, buildNumber, dryRun, log } =
     distributeOptions;
-  const storageProvider = await resolveStorageProvider(config);
+  const storageProvider = await readStorageProvider(config);
   const objectPrefix = `internal/${app.name}/${platform}/${buildNumber}`;
   const landingPageKey = `${objectPrefix}/index.html`;
   const landingPageUrl = storageProvider.publicUrl(landingPageKey);

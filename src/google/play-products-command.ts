@@ -92,7 +92,7 @@ function playEnabledProduct(declaredProduct: InAppPurchaseConfig): boolean {
   return declaredProduct.play != null;
 }
 
-async function resolveProductsTarget(appSelector: string | undefined): Promise<{
+async function readProductsTarget(appSelector: string | undefined): Promise<{
   appName: string;
   packageName: string;
   products: InAppPurchaseConfig[];
@@ -146,7 +146,7 @@ function appliedLine(appliedAction: Parameters<typeof renderAppliedPlayCatalogAc
 
 async function executePlayProducts(rawCommandInput: unknown): Promise<number> {
   const commandInput = decodePlayProductsCommandInput(rawCommandInput);
-  const productsTarget = await resolveProductsTarget(commandInput.app);
+  const productsTarget = await readProductsTarget(commandInput.app);
   const logger = createLogger(false);
 
   if (productsTarget.products.length == 0) {
@@ -213,10 +213,8 @@ async function executePlayProducts(rawCommandInput: unknown): Promise<number> {
 
 /** Run the schema-decoded Play products command. */
 export async function playProductsCommandProgram(rawCommandInput: unknown): Promise<void> {
-  let failureCount = 0;
-
   try {
-    failureCount = await executePlayProducts(rawCommandInput);
+    var failureCount = await executePlayProducts(rawCommandInput);
   } catch (cause) {
     throw productsFailure('reconcile Play products', cause);
   }

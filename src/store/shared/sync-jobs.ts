@@ -111,7 +111,7 @@ function isNamed(name: string): boolean {
   return name.length > 0;
 }
 
-/** Resolve discovered apps from an optional comma-separated selector. */
+/** Read discovered apps from an optional comma-separated selector. */
 export async function selectApps(
   apps: readonly AppDescriptor[],
   selector: string | undefined,

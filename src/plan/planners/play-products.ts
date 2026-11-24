@@ -106,7 +106,7 @@ export const playProductsPlanner: SurfacePlanner = {
     const targetClients: Array<PlayCatalogApi | null> = [];
 
     for (const target of targets) {
-      const playClient = await planContext.resolvePlayApi(target.packageName);
+      const playClient = await planContext.readPlayApi(target.packageName);
       targetClients.push(playClient);
     }
 

@@ -1,6 +1,5 @@
 // Checks that declared in-app purchase and subscription ids appear in the app source.
 
-import type { Stats } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { errorMessage } from '../../services/platform/error-message.ts';
 import type { AppDescriptor } from '../../types/app.ts';
@@ -96,10 +95,8 @@ async function findReferencedIds(
       return false;
     }
 
-    let fileMetadata: Stats | null = null;
-
     try {
-      fileMetadata = await stat(filePath);
+      var fileMetadata = await stat(filePath);
     } catch (cause) {
       const isUnreadable = errorMessage(cause) != '';
 

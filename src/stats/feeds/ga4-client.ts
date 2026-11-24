@@ -241,10 +241,8 @@ function readJsonDocument(session: Ga4Session, reply: FetchReply): unknown {
 
 /** One Google Analytics call: a 2xx body comes back, permission and disabled-API errors become a skip signal. */
 export async function requestGa4Document(session: Ga4Session, call: Ga4Call): Promise<unknown> {
-  let analyticsReply: FetchReply;
-
   try {
-    analyticsReply = await fetchGa4(call, session.accessToken);
+    var analyticsReply = await fetchGa4(call, session.accessToken);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
     throw createGa4Failure(session, `Google Analytics request failed: ${failureMessage}`, cause);

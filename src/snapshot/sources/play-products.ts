@@ -173,7 +173,7 @@ async function captureOneProductApp(
   snapshotContext: SnapshotContext,
   app: { name: string; identifier: string },
 ): Promise<PlayCaptureEntry> {
-  const client = await snapshotContext.resolvePlayApi(app.identifier);
+  const client = await snapshotContext.readPlayApi(app.identifier);
 
   if (client == null) {
     return {
@@ -246,7 +246,7 @@ async function restorePlayProducts({ ctx: restoreContext, saved, dryRun }: Resto
   const actions: PlannedAction[] = [];
 
   for (const app of saved) {
-    const client = await restoreContext.resolvePlayWriteClient(app.identifier);
+    const client = await restoreContext.readPlayWriteClient(app.identifier);
 
     if (client == null) {
       actions.push(
@@ -281,7 +281,7 @@ async function restorePlayProducts({ ctx: restoreContext, saved, dryRun }: Resto
 }
 
 async function reconcileProductActions(
-  client: NonNullable<Awaited<ReturnType<RestoreInput['ctx']['resolvePlayWriteClient']>>>,
+  client: NonNullable<Awaited<ReturnType<RestoreInput['ctx']['readPlayWriteClient']>>>,
   packageName: string,
   products: InAppPurchaseConfig[],
   dryRun: boolean,

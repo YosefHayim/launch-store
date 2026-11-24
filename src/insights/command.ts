@@ -6,10 +6,7 @@ import { readLaunchDirectories } from '../services/platform/paths.ts';
 import type { AppStoreConnect } from '../apple/app-store-connect.ts';
 import type { GooglePlayClient } from '../google/play-client.ts';
 import { listReviews } from '../apple/reviews.ts';
-import {
-  createAscClientResolver,
-  createPlayClientResolver,
-} from '../store/shared/store-clients.ts';
+import { createAscClientReader, createPlayClientReader } from '../store/shared/store-clients.ts';
 import { selectApps } from '../store/shared/sync-jobs.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import type { CustomerReviewResource } from '../types/apple/customer-reviews.ts';
@@ -316,9 +313,9 @@ export async function insightsCommandProgram(
   try {
     const launchDirectories = readLaunchDirectories();
     const loadedConfiguration = await loadConfig(launchDirectories.workingDirectory);
-    const resolveAscClient = createAscClientResolver();
-    const resolvePlayClient = createPlayClientResolver();
-    const ascClient = await resolveAscClient();
+    const readAscClient = createAscClientReader();
+    const readPlayClient = createPlayClientReader();
+    const ascClient = await readAscClient();
     const selectedApps = await selectApps(loadedConfiguration.apps, commandOptions.app);
     const logger = createLogger(false);
 
@@ -326,7 +323,7 @@ export async function insightsCommandProgram(
       app: string;
       reviews: ReviewDatum[];
     }> {
-      const playClient = await resolvePlayClient(appDescriptor.packageName);
+      const playClient = await readPlayClient(appDescriptor.packageName);
       const reviews = await gatherAppReviews(appDescriptor, ascClient, playClient, logger);
 
       return { app: appDescriptor.name, reviews };

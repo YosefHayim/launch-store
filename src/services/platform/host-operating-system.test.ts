@@ -3,7 +3,7 @@ import { platform } from 'node:os';
 import {
   checkIsMacOperatingSystem,
   detectHostOperatingSystem,
-  resolveHostOperatingSystemLabel,
+  readHostOperatingSystemLabel,
 } from './host-operating-system.ts';
 vi.mock('node:os', function mockOs() {
   return { platform: vi.fn(() => 'darwin') };
@@ -23,7 +23,7 @@ function describeHostOSDetection() {
 
     expect(isMacOperatingSystem).toBe(true);
 
-    const hostOperatingSystemLabel = resolveHostOperatingSystemLabel();
+    const hostOperatingSystemLabel = readHostOperatingSystemLabel();
 
     expect(hostOperatingSystemLabel).toBe('macOS');
   }
@@ -41,7 +41,7 @@ function describeHostOSDetection() {
 
     expect(isMacOperatingSystem).toBe(false);
 
-    const hostOperatingSystemLabel = resolveHostOperatingSystemLabel();
+    const hostOperatingSystemLabel = readHostOperatingSystemLabel();
 
     expect(hostOperatingSystemLabel).toBe('Windows');
   }
@@ -59,7 +59,7 @@ function describeHostOSDetection() {
 
     expect(isMacOperatingSystem).toBe(false);
 
-    const hostOperatingSystemLabel = resolveHostOperatingSystemLabel();
+    const hostOperatingSystemLabel = readHostOperatingSystemLabel();
 
     expect(hostOperatingSystemLabel).toBe('Linux');
   }

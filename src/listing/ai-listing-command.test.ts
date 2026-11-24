@@ -8,7 +8,7 @@ import type { LaunchConfig } from '../types/config.ts';
 import {
   parseListingTargets,
   readAiListingInput,
-  resolveListingLocales,
+  readListingLocales,
   runAiListing,
 } from './ai-listing-command.ts';
 
@@ -27,7 +27,7 @@ vi.mock('../config/config.ts', function mockPiece() {
     launchConfigForApp: function launchConfigForApp(fallbackConfig: LaunchConfig) {
       return Promise.resolve(fallbackConfig);
     },
-    readResolvedConfig: function readResolvedConfig() {
+    readAppConfig: function readAppConfig() {
       return Promise.resolve({ expo: { name: 'Focus App' } });
     },
   };
@@ -177,12 +177,12 @@ function describeAiListingCommand() {
   it('rejects unknown platform selectors', rejectsUnknownPlatformSelectors);
 
   async function usesExplicitLocalesAndRejectsAnEmptyLocaleSelector() {
-    const listingLocales = resolveListingLocales('en-US, fr-FR', {});
+    const listingLocales = readListingLocales('en-US, fr-FR', {});
 
     expect(listingLocales).toEqual(['en-US', 'fr-FR']);
 
     async function rejectEmptyLocales(): Promise<void> {
-      resolveListingLocales(' , ', {});
+      readListingLocales(' , ', {});
     }
 
     const pendingRejection = rejectEmptyLocales();

@@ -11,7 +11,7 @@ import { executeCommand, executeCommandQuietly } from './execute-command.ts';
 import { readLaunchEnvironment } from './environment.ts';
 import { isJsonOutput } from './json-output-mode.ts';
 import { createLogger } from './logger.ts';
-import { resolveLogsDirectory } from './paths.ts';
+import { readLogsDirectory } from './paths.ts';
 /** Process-wide toggle: when true, `runWithProgress` streams the raw tool output instead of a spinner. */
 let streamRawOutput = false;
 
@@ -206,7 +206,7 @@ async function pickProgressLogFile(label: string): Promise<string> {
     return buildLog;
   }
 
-  const logsDirectory = resolveLogsDirectory();
+  const logsDirectory = readLogsDirectory();
 
   await mkdir(logsDirectory, { recursive: true });
 

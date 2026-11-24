@@ -1,14 +1,10 @@
 // Starts or advances a release train that ships native and over-the-air updates together.
 
 import { randomUUID } from 'node:crypto';
-import {
-  applyBuildEnvironment,
-  resolveCommandEnv,
-  selectApp,
-} from '../build/pipeline-environment.ts';
-import { loadConfig, type LoadedConfig } from '../config/config.ts';
-import { parseCliEnv, type ResolvedEnv } from '../config/environment-file.ts';
-import { resolveRuntimeVersion } from '../config/update-command.ts';
+import { applyBuildEnvironment, readCommandEnv, selectApp } from '../build/pipeline-environment.ts';
+import { loadConfig } from '../config/config.ts';
+import { parseCliEnv } from '../config/environment-file.ts';
+import { loadRuntimeVersion } from '../config/update-command.ts';
 import { isCloudStorage } from '../distribution/storage.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
@@ -319,10 +315,8 @@ function readTrainId(trainRecord: TrainRecord): string {
 }
 
 async function failMissingNamedTrain(trainId: string): Promise<TrainRecord> {
-  let knownTrains: TrainRecord[];
-
   try {
-    knownTrains = await listTrainRecords();
+    var knownTrains = await listTrainRecords();
   } catch (cause) {
     const failureMessage = errorMessage(cause);
     const isMessageEmpty = failureMessage.length == 0;
@@ -361,10 +355,8 @@ async function readNamedTrain(trainId: string): Promise<TrainRecord> {
 }
 
 async function readLatestTrain(): Promise<TrainRecord> {
-  let newestTrain: TrainRecord | null;
-
   try {
-    newestTrain = await latestTrainRecord();
+    var newestTrain = await latestTrainRecord();
   } catch (cause) {
     const failureMessage = errorMessage(cause);
     const isMessageEmpty = failureMessage.length == 0;
@@ -409,10 +401,8 @@ function readTrainProfile(
 
 async function prepareTrain(commandFlags: ReleaseTrainCommandOptions): Promise<PreparedTrain> {
   const logger = createLogger(false);
-  let loadedConfiguration: LoadedConfig;
-
   try {
-    loadedConfiguration = await loadConfig();
+    var loadedConfiguration = await loadConfig();
   } catch (cause) {
     const failureMessage = errorMessage(cause);
     const isMessageEmpty = failureMessage.length == 0;
@@ -424,10 +414,8 @@ async function prepareTrain(commandFlags: ReleaseTrainCommandOptions): Promise<P
     throw new Error(failureMessage, { cause });
   }
 
-  let selectedApp: AppDescriptor;
-
   try {
-    selectedApp = await selectApp(loadedConfiguration.apps, commandFlags.app);
+    var selectedApp = await selectApp(loadedConfiguration.apps, commandFlags.app);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
     const isMessageEmpty = failureMessage.length == 0;
@@ -441,10 +429,8 @@ async function prepareTrain(commandFlags: ReleaseTrainCommandOptions): Promise<P
 
   const buildProfile = readTrainProfile(loadedConfiguration.config.profiles, commandFlags.profile);
 
-  let environmentOverrides: Record<string, string>;
-
   try {
-    environmentOverrides = parseCliEnv([...commandFlags.env]);
+    var environmentOverrides = parseCliEnv([...commandFlags.env]);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
     const isMessageEmpty = failureMessage.length == 0;
@@ -456,10 +442,8 @@ async function prepareTrain(commandFlags: ReleaseTrainCommandOptions): Promise<P
     throw new Error(failureMessage, { cause });
   }
 
-  let resolvedEnvironment: ResolvedEnv;
-
   try {
-    resolvedEnvironment = await resolveCommandEnv({
+    var commandEnvironment = await readCommandEnv({
       app: selectedApp,
       profile: buildProfile,
       cliEnv: environmentOverrides,
@@ -477,7 +461,7 @@ async function prepareTrain(commandFlags: ReleaseTrainCommandOptions): Promise<P
     throw new Error(failureMessage, { cause });
   }
 
-  const buildEnvironment = applyBuildEnvironment(resolvedEnvironment, logger);
+  const buildEnvironment = applyBuildEnvironment(commandEnvironment, logger);
   const runtime = createTrainRuntime(
     loadedConfiguration.config,
     selectedApp,
@@ -541,10 +525,8 @@ async function reconcileOnce(
     warningMessages.push(warningMessage);
   }
 
-  let advancedTrain: TrainRecord;
-
   try {
-    advancedTrain = await advanceTrain(trainRecord, runtime.engine, {
+    var advancedTrain = await advanceTrain(trainRecord, runtime.engine, {
       now: currentIsoTime(),
       force,
       onWarn: keepWarning,
@@ -656,7 +638,7 @@ async function runRuntimeVersion(
   runtimeVersionFlag: string | undefined,
 ): Promise<string> {
   try {
-    return await resolveRuntimeVersion(appDescriptor, runtimeVersionFlag);
+    return await loadRuntimeVersion(appDescriptor, runtimeVersionFlag);
   } catch (cause) {
     const failureMessage = errorMessage(cause);
     const isMessageEmpty = failureMessage.length == 0;

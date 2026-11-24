@@ -141,11 +141,11 @@ async function probeFeature(
     };
   }
 
-  let resolvedAppId = '';
+  let appleAppId = '';
 
-  if (appId != null) resolvedAppId = appId;
+  if (appId != null) appleAppId = appId;
 
-  return classifyProbe(featureProbe, permissionClient, resolvedAppId);
+  return classifyProbe(featureProbe, permissionClient, appleAppId);
 }
 
 export async function probeKeyPermissions(

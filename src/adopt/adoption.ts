@@ -92,7 +92,7 @@ function byAppName(firstApp: SkippedApp, secondApp: SkippedApp): number {
   return firstApp.app.name.localeCompare(secondApp.app.name);
 }
 
-/** Resolve discovered apps against App Store Connect. */
+/** Read discovered apps against App Store Connect. */
 async function detectTargets(
   appleCatalog: AdoptCatalogApi,
   apps: readonly AppDescriptor[],

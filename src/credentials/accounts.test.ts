@@ -6,8 +6,8 @@ import { useSecretStore, resetSecretStore } from '../services/credentials/secret
 import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
 import {
   resetLaunchDirectories,
-  resolveAccountsFilePath,
-  resolveCredentialsDirectory,
+  readAccountsFilePath,
+  readCredentialsDirectory,
   useLaunchDirectories,
 } from '../services/platform/paths.ts';
 import type { AccountRecord, AccountsFile } from '../types/credentials.ts';
@@ -83,11 +83,11 @@ function prepare() {
   useSecretStore(secrets.store);
   resetLaunchEnvironment();
 
-  const accountsFilePath = resolveAccountsFilePath();
+  const accountsFilePath = readAccountsFilePath();
 
   rmSync(accountsFilePath, { force: true });
 
-  const credentialsDirectory = resolveCredentialsDirectory();
+  const credentialsDirectory = readCredentialsDirectory();
 
   rmSync(credentialsDirectory, { recursive: true, force: true });
 }
@@ -390,7 +390,7 @@ function describeRegistryMutations() {
 
   it('switches the active account and renames labels', switchesTheActiveAccountAndRenamesLabels);
 
-  async function cachesResolvedIdentityInPlace() {
+  async function cachesStoredIdentityInPlace() {
     const account = addAccount({
       keyId: 'AAAA1111',
       issuerId: 'issuer-a',
@@ -413,7 +413,7 @@ function describeRegistryMutations() {
     });
   }
 
-  it('caches resolved identity in place', cachesResolvedIdentityInPlace);
+  it('caches resolved identity in place', cachesStoredIdentityInPlace);
 
   async function removesAnAccountClearsItsSecretAndRePointsActiveToASurvivor() {
     const account = addAccount({

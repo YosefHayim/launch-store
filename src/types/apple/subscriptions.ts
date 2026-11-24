@@ -45,7 +45,7 @@ export type ReviewScreenshotResource = Readonly<{
 }>;
 
 /** One territory's resolved offer price */
-export type ResolvedOfferPrice = Readonly<{
+export type StoreOfferPrice = Readonly<{
   territory: string;
   pricePointId: string;
 }>;
@@ -76,7 +76,7 @@ export type WinBackOfferResource = Readonly<{
   offerId: string;
 }>;
 
-/** Create input for an offer-code campaign - prices already resolved to {@link ResolvedOfferPrice}s. */
+/** Create input for an offer-code campaign - prices already resolved to {@link StoreOfferPrice}s. */
 export type OfferCodeCreate = Readonly<{
   subscriptionId: string;
   name: string;
@@ -85,7 +85,7 @@ export type OfferCodeCreate = Readonly<{
   duration: OfferDuration;
   offerMode: OfferMode;
   numberOfPeriods: number;
-  prices: readonly ResolvedOfferPrice[];
+  prices: readonly StoreOfferPrice[];
 }>;
 
 /** Create input for a promotional offer - `offerCode` is the StoreKit-facing id; prices pre-resolved. */
@@ -96,7 +96,7 @@ export type PromotionalOfferCreate = Readonly<{
   duration: OfferDuration;
   offerMode: OfferMode;
   numberOfPeriods: number;
-  prices: readonly ResolvedOfferPrice[];
+  prices: readonly StoreOfferPrice[];
 }>;
 
 /** Create input for an introductory offer - at most one per territory (null = all territories). */
@@ -105,7 +105,7 @@ export type IntroductoryOfferCreate = Readonly<{
   duration: OfferDuration;
   offerMode: OfferMode;
   numberOfPeriods: number;
-  price: ResolvedOfferPrice | null;
+  price: StoreOfferPrice | null;
   territory: string | null;
   startDate?: string;
   endDate?: string;
@@ -129,5 +129,5 @@ export type WinBackOfferCreate = Readonly<{
   endDate?: string;
   priority: 'HIGH' | 'NORMAL';
   promotionIntent?: 'NOT_PROMOTED' | 'USE_AUTO_GENERATED_ASSETS';
-  prices: readonly ResolvedOfferPrice[];
+  prices: readonly StoreOfferPrice[];
 }>;

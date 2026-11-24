@@ -198,10 +198,8 @@ export async function accessibilityCommandProgram(
       );
     }
 
-    let confirmed = false;
-
     try {
-      confirmed = await new LaunchPrompt().confirm(
+      var confirmed = await new LaunchPrompt().confirm(
         `Apply ${plannedActions.length} accessibility change(s) to App Store Connect?`,
       );
     } catch (cause) {

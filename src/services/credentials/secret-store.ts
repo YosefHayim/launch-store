@@ -79,10 +79,8 @@ async function confirmMacosMissingSecret(account: string): Promise<null> {
 async function readNativeSecret(account: string): Promise<string | null> {
   const { Entry } = await loadNativeKeyring();
 
-  let storedPassword: string | null;
-
   try {
-    storedPassword = new Entry(KEYCHAIN_SERVICE_NAME, account).getPassword();
+    var storedPassword = new Entry(KEYCHAIN_SERVICE_NAME, account).getPassword();
   } catch (cause) {
     throw new Error(`Could not read ${account} from the keychain`, { cause });
   }

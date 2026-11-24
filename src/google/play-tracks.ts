@@ -230,10 +230,8 @@ export function parseReleaseNotes(releaseNotesDocument: unknown): readonly Relea
 }
 
 export function parseReleaseNotesJson(releaseNotesText: string): readonly ReleaseNote[] {
-  let parsedNotes: unknown = null;
-
   try {
-    parsedNotes = JSON.parse(releaseNotesText);
+    var parsedNotes = JSON.parse(releaseNotesText);
   } catch (cause) {
     throw releaseNotesFailure(cause);
   }

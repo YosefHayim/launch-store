@@ -136,9 +136,9 @@ export type SnapshotContext = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
 
-  resolveAscApi(): Promise<SnapshotAscApi | null>;
+  readAscApi(): Promise<SnapshotAscApi | null>;
 
-  resolvePlayApi(packageName?: string): Promise<SnapshotPlayApi | null>;
+  readPlayApi(packageName?: string): Promise<SnapshotPlayApi | null>;
 }>;
 
 /** What a {@link SnapshotSource.restore} pass is handed */
@@ -146,9 +146,9 @@ export type RestoreContext = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
 
-  resolveAscWriteClient(): Promise<AscCatalogApi | null>;
+  readAscWriteClient(): Promise<AscCatalogApi | null>;
 
-  resolvePlayWriteClient(packageName?: string): Promise<PlayCatalogApi | null>;
+  readPlayWriteClient(packageName?: string): Promise<PlayCatalogApi | null>;
 }>;
 
 /** One source's restore request */

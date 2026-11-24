@@ -432,10 +432,8 @@ export async function republishUpdate(input: RepublishUpdateInput): Promise<Repu
     throw new Error(`No snapshot for update ${target.id} (runtime ${target.runtimeVersion}).`);
   }
 
-  let previousManifest: UpdateManifest;
-
   try {
-    previousManifest = decodeManifest(snapshotBytes.toString('utf8'));
+    var previousManifest = decodeManifest(snapshotBytes.toString('utf8'));
   } catch (cause) {
     const isMalformed = cause != null;
 

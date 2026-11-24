@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
 import { resetLaunchEnvironment, useLaunchEnvironment } from '../services/platform/environment.ts';
-import { resolveSecretRef } from './secret-ref.ts';
+import { readSecretRef } from './secret-ref.ts';
 
 afterEach(function resetSecretFixtures() {
   resetLaunchEnvironment();
   resetSecretStore();
 });
 
-/** Resolve one test reference with explicit environment and secret-store capabilities. */
-async function resolveTestReference(
+/** Read one test reference with explicit environment and secret-store capabilities. */
+async function readTestReference(
   secretReference: string,
   environmentVariables: Readonly<Record<string, string | undefined>> = {},
   storedSecrets: Map<string, string> = new Map<string, string>(),
@@ -17,7 +17,7 @@ async function resolveTestReference(
   useLaunchEnvironment(environmentVariables);
   useSecretStore(storedSecrets);
 
-  return resolveSecretRef(secretReference, 'demoAccountPassword');
+  return readSecretRef(secretReference, 'demoAccountPassword');
 }
 
 function describeResolveSecretRef() {
@@ -26,7 +26,7 @@ function describeResolveSecretRef() {
   async function returnsALiteralPieceVerbatim() {
     const literalSecret = ['plain', 'demo', 'pw'].join('-');
 
-    const testReference = await resolveTestReference(literalSecret);
+    const testReference = await readTestReference(literalSecret);
     expect(testReference).toBe(literalSecret);
   }
 
@@ -35,7 +35,7 @@ function describeResolveSecretRef() {
   async function resolvesAnEnvironmentReferenceFromTheEnvironmentService() {
     const environmentSecret = ['env', 'demo', 'pw'].join('-');
 
-    const testReference = await resolveTestReference(`env:${environmentVariableName}`, {
+    const testReference = await readTestReference(`env:${environmentVariableName}`, {
       [environmentVariableName]: environmentSecret,
     });
 
@@ -48,7 +48,7 @@ function describeResolveSecretRef() {
   );
 
   async function failsWhenAnEnvironmentReferenceNamesAnUnsetVariable() {
-    const testReference = resolveTestReference(`env:${environmentVariableName}`);
+    const testReference = readTestReference(`env:${environmentVariableName}`);
 
     await expect(testReference).rejects.toThrow(
       /environment variable LAUNCH_TEST_DEMO_PW is not set/,
@@ -61,7 +61,7 @@ function describeResolveSecretRef() {
   );
 
   async function failsWhenAnEnvironmentReferenceHasNoVariableName() {
-    const testReference = resolveTestReference('env:');
+    const testReference = readTestReference('env:');
     await expect(testReference).rejects.toMatchObject({
       message: expect.stringMatching(/needs a variable name/),
     });
@@ -75,7 +75,7 @@ function describeResolveSecretRef() {
   async function resolvesAKeychainReferenceThroughTheSecretStoreService() {
     const keychainSecret = ['kc', 'demo', 'pw'].join('-');
 
-    const testReference = await resolveTestReference(
+    const testReference = await readTestReference(
       'keychain:my-app-review',
       {},
       new Map([['my-app-review', keychainSecret]]),
@@ -90,7 +90,7 @@ function describeResolveSecretRef() {
   );
 
   async function failsWhenAKeychainReferenceHasNoStoredSecret() {
-    const testReference = resolveTestReference('keychain:absent');
+    const testReference = readTestReference('keychain:absent');
     await expect(testReference).rejects.toMatchObject({
       message: expect.stringMatching(/no secret is stored under that account/),
     });
@@ -102,4 +102,4 @@ function describeResolveSecretRef() {
   );
 }
 
-describe('resolveSecretRef', describeResolveSecretRef);
+describe('readSecretRef', describeResolveSecretRef);

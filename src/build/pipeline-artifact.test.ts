@@ -7,7 +7,7 @@ import { runWithProgress } from '../services/platform/progress.ts';
 import { nativeProjectDirName } from '../services/stores/platform.ts';
 import type { Platform } from '../types/app.ts';
 import type { SizeReport } from '../types/artifacts.ts';
-import type { PrebuildMode, ResolvedBuildContext } from '../types/config.ts';
+import type { PrebuildMode, BuildContext } from '../types/config.ts';
 import type { BuildRunOptions } from '../types/build-run.ts';
 import {
   ensureAndroidProject,
@@ -269,7 +269,7 @@ type NativeProjectCase = Readonly<{
 
 let nativeAppDirectory = '';
 
-function nativeProjectContext(platform: Platform, dryRun: boolean): ResolvedBuildContext {
+function nativeProjectContext(platform: Platform, dryRun: boolean): BuildContext {
   return {
     platform,
     app: {

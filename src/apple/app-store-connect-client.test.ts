@@ -447,7 +447,7 @@ describe('AppStoreConnectClient - auth + request building', () => {
     const fakeReply = fakeResponse(200, serialized);
 
     fetchMock.mockResolvedValueOnce(fakeReply);
-    expect(await client.resolveTeamId()).toBe('ABCDE12345');
+    expect(await client.readTeamId()).toBe('ABCDE12345');
 
     const arrayElement = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
 
@@ -463,7 +463,7 @@ describe('AppStoreConnectClient - auth + request building', () => {
     const serialized = JSON.stringify({ data: [] });
     const fakeReply = fakeResponse(200, serialized);
     fetchMock.mockResolvedValueOnce(fakeReply);
-    expect(await client.resolveTeamId()).toBeNull();
+    expect(await client.readTeamId()).toBeNull();
   }
 
   it(

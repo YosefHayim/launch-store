@@ -2,7 +2,7 @@
 
 import { setCommandEnvironmentExclusions } from '../services/platform/execute-command.ts';
 import type { AppDescriptor } from '../types/app.ts';
-import type { ResolvedBuildContext } from '../types/config.ts';
+import type { BuildContext } from '../types/config.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import { loadConfig } from '../config/config.ts';
 import { checkApp, formatFinding } from '../config/config-check.ts';
@@ -10,11 +10,11 @@ import { ENV_SOURCE } from '../config/environment-file.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import type { BuildRunOptions, PreparedBuild } from '../types/build-run.ts';
 import {
-  resolveAndroidRelease,
-  resolveAndroidSubmitReleaseNotes,
-  resolveBuildTransport,
+  readAndroidRelease,
+  readAndroidSubmitReleaseNotes,
+  readBuildTransport,
 } from './pipeline-providers.ts';
-import { resolveCommandEnv, selectApp, validateResolvedEnv } from './pipeline-environment.ts';
+import { readCommandEnv, selectApp, checkLaunchEnvironment } from './pipeline-environment.ts';
 import { runIosBuild } from './pipeline-ios.ts';
 import { runAndroidBuild } from './pipeline-android.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
@@ -149,18 +149,16 @@ async function attachAndroidRelease(
   launchConfig: PreparedBuild['config'],
   buildOptions: BuildRunOptions,
   app: Pick<AppDescriptor, 'dir' | 'bundleId' | 'packageName'>,
-  buildContext: MutableDeep<ResolvedBuildContext>,
-): Promise<MutableDeep<ResolvedBuildContext>> {
-  const resolvedAndroidRelease = resolveAndroidRelease(buildOptions, buildContext.profile);
-  const androidRelease: MutableDeep<typeof resolvedAndroidRelease> = {
-    track: resolvedAndroidRelease.track,
-    rollout: resolvedAndroidRelease.rollout,
+  buildContext: MutableDeep<BuildContext>,
+): Promise<MutableDeep<BuildContext>> {
+  const playRelease = readAndroidRelease(buildOptions, buildContext.profile);
+  const androidRelease: MutableDeep<typeof playRelease> = {
+    track: playRelease.track,
+    rollout: playRelease.rollout,
   };
 
-  let releaseNotes: Awaited<ReturnType<typeof resolveAndroidSubmitReleaseNotes>>;
-
   try {
-    releaseNotes = await resolveAndroidSubmitReleaseNotes(
+    var releaseNotes = await readAndroidSubmitReleaseNotes(
       launchConfig,
       app,
       buildOptions.notesPath,
@@ -182,7 +180,7 @@ async function attachAndroidRelease(
   return { ...buildContext, android: androidRelease };
 }
 
-/** Resolve config, the chosen app, the profile, a validated env, a logger */
+/** Read config, the chosen app, the profile, a validated env, a logger */
 export async function prepareBuild(buildOptions: BuildRunOptions): Promise<PreparedBuild> {
   const isDryRun = buildOptions.dryRun == true;
   const platform = buildOptions.platform;
@@ -209,14 +207,19 @@ export async function prepareBuild(buildOptions: BuildRunOptions): Promise<Prepa
     `${log.chip(app.name)} - ${profile.name} - ${platform}${dryRunSuffix}${remoteSuffix}`,
   );
 
-  const resolved = await resolveCommandEnv({
+  const commandEnvironment = await readCommandEnv({
     app,
     profile,
     cliEnv: buildOptions.envOverrides,
     includeLocal: buildOptions.includeLocal,
     envExclude: launchConfig.envExclude,
   });
-  const checked = await validateResolvedEnv(app.dir, resolved, log, launchConfig.envExclude ?? []);
+  const checked = await checkLaunchEnvironment(
+    app.dir,
+    commandEnvironment,
+    log,
+    launchConfig.envExclude ?? [],
+  );
   const environmentValues = checked.values;
 
   const secretCount = Object.values(checked.sources).filter(isSecretSource).length;
@@ -229,7 +232,7 @@ export async function prepareBuild(buildOptions: BuildRunOptions): Promise<Prepa
 
   log.step('env', `${varCount} vars validated${keychainNote}`, 'env-vars');
 
-  const excludedCount = resolved.excluded.length;
+  const excludedCount = commandEnvironment.excluded.length;
   const hasExclusions = excludedCount > 0;
 
   if (hasExclusions) {
@@ -265,7 +268,7 @@ export async function prepareBuild(buildOptions: BuildRunOptions): Promise<Prepa
   log.step('config check', configCheckDescription);
 
   const draftApp = copyApp(app);
-  let buildContext: MutableDeep<ResolvedBuildContext> = {
+  let buildContext: MutableDeep<BuildContext> = {
     platform,
     app: draftApp,
     profile,
@@ -330,7 +333,7 @@ async function dispatchBuild(
   prepared: PreparedBuild,
   buildOptions: BuildRunOptions,
 ): Promise<void> {
-  const choice = resolveBuildTransport(
+  const choice = readBuildTransport(
     buildOptions.platform,
     prepared.config.buildEngine,
     buildOptions.remote,

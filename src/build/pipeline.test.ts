@@ -13,17 +13,17 @@ import { sizeSummary, uploadSizeReadout, worstDownloadBytes } from './pipeline-a
 import { selectApp } from './pipeline-environment.ts';
 import {
   androidReleaseNotesFromLocaleMap,
-  resolveAndroidSubmitReleaseNotes,
-  resolveBuildTransport,
-  resolveSizeBudgetMB,
-  resolveSubmitters,
+  readAndroidSubmitReleaseNotes,
+  readBuildTransport,
+  readSizeBudgetMB,
+  readSubmitters,
   submitToStores,
   DEFAULT_SIZE_BUDGET_MB,
 } from './pipeline-providers.ts';
-import { resolveBumpKind } from './pipeline-version.ts';
+import { readBumpKind } from './pipeline-version.ts';
 import type { AppDescriptor, BuildProfile } from '../types/app.ts';
 import type { SizeReport } from '../types/artifacts.ts';
-import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';
+import type { LaunchConfig, BuildContext } from '../types/config.ts';
 import type { BuildCredentials } from '../types/credentials.ts';
 import type { Submitter } from '../types/providers.ts';
 import process from 'node:process';
@@ -472,18 +472,18 @@ describe(
 );
 
 function describeResolveBuildTransportWhichForkARunTakes() {
-  function resolveTransport(
-    platform: Parameters<typeof resolveBuildTransport>[0],
+  function readTransport(
+    platform: Parameters<typeof readBuildTransport>[0],
     buildEngine: string,
-    remoteTarget: Parameters<typeof resolveBuildTransport>[2],
+    remoteTarget: Parameters<typeof readBuildTransport>[2],
   ) {
-    return resolveBuildTransport(platform, buildEngine, remoteTarget);
+    return readBuildTransport(platform, buildEngine, remoteTarget);
   }
 
   function alwaysBuildsAndroidLocallyNoOffMacForkAppliesEvenWithAStrayRemote() {
-    const transport = resolveTransport('android', 'gradle', undefined);
+    const transport = readTransport('android', 'gradle', undefined);
     expect(transport).toEqual({ kind: 'local' });
-    expect(resolveTransport('android', 'gradle', { kind: 'ssh', target: 'builder@mac' })).toEqual({
+    expect(readTransport('android', 'gradle', { kind: 'ssh', target: 'builder@mac' })).toEqual({
       kind: 'local',
     });
   }
@@ -494,14 +494,14 @@ function describeResolveBuildTransportWhichForkARunTakes() {
   );
 
   function buildsIOSLocallyByDefault() {
-    const transport = resolveTransport('ios', 'xcode', undefined);
+    const transport = readTransport('ios', 'xcode', undefined);
     expect(transport).toEqual({ kind: 'local' });
   }
 
   it('builds iOS locally by default', buildsIOSLocallyByDefault);
 
   function routesIOSToTheRemotePipelineOnRemoteCarryingTheTarget() {
-    expect(resolveTransport('ios', 'xcode', { kind: 'ssh', target: 'ec2-user@host' })).toEqual({
+    expect(readTransport('ios', 'xcode', { kind: 'ssh', target: 'ec2-user@host' })).toEqual({
       kind: 'remote',
       remote: { kind: 'ssh', target: 'ec2-user@host' },
     });
@@ -524,14 +524,14 @@ function describeResolveBuildTransportWhichForkARunTakes() {
   );
 
   function handsIOSOffToEASWhenBuildEngineIsEas() {
-    const transport = resolveTransport('ios', 'eas', undefined);
+    const transport = readTransport('ios', 'eas', undefined);
     expect(transport).toEqual({ kind: 'eas' });
   }
 
   it("hands iOS off to EAS when buildEngine is 'eas'", handsIOSOffToEASWhenBuildEngineIsEas);
 
   function letsRemoteWinOverAnEasRemoteMacPieceTheFlagIsTheOverride() {
-    expect(resolveTransport('ios', 'remote-mac', { kind: 'ssh', target: 'u@h' })).toEqual({
+    expect(readTransport('ios', 'remote-mac', { kind: 'ssh', target: 'u@h' })).toEqual({
       kind: 'remote',
       remote: { kind: 'ssh', target: 'u@h' },
     });
@@ -543,10 +543,10 @@ function describeResolveBuildTransportWhichForkARunTakes() {
   );
 
   function buildsTvOSMacOSVisionOSLocallyOffMacForksAreIOSOnlyInV1() {
-    const transport = resolveTransport('tvos', 'xcode', undefined);
+    const transport = readTransport('tvos', 'xcode', undefined);
     expect(transport).toEqual({ kind: 'local' });
-    expect(resolveTransport('macos', 'xcode', undefined)).toEqual({ kind: 'local' });
-    expect(resolveTransport('visionos', 'xcode', undefined)).toEqual({ kind: 'local' });
+    expect(readTransport('macos', 'xcode', undefined)).toEqual({ kind: 'local' });
+    expect(readTransport('visionos', 'xcode', undefined)).toEqual({ kind: 'local' });
   }
 
   it(
@@ -555,12 +555,12 @@ function describeResolveBuildTransportWhichForkARunTakes() {
   );
 
   function thrownTransportFailure(
-    platform: Parameters<typeof resolveBuildTransport>[0],
+    platform: Parameters<typeof readBuildTransport>[0],
     buildEngine: string,
-    remoteTarget: Parameters<typeof resolveBuildTransport>[2],
+    remoteTarget: Parameters<typeof readBuildTransport>[2],
   ): unknown {
     try {
-      resolveTransport(platform, buildEngine, remoteTarget);
+      readTransport(platform, buildEngine, remoteTarget);
     } catch (error) {
       return error;
     }
@@ -589,20 +589,20 @@ function describeResolveBuildTransportWhichForkARunTakes() {
 }
 
 describe(
-  'resolveBuildTransport - which fork a run takes',
+  'readBuildTransport - which fork a run takes',
   describeResolveBuildTransportWhichForkARunTakes,
 );
 
 function describeResolveBumpKindFlagRememberedPromptPrecedence() {
   function appliesAnExplicitBumpKindEvenNonInteractivelyScriptableInCI() {
-    const bumpKind = resolveBumpKind({ flag: 'minor', remembered: 'patch', canPrompt: true });
+    const bumpKind = readBumpKind({ flag: 'minor', remembered: 'patch', canPrompt: true });
 
     expect(bumpKind).toEqual({
       mode: 'apply',
       kind: 'minor',
       source: 'flag',
     });
-    expect(resolveBumpKind({ flag: 'major', remembered: undefined, canPrompt: false })).toEqual({
+    expect(readBumpKind({ flag: 'major', remembered: undefined, canPrompt: false })).toEqual({
       mode: 'apply',
       kind: 'major',
       source: 'flag',
@@ -615,7 +615,7 @@ function describeResolveBumpKindFlagRememberedPromptPrecedence() {
   );
 
   function forcesThePromptOnBumpAskIgnoringARememberedPick() {
-    const bumpKind = resolveBumpKind({ flag: 'ask', remembered: 'patch', canPrompt: true });
+    const bumpKind = readBumpKind({ flag: 'ask', remembered: 'patch', canPrompt: true });
     expect(bumpKind).toEqual({
       mode: 'prompt',
     });
@@ -627,7 +627,7 @@ function describeResolveBumpKindFlagRememberedPromptPrecedence() {
   );
 
   function autoAppliesARememberedPickWhenNoFlagIsGivenAndWeCanPrompt() {
-    const bumpKind = resolveBumpKind({ flag: undefined, remembered: 'patch', canPrompt: true });
+    const bumpKind = readBumpKind({ flag: undefined, remembered: 'patch', canPrompt: true });
 
     expect(bumpKind).toEqual({
       mode: 'apply',
@@ -642,7 +642,7 @@ function describeResolveBumpKindFlagRememberedPromptPrecedence() {
   );
 
   function promptsOnAFirstRunNoFlagNothingRemembered() {
-    const bumpKind = resolveBumpKind({ flag: undefined, remembered: undefined, canPrompt: true });
+    const bumpKind = readBumpKind({ flag: undefined, remembered: undefined, canPrompt: true });
     expect(bumpKind).toEqual({
       mode: 'prompt',
     });
@@ -654,7 +654,7 @@ function describeResolveBumpKindFlagRememberedPromptPrecedence() {
   );
 
   function leavesThePieceVersionUntouchedUnderYesCIWithNoFlag() {
-    const bumpKind = resolveBumpKind({ flag: undefined, remembered: 'patch', canPrompt: false });
+    const bumpKind = readBumpKind({ flag: undefined, remembered: 'patch', canPrompt: false });
     expect(bumpKind).toEqual({
       mode: 'leave',
     });
@@ -667,7 +667,7 @@ function describeResolveBumpKindFlagRememberedPromptPrecedence() {
 }
 
 describe(
-  'resolveBumpKind - flag > remembered > prompt precedence',
+  'readBumpKind - flag > remembered > prompt precedence',
   describeResolveBumpKindFlagRememberedPromptPrecedence,
 );
 
@@ -679,8 +679,8 @@ function describeResolveSizeBudgetMBPerRunOverrideProfileDefaultPrecedence() {
   }
 
   function usesThePerRunOverrideOverBothTheProfileAndTheDefault() {
-    const resolveSizeBudgetMb = resolveSizeBudgetMB({ sizeBudgetMB: 250 }, profile(150));
-    expect(resolveSizeBudgetMb).toBe(250);
+    const readSizeBudgetMb = readSizeBudgetMB({ sizeBudgetMB: 250 }, profile(150));
+    expect(readSizeBudgetMb).toBe(250);
   }
 
   it(
@@ -689,7 +689,7 @@ function describeResolveSizeBudgetMBPerRunOverrideProfileDefaultPrecedence() {
   );
 
   function fallsBackToTheProfileBudgetWhenNoPerRunOverrideIsGiven() {
-    const sizeBudgetMB = resolveSizeBudgetMB({}, profile(150));
+    const sizeBudgetMB = readSizeBudgetMB({}, profile(150));
     expect(sizeBudgetMB).toBe(150);
   }
 
@@ -699,7 +699,7 @@ function describeResolveSizeBudgetMBPerRunOverrideProfileDefaultPrecedence() {
   );
 
   function fallsBackToTheDefaultWhenNeitherTheRunNorTheProfileSetsOne() {
-    const sizeBudgetMB = resolveSizeBudgetMB({}, profile());
+    const sizeBudgetMB = readSizeBudgetMB({}, profile());
     expect(sizeBudgetMB).toBe(DEFAULT_SIZE_BUDGET_MB);
   }
 
@@ -710,7 +710,7 @@ function describeResolveSizeBudgetMBPerRunOverrideProfileDefaultPrecedence() {
 }
 
 describe(
-  'resolveSizeBudgetMB - per-run override > profile > default precedence',
+  'readSizeBudgetMB - per-run override > profile > default precedence',
   describeResolveSizeBudgetMBPerRunOverrideProfileDefaultPrecedence,
 );
 
@@ -727,12 +727,10 @@ function describeResolveSubmittersThePlatformstoreSeam() {
 
   function stringFormYieldsOneStoreMappingTheIOSDefaultToPlayOnAndroid() {
     const launch = launchConfig('app-store-connect');
-    const submitters = resolveSubmitters(launch, 'ios');
+    const submitters = readSubmitters(launch, 'ios');
 
     expect(submitters).toEqual(['app-store-connect']);
-    expect(resolveSubmitters(launchConfig('app-store-connect'), 'android')).toEqual([
-      'google-play',
-    ]);
+    expect(readSubmitters(launchConfig('app-store-connect'), 'android')).toEqual(['google-play']);
   }
 
   it(
@@ -742,9 +740,9 @@ function describeResolveSubmittersThePlatformstoreSeam() {
 
   function aNonDefaultStringEGEasIsUsedAsIsOnBothPlatforms() {
     const launch = launchConfig('eas');
-    const submitters = resolveSubmitters(launch, 'ios');
+    const submitters = readSubmitters(launch, 'ios');
     expect(submitters).toEqual(['eas']);
-    expect(resolveSubmitters(launchConfig('eas'), 'android')).toEqual(['eas']);
+    expect(readSubmitters(launchConfig('eas'), 'android')).toEqual(['eas']);
   }
 
   it(
@@ -757,10 +755,10 @@ function describeResolveSubmittersThePlatformstoreSeam() {
       ios: ['app-store-connect'],
       android: ['google-play', 'amazon-appstore'],
     });
-    const submitters = resolveSubmitters(config, 'android');
+    const submitters = readSubmitters(config, 'android');
 
     expect(submitters).toEqual(['google-play', 'amazon-appstore']);
-    expect(resolveSubmitters(config, 'ios')).toEqual(['app-store-connect']);
+    expect(readSubmitters(config, 'ios')).toEqual(['app-store-connect']);
   }
 
   it(
@@ -770,11 +768,11 @@ function describeResolveSubmittersThePlatformstoreSeam() {
 
   function mapFormDefaultsToThePlatformSStandardStoreWhenItSOmittedOrEmpty() {
     const launch = launchConfig({ android: ['amazon-appstore'] });
-    const submitters = resolveSubmitters(launch, 'ios');
+    const submitters = readSubmitters(launch, 'ios');
 
     expect(submitters).toEqual(['app-store-connect']);
-    expect(resolveSubmitters(launchConfig({ ios: [] }), 'ios')).toEqual(['app-store-connect']);
-    expect(resolveSubmitters(launchConfig({ ios: ['app-store-connect'] }), 'android')).toEqual([
+    expect(readSubmitters(launchConfig({ ios: [] }), 'ios')).toEqual(['app-store-connect']);
+    expect(readSubmitters(launchConfig({ ios: ['app-store-connect'] }), 'android')).toEqual([
       'google-play',
     ]);
   }
@@ -787,10 +785,10 @@ function describeResolveSubmittersThePlatformstoreSeam() {
   function tvOSMacOSVisionOSDefaultToAppStoreConnectWithNoPieceChange() {
     for (const platform of ['tvos', 'macos', 'visionos'] as const) {
       const launch = launchConfig('app-store-connect');
-      const submitters = resolveSubmitters(launch, platform);
+      const submitters = readSubmitters(launch, platform);
 
       expect(submitters).toEqual(['app-store-connect']);
-      expect(resolveSubmitters(launchConfig({ android: ['google-play'] }), platform)).toEqual([
+      expect(readSubmitters(launchConfig({ android: ['google-play'] }), platform)).toEqual([
         'app-store-connect',
       ]);
     }
@@ -806,10 +804,10 @@ function describeResolveSubmittersThePlatformstoreSeam() {
       tvos: ['app-store-connect'],
       macos: ['app-store-connect'],
     });
-    const submitters = resolveSubmitters(config, 'tvos');
+    const submitters = readSubmitters(config, 'tvos');
 
     expect(submitters).toEqual(['app-store-connect']);
-    expect(resolveSubmitters(config, 'macos')).toEqual(['app-store-connect']);
+    expect(readSubmitters(config, 'macos')).toEqual(['app-store-connect']);
   }
 
   it(
@@ -818,13 +816,10 @@ function describeResolveSubmittersThePlatformstoreSeam() {
   );
 }
 
-describe(
-  'resolveSubmitters - the platformstore seam',
-  describeResolveSubmittersThePlatformstoreSeam,
-);
+describe('readSubmitters - the platformstore seam', describeResolveSubmittersThePlatformstoreSeam);
 
 function describeSubmitToStoresFansOneBuildOutToEveryConfiguredStore() {
-  const buildContext: ResolvedBuildContext = {
+  const buildContext: BuildContext = {
     platform: 'android',
     app: { name: 'Demo', dir: '/tmp/demo', configPath: '/tmp/demo/app.json' },
     profile: { name: 'production' },
@@ -908,7 +903,7 @@ function describeAndroidReleaseNotesForSubmitIssue309() {
     writeFileSync(notesPath, serialized);
 
     try {
-      const releaseNotes = await resolveAndroidSubmitReleaseNotes(
+      const releaseNotes = await readAndroidSubmitReleaseNotes(
         {
           profiles: {},
           credentials: 'local',
@@ -934,7 +929,7 @@ function describeAndroidReleaseNotesForSubmitIssue309() {
     const appDirectory = mkdtempSync(launchAppPath);
 
     try {
-      const releaseNotes = await resolveAndroidSubmitReleaseNotes(
+      const releaseNotes = await readAndroidSubmitReleaseNotes(
         {
           profiles: {},
           credentials: 'local',

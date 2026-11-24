@@ -4,10 +4,7 @@ import { loadConfig } from '../config/config.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
-import {
-  createAscClientResolver,
-  createPlayClientResolver,
-} from '../store/shared/store-clients.ts';
+import { createAscClientReader, createPlayClientReader } from '../store/shared/store-clients.ts';
 import { selectApps } from '../store/shared/sync-jobs.ts';
 import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import type {
@@ -285,17 +282,17 @@ export async function readinessCommandProgram(rawCommandInput: unknown): Promise
 
     const loadedConfiguration = await loadConfig(launchDirectories.workingDirectory);
     const selectedApps = await selectApps(loadedConfiguration.apps, commandInput.app ?? undefined);
-    const resolveAscClient = createAscClientResolver();
-    const ascClient = await resolveAscClient();
-    const resolvePlayClient = await createPlayClientResolver();
+    const readAscClient = createAscClientReader();
+    const ascClient = await readAscClient();
+    const readPlayClient = await createPlayClientReader();
 
     const readinessContext: ReadinessContext = {
       config: loadedConfiguration.config,
       apps: selectedApps,
-      resolveAscApi: async function resolveAscApi() {
+      readAscApi: async function readAscApi() {
         return ascClient;
       },
-      resolvePlayApi: resolvePlayClient,
+      readPlayApi: readPlayClient,
     };
     const readinessProbes = selectReadinessProbes(commandInput.category);
     const readinessOutcome = await runProbes(readinessContext, readinessProbes);

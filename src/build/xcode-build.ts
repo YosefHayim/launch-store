@@ -99,10 +99,8 @@ export class XcodeBuild {
   }
 
   private async findWorkspace(iosDirectory: string): Promise<string> {
-    let names: string[];
-
     try {
-      names = await readdir(iosDirectory);
+      var names = await readdir(iosDirectory);
     } catch (error) {
       throw new Error('No ios directory. Run expo prebuild first.', { cause: error });
     }

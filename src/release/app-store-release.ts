@@ -439,10 +439,8 @@ export async function releaseApp(
     actions: [],
     dryRun: releaseInput.dryRun,
   };
-  let appId: string | null;
-
   try {
-    appId = await appleReleaseApi.getAppId(releaseInput.bundleId);
+    var appId = await appleReleaseApi.getAppId(releaseInput.bundleId);
   } catch (cause) {
     throw releaseFailure('find App Store app', cause);
   }
@@ -464,10 +462,11 @@ export async function releaseApp(
     requireValidStoreBuild(storeBuild);
   }
 
-  let storeVersions: AppStoreVersionResource[];
-
   try {
-    storeVersions = await appleReleaseApi.listAppStoreVersions(foundAppId, releaseInput.platform);
+    var storeVersions = await appleReleaseApi.listAppStoreVersions(
+      foundAppId,
+      releaseInput.platform,
+    );
   } catch (cause) {
     throw releaseFailure('list App Store versions', cause);
   }
@@ -753,7 +752,7 @@ function isEditableVersion(storeVersion: AppStoreVersionResource): boolean {
   return nextReleaseAction(storeVersion.appStoreState) == 'editable';
 }
 
-/** Resolve the version to act on */
+/** Read the version to act on */
 async function selectReleaseVersion(
   releaseContext: ReleaseContext,
   releaseInput: ReleaseInput,
@@ -1123,10 +1122,8 @@ export async function readAppStoreAppId(
   appleReleaseApi: AscReleaseApi,
   bundleId: string,
 ): Promise<string> {
-  let appId: string | null;
-
   try {
-    appId = await appleReleaseApi.getAppId(bundleId);
+    var appId = await appleReleaseApi.getAppId(bundleId);
   } catch (cause) {
     throw releaseFailure('find App Store app', cause);
   }
@@ -1149,10 +1146,8 @@ export async function readReleaseStatusForApp(
   bundleId: string,
   platform: string,
 ): Promise<ReleaseStatus> {
-  let storeVersions: AppStoreVersionResource[];
-
   try {
-    storeVersions = await appleReleaseApi.listAppStoreVersions(appId, platform);
+    var storeVersions = await appleReleaseApi.listAppStoreVersions(appId, platform);
   } catch (cause) {
     throw releaseFailure('list App Store versions', cause);
   }
@@ -1173,10 +1168,8 @@ export async function readReleaseStatusForApp(
     };
   }
 
-  let phasedRelease: { id: string; phasedReleaseState: string } | null;
-
   try {
-    phasedRelease = await appleReleaseApi.getPhasedRelease(currentVersion.id);
+    var phasedRelease = await appleReleaseApi.getPhasedRelease(currentVersion.id);
   } catch (cause) {
     throw releaseFailure('read App Store release status', cause);
   }

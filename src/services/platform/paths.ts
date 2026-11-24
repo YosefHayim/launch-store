@@ -1,4 +1,4 @@
-// Resolves the folders Launch uses for accounts, credentials, artifacts, logs, and stats.
+// Names the folders Launch uses for accounts, credentials, artifacts, logs, and stats.
 
 import { createHash } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
@@ -48,113 +48,113 @@ function sanitizePathIdentifier(identifier: string, fallbackIdentifier: string):
   return sanitizedIdentifier;
 }
 
-export function resolveLaunchHomeDirectory(): string {
+export function readLaunchHomeDirectory(): string {
   return join(launchDirectories.homeDirectory, '.launch');
 }
 
-export function resolveAccountsFilePath(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+export function readAccountsFilePath(): string {
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'accounts.json');
 }
 
-export function resolveCredentialsDirectory(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+export function readCredentialsDirectory(): string {
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'credentials');
 }
 
-export function resolveAndroidCredentialsDirectory(packageName: string): string {
+export function readAndroidCredentialsDirectory(packageName: string): string {
   const packageDigest = createHash('sha256').update(packageName).digest('hex');
 
-  const credentialsDirectory = resolveCredentialsDirectory();
+  const credentialsDirectory = readCredentialsDirectory();
   return join(credentialsDirectory, 'android', packageDigest);
 }
 
-export function resolveAndroidCredentialsIndexPath(packageName: string): string {
-  const androidCredentialsDirectory = resolveAndroidCredentialsDirectory(packageName);
+export function readAndroidCredentialsIndexPath(packageName: string): string {
+  const androidCredentialsDirectory = readAndroidCredentialsDirectory(packageName);
   return join(androidCredentialsDirectory, 'android.json');
 }
 
-export function resolveLegacyAndroidCredentialsIndexPath(): string {
-  const credentialsDirectory = resolveCredentialsDirectory();
+export function readLegacyAndroidCredentialsIndexPath(): string {
+  const credentialsDirectory = readCredentialsDirectory();
   return join(credentialsDirectory, 'android.json');
 }
 
-export function resolveProvisioningProfilesDirectory(): string {
+export function readProvisioningProfilesDirectory(): string {
   return join(launchDirectories.homeDirectory, 'Library', 'MobileDevice', 'Provisioning Profiles');
 }
 
-export function resolvePushKeysFilePath(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+export function readPushKeysFilePath(): string {
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'push-keys.json');
 }
 
-export function resolveStateFilePath(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+export function readStateFilePath(): string {
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'state.json');
 }
 
-export function resolveCloudStateFilePath(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+export function readCloudStateFilePath(): string {
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'cloud.json');
 }
 
-export function resolveLastRunFilePath(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+export function readLastRunFilePath(): string {
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'last-run.json');
 }
 
-export function resolveLogsDirectory(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+export function readLogsDirectory(): string {
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'logs');
 }
 
-export function resolveSecretsFilePath(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+export function readSecretsFilePath(): string {
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'secrets.json');
 }
 
-export function resolveArtifactsDirectory(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+export function readArtifactsDirectory(): string {
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'artifacts');
 }
 
-export function resolveArtifactIndexFilePath(): string {
-  const artifactsDirectory = resolveArtifactsDirectory();
+export function readArtifactIndexFilePath(): string {
+  const artifactsDirectory = readArtifactsDirectory();
   return join(artifactsDirectory, 'index.json');
 }
 
-export function resolveReleaseTrainsDirectory(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+export function readReleaseTrainsDirectory(): string {
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'release-trains');
 }
 
-export function resolveSnapshotsDirectory(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+export function readSnapshotsDirectory(): string {
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'snapshots');
 }
 
-export function resolveUpdateStateFilePath(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+export function readUpdateStateFilePath(): string {
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'update.json');
 }
 
-export function resolveAccountCredentialsDirectory(keyId: string): string {
-  const credentialsDirectory = resolveCredentialsDirectory();
+export function readAccountCredentialsDirectory(keyId: string): string {
+  const credentialsDirectory = readCredentialsDirectory();
   const pathIdentifier = sanitizePathIdentifier(keyId, 'default');
   return join(credentialsDirectory, pathIdentifier);
 }
 
-export function resolveReleaseTrainFilePath(trainId: string): string {
+export function readReleaseTrainFilePath(trainId: string): string {
   const safeTrainId = sanitizePathIdentifier(trainId, 'train');
 
-  const releaseTrainsDirectory = resolveReleaseTrainsDirectory();
+  const releaseTrainsDirectory = readReleaseTrainsDirectory();
   return join(releaseTrainsDirectory, `${safeTrainId}.json`);
 }
 
-export function resolveSnapshotFilePath(snapshotName: string): string {
+export function readSnapshotFilePath(snapshotName: string): string {
   const safeSnapshotName = sanitizePathIdentifier(snapshotName, 'snapshot');
 
-  const snapshotsDirectory = resolveSnapshotsDirectory();
+  const snapshotsDirectory = readSnapshotsDirectory();
   return join(snapshotsDirectory, `${safeSnapshotName}.json`);
 }
 
@@ -165,7 +165,7 @@ export async function ensureDirectoryExists(directoryPath: string): Promise<stri
 }
 
 export function locateStatsDirectory(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'stats');
 }
 
@@ -182,6 +182,6 @@ export function locateAppStatsDirectory(appKey: string): string {
 }
 
 export function locatePortfolioFilePath(): string {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
+  const launchHomeDirectory = readLaunchHomeDirectory();
   return join(launchHomeDirectory, 'portfolio.json');
 }

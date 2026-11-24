@@ -52,35 +52,22 @@ type RemoveOutcome =
   | Readonly<{ kind: 'invitation'; invitation: UserInvitationResource }>
   | Readonly<{ kind: 'none' }>;
 
-function readNonEmptyText(cause: unknown): string | null {
-  const isNotText = typeof cause != 'string';
+/** Convert a team dependency failure into an Error. */
+function teamFailure(operation: 'list' | 'invite' | 'remove', cause: unknown): never {
+  const causeText = typeof cause == 'string' ? cause : '';
+  const isBlankCauseText = causeText.length == 0;
 
-  if (isNotText) return null;
-
-  const isEmpty = cause.length == 0;
-
-  if (isEmpty) return null;
-
-  return cause;
-}
-
-function readCauseMessage(cause: unknown, fallback: string): string {
-  const textMessage = readNonEmptyText(cause);
-
-  if (textMessage != null) return textMessage;
+  if (isBlankCauseText == false) {
+    throw new Error(causeText, { cause });
+  }
 
   const hasCauseMessage = hasMessage(cause);
 
-  if (hasCauseMessage) return cause.message;
+  if (hasCauseMessage) {
+    throw new Error(cause.message, { cause });
+  }
 
-  return fallback;
-}
-
-/** Convert a team dependency failure into an Error. */
-function teamFailure(operation: 'list' | 'invite' | 'remove', cause: unknown): never {
-  const message = readCauseMessage(cause, `Team ${operation} failed.`);
-
-  throw new Error(message, { cause });
+  throw new Error(`Team ${operation} failed.`, { cause });
 }
 
 /** Read accepted members and pending invitations together. */
@@ -175,10 +162,8 @@ export async function inviteTeamMember(
     );
   }
 
-  let currentTeam: Team;
-
   try {
-    currentTeam = await getTeam(teamClient);
+    var currentTeam = await getTeam(teamClient);
   } catch (cause) {
     throw teamFailure('invite', cause);
   }
@@ -232,10 +217,8 @@ export async function removeTeamMember(
   email: string,
 ): Promise<RemoveOutcome> {
   const normalizedEmail = email.trim().toLowerCase();
-  let currentTeam: Team;
-
   try {
-    currentTeam = await getTeam(teamClient);
+    var currentTeam = await getTeam(teamClient);
   } catch (cause) {
     throw teamFailure('remove', cause);
   }

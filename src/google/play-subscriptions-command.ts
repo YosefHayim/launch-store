@@ -90,7 +90,7 @@ function decodePlaySubscriptionsCommandInput(
 
 export const PlaySubscriptionsCommandInputSchema = decodePlaySubscriptionsCommandInput;
 
-async function resolveSubscriptionsTarget(appSelector: string | undefined): Promise<{
+async function readSubscriptionsTarget(appSelector: string | undefined): Promise<{
   appName: string;
   packageName: string;
   subscriptions: SubscriptionConfig[];
@@ -151,7 +151,7 @@ function appliedLine(appliedAction: Parameters<typeof renderAppliedPlayCatalogAc
 
 async function executePlaySubscriptions(rawCommandInput: unknown): Promise<number> {
   const commandInput = decodePlaySubscriptionsCommandInput(rawCommandInput);
-  const subscriptionsTarget = await resolveSubscriptionsTarget(commandInput.app);
+  const subscriptionsTarget = await readSubscriptionsTarget(commandInput.app);
   const logger = createLogger(false);
 
   if (subscriptionsTarget.subscriptions.length == 0) {
@@ -220,10 +220,8 @@ async function executePlaySubscriptions(rawCommandInput: unknown): Promise<numbe
 
 /** Run the schema-decoded Play subscriptions command. */
 export async function playSubscriptionsCommandProgram(rawCommandInput: unknown): Promise<void> {
-  let failureCount = 0;
-
   try {
-    failureCount = await executePlaySubscriptions(rawCommandInput);
+    var failureCount = await executePlaySubscriptions(rawCommandInput);
   } catch (cause) {
     throw subscriptionsFailure('reconcile Play subscriptions', cause);
   }

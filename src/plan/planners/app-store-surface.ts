@@ -106,7 +106,7 @@ export async function planAppStoreSurface<TConfig>(
     return { surface: spec.surface, store: 'appstore', state: 'omitted' };
   }
 
-  const api = await planContext.resolveAscApi();
+  const api = await planContext.readAscApi();
 
   if (isAppleAccountMissing(api)) {
     return {
@@ -155,7 +155,7 @@ export async function planTeamSurface<TConfig>(
     return { surface: spec.surface, store: 'appstore', state: 'omitted' };
   }
 
-  const api = await planContext.resolveAscApi();
+  const api = await planContext.readAscApi();
 
   if (isAppleAccountMissing(api)) {
     return {

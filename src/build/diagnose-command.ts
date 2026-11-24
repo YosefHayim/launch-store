@@ -4,7 +4,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
-import { resolveLogsDirectory } from '../services/platform/paths.ts';
+import { readLogsDirectory } from '../services/platform/paths.ts';
 import { pathExists } from '../path-exists.ts';
 import { diagnoseBuildLog, formatDiagnoses } from './build-diagnostics.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
@@ -48,17 +48,15 @@ type NewestLog = Readonly<{ path: string; modifiedAt: number }>;
 
 /** Find the newest readable build log in Launch's local log directory. */
 export async function findMostRecentBuildLog(): Promise<string | null> {
-  const logsDirectory = resolveLogsDirectory();
+  const logsDirectory = readLogsDirectory();
   const directoryExists = await pathExists(logsDirectory);
 
   if (directoryExists == false) {
     return null;
   }
 
-  let filenames: string[] = [];
-
   try {
-    filenames = await readdir(logsDirectory);
+    var filenames = await readdir(logsDirectory);
   } catch {
     return null;
   }

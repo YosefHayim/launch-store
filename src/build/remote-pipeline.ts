@@ -9,20 +9,20 @@ import {
   renderReceipt,
   reportProcessing,
   reportSize,
-  resolveAscBuildLink,
+  readAscBuildLink,
   uploadIosBuild,
 } from './pipeline-artifact.ts';
-import { interactiveConfirm, resolveIosAccount } from './pipeline-signing.ts';
+import { interactiveConfirm, readIosAccount } from './pipeline-signing.ts';
 import type { BuildRunOptions, PreparedBuild } from '../types/build-run.ts';
 import { DRY_RUN_KEY } from './pipeline-providers.ts';
 import { nextBuildNumber } from './pipeline-version.ts';
 import { loadAscKeyById, refreshIdentityIfStale } from '../credentials/accounts.ts';
 import { withSpinner } from '../services/platform/progress.ts';
 import { getComputeHost } from '../services/provider-support/registry.ts';
-import { resolveStorageProvider } from '../distribution/storage.ts';
+import { readStorageProvider } from '../distribution/storage.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.ts';
-import { resolveArtifactsDirectory } from '../services/platform/paths.ts';
+import { readArtifactsDirectory } from '../services/platform/paths.ts';
 import { clearLiveHost, getLiveHost, setLiveHost } from '../distribution/cloud-state.ts';
 import { ensureRemoteSigningAssets } from '../credentials/apple-signing-assets.ts';
 import {
@@ -160,7 +160,7 @@ async function loadLiveAscKey(
     return { ascKey: DRY_RUN_KEY, account: undefined };
   }
 
-  const account = await resolveIosAccount(buildOptions, log);
+  const account = await readIosAccount(buildOptions, log);
   const loaded = await loadAscKeyById(account.keyId);
 
   if (loaded == null) {
@@ -312,7 +312,7 @@ export async function runRemoteBuild(
 
     log.step('build', `${buildKind} - built on the host`, 'incremental-build');
 
-    const artifactsDirectory = resolveArtifactsDirectory();
+    const artifactsDirectory = readArtifactsDirectory();
 
     pulled = await pullArtifact(session, app.name, artifactsDirectory);
     await reportSize(pulled.sizeReport, log);
@@ -328,7 +328,7 @@ export async function runRemoteBuild(
       clean: built.cleanBuilt,
       createdAt: new Date().toISOString(),
     };
-    const storageProvider = await resolveStorageProvider(launchConfig);
+    const storageProvider = await readStorageProvider(launchConfig);
     const stored = await storageProvider.put(artifact);
 
     log.step('store', stored.location);
@@ -367,7 +367,7 @@ export async function runRemoteBuild(
   let link: string | undefined;
 
   if (buildOptions.submit) {
-    link = await resolveAscBuildLink(ascKey, bundleId);
+    link = await readAscBuildLink(ascKey, bundleId);
   }
 
   await renderReceipt({

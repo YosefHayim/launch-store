@@ -140,7 +140,7 @@ function isExplicitBumpKind(flag: BumpKind | 'ask' | undefined): flag is BumpKin
 }
 
 /** Decide how to pick the version bump. */
-export function resolveBumpKind(args: {
+export function readBumpKind(args: {
   flag: BumpKind | 'ask' | undefined;
   remembered: BumpKind | undefined;
   canPrompt: boolean;
@@ -290,8 +290,8 @@ function currentMarketingVersion(app: AppDescriptor): string {
   return app.version;
 }
 
-/** Resolve and apply the marketing version before the build. */
-export async function resolveMarketingVersion(
+/** Read and apply the marketing version before the build. */
+export async function readMarketingVersion(
   ascKey: AppleCredentials['ascKey'],
   bundleId: string,
   app: MutableDeep<AppDescriptor>,
@@ -313,7 +313,7 @@ export async function resolveMarketingVersion(
 
   const rememberedBump = await readLastBump(app.name);
   const terminalIsInteractive = checkTerminalIsInteractive();
-  const decision = resolveBumpKind({
+  const decision = readBumpKind({
     flag: buildOptions.bump,
     remembered: rememberedBump,
     canPrompt: canPromptForMarketingVersion(terminalIsInteractive, buildOptions.yes),

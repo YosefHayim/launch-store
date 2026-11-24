@@ -10,7 +10,7 @@ import {
   keepBuildEnvironment,
   parseCliEnv,
   parseDotenv,
-  resolveEnv,
+  readEnv,
   secretLookingKeys,
 } from './environment-file.ts';
 import { expectDefined } from '../testkit/expect-defined.ts';
@@ -298,7 +298,7 @@ function describeResolvePieceTheOnePrecedenceLadder() {
     );
     writeFileSync(join(dir, '.env.local'), 'C=local\nD=local\nE=local\nF=local\n');
 
-    const resolve = resolveEnv({
+    const environmentRead = readEnv({
       appDir: dir,
       profileName: 'production',
       includeLocal: true,
@@ -306,9 +306,9 @@ function describeResolvePieceTheOnePrecedenceLadder() {
       secrets: { E: 'secret', F: 'secret' },
       cliEnv: { F: 'flag' },
     });
-    const resolved = await runEnvEffect(resolve);
+    const commandEnvironment = await runEnvEffect(environmentRead);
 
-    expect(resolved.values).toEqual({
+    expect(commandEnvironment.values).toEqual({
       A: 'base',
       B: 'profileFile',
       C: 'local',
@@ -316,7 +316,7 @@ function describeResolvePieceTheOnePrecedenceLadder() {
       E: 'secret',
       F: 'flag',
     });
-    expect(resolved.sources).toEqual({
+    expect(commandEnvironment.sources).toEqual({
       A: '.env',
       B: '.env.production',
       C: ENV_SOURCE.local,
@@ -338,18 +338,15 @@ function describeResolvePieceTheOnePrecedenceLadder() {
     writeFileSync(joinedPath, 'X=base\n');
     writeFileSync(join(dir, '.env.local'), 'X=local\n');
 
-    const resolve = resolveEnv({ appDir: dir, profileName: 'production' });
-    const runEffect = await runEnvEffect(resolve);
+    const environmentRead = readEnv({ appDir: dir, profileName: 'production' });
+    const runEffect = await runEnvEffect(environmentRead);
 
     expect(runEffect.values).toEqual({
       X: 'base',
     });
     expect(
-      (
-        await runEnvEffect(
-          resolveEnv({ appDir: dir, profileName: 'production', includeLocal: true }),
-        )
-      ).values,
+      (await runEnvEffect(readEnv({ appDir: dir, profileName: 'production', includeLocal: true })))
+        .values,
     ).toEqual({ X: 'local' });
   }
 
@@ -365,11 +362,11 @@ function describeResolvePieceTheOnePrecedenceLadder() {
 
     writeFileSync(joinedPath, 'B=fromProfileFile\n');
 
-    const resolve = resolveEnv({ appDir: dir, profileName: 'staging', envFile: 'custom.env' });
-    const resolved = await runEnvEffect(resolve);
+    const environmentRead = readEnv({ appDir: dir, profileName: 'staging', envFile: 'custom.env' });
+    const commandEnvironment = await runEnvEffect(environmentRead);
 
-    expect(resolved.values).toEqual({ A: 'fromCustom', B: 'fromProfileFile' });
-    expect(resolved.sources).toEqual({ A: 'custom.env', B: '.env.staging' });
+    expect(commandEnvironment.values).toEqual({ A: 'fromCustom', B: 'fromProfileFile' });
+    expect(commandEnvironment.sources).toEqual({ A: 'custom.env', B: '.env.staging' });
   }
 
   it(
@@ -379,12 +376,12 @@ function describeResolvePieceTheOnePrecedenceLadder() {
 
   async function returnsEmptyMapsWhenNothingResolves() {
     const makeDir = makeTempDir();
-    const resolve = resolveEnv({ appDir: makeDir, profileName: 'production' });
-    const resolved = await runEnvEffect(resolve);
+    const environmentRead = readEnv({ appDir: makeDir, profileName: 'production' });
+    const commandEnvironment = await runEnvEffect(environmentRead);
 
-    expect(resolved.values).toEqual({});
-    expect(resolved.sources).toEqual({});
-    expect(resolved.excluded).toEqual([]);
+    expect(commandEnvironment.values).toEqual({});
+    expect(commandEnvironment.sources).toEqual({});
+    expect(commandEnvironment.excluded).toEqual([]);
   }
 
   it('returns empty maps when nothing resolves', returnsEmptyMapsWhenNothingResolves);
@@ -395,20 +392,20 @@ function describeResolvePieceTheOnePrecedenceLadder() {
 
     writeFileSync(joinedPath, 'KEEP=base\nFROM_FILE=base\n');
 
-    const resolve = resolveEnv({
+    const environmentRead = readEnv({
       appDir: dir,
       profileName: 'production',
       secrets: { FROM_SECRET: 'kc' },
       cliEnv: { FROM_FLAG: 'flag' },
       envExclude: ['FROM_FILE', 'FROM_SECRET', 'FROM_FLAG', 'NEVER_SET'],
     });
-    const resolved = await runEnvEffect(resolve);
+    const commandEnvironment = await runEnvEffect(environmentRead);
 
     // Exclusion wins over precedence: gone no matter which layer set it (file / keychain / flag).
-    expect(resolved.values).toEqual({ KEEP: 'base' });
-    expect(resolved.sources).toEqual({ KEEP: '.env' });
+    expect(commandEnvironment.values).toEqual({ KEEP: 'base' });
+    expect(commandEnvironment.sources).toEqual({ KEEP: '.env' });
     // Only names actually present are reported dropped - NEVER_SET is silently ignored.
-    expect(resolved.excluded.sort()).toEqual(['FROM_FILE', 'FROM_FLAG', 'FROM_SECRET']);
+    expect(commandEnvironment.excluded.sort()).toEqual(['FROM_FILE', 'FROM_FLAG', 'FROM_SECRET']);
   }
 
   it(
@@ -422,12 +419,12 @@ function describeResolvePieceTheOnePrecedenceLadder() {
 
     writeFileSync(joinedPath, 'A=1\n');
 
-    const resolve = resolveEnv({ appDir: dir, profileName: 'production' });
-    const runEffect = await runEnvEffect(resolve);
+    const environmentRead = readEnv({ appDir: dir, profileName: 'production' });
+    const runEffect = await runEnvEffect(environmentRead);
 
     expect(runEffect.excluded).toEqual([]);
     expect(
-      (await runEnvEffect(resolveEnv({ appDir: dir, profileName: 'production', envExclude: [] })))
+      (await runEnvEffect(readEnv({ appDir: dir, profileName: 'production', envExclude: [] })))
         .excluded,
     ).toEqual([]);
   }
@@ -443,15 +440,15 @@ function describeResolvePieceTheOnePrecedenceLadder() {
 
     writeFileSync(joinedPath, 'OPENAI_API_KEY=x\nOPENAI_ORG_ID=y\nKEEP=z\n');
 
-    const resolve = resolveEnv({
+    const environmentRead = readEnv({
       appDir: dir,
       profileName: 'production',
       envExclude: ['OPENAI_*'],
     });
-    const resolved = await runEnvEffect(resolve);
+    const commandEnvironment = await runEnvEffect(environmentRead);
 
-    expect(resolved.values).toEqual({ KEEP: 'z' });
-    expect(resolved.excluded.sort()).toEqual(['OPENAI_API_KEY', 'OPENAI_ORG_ID']);
+    expect(commandEnvironment.values).toEqual({ KEEP: 'z' });
+    expect(commandEnvironment.excluded.sort()).toEqual(['OPENAI_API_KEY', 'OPENAI_ORG_ID']);
   }
 
   it(
@@ -460,7 +457,7 @@ function describeResolvePieceTheOnePrecedenceLadder() {
   );
 }
 
-describe('resolveEnv - the one precedence ladder', describeResolvePieceTheOnePrecedenceLadder);
+describe('readEnv - the one precedence ladder', describeResolvePieceTheOnePrecedenceLadder);
 
 function describeParseCliPieceRepeatedPieceKEYVAL() {
   function splitsOnTheFirstAndKeepsInThePiece() {

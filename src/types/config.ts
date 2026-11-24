@@ -95,7 +95,7 @@ export type LaunchConfig = LaunchConfigInput & {
 };
 
 /** Everything a single build needs, assembled before any work starts. */
-export type ResolvedBuildContext = Readonly<{
+export type BuildContext = Readonly<{
   platform: Platform;
   app: AppDescriptor;
   profile: BuildProfile;

@@ -7,7 +7,7 @@ import type { PlayReview } from '../types/google/reviews.ts';
 import {
   confirmGoogleStoreWrite,
   loadActiveGoogleStore,
-  resolveGoogleStoreApp,
+  readGoogleStoreApp,
 } from './google-store-command.ts';
 import { listPlayReviews, replyToPlayReview, type PlayReviewFilters } from './play-reviews.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
@@ -281,7 +281,7 @@ async function readPlayReplyText(commandInput: PlayReviewsReplyInput): Promise<s
 
 async function listRecentPlayReviews(commandInput: PlayReviewsListInput): Promise<void> {
   const rating = parsePlayReviewRating(commandInput.rating);
-  const selectedApp = await resolveGoogleStoreApp(commandInput.app);
+  const selectedApp = await readGoogleStoreApp(commandInput.app);
   const googleStore = await loadActiveGoogleStore(selectedApp.packageName, selectedApp.appName);
   let reviewFilters: PlayReviewFilters = { unansweredOnly: commandInput.unanswered };
 
@@ -338,7 +338,7 @@ function hasExistingReply(existingReview: PlayReview | null): boolean {
 
 async function replyToRecentPlayReview(commandInput: PlayReviewsReplyInput): Promise<void> {
   const replyText = await readPlayReplyText(commandInput);
-  const selectedApp = await resolveGoogleStoreApp(commandInput.app);
+  const selectedApp = await readGoogleStoreApp(commandInput.app);
   const googleStore = await loadActiveGoogleStore(selectedApp.packageName, selectedApp.appName);
   const existingReview = await googleStore.getReview(
     selectedApp.packageName,
@@ -395,10 +395,8 @@ async function runPlayReviewsOperation(commandInput: PlayReviewsCommandInput): P
 
 /** Run one schema-decoded Play reviews operation. */
 export async function playReviewsCommandProgram(rawCommandInput: unknown): Promise<void> {
-  let commandInput: PlayReviewsCommandInput;
-
   try {
-    commandInput = decodePlayReviewsCommandInput(rawCommandInput);
+    var commandInput = decodePlayReviewsCommandInput(rawCommandInput);
   } catch (cause) {
     throw playReviewsFailure('list', cause);
   }

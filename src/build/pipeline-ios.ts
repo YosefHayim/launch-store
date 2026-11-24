@@ -10,9 +10,9 @@ import { rememberLastRun } from '../distribution/last-run.ts';
 import { withSpinner } from '../services/platform/progress.ts';
 import { distributeArtifact } from '../distribution/distribute.ts';
 import type { BuildRunOptions, PreparedBuild } from '../types/build-run.ts';
-import { DRY_RUN_KEY, resolveBuildEngineName } from './pipeline-providers.ts';
-import { resolveIosAccount, resolveSigning } from './pipeline-signing.ts';
-import { nextBuildNumber, resolveMarketingVersion, setIosBuildNumber } from './pipeline-version.ts';
+import { DRY_RUN_KEY, readBuildEngineName } from './pipeline-providers.ts';
+import { readIosAccount, readSigning } from './pipeline-signing.ts';
+import { nextBuildNumber, readMarketingVersion, setIosBuildNumber } from './pipeline-version.ts';
 import {
   ensureNativeProject,
   receiptDestination,
@@ -20,7 +20,7 @@ import {
   reportCcacheStats,
   reportProcessing,
   reportSize,
-  resolveAscBuildLink,
+  readAscBuildLink,
   runBuildStep,
   storeArtifact,
   nudgeIfNoCcache,
@@ -81,7 +81,7 @@ function bundleIdentifier(app: AppDescriptor): string {
   return app.bundleId;
 }
 
-async function readIosAccount(
+async function loadIosAccount(
   isDryRun: boolean,
   buildOptions: BuildRunOptions,
   log: Logger,
@@ -91,7 +91,7 @@ async function readIosAccount(
     return undefined;
   }
 
-  const account = await resolveIosAccount(buildOptions, log);
+  const account = await readIosAccount(buildOptions, log);
 
   buildContext.account = account.keyId;
 
@@ -108,9 +108,9 @@ async function readIosCredentials(
   }
 
   const credentialsProvider = getCredentialsProvider(launchConfig.credentials);
-  const resolved = await credentialsProvider.resolveBuildCredentials(buildContext);
+  const buildCredentials = await credentialsProvider.readBuildCredentials(buildContext);
 
-  return resolved;
+  return buildCredentials;
 }
 
 function iosBuildKind(cleanBuilt: boolean): string {
@@ -149,17 +149,17 @@ export async function runIosBuild(
   const buildContext = prepared.buildContext;
   const log = prepared.log;
   const isDryRun = buildOptions.dryRun == true;
-  const buildEngineName = resolveBuildEngineName(launchConfig, 'ios');
+  const buildEngineName = readBuildEngineName(launchConfig, 'ios');
   const buildEngine = getBuildEngine(buildEngineName);
   const appVersion = marketingVersion(app);
 
   await ensureNativeProject(buildContext, log, launchConfig.prebuild);
 
-  const account = await readIosAccount(isDryRun, buildOptions, log, buildContext);
+  const account = await loadIosAccount(isDryRun, buildOptions, log, buildContext);
   const loadedCredentials = await readIosCredentials(isDryRun, launchConfig, buildContext);
-  const resolved = requireAppleCredentials(loadedCredentials, launchConfig.credentials);
+  const storeCredentials = requireAppleCredentials(loadedCredentials, launchConfig.credentials);
 
-  let credentialsDescription = `key ${resolved.ascKey.keyId}`;
+  let credentialsDescription = `key ${storeCredentials.ascKey.keyId}`;
 
   if (isDryRun) {
     credentialsDescription = 'dry-run (no key needed)';
@@ -167,24 +167,28 @@ export async function runIosBuild(
 
   log.step('credentials', credentialsDescription, 'asc-api-key');
 
-  const signing = await resolveSigning(
-    resolved,
+  const signing = await readSigning(
+    storeCredentials,
     app,
     buildContext.platform,
     log,
     isDryRun,
     buildContext.distribution,
   );
-  const credentials: BuildCredentials = { platform: 'ios', ascKey: resolved.ascKey, signing };
+  const credentials: BuildCredentials = {
+    platform: 'ios',
+    ascKey: storeCredentials.ascKey,
+    signing,
+  };
   const bundleId = bundleIdentifier(app);
   const isInternal = buildContext.distribution == 'internal';
-  let resolvedBump: BumpKind | undefined;
+  let bump: BumpKind | undefined;
 
   const shouldSuggestVersion = shouldSuggestMarketingVersion(buildOptions.submit, isInternal);
 
   if (shouldSuggestVersion) {
-    resolvedBump = await resolveMarketingVersion(
-      resolved.ascKey,
+    bump = await readMarketingVersion(
+      storeCredentials.ascKey,
       bundleId,
       app,
       buildContext.platform,
@@ -194,7 +198,7 @@ export async function runIosBuild(
   }
 
   async function readNextBuildNumber(): Promise<number> {
-    const buildNumber = await nextBuildNumber(resolved.ascKey, bundleId, isDryRun);
+    const buildNumber = await nextBuildNumber(storeCredentials.ascKey, bundleId, isDryRun);
 
     return buildNumber;
   }
@@ -263,7 +267,7 @@ export async function runIosBuild(
       appVersion,
       buildNumber,
       bundleId,
-      resolvedBump,
+      bump,
     );
 
     return;
@@ -277,7 +281,7 @@ export async function runIosBuild(
     buildNumber,
     compiled.sizeReport,
     credentials,
-    resolved.ascKey,
+    storeCredentials.ascKey,
     bundleId,
   );
 
@@ -289,7 +293,7 @@ export async function runIosBuild(
   const hasAccount = account != null;
 
   if (hasAccount) {
-    await refreshIdentityIfStale(account, resolved.ascKey);
+    await refreshIdentityIfStale(account, storeCredentials.ascKey);
   }
 
   let link: string | undefined;
@@ -297,7 +301,7 @@ export async function runIosBuild(
   const shouldLink = shouldResolveStoreLink(buildOptions.submit, bundleId);
 
   if (shouldLink) {
-    link = await resolveAscBuildLink(resolved.ascKey, bundleId);
+    link = await readAscBuildLink(storeCredentials.ascKey, bundleId);
   }
 
   await renderReceipt({
@@ -309,7 +313,7 @@ export async function runIosBuild(
     link,
     log,
   });
-  await rememberLastRun(app.name, resolvedBump);
+  await rememberLastRun(app.name, bump);
 }
 
 async function finishInternalIosBuild(
@@ -319,7 +323,7 @@ async function finishInternalIosBuild(
   appVersion: string,
   buildNumber: number,
   bundleId: string,
-  resolvedBump: BumpKind | undefined,
+  bump: BumpKind | undefined,
 ): Promise<void> {
   const isDryRun = buildOptions.dryRun == true;
 
@@ -340,7 +344,7 @@ async function finishInternalIosBuild(
     return;
   }
 
-  await rememberLastRun(prepared.app.name, resolvedBump);
+  await rememberLastRun(prepared.app.name, bump);
 }
 
 async function submitIosWhenRequested(

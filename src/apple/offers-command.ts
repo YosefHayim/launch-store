@@ -6,7 +6,7 @@ import { completeCommand } from '../terminal/command-exit.ts';
 import { executeGenerateCodes } from './offers-generate-codes.ts';
 import { executeListOfferCodes } from './offers-list.ts';
 import { executeOffersReconcile } from './offers-reconcile.ts';
-import { findOfferCode, offersFailure, resolveSubscription } from './offers-subscription.ts';
+import { findOfferCode, offersFailure, readSubscription } from './offers-subscription.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
 
@@ -195,18 +195,15 @@ export function OffersCommandInputSchema(rawCommandInput: unknown): OffersComman
 async function executeDeactivateOfferCode(commandInput: OffersDeactivateInput): Promise<void> {
   try {
     const logger = createLogger(false);
-    const resolvedSubscription = await resolveSubscription(
-      commandInput.app,
-      commandInput.productId,
-    );
+    const chosenSubscription = await readSubscription(commandInput.app, commandInput.productId);
     const offerCode = await findOfferCode(
-      resolvedSubscription,
+      chosenSubscription,
       commandInput.productId,
       commandInput.offerName,
     );
 
     try {
-      await resolvedSubscription.appleStore.deactivateOfferCode(offerCode.id);
+      await chosenSubscription.appleStore.deactivateOfferCode(offerCode.id);
     } catch (cause) {
       throw offersFailure('deactivate offer-code campaign', cause);
     }
@@ -223,10 +220,8 @@ async function executeDeactivateOfferCode(commandInput: OffersDeactivateInput): 
 /** Decode and run the selected offers command operation. */
 async function executeOffersCommand(rawCommandInput: unknown): Promise<number> {
   try {
-    let commandInput: OffersCommandInput;
-
     try {
-      commandInput = OffersCommandInputSchema(rawCommandInput);
+      var commandInput = OffersCommandInputSchema(rawCommandInput);
     } catch (cause) {
       throw offersFailure('decode offers command input', cause);
     }

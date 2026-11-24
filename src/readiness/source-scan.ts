@@ -31,10 +31,8 @@ async function readIgnoredDirectories(sourceRoot: string): Promise<Set<string>> 
     return new Set<string>();
   }
 
-  let gitignoreSource = '';
-
   try {
-    gitignoreSource = await readFile(gitignorePath, 'utf8');
+    var gitignoreSource = await readFile(gitignorePath, 'utf8');
   } catch (cause) {
     const isUnreadable = errorMessage(cause) != '';
 
@@ -125,10 +123,8 @@ export async function walkAppSource(
       return true;
     }
 
-    let entryNames: string[] = [];
-
     try {
-      entryNames = await readdir(directoryPath);
+      var entryNames = await readdir(directoryPath);
     } catch (cause) {
       const isUnreadable = errorMessage(cause) != '';
 

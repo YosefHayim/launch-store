@@ -125,12 +125,10 @@ function selectOffersApps(apps: AppDescriptor[], appSelector: string | undefined
 }
 
 /** Build runnable offer jobs from discovered apps and their bundle-keyed catalogs. */
-async function resolveOffersJobs(appSelector: string | undefined): Promise<OffersJob[]> {
+async function readOffersJobs(appSelector: string | undefined): Promise<OffersJob[]> {
   const launchPaths = readLaunchDirectories();
-  let loadedConfiguration: Awaited<ReturnType<typeof loadConfig>>;
-
   try {
-    loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
+    var loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
   } catch (cause) {
     throw offersFailure('load offers configuration', cause);
   }
@@ -216,10 +214,8 @@ async function confirmOffersWrite(mutationCount: number, assumeYes: boolean): Pr
     );
   }
 
-  let confirmed = false;
-
   try {
-    confirmed = await new LaunchPrompt().confirm(
+    var confirmed = await new LaunchPrompt().confirm(
       `Apply ${mutationCount} offer change(s) to App Store Connect?`,
     );
   } catch (cause) {
@@ -304,7 +300,7 @@ function hasPlannedAction(plannedActions: readonly PlannedAction[]): boolean {
 export async function executeOffersReconcile(commandInput: OffersReconcileInput): Promise<number> {
   try {
     const logger = createLogger(false);
-    const offersJobs = await resolveOffersJobs(commandInput.app);
+    const offersJobs = await readOffersJobs(commandInput.app);
 
     const hasNoJobs = offersJobs.length == 0;
 
@@ -315,10 +311,8 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
       return 0;
     }
 
-    let appleStore: AppStoreConnect;
-
     try {
-      appleStore = await loadActiveAppleStore();
+      var appleStore = await loadActiveAppleStore();
     } catch (cause) {
       throw offersFailure('load App Store Connect client', cause);
     }

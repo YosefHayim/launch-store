@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
 import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import type { Logger } from '../services/platform/logger.ts';
-import { resolveCredentialsDirectory } from '../services/platform/paths.ts';
+import { readCredentialsDirectory } from '../services/platform/paths.ts';
 
 const PRIVATE_KEY_ACCOUNT = 'ota-code-signing-key';
 
@@ -34,7 +34,7 @@ function signDryRun(): string {
 
 /** Load or generate the local Expo Updates signing key and public certificate. */
 export async function ensureCodeSigner(dryRun: boolean, logger: Logger): Promise<CodeSigner> {
-  const credentialsDirectory = resolveCredentialsDirectory();
+  const credentialsDirectory = readCredentialsDirectory();
   const publicCertificatePath = join(credentialsDirectory, 'launch-code-signing.pem');
 
   if (dryRun) {

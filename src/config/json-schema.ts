@@ -55,8 +55,8 @@ function matchesType(candidateValue: unknown, typeName: string): boolean {
   return jsonTypeOf(candidateValue) == typeName;
 }
 
-/** Resolve a percent-encoded JSON pointer (`#/definitions/Foo`) against the root document, or undefined. */
-function resolveRef(ref: string, root: JsonSchema): JsonSchema | undefined {
+/** Read a percent-encoded JSON pointer (`#/definitions/Foo`) against the root document, or undefined. */
+function readRef(ref: string, root: JsonSchema): JsonSchema | undefined {
   if (!ref.startsWith('#/')) {
     return undefined;
   }
@@ -242,13 +242,13 @@ export const validate = (
   path = '',
 ): SchemaViolation[] => {
   if (schema.$ref) {
-    const resolved = resolveRef(schema.$ref, root);
+    const referredSchema = readRef(schema.$ref, root);
 
-    if (!resolved) {
+    if (!referredSchema) {
       return [{ path, message: `unresolved schema reference ${schema.$ref}` }];
     }
 
-    return validate(candidateValue, resolved, root, path);
+    return validate(candidateValue, referredSchema, root, path);
   }
 
   if (schema.anyOf) {

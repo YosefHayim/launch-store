@@ -5,7 +5,7 @@ import { loadActiveAscKey } from '../../credentials/accounts.ts';
 import { loadServiceAccount } from '../../credentials/android-keystore-assets.ts';
 import { AppleStoreClientService } from '../../services/stores/apple-store-client.ts';
 import { GoogleStoreClientService } from '../../services/stores/google-store-client.ts';
-import { createAscClientResolver, createPlayClientResolver } from './store-clients.ts';
+import { createAscClientReader, createPlayClientReader } from './store-clients.ts';
 vi.mock('../../credentials/accounts.ts', function mockAccounts() {
   return { loadActiveAscKey: vi.fn() };
 });
@@ -74,17 +74,17 @@ function prepare() {
 
 beforeEach(prepare);
 
-function describeCreateAscClientResolver() {
+function describeCreateAscClientReader() {
   async function loadsCredentialsAndConstructsTheClientOnce() {
     vi.mocked(loadActiveAscKey).mockResolvedValue({ keyId: 'K', issuerId: 'I', p8: 'pem' });
 
     const createClient = vi
       .spyOn(AppleStoreClientService.prototype, 'createClient')
       .mockReturnValue(appStoreClient);
-    const resolveAppStoreClient = createAscClientResolver();
+    const readAppStoreClient = createAscClientReader();
 
-    const firstClient = await resolveAppStoreClient();
-    const secondClient = await resolveAppStoreClient();
+    const firstClient = await readAppStoreClient();
+    const secondClient = await readAppStoreClient();
 
     expect(firstClient).toBe(secondClient);
     expect(loadActiveAscKey).toHaveBeenCalledTimes(1);
@@ -102,10 +102,10 @@ function describeCreateAscClientResolver() {
     const createClient = vi
       .spyOn(AppleStoreClientService.prototype, 'createClient')
       .mockReturnValue(appStoreClient);
-    const resolveAppStoreClient = createAscClientResolver();
+    const readAppStoreClient = createAscClientReader();
 
-    expect(await resolveAppStoreClient()).toBeNull();
-    expect(await resolveAppStoreClient()).toBeNull();
+    expect(await readAppStoreClient()).toBeNull();
+    expect(await readAppStoreClient()).toBeNull();
     expect(loadActiveAscKey).toHaveBeenCalledTimes(1);
     expect(createClient).not.toHaveBeenCalled();
   }
@@ -116,19 +116,19 @@ function describeCreateAscClientResolver() {
   );
 }
 
-describe('createAscClientResolver', describeCreateAscClientResolver);
+describe('createAscClientReader', describeCreateAscClientReader);
 
-function describeCreatePlayClientResolver() {
+function describeCreatePlayClientReader() {
   async function loadsTheServiceAccountAndConstructsTheClientOnce() {
     vi.mocked(loadServiceAccount).mockResolvedValue('{}');
 
     const createClient = vi
       .spyOn(GoogleStoreClientService.prototype, 'createClient')
       .mockReturnValue(playStoreClient);
-    const resolvePlayStoreClient = createPlayClientResolver();
+    const readPlayStoreClient = createPlayClientReader();
 
-    const firstClient = await resolvePlayStoreClient('com.example.demo');
-    const secondClient = await resolvePlayStoreClient('com.example.demo');
+    const firstClient = await readPlayStoreClient('com.example.demo');
+    const secondClient = await readPlayStoreClient('com.example.demo');
 
     expect(firstClient).toBe(secondClient);
     expect(loadServiceAccount).toHaveBeenCalledTimes(1);
@@ -146,10 +146,10 @@ function describeCreatePlayClientResolver() {
     const createClient = vi
       .spyOn(GoogleStoreClientService.prototype, 'createClient')
       .mockReturnValue(playStoreClient);
-    const resolvePlayStoreClient = createPlayClientResolver();
+    const readPlayStoreClient = createPlayClientReader();
 
-    expect(await resolvePlayStoreClient('com.example.demo')).toBeNull();
-    expect(await resolvePlayStoreClient('com.example.demo')).toBeNull();
+    expect(await readPlayStoreClient('com.example.demo')).toBeNull();
+    expect(await readPlayStoreClient('com.example.demo')).toBeNull();
     expect(loadServiceAccount).toHaveBeenCalledTimes(1);
     expect(createClient).not.toHaveBeenCalled();
   }
@@ -160,7 +160,7 @@ function describeCreatePlayClientResolver() {
   );
 }
 
-describe('createPlayClientResolver', describeCreatePlayClientResolver);
+describe('createPlayClientReader', describeCreatePlayClientReader);
 
 function describePerPackagePlayClientResolution() {
   async function loadsEachPackageAccountIndependentlyInsteadOfReusingTheFirstAppAccount() {
@@ -172,11 +172,11 @@ function describePerPackagePlayClientResolution() {
     const createClient = vi
       .spyOn(GoogleStoreClientService.prototype, 'createClient')
       .mockReturnValue(playStoreClient);
-    const resolvePackageClient = createPlayClientResolver();
+    const readPackageClient = createPlayClientReader();
 
-    await resolvePackageClient('com.example.alpha');
-    await resolvePackageClient('com.example.beta');
-    await resolvePackageClient('com.example.alpha');
+    await readPackageClient('com.example.alpha');
+    await readPackageClient('com.example.beta');
+    await readPackageClient('com.example.alpha');
 
     expect(loadServiceAccount).toHaveBeenCalledTimes(2);
     expect(loadServiceAccount).toHaveBeenCalledWith('com.example.alpha');
@@ -187,7 +187,7 @@ function describePerPackagePlayClientResolution() {
     expect(createClient).toHaveBeenCalledWith(serialized);
     expect(createClient).toHaveBeenCalledWith(JSON.stringify({ packageName: 'com.example.beta' }));
 
-    const packageClient = await resolvePackageClient();
+    const packageClient = await readPackageClient();
 
     expect(packageClient).toBeNull();
   }

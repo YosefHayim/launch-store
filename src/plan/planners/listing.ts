@@ -76,7 +76,7 @@ export const listingPlanner: SurfacePlanner = {
       return { surface: SURFACE, store: 'appstore', state: 'omitted' };
     }
 
-    const api = await planContext.resolveAscApi();
+    const api = await planContext.readAscApi();
 
     if (isAppleAccountMissing(api)) {
       return {

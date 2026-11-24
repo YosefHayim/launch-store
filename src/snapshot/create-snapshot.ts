@@ -131,10 +131,8 @@ export async function createSnapshot(command: CreateCommand): Promise<void> {
     name: snapshotName,
     capturedAt,
   });
-  let snapshotPath: string;
-
   try {
-    snapshotPath = await saveSnapshot(captureOutcome.snapshot);
+    var snapshotPath = await saveSnapshot(captureOutcome.snapshot);
   } catch (cause) {
     throw snapshotFailure('save store snapshot', cause);
   }

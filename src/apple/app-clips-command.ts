@@ -92,8 +92,8 @@ function renderApplied(plannedAction: PlannedAction): string {
   return renderAppliedStoreSurfaceAction(plannedAction);
 }
 
-/** Resolve the selected bundle id and its App Clips declaration. */
-async function resolveAppClipsTarget(
+/** Read the selected bundle id and its App Clips declaration. */
+async function readAppClipsTarget(
   commandInput: AppClipsCommandInput,
 ): Promise<Readonly<{ bundleId: string; appClipsConfig: AppClipsConfig }>> {
   try {
@@ -130,15 +130,13 @@ async function resolveAppClipsTarget(
 /** Plan, confirm, and apply App Clip card changes. */
 async function executeAppClips(rawCommandInput: unknown): Promise<number> {
   try {
-    let commandInput: AppClipsCommandInput;
-
     try {
-      commandInput = AppClipsCommandInputSchema(rawCommandInput);
+      var commandInput = AppClipsCommandInputSchema(rawCommandInput);
     } catch (cause) {
       throw appClipsFailure('decode App Clips command input', cause);
     }
 
-    const appClipsTarget = await resolveAppClipsTarget(commandInput);
+    const appClipsTarget = await readAppClipsTarget(commandInput);
     const logger = createLogger(false);
 
     try {
@@ -192,10 +190,8 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
       return 0;
     }
 
-    let confirmed = false;
-
     try {
-      confirmed = await confirmStoreSurfaceWrite(
+      var confirmed = await confirmStoreSurfaceWrite(
         `Apply ${plannedActions.length} App Clip change(s) to App Store Connect?`,
         commandInput.yes,
       );

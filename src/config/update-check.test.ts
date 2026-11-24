@@ -97,7 +97,7 @@ function makeDeps(overrides: Partial<UpdateCheckDeps> = {}): {
   deps: UpdateCheckDeps;
   calls: {
     fetch: number;
-    resolveInstaller: number;
+    readInstaller: number;
     upgrade: number;
     reexec: number;
     writes: UpdateState[];
@@ -106,14 +106,14 @@ function makeDeps(overrides: Partial<UpdateCheckDeps> = {}): {
 } {
   const calls: {
     fetch: number;
-    resolveInstaller: number;
+    readInstaller: number;
     upgrade: number;
     reexec: number;
     writes: UpdateState[];
     notes: string[];
   } = {
     fetch: 0,
-    resolveInstaller: 0,
+    readInstaller: 0,
     upgrade: 0,
     reexec: 0,
     writes: [],
@@ -127,8 +127,8 @@ function makeDeps(overrides: Partial<UpdateCheckDeps> = {}): {
     environmentVariables: {},
     isTTY: true,
     scriptPath: '/usr/local/lib/node_modules/launch-store/dist/cli/index.js',
-    async resolveInstaller(): Promise<GlobalInstaller | null> {
-      calls.resolveInstaller += 1;
+    async readInstaller(): Promise<GlobalInstaller | null> {
+      calls.readInstaller += 1;
 
       return 'npm';
     },
@@ -195,7 +195,7 @@ function describeMaybeAutoUpgrade() {
 
     await maybeAutoUpgrade(deps);
     expect(calls.writes).toHaveLength(1);
-    expect(calls.resolveInstaller).toBe(0);
+    expect(calls.readInstaller).toBe(0);
     expect(calls.upgrade).toBe(0);
     expect(calls.reexec).toBe(0);
   }
@@ -242,7 +242,7 @@ function describeMaybeAutoUpgrade() {
   async function upgradesRelaunchesAndNamesPnpmForAPnpmInstall() {
     const usedInstallers: GlobalInstaller[] = [];
     const { deps, calls } = makeDeps({
-      async resolveInstaller() {
+      async readInstaller() {
         return 'pnpm';
       },
       async upgrade(installer) {
@@ -267,7 +267,7 @@ function describeMaybeAutoUpgrade() {
 
   async function onlyNotifiesForAProjectOrNpxInstall() {
     const { deps, calls } = makeDeps({
-      async resolveInstaller() {
+      async readInstaller() {
         return null;
       },
     });

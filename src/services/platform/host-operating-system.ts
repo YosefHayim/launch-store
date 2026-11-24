@@ -30,7 +30,7 @@ export function checkIsMacOperatingSystem(): boolean {
   return detectHostOperatingSystem() == 'macos';
 }
 
-export function resolveHostOperatingSystemLabel(): string {
+export function readHostOperatingSystemLabel(): string {
   switch (detectHostOperatingSystem()) {
     case 'macos':
       return 'macOS';

@@ -131,7 +131,7 @@ function parseBuildDistribution(distribution: string | undefined): Distribution 
   }
 }
 
-function resolveBuildRemoteTarget(remote: string | boolean | undefined): RemoteTarget | undefined {
+function readBuildRemoteTarget(remote: string | boolean | undefined): RemoteTarget | undefined {
   switch (remote) {
     case undefined:
     case false:
@@ -257,7 +257,7 @@ export function parseBuildCommandInput(
   commandOptions: BuildCommandOptions,
 ): BuildRunOptions {
   const platform = parseBuildPlatformArgument(platformArgument);
-  const remote = resolveBuildRemoteTarget(commandOptions.remote);
+  const remote = readBuildRemoteTarget(commandOptions.remote);
   const track = parseBuildTrack(commandOptions.track);
   const rollout = parseBuildRollout(commandOptions.rollout);
   const distribution = parseBuildDistribution(commandOptions.distribution);

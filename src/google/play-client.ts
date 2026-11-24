@@ -654,10 +654,8 @@ function isServiceAccountParseError(cause: unknown): cause is ServiceAccountPars
 }
 
 export function readServiceAccount(serviceAccountJson: string): ServiceAccount {
-  let parsed: unknown;
-
   try {
-    parsed = JSON.parse(serviceAccountJson);
+    var parsed = JSON.parse(serviceAccountJson);
   } catch (cause) {
     throw makeServiceAccountParseError({
       message: SERVICE_ACCOUNT_JSON_MESSAGE,
@@ -1283,10 +1281,8 @@ export class GooglePlayClient {
    * @see {@link https://developers.google.com/android-publisher/api-ref/rest/v3/edits/insert}
    */
   async assertAppExists(packageName: string, fields: string | null = null): Promise<void> {
-    let editId: string;
-
     try {
-      editId = await this.createEdit(packageName, fields);
+      var editId = await this.createEdit(packageName, fields);
     } catch (cause) {
       const isPlayFailure = isGooglePlayApiError(cause);
 

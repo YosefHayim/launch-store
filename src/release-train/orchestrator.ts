@@ -383,7 +383,7 @@ function isCarStillMoving(trainCar: Car): boolean {
   return isCarTerminal(trainCar) == false;
 }
 
-/** Resolve the process exit code for a train record. */
+/** Read the process exit code for a train record. */
 export function trainExitCode(trainRecord: TrainRecord): number {
   const nativeCars = trainRecord.cars.filter(isNativeCar);
   const hasNativeFailure = nativeCars.some(isNativeFailure);

@@ -14,7 +14,7 @@ import {
   locatePortfolioFilePath,
   locateStatsDirectory,
   resetLaunchDirectories,
-  resolveAccountCredentialsDirectory,
+  readAccountCredentialsDirectory,
   useLaunchDirectories,
 } from './paths.ts';
 
@@ -71,7 +71,7 @@ function describePathsOneCanonicalLayoutForLaunch() {
   it('creates directories through the file system', createsDirectoriesThroughTheFileSystem);
 
   function buildsAccountPathsFromTheHomeDirectory() {
-    const accountDirectory = resolveAccountCredentialsDirectory('KEY/42');
+    const accountDirectory = readAccountCredentialsDirectory('KEY/42');
     const homeDirectory = homedir();
     const key42Path = join(homeDirectory, '.launch', 'credentials', 'KEY42');
     expect(accountDirectory).toBe(key42Path);

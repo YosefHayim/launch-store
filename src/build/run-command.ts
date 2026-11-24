@@ -4,7 +4,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadConfig } from '../config/config.ts';
-import { resolveStorageProvider } from '../distribution/storage.ts';
+import { readStorageProvider } from '../distribution/storage.ts';
 import { pathExists } from '../path-exists.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { executeCommand } from '../services/platform/execute-command.ts';
@@ -202,7 +202,7 @@ async function installAppleArtifact(
 async function findRunnableArtifact(reference: string): Promise<BuildArtifact> {
   const launchPaths = readLaunchDirectories();
   const loadedLaunch = await loadConfig(launchPaths.workingDirectory);
-  const storageProvider = await resolveStorageProvider(
+  const storageProvider = await readStorageProvider(
     loadedLaunch.config,
     launchPaths.workingDirectory,
   );

@@ -1,12 +1,12 @@
 // Builds App Store Connect and Google Play page links and opens one in the browser.
 
-import { loadConfig, type LoadedConfig } from '../config/config.ts';
+import { loadConfig } from '../config/config.ts';
 import { executeCommand } from '../services/platform/execute-command.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 import { detectHostOperatingSystem } from '../services/platform/host-operating-system.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { isApplePlatform, parsePlatform } from '../services/stores/platform.ts';
-import { createAscClientResolver } from '../store/shared/store-clients.ts';
+import { createAscClientReader } from '../store/shared/store-clients.ts';
 import { selectApps } from '../store/shared/sync-jobs.ts';
 import type { AppDescriptor, OpenTarget, Platform } from '../types/app.ts';
 
@@ -100,7 +100,7 @@ export class ConsoleLinks {
     });
   }
 
-  resolveOpenPlatform(target: OpenTarget, platformFlag: string | undefined): 'ios' | 'android' {
+  readOpenPlatform(target: OpenTarget, platformFlag: string | undefined): 'ios' | 'android' {
     if (platformFlag != null) {
       return this.readFlaggedOpenPlatform(platformFlag);
     }
@@ -117,10 +117,8 @@ export class ConsoleLinks {
     platform: Platform,
     appSelector: string | undefined,
   ): Promise<AppDescriptor> {
-    let selectedApps: readonly AppDescriptor[] = [];
-
     try {
-      selectedApps = await selectApps(discoveredApps, appSelector);
+      var selectedApps = await selectApps(discoveredApps, appSelector);
     } catch (cause) {
       throw this.consoleLinkError('select app to open', cause);
     }
@@ -156,17 +154,15 @@ export class ConsoleLinks {
     );
   }
 
-  async resolveOpenUrl(
+  async readOpenUrl(
     rawTarget: string | undefined,
     openChoice: { platform?: string; app?: string },
   ): Promise<string> {
     const target = this.parseOpenTarget(rawTarget);
-    const platform = this.resolveOpenPlatform(target, openChoice.platform);
+    const platform = this.readOpenPlatform(target, openChoice.platform);
     const launchPaths = readLaunchDirectories();
-    let loadedLaunchFile: LoadedConfig;
-
     try {
-      loadedLaunchFile = await loadConfig(launchPaths.workingDirectory);
+      var loadedLaunchFile = await loadConfig(launchPaths.workingDirectory);
     } catch (cause) {
       throw this.consoleLinkError('load configuration for console link', cause);
     }
@@ -229,7 +225,7 @@ export class ConsoleLinks {
   }
 
   private async connectAppleStore(): Promise<AppleAppLookup | null> {
-    const readAppleStore = createAscClientResolver();
+    const readAppleStore = createAscClientReader();
 
     try {
       return await readAppleStore();

@@ -3,7 +3,7 @@
 import { hasMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import type { ConvertedPrices, PlayMoneyUnits } from '../types/google/monetization.ts';
-import { loadActiveGoogleStore, resolveGoogleStoreApp } from './google-store-command.ts';
+import { loadActiveGoogleStore, readGoogleStoreApp } from './google-store-command.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export type PlayPricingCommandInput = {
@@ -256,10 +256,8 @@ export function renderRecommendedPrices(
 
 /** Decode, convert, and render one Play pricing request. */
 export async function playPricingCommandProgram(rawCommandInput: unknown): Promise<void> {
-  let commandInput: PlayPricingCommandInput;
-
   try {
-    commandInput = decodePlayPricingCommandInput(rawCommandInput);
+    var commandInput = decodePlayPricingCommandInput(rawCommandInput);
   } catch (cause) {
     throw pricingFailure('decode', 'Could not decode the Play pricing command input.', cause);
   }
@@ -269,17 +267,15 @@ export async function playPricingCommandProgram(rawCommandInput: unknown): Promi
   let appName = '';
 
   try {
-    const selectedApp = await resolveGoogleStoreApp(commandInput.app);
+    const selectedApp = await readGoogleStoreApp(commandInput.app);
     packageName = selectedApp.packageName;
     appName = selectedApp.appName;
   } catch (cause) {
     throw pricingFailure('app', 'Could not select an app.', cause);
   }
 
-  let googleStore: Awaited<ReturnType<typeof loadActiveGoogleStore>>;
-
   try {
-    googleStore = await loadActiveGoogleStore(packageName, appName);
+    var googleStore = await loadActiveGoogleStore(packageName, appName);
   } catch (cause) {
     throw pricingFailure(
       'credentials',
@@ -288,10 +284,8 @@ export async function playPricingCommandProgram(rawCommandInput: unknown): Promi
     );
   }
 
-  let convertedPrices: ConvertedPrices;
-
   try {
-    convertedPrices = await googleStore.convertRegionPrices(packageName, basePrice);
+    var convertedPrices = await googleStore.convertRegionPrices(packageName, basePrice);
   } catch (cause) {
     throw pricingFailure('conversion', 'Google Play could not convert the base price.', cause);
   }

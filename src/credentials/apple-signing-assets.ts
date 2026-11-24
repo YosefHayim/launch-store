@@ -5,9 +5,9 @@ import { basename, join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import {
-  resolveAccountCredentialsDirectory,
-  resolveCredentialsDirectory,
-  resolveProvisioningProfilesDirectory,
+  readAccountCredentialsDirectory,
+  readCredentialsDirectory,
+  readProvisioningProfilesDirectory,
 } from '../services/platform/paths.ts';
 import {
   createAppleCredentialsClient,
@@ -27,7 +27,7 @@ import {
   ensureAppStoreProfileForBundle,
   ensureRegisteredBundleId,
   installProfile,
-  resolveProfileTeamId,
+  readProfileTeamId,
 } from './apple-signing-profiles.ts';
 
 /** Inputs for {@link ensureSigningCredentials}. */
@@ -78,7 +78,7 @@ export async function loadCachedSigningAssets(
     return null;
   }
 
-  const provisioningProfilesDirectory = resolveProvisioningProfilesDirectory();
+  const provisioningProfilesDirectory = readProvisioningProfilesDirectory();
   const installedProfile = join(provisioningProfilesDirectory, `${profile.uuid}.mobileprovision`);
   const isCertificatePresent = await pathExists(cert.p12Path);
 
@@ -134,7 +134,7 @@ export async function loadCachedSigningAssets(
 
 /** A SigningAssets stand-in for `--dry-run`, so the rest of the pipeline can run unchanged. */
 function dryRunAssets(bundleId: string): SigningAssets {
-  const provisioningProfilesDirectory = resolveProvisioningProfilesDirectory();
+  const provisioningProfilesDirectory = readProvisioningProfilesDirectory();
 
   return {
     bundleId,
@@ -159,7 +159,7 @@ function dryRunExtensionName(extensionId: string): [string, string] {
   return [extensionId, `Launch_${extensionId}_AppStore`];
 }
 
-/** Resolve a bundle's signing assets */
+/** Read a bundle's signing assets */
 export async function ensureSigningCredentials(
   signingOptions: EnsureSigningOptions,
 ): Promise<SigningAssets> {
@@ -247,10 +247,8 @@ const AD_HOC_UNAVAILABLE_MESSAGE =
   'has no ad-hoc provisioning profile. Submit to the store or choose another platform.';
 
 function readAdHocProfileType(platform: Platform): 'IOS_APP_ADHOC' | 'TVOS_APP_ADHOC' {
-  let profileType: ReturnType<typeof adHocProfileType>;
-
   try {
-    profileType = adHocProfileType(platform);
+    var profileType: ReturnType<typeof adHocProfileType> = adHocProfileType(platform);
   } catch (cause) {
     throw new Error(`${platformLabel(platform)} ${AD_HOC_UNAVAILABLE_MESSAGE}`, { cause });
   }
@@ -262,7 +260,7 @@ function readAdHocProfileType(platform: Platform): 'IOS_APP_ADHOC' | 'TVOS_APP_A
   return profileType;
 }
 
-/** Resolve signing assets for an ad-hoc (internal-distribution) build */
+/** Read signing assets for an ad-hoc (internal-distribution) build */
 export async function ensureAdHocSigningCredentials(
   signingOptions: EnsureSigningOptions,
 ): Promise<SigningAssets> {
@@ -348,7 +346,7 @@ export async function ensureAdHocSigningCredentials(
 
   signingOptions.log.step('profile', `created ${profileName} (ad-hoc)`, 'provisioning-profile');
 
-  const teamId = resolveProfileTeamId(installed.teamId, bundle.seedId);
+  const teamId = readProfileTeamId(installed.teamId, bundle.seedId);
 
   return {
     bundleId: signingOptions.bundleId,
@@ -373,12 +371,12 @@ export type RemoteSigningBundle = {
   profilePath: string;
 };
 
-/** Resolve a bundle's signing assets for a REMOTE (off-Mac) build */
+/** Read a bundle's signing assets for a REMOTE (off-Mac) build */
 export async function ensureRemoteSigningAssets(
   signingOptions: EnsureSigningOptions,
 ): Promise<RemoteSigningBundle> {
   if (signingOptions.dryRun) {
-    const credentialsDirectory = resolveAccountCredentialsDirectory(signingOptions.ascKey.keyId);
+    const credentialsDirectory = readAccountCredentialsDirectory(signingOptions.ascKey.keyId);
 
     signingOptions.log.note(
       `[dry-run] would ensure App ID + distribution .p12 + App Store profile for ${signingOptions.bundleId}, ready to upload`,
@@ -419,7 +417,7 @@ export async function ensureRemoteSigningAssets(
     createConfirmMessage:
       'Create a new distribution certificate (generates a private key on this machine)?',
   });
-  const profile = await resolveRemoteProfile({
+  const profile = await readRemoteProfile({
     client,
     bundleIdResourceId: bundle.id,
     certId: ensuredCertificate.cert.id,
@@ -428,7 +426,7 @@ export async function ensureRemoteSigningAssets(
     bundleId: signingOptions.bundleId,
     log: signingOptions.log,
   });
-  const credentialsDirectory = resolveAccountCredentialsDirectory(keyId);
+  const credentialsDirectory = readAccountCredentialsDirectory(keyId);
 
   await mkdir(credentialsDirectory, { recursive: true });
 
@@ -455,7 +453,7 @@ export async function ensureRemoteSigningAssets(
   };
 }
 
-async function resolveRemoteProfile(remoteProfile: {
+async function readRemoteProfile(remoteProfile: {
   client: AppleCredentialsClient;
   bundleIdResourceId: string;
   certId: string;
@@ -507,7 +505,7 @@ async function createRemoteProfile(
 
 /** Move an old flat signing index into the per-account layout. */
 export async function migrateLegacySigningIndex(keyId: string): Promise<void> {
-  const credentialsDirectory = resolveCredentialsDirectory();
+  const credentialsDirectory = readCredentialsDirectory();
   const legacyIndexPath = join(credentialsDirectory, 'index.json');
   const hasLegacyIndex = await pathExists(legacyIndexPath);
 
@@ -515,10 +513,8 @@ export async function migrateLegacySigningIndex(keyId: string): Promise<void> {
     return;
   }
 
-  let indexText: string;
-
   try {
-    indexText = await readFile(legacyIndexPath, 'utf8');
+    var indexText = await readFile(legacyIndexPath, 'utf8');
   } catch (error) {
     const isUnreadable = error != null;
 
@@ -529,10 +525,8 @@ export async function migrateLegacySigningIndex(keyId: string): Promise<void> {
     return;
   }
 
-  let parsedIndex: unknown;
-
   try {
-    parsedIndex = JSON.parse(indexText);
+    var parsedIndex = JSON.parse(indexText);
   } catch (error) {
     const isMalformed = error != null;
 
@@ -549,7 +543,7 @@ export async function migrateLegacySigningIndex(keyId: string): Promise<void> {
     return;
   }
 
-  const destinationDirectory = resolveAccountCredentialsDirectory(keyId);
+  const destinationDirectory = readAccountCredentialsDirectory(keyId);
 
   await mkdir(destinationDirectory, { recursive: true });
 

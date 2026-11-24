@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { buildLogId, buildLogPath } from './build-log.ts';
 
-function resolveTestLogPath(buildIdentifier: string): string {
+function readTestLogPath(buildIdentifier: string): string {
   useLaunchDirectories({ homeDirectory: '/tmp', workingDirectory: '/workspace' });
 
   return buildLogPath(buildIdentifier);
@@ -36,7 +36,7 @@ describe('buildLogId', describeBuildLogId);
 
 function describeBuildLogPath() {
   function derivesALogFilenameUnderTheLogsDirFromTheId() {
-    expect(resolveTestLogPath('demo-1.2.0-7-ios').endsWith('demo-1.2.0-7-ios.log')).toBe(true);
+    expect(readTestLogPath('demo-1.2.0-7-ios').endsWith('demo-1.2.0-7-ios.log')).toBe(true);
   }
 
   it(
@@ -45,7 +45,7 @@ function describeBuildLogPath() {
   );
 
   function sanitizesFilesystemUnsafeCharactersInTheId() {
-    expect(resolveTestLogPath('a/b c').endsWith('a-b-c.log')).toBe(true);
+    expect(readTestLogPath('a/b c').endsWith('a-b-c.log')).toBe(true);
   }
 
   it(

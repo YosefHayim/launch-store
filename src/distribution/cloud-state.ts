@@ -3,10 +3,7 @@
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import type { HostHandle, SshTarget } from '../types/remote.ts';
-import {
-  resolveCloudStateFilePath,
-  resolveLaunchHomeDirectory,
-} from '../services/platform/paths.ts';
+import { readCloudStateFilePath, readLaunchHomeDirectory } from '../services/platform/paths.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 type CloudState = {
@@ -202,7 +199,7 @@ function decodeCloudState(stateText: string): CloudState {
 }
 
 export async function readCloudState(): Promise<CloudState> {
-  const cloudStateFilePath = resolveCloudStateFilePath();
+  const cloudStateFilePath = readCloudStateFilePath();
 
   try {
     const stateExists = await pathExists(cloudStateFilePath);
@@ -226,8 +223,8 @@ export async function readCloudState(): Promise<CloudState> {
 }
 
 async function writeCloudState(cloudState: CloudState): Promise<void> {
-  const launchHomeDirectory = resolveLaunchHomeDirectory();
-  const cloudStateFilePath = resolveCloudStateFilePath();
+  const launchHomeDirectory = readLaunchHomeDirectory();
+  const cloudStateFilePath = readCloudStateFilePath();
 
   await mkdir(launchHomeDirectory, { recursive: true });
 

@@ -138,14 +138,12 @@ function pickScreenshotDirectory(home: ScreenshotFileHome): string {
   return loadedDirectory;
 }
 
-/** Resolve the selected bundle, its experiments, and treatment screenshots. */
-async function resolveExperimentsTarget(
+/** Read the selected bundle, its experiments, and treatment screenshots. */
+async function readExperimentsTarget(
   commandInput: VersionExperimentsCommandInput,
 ): Promise<ExperimentsTarget> {
-  let storeAppContext: Awaited<ReturnType<typeof loadStoreAppContext>>;
-
   try {
-    storeAppContext = await loadStoreAppContext(commandInput.app);
+    var storeAppContext = await loadStoreAppContext(commandInput.app);
   } catch (cause) {
     throw experimentsFailure('select experiments app', cause);
   }
@@ -172,10 +170,8 @@ async function resolveExperimentsTarget(
     );
   }
 
-  let loadedConfiguration: Awaited<ReturnType<typeof loadConfig>>;
-
   try {
-    loadedConfiguration = await loadConfig();
+    var loadedConfiguration = await loadConfig();
   } catch (cause) {
     throw experimentsFailure('read treatment screenshots', cause);
   }
@@ -187,10 +183,8 @@ async function resolveExperimentsTarget(
     loadedDirectory: loadedConfiguration.directory,
   });
   const experimentsFilePath = join(screenshotDirectory, 'launch.config.ts');
-  let treatmentScreenshots: ReadonlyMap<string, readonly LocalScreenshot[]>;
-
   try {
-    treatmentScreenshots = await discoverTreatmentScreenshots(
+    var treatmentScreenshots = await discoverTreatmentScreenshots(
       experimentsFilePath,
       experimentsForBundle,
     );
@@ -209,12 +203,10 @@ function isPlannedAction(plannedAction: PlannedAction): boolean {
 async function executeVersionExperiments(rawCommandInput: unknown): Promise<number> {
   try {
     const commandInput = decodeVersionExperimentsCommandInput(rawCommandInput);
-    const experimentsTarget = await resolveExperimentsTarget(commandInput);
+    const experimentsTarget = await readExperimentsTarget(commandInput);
     const logger = createLogger(false);
-    let appleStore: Awaited<ReturnType<typeof loadActiveAppleStore>>;
-
     try {
-      appleStore = await loadActiveAppleStore();
+      var appleStore = await loadActiveAppleStore();
     } catch (cause) {
       throw experimentsFailure('load App Store Connect client', cause);
     }
@@ -226,10 +218,8 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
       submit: commandInput.submit,
       start: commandInput.start,
     };
-    let experimentsPlan: Awaited<ReturnType<typeof reconcileVersionExperiments>>;
-
     try {
-      experimentsPlan = await reconcileVersionExperiments(appleStore, {
+      var experimentsPlan = await reconcileVersionExperiments(appleStore, {
         ...reconciliationInput,
         dryRun: true,
       });
@@ -268,10 +258,8 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
       return 0;
     }
 
-    let confirmed = false;
-
     try {
-      confirmed = await confirmStoreSurfaceWrite(
+      var confirmed = await confirmStoreSurfaceWrite(
         `Apply ${plannedActions.length} experiment change(s) to App Store Connect?`,
         commandInput.yes,
       );
@@ -285,10 +273,8 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
       return 0;
     }
 
-    let appliedExperiments: Awaited<ReturnType<typeof reconcileVersionExperiments>>;
-
     try {
-      appliedExperiments = await reconcileVersionExperiments(appleStore, {
+      var appliedExperiments = await reconcileVersionExperiments(appleStore, {
         ...reconciliationInput,
         dryRun: false,
       });

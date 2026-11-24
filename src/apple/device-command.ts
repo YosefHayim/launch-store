@@ -63,35 +63,22 @@ export function DeviceCommandInputSchema(rawCommandInput: unknown): DeviceComman
   throw new Error('Device command operation must be add or list.');
 }
 
-function readNonEmptyText(cause: unknown): string | null {
-  const isNotText = typeof cause != 'string';
+/** Convert a dependency failure into an Error. */
+function deviceCommandFailure(operation: DeviceCommandInput['operation'], cause: unknown): never {
+  const causeText = typeof cause == 'string' ? cause : '';
+  const isBlankCauseText = causeText.length == 0;
 
-  if (isNotText) return null;
-
-  const isEmpty = cause.length == 0;
-
-  if (isEmpty) return null;
-
-  return cause;
-}
-
-function readCauseMessage(cause: unknown, fallback: string): string {
-  const textMessage = readNonEmptyText(cause);
-
-  if (textMessage != null) return textMessage;
+  if (isBlankCauseText == false) {
+    throw new Error(causeText, { cause });
+  }
 
   const hasCauseMessage = hasMessage(cause);
 
-  if (hasCauseMessage) return cause.message;
+  if (hasCauseMessage) {
+    throw new Error(cause.message, { cause });
+  }
 
-  return fallback;
-}
-
-/** Convert a dependency failure into an Error. */
-function deviceCommandFailure(operation: DeviceCommandInput['operation'], cause: unknown): never {
-  const message = readCauseMessage(cause, `Device ${operation} failed.`);
-
-  throw new Error(message, { cause });
+  throw new Error(`Device ${operation} failed.`, { cause });
 }
 
 /** Render one registered device for the list view. */
@@ -159,10 +146,8 @@ async function runDeviceOperation(commandInput: DeviceCommandInput): Promise<voi
 
 /** Run one schema-decoded device command. */
 export async function deviceCommandProgram(rawCommandInput: unknown): Promise<void> {
-  let commandInput: DeviceCommandInput;
-
   try {
-    commandInput = DeviceCommandInputSchema(rawCommandInput);
+    var commandInput = DeviceCommandInputSchema(rawCommandInput);
   } catch (cause) {
     throw deviceCommandFailure('list', cause);
   }

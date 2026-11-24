@@ -6,13 +6,13 @@ import {
   exportOptionsPlist,
   parseThinningReport,
 } from '../../services/provider-support/apple-artifact.ts';
-import { xcodebuildEnv, resolveNativeDir } from './xcode.ts';
+import { xcodebuildEnv, readNativeDir } from './xcode.ts';
 
 const MB = 1024 ** 2;
 
 function describeResolveNativeDirAbsoluteNativeProjectPathSoGymCanTDoubleTheSubpathInAMonorepo() {
   function returnsAnAbsolutePathForARelativeAppDirTheMonorepoAppRootsCase() {
-    const iosDirectory = resolveNativeDir('apps/sampleapp', 'ios');
+    const iosDirectory = readNativeDir('apps/sampleapp', 'ios');
     expect(isAbsolute(iosDirectory)).toBe(true);
     expect(iosDirectory.endsWith('/apps/sampleapp/ios')).toBe(true);
     expect(iosDirectory).not.toContain('apps/sampleapp/apps/sampleapp');
@@ -24,16 +24,16 @@ function describeResolveNativeDirAbsoluteNativeProjectPathSoGymCanTDoubleTheSubp
   );
 
   function leavesAnAlreadyAbsoluteAppDirUntouched() {
-    const nativeDir = resolveNativeDir('/Users/x/acme/apps/sampleapp', 'ios');
+    const nativeDir = readNativeDir('/Users/x/acme/apps/sampleapp', 'ios');
     expect(nativeDir).toBe('/Users/x/acme/apps/sampleapp/ios');
   }
 
   it('leaves an already-absolute app dir untouched', leavesAnAlreadyAbsoluteAppDirUntouched);
 
   function mapsEachApplePlatformToItsNativeProjectDirectoryTvOSSharesIos() {
-    expect(resolveNativeDir('/a', 'tvos').endsWith('/a/ios')).toBe(true);
-    expect(resolveNativeDir('/a', 'macos').endsWith('/a/macos')).toBe(true);
-    expect(resolveNativeDir('/a', 'visionos').endsWith('/a/visionos')).toBe(true);
+    expect(readNativeDir('/a', 'tvos').endsWith('/a/ios')).toBe(true);
+    expect(readNativeDir('/a', 'macos').endsWith('/a/macos')).toBe(true);
+    expect(readNativeDir('/a', 'visionos').endsWith('/a/visionos')).toBe(true);
   }
 
   it(
@@ -43,7 +43,7 @@ function describeResolveNativeDirAbsoluteNativeProjectPathSoGymCanTDoubleTheSubp
 }
 
 describe(
-  "resolveNativeDir - absolute native-project path so gym can't double the subpath in a monorepo",
+  "readNativeDir - absolute native-project path so gym can't double the subpath in a monorepo",
   describeResolveNativeDirAbsoluteNativeProjectPathSoGymCanTDoubleTheSubpathInAMonorepo,
 );
 

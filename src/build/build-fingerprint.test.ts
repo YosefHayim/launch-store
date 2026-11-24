@@ -9,7 +9,7 @@ import {
   estimateFor,
   extractNativeConfigSlice,
   readBuildState,
-  resolveClean,
+  pickClean,
   updateEstimate,
   writeBuildState,
 } from './build-fingerprint.ts';
@@ -143,13 +143,13 @@ function describeResolveClean() {
   };
 
   function forcesACleanWhenRequested() {
-    const clean = resolveClean(true, storedBuild, 'abc');
+    const clean = pickClean(true, storedBuild, 'abc');
 
     expect(clean).toMatchObject({
       clean: true,
       nativeChanged: false,
     });
-    expect(resolveClean(true, storedBuild, 'xyz')).toMatchObject({
+    expect(pickClean(true, storedBuild, 'xyz')).toMatchObject({
       clean: true,
       nativeChanged: true,
     });
@@ -158,10 +158,10 @@ function describeResolveClean() {
   it('forces a clean when requested', forcesACleanWhenRequested);
 
   function cleansOnTheFirstBuildOrAChangedFingerprint() {
-    const clean = resolveClean(false, null, 'abc');
+    const clean = pickClean(false, null, 'abc');
 
     expect(clean).toMatchObject({ clean: true, nativeChanged: true });
-    expect(resolveClean(false, storedBuild, 'xyz')).toMatchObject({
+    expect(pickClean(false, storedBuild, 'xyz')).toMatchObject({
       clean: true,
       nativeChanged: true,
     });
@@ -173,7 +173,7 @@ function describeResolveClean() {
   );
 
   function reusesCachesWhenTheFingerprintMatches() {
-    const clean = resolveClean(false, storedBuild, 'abc');
+    const clean = pickClean(false, storedBuild, 'abc');
 
     expect(clean).toMatchObject({
       clean: false,
@@ -184,7 +184,7 @@ function describeResolveClean() {
   it('reuses caches when the fingerprint matches', reusesCachesWhenTheFingerprintMatches);
 }
 
-describe('resolveClean', describeResolveClean);
+describe('pickClean', describeResolveClean);
 
 function describeBuildPieceStorage() {
   let temporaryDirectory: string;

@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { ARTIFACTS_DIR } from '../services/platform/paths.ts';
 import {
   registerStorageProvider,
-  registerStorageProviderResolver,
+  registerStorageProviderReader,
 } from '../services/provider-support/registry.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
 import type { LaunchConfig } from '../types/config.ts';
@@ -13,8 +13,8 @@ import type { StorageProvider } from '../types/providers.ts';
 import {
   ensureArtifactPresent,
   isCloudStorage,
-  resolveArtifactDir,
-  resolveStorageProvider,
+  readArtifactDir,
+  readStorageProvider,
 } from './storage.ts';
 
 function makeStorageProvider(name: string, publicBaseUrl = 'file://test'): StorageProvider {
@@ -41,10 +41,10 @@ function makeStorageProvider(name: string, publicBaseUrl = 'file://test'): Stora
   };
 }
 
-function makeStorageResolver(name: string) {
+function makeStorageReader(name: string) {
   return {
     name,
-    resolveStorageProvider() {
+    readStorageProvider() {
       const storageProvider = makeStorageProvider(name);
       return Promise.resolve(storageProvider);
     },
@@ -52,9 +52,9 @@ function makeStorageResolver(name: string) {
 }
 
 function prepareAll() {
-  const storageResolver = makeStorageResolver('local');
+  const storageReader = makeStorageReader('local');
 
-  registerStorageProviderResolver(storageResolver);
+  registerStorageProviderReader(storageReader);
 
   const storageProvider = makeStorageProvider('local');
 
@@ -75,25 +75,25 @@ function configWith(storage: string): LaunchConfig {
 
 function describeResolveStorageProvider() {
   async function returnsTheLocalProviderForLocal() {
-    const storageProvider = await resolveStorageProvider(configWith('local'));
+    const storageProvider = await readStorageProvider(configWith('local'));
     expect(storageProvider.name).toBe('local');
   }
 
   it('returns the local provider for `local`', returnsTheLocalProviderForLocal);
 
   async function rejectsStorageOtherThanLocal() {
-    const storageProvider = resolveStorageProvider(configWith('other'));
+    const storageProvider = readStorageProvider(configWith('other'));
     await expect(storageProvider).rejects.toThrow(/only local artifact storage/i);
   }
 
   it('rejects storage other than local', rejectsStorageOtherThanLocal);
 }
 
-describe('resolveStorageProvider', describeResolveStorageProvider);
+describe('readStorageProvider', describeResolveStorageProvider);
 
 function describeResolveArtifactDir() {
   function fallsBackToTheGlobalLaunchArtifactsWhenUnsetBackCompat() {
-    const artifactDir = resolveArtifactDir(undefined);
+    const artifactDir = readArtifactDir(undefined);
     expect(artifactDir).toBe(ARTIFACTS_DIR);
   }
 
@@ -104,7 +104,7 @@ function describeResolveArtifactDir() {
 
   function failsOnAnEmptyStringALikelyPieceTypo() {
     function callResolveArtifactDir() {
-      return resolveArtifactDir('   ');
+      return readArtifactDir('   ');
     }
 
     expect(callResolveArtifactDir).toThrow(/must not be empty/);
@@ -113,7 +113,7 @@ function describeResolveArtifactDir() {
   it('fails on an empty string - a likely config typo', failsOnAnEmptyStringALikelyPieceTypo);
 
   function expandsALoneToTheHomeDirectory() {
-    const artifactDir = resolveArtifactDir('~');
+    const artifactDir = readArtifactDir('~');
     const homeDirectory = homedir();
     expect(artifactDir).toBe(homeDirectory);
   }
@@ -121,7 +121,7 @@ function describeResolveArtifactDir() {
   it('expands a lone ~ to the home directory', expandsALoneToTheHomeDirectory);
 
   function expandsALeadingAgainstTheHomeDirectory() {
-    const artifactDir = resolveArtifactDir('~/builds/out');
+    const artifactDir = readArtifactDir('~/builds/out');
     const homeDirectory = homedir();
     const absolutePath = resolve(homeDirectory, 'builds/out');
     expect(artifactDir).toBe(absolutePath);
@@ -130,14 +130,14 @@ function describeResolveArtifactDir() {
   it('expands a leading ~/ against the home directory', expandsALeadingAgainstTheHomeDirectory);
 
   function keepsAnAbsolutePathAsIs() {
-    const artifactDir = resolveArtifactDir('/var/launch/artifacts');
+    const artifactDir = readArtifactDir('/var/launch/artifacts');
     expect(artifactDir).toBe('/var/launch/artifacts');
   }
 
   it('keeps an absolute path as-is', keepsAnAbsolutePathAsIs);
 
   function resolvesARelativePathAgainstTheProjectRoot() {
-    const artifactDir = resolveArtifactDir('./.launch/artifacts', '/repo');
+    const artifactDir = readArtifactDir('./.launch/artifacts', '/repo');
     const absolutePath = resolve('/repo', '.launch/artifacts');
     expect(artifactDir).toBe(absolutePath);
   }
@@ -148,7 +148,7 @@ function describeResolveArtifactDir() {
   );
 }
 
-describe('resolveArtifactDir', describeResolveArtifactDir);
+describe('readArtifactDir', describeResolveArtifactDir);
 
 function describeIsCloudStorage() {
   function isFalseOnlyForLocalStorage() {

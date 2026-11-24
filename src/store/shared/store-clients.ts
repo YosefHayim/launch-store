@@ -9,12 +9,12 @@ type AppStoreClient = ReturnType<AppleStoreClientService['createClient']>;
 
 type PlayStoreClient = ReturnType<GoogleStoreClientService['createClient']>;
 
-/** Build one memoized App Store client resolver. */
-export function createAscClientResolver(): () => Promise<AppStoreClient | null> {
+/** Build one memoized App Store client reader. */
+export function createAscClientReader(): () => Promise<AppStoreClient | null> {
   let hasCachedClient = false;
   let cachedClient: AppStoreClient | null = null;
 
-  return async function resolveAscClient(): Promise<AppStoreClient | null> {
+  return async function readAscClient(): Promise<AppStoreClient | null> {
     if (hasCachedClient) {
       return cachedClient;
     }
@@ -34,13 +34,13 @@ export function createAscClientResolver(): () => Promise<AppStoreClient | null> 
   };
 }
 
-/** Build one memoized Google Play client resolver. */
-export function createPlayClientResolver(): (
+/** Build one memoized Google Play client reader. */
+export function createPlayClientReader(): (
   packageName?: string,
 ) => Promise<PlayStoreClient | null> {
   const clients = new Map<string, PlayStoreClient | null>();
 
-  return async function resolvePlayClient(packageName?: string): Promise<PlayStoreClient | null> {
+  return async function readPlayClient(packageName?: string): Promise<PlayStoreClient | null> {
     if (packageName == null) {
       return null;
     }

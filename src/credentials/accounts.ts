@@ -5,9 +5,9 @@ import { pathExists } from '../path-exists.ts';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import {
-  resolveAccountCredentialsDirectory,
-  resolveAccountsFilePath,
-  resolveLaunchHomeDirectory,
+  readAccountCredentialsDirectory,
+  readAccountsFilePath,
+  readLaunchHomeDirectory,
 } from '../services/platform/paths.ts';
 import { AppStoreIdentityService } from '../services/stores/app-store-identity.ts';
 import type { AccountRecord, AccountsFile, AscKey } from '../types/credentials.ts';
@@ -264,7 +264,7 @@ function decodeAccountsFile(candidate: unknown): AccountsFile | null {
 
 /** Read the registry, returning an empty one when the file is absent or malformed. */
 async function readAccounts(): Promise<AccountsFile> {
-  const accountsFilePath = resolveAccountsFilePath();
+  const accountsFilePath = readAccountsFilePath();
   const registryExists = await pathExists(accountsFilePath);
 
   if (registryExists == false) {
@@ -295,11 +295,11 @@ async function readAccounts(): Promise<AccountsFile> {
 /** Write the registry back to disk (pretty-printed; non-secret metadata only). */
 async function writeAccounts(accountsFile: AccountsFile): Promise<void> {
   try {
-    const launchHomeDirectory = resolveLaunchHomeDirectory();
+    const launchHomeDirectory = readLaunchHomeDirectory();
 
     await mkdir(launchHomeDirectory, { recursive: true });
 
-    const accountsFilePath = resolveAccountsFilePath();
+    const accountsFilePath = readAccountsFilePath();
     const serialized = JSON.stringify(accountsFile, null, 2);
 
     await writeFile(accountsFilePath, serialized);
@@ -629,7 +629,7 @@ export async function removeAccount(keyId: string): Promise<void> {
   await new LaunchSecretStore().deleteSecret(p8Account(keyId));
   await new LaunchSecretStore().deleteSecret(p12PasswordAccount(keyId));
 
-  const accountDirectory = resolveAccountCredentialsDirectory(keyId);
+  const accountDirectory = readAccountCredentialsDirectory(keyId);
 
   try {
     await rm(accountDirectory, { recursive: true, force: true });
@@ -794,16 +794,16 @@ export function decideBuildAccount(
   return { kind: 'pick' };
 }
 
-/** Options for {@link resolveBuildAccount}. */
-type ResolveBuildAccountRequest = {
+/** Options for {@link readBuildAccount}. */
+type BuildAccountRequest = {
   selector?: string | undefined;
   interactive: boolean;
   pick: (accounts: readonly AccountRecord[]) => Promise<AccountRecord>;
 };
 
-/** Resolve the account a build should use */
-export async function resolveBuildAccount(
-  accountRequest: ResolveBuildAccountRequest,
+/** Read the account a build should use */
+export async function readBuildAccount(
+  accountRequest: BuildAccountRequest,
 ): Promise<AccountRecord> {
   const accountsFile = await readAccounts();
   const decision = decideBuildAccount(accountsFile, accountRequest.selector);
@@ -825,7 +825,7 @@ export async function resolveBuildAccount(
   return accountRequest.pick(accountsFile.accounts);
 }
 
-function hasResolvedIdentity(account: AccountRecord): boolean {
+function hasStoredIdentity(account: AccountRecord): boolean {
   if (account.resolvedAt == null) {
     return false;
   }
@@ -838,12 +838,12 @@ export async function refreshIdentityIfStale(
   account: AccountRecord,
   ascKey: AscKey,
 ): Promise<void> {
-  if (hasResolvedIdentity(account)) {
+  if (hasStoredIdentity(account)) {
     return;
   }
 
   try {
-    const identity = await new AppStoreIdentityService().resolveIdentity(ascKey);
+    const identity = await new AppStoreIdentityService().readIdentity(ascKey);
     await updateAccountIdentity(account.keyId, identity.teamId, identity.apps);
   } catch (error) {
     const isAppleUnavailable = error != null;
@@ -856,7 +856,7 @@ export async function refreshIdentityIfStale(
 
 /** One-time, silent upgrade from the pre-multi-account layout. */
 export async function migrateLegacyAccounts(): Promise<void> {
-  const accountsFilePath = resolveAccountsFilePath();
+  const accountsFilePath = readAccountsFilePath();
 
   const registryExists = await pathExists(accountsFilePath);
 

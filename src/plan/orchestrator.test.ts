@@ -23,10 +23,10 @@ function makeCtx(): PlanContext {
   return {
     config,
     apps: [],
-    async resolveAscApi() {
+    async readAscApi() {
       return null;
     },
-    async resolvePlayApi() {
+    async readPlayApi() {
       return null;
     },
   };

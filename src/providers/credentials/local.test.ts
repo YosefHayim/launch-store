@@ -9,7 +9,7 @@ import {
 import { resetLaunchDirectories, useLaunchDirectories } from '../../services/platform/paths.ts';
 import { resetSecretStore, useSecretStore } from '../../services/credentials/secret-store.ts';
 import type { AppleCredentialAccountStatus } from '../../services/credentials/local-credentials-store.ts';
-import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildContext } from '../../types/config.ts';
 import type { AscKey } from '../../types/credentials.ts';
 import type { MutableDeep } from '../../types/mutable.ts';
 import { makeLocalCredentialsProvider, useCredentialsReader } from './local.ts';
@@ -81,8 +81,8 @@ function installCredentialReader(): void {
   });
 }
 
-function iosContext(account?: string): ResolvedBuildContext {
-  const buildContext: MutableDeep<ResolvedBuildContext> = {
+function iosContext(account?: string): BuildContext {
+  const buildContext: MutableDeep<BuildContext> = {
     platform: 'ios',
     app: {
       name: 'sampleapp',
@@ -129,7 +129,7 @@ function describeLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelect
   async function loadsTheActiveAccountSKeyWhenThePieceNamesNone() {
     const provider = makeLocalCredentialsProvider();
     const ios = iosContext();
-    const buildCredentials = await provider.resolveBuildCredentials(ios);
+    const buildCredentials = await provider.readBuildCredentials(ios);
 
     expect(buildCredentials.platform).toBe('ios');
 
@@ -146,7 +146,7 @@ function describeLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelect
   async function loadsThePieceSNamedAccountOverridingTheActiveOne() {
     const provider = makeLocalCredentialsProvider();
     const ios = iosContext('BBBB2222');
-    const buildCredentials = await provider.resolveBuildCredentials(ios);
+    const buildCredentials = await provider.readBuildCredentials(ios);
 
     if (buildCredentials.platform == 'ios') {
       expect(buildCredentials.ascKey).toEqual(KEY_B);
@@ -165,7 +165,7 @@ function describeLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelect
 
     const ios = iosContext();
 
-    await expect(provider.resolveBuildCredentials(ios)).rejects.toMatchObject({
+    await expect(provider.readBuildCredentials(ios)).rejects.toMatchObject({
       _tag: 'MissingCredentialsFailure',
       platform: 'apple',
       message: 'No App Store Connect API key found. Import one with: launch-store creds set-key',
@@ -179,7 +179,7 @@ function describeLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelect
 }
 
 describe(
-  'localCredentialsProvider.resolveBuildCredentials (iOS account selection)',
+  'localCredentialsProvider.readBuildCredentials (iOS account selection)',
   describeLocalCredentialsProviderResolveBuildCredentialsIOSAccountSelection,
 );
 
@@ -331,7 +331,7 @@ function describeLegacyAndroidBuildGuidance() {
 
   async function tellsALegacyOnlyUserHowToAdoptForTheSelectedApp() {
     const provider = makeLocalCredentialsProvider();
-    const context: ResolvedBuildContext = {
+    const context: BuildContext = {
       ...iosContext(),
       platform: 'android',
       app: {
@@ -342,7 +342,7 @@ function describeLegacyAndroidBuildGuidance() {
       },
     };
 
-    await expect(provider.resolveBuildCredentials(context)).rejects.toMatchObject({
+    await expect(provider.readBuildCredentials(context)).rejects.toMatchObject({
       _tag: 'MissingCredentialsFailure',
       platform: 'android',
     });

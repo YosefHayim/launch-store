@@ -2,7 +2,7 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { resolveLogsDirectory } from '../services/platform/paths.ts';
+import { readLogsDirectory } from '../services/platform/paths.ts';
 import { redactText } from '../services/platform/redact.ts';
 import type { Platform } from '../types/app.ts';
 
@@ -19,9 +19,9 @@ export function buildLogId(buildKey: BuildLogKey): string {
   return `${buildKey.appName}-${buildKey.version}-${buildKey.buildNumber}-${buildKey.platform}`;
 }
 
-/** Resolve the persisted log path for a build identifier. */
+/** Read the persisted log path for a build identifier. */
 export function buildLogPath(buildIdentifier: string): string {
-  const logsDirectory = resolveLogsDirectory();
+  const logsDirectory = readLogsDirectory();
   // Keep only characters that are safe in a log file name.
   const safeIdentifier = buildIdentifier.replace(/[^A-Za-z0-9._-]/g, '-');
 

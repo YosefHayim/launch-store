@@ -1,6 +1,6 @@
 // Reconciles App Store categories, age rating, price, and review details from launch.config.ts.
 
-import { resolveSecretRef } from '../credentials/secret-ref.ts';
+import { readSecretRef } from '../credentials/secret-ref.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { appRecordMissing, skip, type ReconcileContext } from '../store/shared/reconcile.ts';
 import {
@@ -66,7 +66,7 @@ type ReleaseReconcileInput = Readonly<{
   dryRun: boolean;
 }>;
 
-type SecretResolver = (secretReference: string, secretLabel: string) => Promise<string>;
+type SecretReader = (secretReference: string, secretLabel: string) => Promise<string>;
 
 function releaseAttributesMessage(cause: unknown, explicitMessage?: string): string {
   const hasExplicitMessage = explicitMessage != null;
@@ -388,10 +388,10 @@ function renderFieldNames(attributes: Record<string, string | boolean>): string 
   return Object.keys(attributes).join(', ');
 }
 
-/** Resolve a demo-password reference only when an action is applied. */
-async function resolveReviewWrite(
+/** Read a demo-password reference only when an action is applied. */
+async function readReviewWrite(
   attributes: Record<string, string | boolean>,
-  resolveDemoSecret: SecretResolver,
+  readDemoSecret: SecretReader,
 ): Promise<Record<string, string | boolean>> {
   const passwordReference = attributes[DEMO_PASSWORD_KEY];
   const isPasswordText = typeof passwordReference == 'string';
@@ -400,11 +400,11 @@ async function resolveReviewWrite(
     return attributes;
   }
 
-  const resolvedPassword = await resolveDemoSecret(passwordReference, DEMO_PASSWORD_KEY);
+  const password = await readDemoSecret(passwordReference, DEMO_PASSWORD_KEY);
 
   return {
     ...attributes,
-    [DEMO_PASSWORD_KEY]: resolvedPassword,
+    [DEMO_PASSWORD_KEY]: password,
   };
 }
 
@@ -415,7 +415,7 @@ async function reconcileReviewDetails(
   appId: string,
   platform: string,
   reviewDetails: ReviewDetailsConfig,
-  resolveDemoSecret: SecretResolver,
+  readDemoSecret: SecretReader,
 ): Promise<void> {
   const desiredAttributes = reviewAttributes(reviewDetails);
 
@@ -449,8 +449,8 @@ async function reconcileReviewDetails(
       reconcileContext,
       `set App Review details (${fieldNames})`,
       async function createReviewDetails() {
-        const resolvedAttributes = await resolveReviewWrite(desiredAttributes, resolveDemoSecret);
-        await appleReleaseApi.createAppStoreReviewDetail(editableVersion.id, resolvedAttributes);
+        const releaseAttributes = await readReviewWrite(desiredAttributes, readDemoSecret);
+        await appleReleaseApi.createAppStoreReviewDetail(editableVersion.id, releaseAttributes);
       },
     );
 
@@ -491,8 +491,8 @@ async function reconcileReviewDetails(
     reconcileContext,
     `update App Review details (${fieldNames})`,
     async function updateReviewDetails() {
-      const resolvedAttributes = await resolveReviewWrite(changedAttributes, resolveDemoSecret);
-      await appleReleaseApi.updateAppStoreReviewDetail(currentReviewDetails.id, resolvedAttributes);
+      const releaseAttributes = await readReviewWrite(changedAttributes, readDemoSecret);
+      await appleReleaseApi.updateAppStoreReviewDetail(currentReviewDetails.id, releaseAttributes);
     },
   );
 }
@@ -513,11 +513,11 @@ function needsAppInformation(releaseConfig: ReleaseAttributesConfig): boolean {
   return hasDeclaredAgeRating(releaseConfig);
 }
 
-/** Run reconciliation with an injected demo-secret resolver. */
+/** Run reconciliation with an injected demo-secret reader. */
 async function reconcileReleaseWith(
   appleReleaseApi: AscReleaseApi,
   reconciliationInput: ReleaseReconcileInput,
-  resolveDemoSecret: SecretResolver,
+  readDemoSecret: SecretReader,
 ): Promise<ReconcileReport> {
   const reconcileContext: ReconcileContext = {
     actions: [],
@@ -574,7 +574,7 @@ async function reconcileReleaseWith(
       appId,
       platform,
       releaseConfig.reviewDetails,
-      resolveDemoSecret,
+      readDemoSecret,
     );
   }
 
@@ -590,7 +590,7 @@ export async function reconcileRelease(
   reconciliationInput: ReleaseReconcileInput,
 ): Promise<ReconcileReport> {
   try {
-    return await reconcileReleaseWith(appleReleaseApi, reconciliationInput, resolveSecretRef);
+    return await reconcileReleaseWith(appleReleaseApi, reconciliationInput, readSecretRef);
   } catch (cause) {
     throw releaseAttributesFailure('reconcile release attributes', cause);
   }

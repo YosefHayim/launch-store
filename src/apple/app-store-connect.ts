@@ -410,10 +410,10 @@ export class AppStoreConnect {
    *
    * @see {@link https://developer.apple.com/documentation/appstoreconnectapi/get-v1-bundleids}
    */
-  async resolveTeamId(listQuery: AppleListQuery | null = null): Promise<string | null> {
+  async readTeamId(listQuery: AppleListQuery | null = null): Promise<string | null> {
     const connectClient = await this.openClient();
 
-    return connectClient.resolveTeamId(listQuery);
+    return connectClient.readTeamId(listQuery);
   }
 
   /**

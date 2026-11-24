@@ -17,14 +17,14 @@ afterEach(function resetAppleClient() {
 
 function installClient(methods: {
   assertReady: () => Promise<void>;
-  resolveTeamId: () => Promise<string | null>;
+  readTeamId: () => Promise<string | null>;
   listAppNames: () => Promise<string[]>;
 }): void {
   setAppleStoreClient(function createClient() {
     const client = Object.create(AppStoreConnect.prototype);
 
     client.assertReady = methods.assertReady;
-    client.resolveTeamId = methods.resolveTeamId;
+    client.readTeamId = methods.readTeamId;
     client.listAppNames = methods.listAppNames;
 
     return client;
@@ -39,7 +39,7 @@ function describeAppStoreIdentityService() {
 
     installClient({
       assertReady,
-      resolveTeamId: async function resolveTeamId() {
+      readTeamId: async function readTeamId() {
         return 'TEAM1';
       },
       listAppNames: async function listAppNames() {
@@ -64,7 +64,7 @@ function describeAppStoreIdentityService() {
       assertReady: async function failReady() {
         throw failure;
       },
-      resolveTeamId: async function resolveTeamId() {
+      readTeamId: async function readTeamId() {
         return 'TEAM1';
       },
       listAppNames: async function listAppNames() {
@@ -88,7 +88,7 @@ function describeAppStoreIdentityService() {
       assertReady: async function ready() {
         return undefined;
       },
-      resolveTeamId: async function failTeam() {
+      readTeamId: async function failTeam() {
         throw failure;
       },
       listAppNames: async function failApps() {

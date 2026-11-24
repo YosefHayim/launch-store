@@ -1,6 +1,6 @@
 // Drafts App Store Connect and Google Play listing copy to paste under listing.
 
-import { launchConfigForApp, loadConfig, readResolvedConfig } from '../config/config.ts';
+import { launchConfigForApp, loadConfig, readAppConfig } from '../config/config.ts';
 import { readLastApp } from '../distribution/last-run.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
@@ -154,8 +154,8 @@ function isPresentLocale(localeName: string): boolean {
   return localeName.length > 0;
 }
 
-/** Resolve explicit locales or reuse the current Apple listing locales. */
-export function resolveListingLocales(
+/** Read explicit locales or reuse the current Apple listing locales. */
+export function readListingLocales(
   localeSelector: string | undefined,
   storeConfiguration: StoreConfig,
 ): string[] {
@@ -333,7 +333,7 @@ function namedOrFallback(name: unknown, fallbackName: string): string {
 
 function displayNameFromExpo(
   expo: unknown,
-  resolvedAppConfig: Record<string, unknown>,
+  appConfig: Record<string, unknown>,
   fallbackName: string,
 ): string {
   const expoObject = readPlainObject(expo);
@@ -343,7 +343,7 @@ function displayNameFromExpo(
   }
 
   if (Object.hasOwn(expoObject, 'name') == false) {
-    return namedOrFallback(resolvedAppConfig['name'], fallbackName);
+    return namedOrFallback(appConfig['name'], fallbackName);
   }
 
   if (typeof expoObject['name'] != 'string') {
@@ -353,26 +353,23 @@ function displayNameFromExpo(
   return expoObject['name'];
 }
 
-function displayNameFromConfig(
-  resolvedAppConfig: Record<string, unknown>,
-  fallbackName: string,
-): string {
-  if (Object.hasOwn(resolvedAppConfig, 'expo')) {
-    return displayNameFromExpo(resolvedAppConfig['expo'], resolvedAppConfig, fallbackName);
+function displayNameFromConfig(appConfig: Record<string, unknown>, fallbackName: string): string {
+  if (Object.hasOwn(appConfig, 'expo')) {
+    return displayNameFromExpo(appConfig['expo'], appConfig, fallbackName);
   }
 
-  return namedOrFallback(resolvedAppConfig['name'], fallbackName);
+  return namedOrFallback(appConfig['name'], fallbackName);
 }
 
 /** Read the display name from resolved Expo configuration. */
-async function resolveDisplayName(selectedApp: AppDescriptor): Promise<string> {
-  const resolvedAppConfig = await readResolvedConfig(selectedApp.dir);
+async function readDisplayName(selectedApp: AppDescriptor): Promise<string> {
+  const appConfig = await readAppConfig(selectedApp.dir);
 
-  if (resolvedAppConfig == null) {
+  if (appConfig == null) {
     return selectedApp.name;
   }
 
-  return displayNameFromConfig(resolvedAppConfig, selectedApp.name);
+  return displayNameFromConfig(appConfig, selectedApp.name);
 }
 
 function readCurrentListing(
@@ -460,10 +457,10 @@ export async function runAiListing(
     const listingTargets = parseListingTargets(commandInput.platform);
     const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
     const selectedApp = await selectListingApp(loadedConfiguration.apps, commandInput.app);
-    const displayName = await resolveDisplayName(selectedApp);
+    const displayName = await readDisplayName(selectedApp);
     const appLaunch = await launchConfigForApp(loadedConfiguration.config, selectedApp.dir);
     const storeConfiguration = declaredStoreListing(appLaunch, selectedApp);
-    const locales = resolveListingLocales(commandInput.locale, storeConfiguration);
+    const locales = readListingLocales(commandInput.locale, storeConfiguration);
 
     logger.note(
       `Drafting ${locales.length} locale(s) for ${displayName} with ${listingGenerator.name}...`,

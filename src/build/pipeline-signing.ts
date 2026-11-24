@@ -8,11 +8,7 @@ import type {
   AppleCredentials,
   SigningAssets,
 } from '../types/credentials.ts';
-import {
-  formatAccountSummary,
-  resolveBuildAccount,
-  setActiveKeyId,
-} from '../credentials/accounts.ts';
+import { formatAccountSummary, readBuildAccount, setActiveKeyId } from '../credentials/accounts.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
@@ -51,8 +47,8 @@ async function pickAccount(
   return picked;
 }
 
-/** Resolve which Apple account an iOS build uses. */
-export async function resolveIosAccount(
+/** Read which Apple account an iOS build uses. */
+export async function readIosAccount(
   buildOptions: Pick<BuildRunOptions, 'account'>,
   log: Logger,
 ): Promise<AccountRecord> {
@@ -70,7 +66,7 @@ export async function resolveIosAccount(
     return pickAccount(launchPrompt, accounts);
   }
 
-  const account = await resolveBuildAccount({
+  const account = await readBuildAccount({
     selector: accountSelector,
     interactive,
     pick: pickAccounts,
@@ -100,10 +96,7 @@ function isNotMainBundle(mainBundleId: string | undefined) {
 }
 
 /** Union of configured extension ids and those discovered in the generated Xcode project. */
-async function resolveExtensionBundleIds(
-  app: AppDescriptor,
-  platform: Platform,
-): Promise<string[]> {
+async function readExtensionBundleIds(app: AppDescriptor, platform: Platform): Promise<string[]> {
   let configured: readonly string[] = [];
 
   if (app.iosExtensions != null) {
@@ -230,7 +223,7 @@ async function provisionInternalSigning(request: {
 }
 
 /** Reuse cached signing assets, or provision them inline. */
-export async function resolveSigning(
+export async function readSigning(
   credentials: AppleCredentials,
   app: AppDescriptor,
   platform: Platform,
@@ -264,7 +257,7 @@ export async function resolveSigning(
     return signingAssets;
   }
 
-  const extensions = await resolveExtensionBundleIds(app, platform);
+  const extensions = await readExtensionBundleIds(app, platform);
 
   if (isDryRun == false) {
     await warnUnreadySigningTargets(credentials.ascKey, app, bundleId, extensions, log);
@@ -361,7 +354,7 @@ function requireAndroidPackage(app: AppDescriptor): string {
 }
 
 /** Reuse a cached upload keystore, or provision one inline. */
-export async function resolveKeystore(
+export async function readKeystore(
   credentials: AndroidCredentials,
   app: AppDescriptor,
   log: Logger,

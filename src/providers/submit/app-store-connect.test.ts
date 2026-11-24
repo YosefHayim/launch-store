@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { BuildUploadStatus } from '../../types/apple/builds.ts';
-import type { ResolvedBuildContext } from '../../types/config.ts';
+import type { BuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
 
 const ascFake = vi.hoisted(function hoistAscFake() {
@@ -38,7 +38,7 @@ const submitter = makeAppStoreConnectSubmitter(1, 30 * 60 * 1000);
 const ipaPath = fileURLToPath(import.meta.url);
 const artifact = { path: ipaPath, version: '1.4.0', buildNumber: 42 };
 
-function iosContext(platform: ResolvedBuildContext['platform'] = 'ios'): ResolvedBuildContext {
+function iosContext(platform: BuildContext['platform'] = 'ios'): BuildContext {
   return {
     platform,
     app: {

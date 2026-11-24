@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { StorageProvider } from '../../types/providers.ts';
-import { makeLocalStorageProviderResolver } from './local.ts';
+import { makeLocalStorageProviderReader } from './local.ts';
 
 const temporaryRoots: string[] = [];
 
@@ -16,9 +16,9 @@ async function withStorage(
 
   temporaryRoots.push(directory);
 
-  const storageResolver = makeLocalStorageProviderResolver();
+  const storageReader = makeLocalStorageProviderReader();
   const storagePath = join(directory, 'storage');
-  const storage = await storageResolver.resolveStorageProvider({
+  const storage = await storageReader.readStorageProvider({
     artifactDirectory: storagePath,
   });
 

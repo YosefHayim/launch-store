@@ -24,7 +24,7 @@ async function readPlayClients(
   const clients: (PlayReadinessApi | null)[] = [];
 
   for (const app of apps) {
-    const client = await readinessContext.resolvePlayApi(app.identifier);
+    const client = await readinessContext.readPlayApi(app.identifier);
     clients.push(client);
   }
 

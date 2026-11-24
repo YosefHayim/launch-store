@@ -7,12 +7,8 @@ import { rememberLastRun } from '../distribution/last-run.ts';
 import { withSpinner } from '../services/platform/progress.ts';
 import { distributeArtifact } from '../distribution/distribute.ts';
 import type { BuildRunOptions, PreparedBuild } from '../types/build-run.ts';
-import {
-  resolveBuildEngineName,
-  resolveSizeBudgetMB,
-  submitToStores,
-} from './pipeline-providers.ts';
-import { resolveKeystore } from './pipeline-signing.ts';
+import { readBuildEngineName, readSizeBudgetMB, submitToStores } from './pipeline-providers.ts';
+import { readKeystore } from './pipeline-signing.ts';
 import { nextVersionCode, setAndroidVersionCode } from './pipeline-version.ts';
 import {
   confirmUpload,
@@ -143,9 +139,9 @@ async function readAndroidCredentials(
   }
 
   const credentialsProvider = getCredentialsProvider(launchConfig.credentials);
-  const resolved = await credentialsProvider.resolveBuildCredentials(buildContext);
+  const buildCredentials = await credentialsProvider.readBuildCredentials(buildContext);
 
-  return resolved;
+  return buildCredentials;
 }
 
 /** The Android spine: prebuild, keystore, versionCode, bundle, size, store, then Play submit. */
@@ -160,13 +156,13 @@ export async function runAndroidBuild(
   const isDryRun = buildOptions.dryRun == true;
   const appVersion = marketingVersion(app);
   const packageName = requirePackageName(app);
-  const buildEngineName = resolveBuildEngineName(launchConfig, 'android');
+  const buildEngineName = readBuildEngineName(launchConfig, 'android');
   const buildEngine = getBuildEngine(buildEngineName);
 
   await ensureAndroidProject(buildContext, log, launchConfig.prebuild);
 
   const loadedCredentials = await readAndroidCredentials(isDryRun, launchConfig, buildContext);
-  const resolved = requireAndroidCredentials(loadedCredentials, launchConfig.credentials);
+  const storeCredentials = requireAndroidCredentials(loadedCredentials, launchConfig.credentials);
   let credentialsDescription = 'service account loaded';
 
   if (isDryRun) {
@@ -175,17 +171,17 @@ export async function runAndroidBuild(
 
   log.step('credentials', credentialsDescription, 'service-account');
 
-  const keystore = await resolveKeystore(resolved, app, log, isDryRun);
+  const keystore = await readKeystore(storeCredentials, app, log, isDryRun);
   const credentials: BuildCredentials = {
     platform: 'android',
-    serviceAccountJson: resolved.serviceAccountJson,
+    serviceAccountJson: storeCredentials.serviceAccountJson,
     keystore,
   };
   const floor = configuredVersionCode(app);
 
   async function readNextVersionCode(): Promise<number> {
     const versionCode = await nextVersionCode(
-      resolved.serviceAccountJson,
+      storeCredentials.serviceAccountJson,
       packageName,
       floor,
       isDryRun,
@@ -364,7 +360,7 @@ async function submitAndroidWhenRequested(
 
   const priorBuild = await previousBuild(prepared.config, prepared.app, 'android', versionCode);
 
-  const sizeBudgetMB = resolveSizeBudgetMB(buildOptions, prepared.profile);
+  const sizeBudgetMB = readSizeBudgetMB(buildOptions, prepared.profile);
 
   await confirmUpload({
     report: sizeReport,
