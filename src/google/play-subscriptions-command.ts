@@ -1,7 +1,6 @@
 // Syncs Google Play subscription base plans and offers from the Launch catalog.
 
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import type { SubscriptionConfig } from '../types/catalog.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
@@ -15,6 +14,7 @@ import { reconcilePlaySubscriptions, summarizePlaySubscriptions } from './play-s
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export type PlaySubscriptionsCommandInput = {
   app?: string;
@@ -143,12 +143,12 @@ function appliedLine(appliedAction: Parameters<typeof renderAppliedPlayCatalogAc
 async function executePlaySubscriptions(rawCommandInput: unknown): Promise<number> {
   const commandInput = decodePlaySubscriptionsCommandInput(rawCommandInput);
   const subscriptionsTarget = await readSubscriptionsTarget(commandInput.app);
-  const logger = createLogger(false);
-
   if (subscriptionsTarget.subscriptions.length == 0) {
-    logger.gap();
-    logger.skip(
-      `${subscriptionsTarget.packageName}: no subscriptions carry a play override - nothing to reconcile`,
+    console.log('');
+    console.log(
+      redactText(
+        `${subscriptionsTarget.packageName}: no subscriptions carry a play override - nothing to reconcile`,
+      ),
     );
 
     return 0;
@@ -166,19 +166,27 @@ async function executePlaySubscriptions(rawCommandInput: unknown): Promise<numbe
   });
   const plannedActions = subscriptionsPlan.actions.filter(isPlanned);
 
-  logger.gap();
+  console.log('');
 
   if (subscriptionsPlan.actions.length == 0) {
-    logger.ok(`${subscriptionsTarget.packageName}: Play subscriptions already in sync`);
+    console.log(
+      redactText(`${subscriptionsTarget.packageName}: Play subscriptions already in sync`),
+    );
     return 0;
   }
 
-  logger.notice(subscriptionsTarget.packageName, ...subscriptionsPlan.actions.map(catalogLine));
-  logger.gap();
-  logger.note(`${plannedActions.length} change(s) for ${subscriptionsTarget.packageName}.`);
+  console.log(
+    redactText(
+      [subscriptionsTarget.packageName, ...subscriptionsPlan.actions.map(catalogLine)].join('\n  '),
+    ),
+  );
+  console.log('');
+  console.log(
+    redactText(`${plannedActions.length} change(s) for ${subscriptionsTarget.packageName}.`),
+  );
 
   if (commandInput.dryRun) {
-    logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+    console.log(redactText('Dry run - no changes made. Re-run without --dry-run to apply.'));
     return 0;
   }
 
@@ -204,7 +212,9 @@ async function executePlaySubscriptions(rawCommandInput: unknown): Promise<numbe
     receiptTitle = 'Applied with errors';
   }
 
-  logger.box(receiptTitle, appliedSubscriptions.actions.map(appliedLine));
+  console.log(
+    redactText([receiptTitle, ...appliedSubscriptions.actions.map(appliedLine)].join('\n  ')),
+  );
 
   return subscriptionsSummary.failed;
 }

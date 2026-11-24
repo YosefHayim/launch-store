@@ -1,12 +1,12 @@
 // Lists, creates, localizes, and deletes in-app events on App Store Connect.
 
-import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import { AppEvents, type AppEventWithLocalizations } from './app-events.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { readStoreBundleId } from '../store/shared/select-store-app.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 /** Options for creating a draft in-app event. */
 export type CreateEventCommandInput = Readonly<{
@@ -95,25 +95,26 @@ async function listEventsProgram(
     const appleStore = await loadActiveAppleStore();
     const events = new AppEvents(appleStore);
     const appEvents = await events.list(bundleId);
-    const logger = createLogger(false);
     const wantsJson = commandInput.json;
 
     if (wantsJson) {
       const serialized = JSON.stringify(appEvents, null, 2);
-      logger.line(serialized);
+      console.log(redactText(serialized));
       return;
     }
 
     const isEmpty = appEvents.length == 0;
 
     if (isEmpty) {
-      logger.line(
-        'No in-app events yet. Create one with `launch-store events create <referenceName> --badge ...`.',
+      console.log(
+        redactText(
+          'No in-app events yet. Create one with `launch-store events create <referenceName> --badge ...`.',
+        ),
       );
       return;
     }
 
-    logger.line(appEvents.map(eventBlock).join('\n\n'));
+    console.log(redactText(appEvents.map(eventBlock).join('\n\n')));
 
     let eventSuffix = 's';
 
@@ -123,7 +124,7 @@ async function listEventsProgram(
       eventSuffix = '';
     }
 
-    logger.line(`\n${appEvents.length} event${eventSuffix}.`);
+    console.log(redactText(`\n${appEvents.length} event${eventSuffix}.`));
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });
   }
@@ -150,12 +151,10 @@ async function createEventProgram(commandInput: CreateEventCommandInput): Promis
     if (hasEventState) {
       eventState = createdEvent.eventState;
     }
-
-    const logger = createLogger(false);
-
-    logger.step(
-      'event created',
-      `${createdEvent.id} - ${createdEvent.referenceName} (${eventState})`,
+    console.log(
+      redactText(
+        `event created - ${createdEvent.id} - ${createdEvent.referenceName} (${eventState})`,
+      ),
     );
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });
@@ -180,12 +179,10 @@ async function localizeEventProgram(commandInput: LocalizeEventCommandInput): Pr
     if (replacedExisting) {
       operationLabel = 'localization updated';
     }
-
-    const logger = createLogger(false);
-
-    logger.step(
-      operationLabel,
-      `[${localizationOutcome.localization.locale}] ${commandInput.eventId}`,
+    console.log(
+      redactText(
+        `${operationLabel} - [${localizationOutcome.localization.locale}] ${commandInput.eventId}`,
+      ),
     );
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });
@@ -227,10 +224,7 @@ async function deleteEventProgram(
     const events = new AppEvents(appleStore);
 
     await events.delete(commandInput.eventId);
-
-    const logger = createLogger(false);
-
-    logger.step('event deleted', commandInput.eventId);
+    console.log(redactText(`event deleted - ${commandInput.eventId}`));
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });
   }

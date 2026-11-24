@@ -1,9 +1,9 @@
 // Generates redeemable subscription offer codes on App Store Connect.
 
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import type { OffersGenerateCodesInput } from './offers-command.ts';
 import { findOfferCode, readSubscription } from './offers-subscription.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 function isInvalidCodeCount(codeCount: number): boolean {
   const isWholeNumber = Number.isInteger(codeCount);
@@ -18,7 +18,6 @@ function isInvalidCodeCount(codeCount: number): boolean {
 /** Generate custom or one-time-use redeemable codes. */
 export async function executeGenerateCodes(commandInput: OffersGenerateCodesInput): Promise<void> {
   try {
-    const logger = createLogger(false);
     const codeCount = Number.parseInt(commandInput.count, 10);
 
     const countIsInvalid = isInvalidCodeCount(codeCount);
@@ -49,9 +48,10 @@ export async function executeGenerateCodes(commandInput: OffersGenerateCodesInpu
         throw new Error(errorMessage(cause), { cause: cause });
       }
 
-      logger.step(
-        'offers',
-        `created custom code "${customCode}" (${codeCount} uses) on "${commandInput.offerName}"`,
+      console.log(
+        redactText(
+          `offers - created custom code "${customCode}" (${codeCount} uses) on "${commandInput.offerName}"`,
+        ),
       );
 
       return;
@@ -85,9 +85,10 @@ export async function executeGenerateCodes(commandInput: OffersGenerateCodesInpu
       throw new Error(errorMessage(cause), { cause: cause });
     }
 
-    logger.step(
-      'offers',
-      `generated ${codeCount} one-time-use code(s) on "${commandInput.offerName}" (expire ${expirationDate})`,
+    console.log(
+      redactText(
+        `offers - generated ${codeCount} one-time-use code(s) on "${commandInput.offerName}" (expire ${expirationDate})`,
+      ),
     );
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });

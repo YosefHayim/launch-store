@@ -2,7 +2,6 @@
 
 import { loadConfig } from '../config/config.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { Platform } from '../types/app.ts';
@@ -14,6 +13,7 @@ import { chooseAccountInteractive } from './choose-account-interactive.ts';
 import type { CredentialsCommandOptions } from './credentials-command-options.ts';
 import { commandCanPrompt, firstDefinedText } from './credentials-prompt.ts';
 import { selectConfiguredApp } from './select-configured-app.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 async function selectAppleAccount(
   commandOptions: CredentialsCommandOptions,
@@ -61,9 +61,6 @@ export async function setupIos(
   if (app.bundleId == null) {
     throw new Error(`No Apple bundle identifier is configured for ${app.name}.`);
   }
-
-  const logger = createLogger(false);
-
   function confirmCreate(message: string): Promise<boolean> {
     if (canPrompt == false) {
       return Promise.resolve(true);
@@ -77,12 +74,13 @@ export async function setupIos(
     bundleId: app.bundleId,
     appName: app.name,
     ascKey,
-    log: logger,
     dryRun: false,
     confirmCreate,
   });
 
-  logger.ok(
-    `Ready (${account.label}): certificate ${signingAssets.certSerial}, profile ${signingAssets.profileName}.`,
+  console.log(
+    redactText(
+      `Ready (${account.label}): certificate ${signingAssets.certSerial}, profile ${signingAssets.profileName}.`,
+    ),
   );
 }

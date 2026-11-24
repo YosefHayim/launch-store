@@ -3,7 +3,6 @@
 import { pathExists } from '../path-exists.ts';
 import { loadConfig } from '../config/config.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { ensureUploadKeystore, type KeystoreImport } from './android-keystore-assets.ts';
@@ -11,6 +10,7 @@ import type { CredentialsCommandOptions } from './credentials-command-options.ts
 import { displayPath, expandHomePath } from './credentials-paths.ts';
 import { commandCanPrompt, requireText } from './credentials-prompt.ts';
 import { selectConfiguredApp } from './select-configured-app.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 async function requireSecret(
   suppliedSecret: string | undefined,
@@ -84,8 +84,6 @@ export async function setupAndroid(commandOptions: CredentialsCommandOptions): P
   const loadedConfig = await loadConfig(launchPaths.workingDirectory);
   const app = await selectConfiguredApp(loadedConfig.apps, commandOptions.app, canPrompt);
   const keystoreImport = await selectKeystoreImport(commandOptions, canPrompt);
-  const logger = createLogger(false);
-
   const packageName = app.packageName;
 
   if (packageName == null) {
@@ -120,7 +118,6 @@ export async function setupAndroid(commandOptions: CredentialsCommandOptions): P
     {
       appName: app.name,
       packageName,
-      log: logger,
       dryRun: false,
       confirmCreate,
       confirmReplace,
@@ -128,5 +125,9 @@ export async function setupAndroid(commandOptions: CredentialsCommandOptions): P
     keystoreImport,
   );
 
-  logger.ok(`Ready: upload keystore at ${displayPath(keystore.path)} (alias ${keystore.alias}).`);
+  console.log(
+    redactText(
+      `Ready: upload keystore at ${displayPath(keystore.path)} (alias ${keystore.alias}).`,
+    ),
+  );
 }

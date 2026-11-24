@@ -1,7 +1,6 @@
 // Prints saved App Store Connect accounts, signing files, and Google Play credentials.
 
 import { loadConfig } from '../config/config.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import type { AppDescriptor } from '../types/app.ts';
 import { formatAccountSummary, getActiveKeyId, listAccounts } from './accounts.ts';
@@ -10,6 +9,7 @@ import { describeStoredCredentials } from './apple-signing-assets.ts';
 import type { CredentialsCommandOptions } from './credentials-command-options.ts';
 import { listPushKeys } from './push-key-store.ts';
 import { selectConfiguredApp } from './select-configured-app.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 function isTextMissing(text: string | undefined): boolean {
   if (text == null) {
@@ -43,12 +43,11 @@ async function listAndroidStatusApps(
 export async function showCredentialStatus(
   commandOptions: CredentialsCommandOptions,
 ): Promise<void> {
-  const logger = createLogger(false);
   const accounts = await listAccounts();
   const activeKeyId = await getActiveKeyId();
 
   if (accounts.length == 0) {
-    logger.line('Apple accounts: none');
+    console.log(redactText('Apple accounts: none'));
   }
 
   for (const account of accounts) {
@@ -63,16 +62,16 @@ export async function showCredentialStatus(
 
     const accountSummary = formatAccountSummary(account);
 
-    logger.line(`Apple account: ${accountSummary}${activeMarker}`);
+    console.log(redactText(`Apple account: ${accountSummary}${activeMarker}`));
 
     if (storedSigning.certSerial != null) {
-      logger.line(`  certificate: ${storedSigning.certSerial}`);
+      console.log(redactText(`  certificate: ${storedSigning.certSerial}`));
     }
 
     const hasProfiles = storedSigning.bundleIds.length > 0;
 
     if (hasProfiles) {
-      logger.line(`  profiles: ${storedSigning.bundleIds.join(', ')}`);
+      console.log(redactText(`  profiles: ${storedSigning.bundleIds.join(', ')}`));
     }
   }
 
@@ -92,16 +91,18 @@ export async function showCredentialStatus(
       serviceAccountStatus = 'stored';
     }
 
-    logger.line(`Google service account (${app.name}): ${serviceAccountStatus}`);
+    console.log(redactText(`Google service account (${app.name}): ${serviceAccountStatus}`));
 
     if (androidCredentials.keystoreAlias != null) {
-      logger.line(
-        `Android upload keystore (${app.name}): alias ${androidCredentials.keystoreAlias}`,
+      console.log(
+        redactText(
+          `Android upload keystore (${app.name}): alias ${androidCredentials.keystoreAlias}`,
+        ),
       );
     }
   }
 
   const pushKeys = await listPushKeys();
 
-  logger.line(`APNs keys: ${pushKeys.length}`);
+  console.log(redactText(`APNs keys: ${pushKeys.length}`));
 }

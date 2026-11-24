@@ -4,7 +4,6 @@ import { writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { Prompts } from '../prompts.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { AppDescriptor } from '../types/app.ts';
@@ -18,6 +17,7 @@ import {
 } from './config-scaffold.ts';
 import { ensureArtifactDirIgnored } from './gitignore.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 type InitCommandInput = Readonly<{
   workingDirectory?: string;
@@ -82,14 +82,16 @@ async function writeFileIfAbsent(filePath: string, fileContents: string): Promis
 }
 
 function showDiscoveredApps(discoveredApps: AppDescriptor[]): void {
-  const logger = createLogger(false);
-
   const noneFound = discoveredApps.length == 0;
 
   if (noneFound) {
-    logger.notice(
-      'Heads up',
-      'No app.json found under this folder. Launch will still scaffold a config you can edit.',
+    console.log(
+      redactText(
+        [
+          'Heads up',
+          'No app.json found under this folder. Launch will still scaffold a config you can edit.',
+        ].join('\n  '),
+      ),
     );
 
     return;
@@ -114,7 +116,9 @@ function showDiscoveredApps(discoveredApps: AppDescriptor[]): void {
     appSuffix = '';
   }
 
-  logger.notice(`Found ${discoveredApps.length} app${appSuffix}`, ...appLines);
+  console.log(
+    redactText([`Found ${discoveredApps.length} app${appSuffix}`, ...appLines].join('\n  ')),
+  );
 }
 
 function requireInteractiveTerminal(): void {
@@ -155,11 +159,12 @@ async function readArtifactDirectory(): Promise<string | null> {
 }
 
 function showInitReceipt(writtenFiles: string): void {
-  createLogger(false).notice(
-    'Done',
-    `Wrote: ${writtenFiles}`,
-    '',
-    'Run `launch-store --help` for the commands.',
+  console.log(
+    redactText(
+      ['Done', `Wrote: ${writtenFiles}`, '', 'Run `launch-store --help` for the commands.'].join(
+        '\n  ',
+      ),
+    ),
   );
 }
 
@@ -195,10 +200,8 @@ function readInitArtifactDirectory(artifactDir: string, projectDirectory: string
 export async function runInitProgram(rawCommandInput: unknown): Promise<boolean> {
   try {
     const commandInput = InitCommandInputSchema(rawCommandInput);
-    const logger = createLogger(false);
-
     if (commandInput.framed) {
-      logger.line('launch-store init');
+      console.log(redactText('launch-store init'));
     }
 
     let workingDirectory = readLaunchDirectories().workingDirectory;
@@ -265,7 +268,7 @@ export async function runInitProgram(rawCommandInput: unknown): Promise<boolean>
     showInitReceipt(writtenFiles.join(', '));
 
     if (commandInput.framed) {
-      logger.line('Launch is configured.');
+      console.log(redactText('Launch is configured.'));
     }
 
     return true;

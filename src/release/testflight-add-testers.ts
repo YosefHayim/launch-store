@@ -2,10 +2,10 @@
 
 import { readFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { loadActiveAppleStore } from '../apple/apple-store-command.ts';
 import type { BetaTesterResource } from '../types/apple/testflight.ts';
 import { confirmAction, loadSelectedAppleApp, selectBetaGroup } from './testflight-group.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export interface AddCommandInput {
   operation: 'add';
@@ -178,21 +178,25 @@ export async function addTesters(commandInput: AddCommandInput): Promise<void> {
 
   const pendingTesters = requestedTesters.filter(keepNewTester);
   const skippedCount = requestedTesters.length - pendingTesters.length;
-  const logger = createLogger(false);
-
   const hasNoPendingTesters = pendingTesters.length == 0;
 
   if (hasNoPendingTesters) {
-    logger.skip(`All ${requestedTesters.length} tester(s) are already in "${betaGroup.name}".`);
+    console.log(
+      redactText(`All ${requestedTesters.length} tester(s) are already in "${betaGroup.name}".`),
+    );
     return;
   }
 
   const isDryRun = commandInput.dryRun == true;
 
   if (isDryRun) {
-    logger.notice(
-      `[dry-run] would add ${pendingTesters.length} tester(s) to "${betaGroup.name}" (${selectedApp.name}); ${skippedCount} already present`,
-      ...pendingTesters.map(testerEmail),
+    console.log(
+      redactText(
+        [
+          `[dry-run] would add ${pendingTesters.length} tester(s) to "${betaGroup.name}" (${selectedApp.name}); ${skippedCount} already present`,
+          ...pendingTesters.map(testerEmail),
+        ].join('\n  '),
+      ),
     );
 
     return;
@@ -206,7 +210,7 @@ export async function addTesters(commandInput: AddCommandInput): Promise<void> {
   const isDeclined = confirmed == false;
 
   if (isDeclined) {
-    logger.skip('No testers were added.');
+    console.log(redactText('No testers were added.'));
     return;
   }
 
@@ -219,16 +223,18 @@ export async function addTesters(commandInput: AddCommandInput): Promise<void> {
     if (existingTester != null) {
       await appleStore.addTestersToGroup(betaGroup.id, [existingTester.id]);
       linkedEmails.push(tester.email);
-      logger.ok(`Added existing tester ${tester.email}`);
+      console.log(redactText(`Added existing tester ${tester.email}`));
       continue;
     }
 
     await appleStore.createBetaTester(betaGroup.id, tester);
     invitedEmails.push(tester.email);
-    logger.ok(`Invited ${tester.email}`);
+    console.log(redactText(`Invited ${tester.email}`));
   }
 
-  logger.line(
-    `\nDone: ${invitedEmails.length} invited, ${linkedEmails.length} existing added, ${skippedCount} already present -> "${betaGroup.name}".`,
+  console.log(
+    redactText(
+      `\nDone: ${invitedEmails.length} invited, ${linkedEmails.length} existing added, ${skippedCount} already present -> "${betaGroup.name}".`,
+    ),
   );
 }

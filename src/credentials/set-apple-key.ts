@@ -4,7 +4,6 @@ import { readFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import {
@@ -19,6 +18,7 @@ import type { CredentialsCommandOptions } from './credentials-command-options.ts
 import { displayPath, expandHomePath } from './credentials-paths.ts';
 import { commandCanPrompt, firstDefinedText, requireText } from './credentials-prompt.ts';
 import { extractKeyId, findAuthKeyFiles, reconcileKeyId } from './key-files.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 async function discoverAppleKeyFiles(): Promise<readonly string[]> {
   const launchPaths = readLaunchDirectories();
@@ -175,8 +175,6 @@ function isRejectedAppleStatus(status: number | null): boolean {
 }
 
 async function verifyAppleKey(ascKey: AscKey): Promise<AppStoreIdentity> {
-  const logger = createLogger(false);
-
   try {
     return await new AppStoreIdentityService().verifyCredentials(ascKey);
   } catch (cause) {
@@ -190,8 +188,10 @@ async function verifyAppleKey(ascKey: AscKey): Promise<AppStoreIdentity> {
 
     const failureMessage = errorMessage(cause);
 
-    logger.warn(
-      `Could not verify the key with Apple (${failureMessage}). Saving it unresolved; run \`launch-store creds refresh\` later.`,
+    console.log(
+      redactText(
+        `Could not verify the key with Apple (${failureMessage}). Saving it unresolved; run \`launch-store creds refresh\` later.`,
+      ),
     );
 
     return { teamId: null, apps: [] };
@@ -234,15 +234,14 @@ export async function importAppleKey(
     teamId: identity.teamId,
     apps: identity.apps,
   });
-
-  const logger = createLogger(false);
-
-  logger.ok(`Added Apple account "${accountLabel}" (key ${keyId}) and set it active.`);
+  console.log(
+    redactText(`Added Apple account "${accountLabel}" (key ${keyId}) and set it active.`),
+  );
 
   const hasVisibleApps = identity.apps.length > 0;
 
   if (hasVisibleApps) {
-    logger.line(`Visible apps: ${identity.apps.slice(0, 3).join(', ')}.`);
+    console.log(redactText(`Visible apps: ${identity.apps.slice(0, 3).join(', ')}.`));
   }
 
   if (identity.teamId != null) {

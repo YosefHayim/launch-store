@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
 import { captureCommandOutput } from '../services/platform/execute-command.ts';
-import type { Logger } from '../services/platform/logger.ts';
 import { readCredentialsDirectory } from '../services/platform/paths.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 const PRIVATE_KEY_ACCOUNT = 'ota-code-signing-key';
 
@@ -33,7 +33,7 @@ function signDryRun(): string {
 }
 
 /** Load or generate the local Expo Updates signing key and public certificate. */
-export async function ensureCodeSigner(dryRun: boolean, logger: Logger): Promise<CodeSigner> {
+export async function ensureCodeSigner(dryRun: boolean): Promise<CodeSigner> {
   const credentialsDirectory = readCredentialsDirectory();
   const publicCertificatePath = join(credentialsDirectory, 'launch-code-signing.pem');
 
@@ -85,10 +85,10 @@ export async function ensureCodeSigner(dryRun: boolean, logger: Logger): Promise
     await new LaunchSecretStore().storeSecret(PRIVATE_KEY_ACCOUNT, privateKeyPem);
     await mkdir(credentialsDirectory, { recursive: true });
     await writeFile(publicCertificatePath, certificateBytes);
-    logger.step(
-      'code signing',
-      `generated signing key and certificate -> ${publicCertificatePath}`,
-      'ota-update',
+    console.log(
+      redactText(
+        `code signing - generated signing key and certificate -> ${publicCertificatePath}`,
+      ),
     );
 
     function signWithGeneratedKey(manifestBody: string): string {

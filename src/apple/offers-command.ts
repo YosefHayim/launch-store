@@ -1,7 +1,6 @@
 // Runs one subscription-offer action against App Store Connect.
 
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import { executeGenerateCodes } from './offers-generate-codes.ts';
@@ -10,6 +9,7 @@ import { executeOffersReconcile } from './offers-reconcile.ts';
 import { findOfferCode, readSubscription } from './offers-subscription.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export type OffersReconcileInput = {
   operation: 'reconcile';
@@ -195,7 +195,6 @@ export function OffersCommandInputSchema(rawCommandInput: unknown): OffersComman
 /** Deactivate one offer-code campaign. */
 async function executeDeactivateOfferCode(commandInput: OffersDeactivateInput): Promise<void> {
   try {
-    const logger = createLogger(false);
     const chosenSubscription = await readSubscription(commandInput.app, commandInput.productId);
     const offerCode = await findOfferCode(
       chosenSubscription,
@@ -209,9 +208,10 @@ async function executeDeactivateOfferCode(commandInput: OffersDeactivateInput): 
       throw new Error(errorMessage(cause), { cause: cause });
     }
 
-    logger.step(
-      'offers',
-      `deactivated offer code "${commandInput.offerName}" on ${commandInput.productId}`,
+    console.log(
+      redactText(
+        `offers - deactivated offer code "${commandInput.offerName}" on ${commandInput.productId}`,
+      ),
     );
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });

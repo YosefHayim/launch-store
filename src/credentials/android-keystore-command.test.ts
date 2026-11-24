@@ -3,7 +3,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import { ensureUploadKeystore } from './android-keystore-assets.ts';
@@ -49,13 +48,9 @@ function describeAndroidSigningCommandSecretTransport() {
     temporaryDirectories.push(home);
     useLaunchDirectories({ homeDirectory: home, workingDirectory: home });
     useSecretStore(new Map());
-
-    const logger = createLogger(false);
-
     await ensureUploadKeystore({
       appName: 'Demo',
       packageName: 'com.example.demo',
-      log: logger,
       dryRun: false,
       confirmCreate: function confirmCreate() {
         return Promise.resolve(true);

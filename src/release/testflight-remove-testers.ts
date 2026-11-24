@@ -1,9 +1,9 @@
 // Removes testers from one TestFlight group after the operator confirms.
 
-import { createLogger } from '../services/platform/logger.ts';
 import { loadActiveAppleStore } from '../apple/apple-store-command.ts';
 import type { BetaTesterResource } from '../types/apple/testflight.ts';
 import { confirmAction, loadSelectedAppleApp, selectBetaGroup } from './testflight-group.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export interface RemoveCommandInput {
   operation: 'remove';
@@ -44,21 +44,23 @@ export async function removeTesters(commandInput: RemoveCommandInput): Promise<v
   }
 
   const matchedTesters = groupTesters.filter(isRequestedTester);
-  const logger = createLogger(false);
-
   const hasNoMatches = matchedTesters.length == 0;
 
   if (hasNoMatches) {
-    logger.skip(`No matching testers in "${betaGroup.name}".`);
+    console.log(redactText(`No matching testers in "${betaGroup.name}".`));
     return;
   }
 
   const isDryRun = commandInput.dryRun == true;
 
   if (isDryRun) {
-    logger.notice(
-      `[dry-run] would remove ${matchedTesters.length} tester(s) from "${betaGroup.name}"`,
-      ...matchedTesters.map(betaTesterAddress),
+    console.log(
+      redactText(
+        [
+          `[dry-run] would remove ${matchedTesters.length} tester(s) from "${betaGroup.name}"`,
+          ...matchedTesters.map(betaTesterAddress),
+        ].join('\n  '),
+      ),
     );
 
     return;
@@ -72,12 +74,12 @@ export async function removeTesters(commandInput: RemoveCommandInput): Promise<v
   const isDeclined = confirmed == false;
 
   if (isDeclined) {
-    logger.skip('No testers were removed.');
+    console.log(redactText('No testers were removed.'));
     return;
   }
 
   const testerIds = matchedTesters.map(betaTesterId);
 
   await appleStore.removeTestersFromGroup(betaGroup.id, testerIds);
-  logger.ok(`Removed ${matchedTesters.length} tester(s) from "${betaGroup.name}".`);
+  console.log(redactText(`Removed ${matchedTesters.length} tester(s) from "${betaGroup.name}".`));
 }

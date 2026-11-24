@@ -1,7 +1,6 @@
 // Runs account changes for App Store Connect and adopts old Google Play credentials.
 
 import { loadConfig } from '../config/config.ts';
-import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { AppStoreIdentityService } from '../services/stores/app-store-identity.ts';
@@ -22,6 +21,7 @@ import { chooseAccountInteractive } from './choose-account-interactive.ts';
 import type { CredentialsCommandOptions } from './credentials-command-options.ts';
 import { commandCanPrompt } from './credentials-prompt.ts';
 import { selectConfiguredApp } from './select-configured-app.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 async function verifyPlayAccess(serviceAccountJson: string, packageName: string): Promise<void> {
   const playClient = new GoogleStoreClientService().createClient(serviceAccountJson);
@@ -43,7 +43,7 @@ export async function adoptAndroid(options: CredentialsCommandOptions): Promise<
   }
 
   await adoptLegacyAndroidCredentials(app.packageName, options.yes == true, verifyPlayAccess);
-  createLogger(false).ok(`Adopted legacy Android credentials for ${app.name}.`);
+  console.log(redactText(`Adopted legacy Android credentials for ${app.name}.`));
 }
 
 export async function useAppleAccount(
@@ -66,8 +66,8 @@ export async function useAppleAccount(
   const matchedAccount = requireMatchedAccount(accounts, selector);
 
   await setActiveKeyId(matchedAccount.keyId);
-  createLogger(false).ok(
-    `Active Apple account: ${matchedAccount.label} (key ${matchedAccount.keyId}).`,
+  console.log(
+    redactText(`Active Apple account: ${matchedAccount.label} (key ${matchedAccount.keyId}).`),
   );
 }
 
@@ -89,7 +89,7 @@ export async function renameAppleAccount(
 
   requireUniqueAccountLabel(accounts, accountLabel, matchedAccount.keyId);
   await renameAccount(matchedAccount.keyId, accountLabel);
-  createLogger(false).ok(`Renamed account ${matchedAccount.keyId} to "${accountLabel}".`);
+  console.log(redactText(`Renamed account ${matchedAccount.keyId} to "${accountLabel}".`));
 }
 
 export async function setAppleVendorNumber(
@@ -120,7 +120,7 @@ export async function setAppleVendorNumber(
   const selectedAccount = requireMatchedAccount(accounts, selector);
 
   await setAccountVendorNumber(selectedAccount.keyId, trimmedVendorNumber);
-  createLogger(false).ok(`Saved the vendor number for account "${selectedAccount.label}".`);
+  console.log(redactText(`Saved the vendor number for account "${selectedAccount.label}".`));
 }
 
 export async function removeAppleAccount(
@@ -147,14 +147,14 @@ export async function removeAppleAccount(
   }
 
   await removeAccount(matchedAccount.keyId);
-  createLogger(false).ok(`Removed Apple account "${matchedAccount.label}".`);
+  console.log(redactText(`Removed Apple account "${matchedAccount.label}".`));
 }
 
-async function refreshOneAccount(account: AccountRecord, logger: Logger): Promise<void> {
+async function refreshOneAccount(account: AccountRecord): Promise<void> {
   const ascKey = await loadAscKeyById(account.keyId);
 
   if (ascKey == null) {
-    logger.warn(`Skipped "${account.label}": no stored key.`);
+    console.log(redactText(`Skipped "${account.label}": no stored key.`));
 
     return;
   }
@@ -162,7 +162,7 @@ async function refreshOneAccount(account: AccountRecord, logger: Logger): Promis
   const identity = await new AppStoreIdentityService().readIdentity(ascKey);
 
   await updateAccountIdentity(account.keyId, identity.teamId, identity.apps);
-  logger.ok(`Refreshed "${account.label}" (${identity.apps.length} apps).`);
+  console.log(redactText(`Refreshed "${account.label}" (${identity.apps.length} apps).`));
 }
 
 export async function refreshAppleAccounts(selector: string | undefined): Promise<void> {
@@ -176,10 +176,7 @@ export async function refreshAppleAccounts(selector: string | undefined): Promis
   if (refreshTargets.length == 0) {
     throw new Error('No Apple accounts to refresh.');
   }
-
-  const logger = createLogger(false);
-
   for (const account of refreshTargets) {
-    await refreshOneAccount(account, logger);
+    await refreshOneAccount(account);
   }
 }

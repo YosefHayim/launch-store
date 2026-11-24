@@ -1,6 +1,5 @@
 // Plans App Clip card changes and applies them on App Store Connect.
 
-import { createLogger } from '../services/platform/logger.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import type { AppClipsConfig } from '../types/store-surface.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
@@ -17,6 +16,7 @@ import { errorMessage } from '../services/platform/error-message.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export type AppClipsCommandInput = {
   app?: string;
@@ -119,8 +119,6 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
     }
 
     const appClipsTarget = await readAppClipsTarget(commandInput);
-    const logger = createLogger(false);
-
     try {
       var appleStore = await loadActiveAppleStore();
     } catch (cause) {
@@ -139,36 +137,41 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
 
     const plannedActions = appClipsPlan.actions.filter(isPlannedAction);
 
-    logger.gap();
+    console.log('');
 
     const isAlreadyInSync = appClipsPlan.actions.length == 0;
 
     if (isAlreadyInSync) {
-      logger.step(appClipsTarget.bundleId, 'App Clip cards already in sync');
+      console.log(redactText(`${appClipsTarget.bundleId} - App Clip cards already in sync`));
       return 0;
     }
 
-    logger.notice(appClipsTarget.bundleId, ...appClipsPlan.actions.map(renderPlanned));
+    console.log(
+      redactText(
+        [appClipsTarget.bundleId, ...appClipsPlan.actions.map(renderPlanned)].join('\n  '),
+      ),
+    );
 
     const hasNothingToApply = plannedActions.length == 0;
 
     if (hasNothingToApply) {
-      logger.gap();
-      logger.step(
-        'app-clips',
-        'nothing to apply (everything in sync; skipped clips need a build or version first)',
+      console.log('');
+      console.log(
+        redactText(
+          'app-clips - nothing to apply (everything in sync; skipped clips need a build or version first)',
+        ),
       );
 
       return 0;
     }
 
-    logger.gap();
-    logger.note(`${plannedActions.length} change(s) for ${appClipsTarget.bundleId}.`);
+    console.log('');
+    console.log(redactText(`${plannedActions.length} change(s) for ${appClipsTarget.bundleId}.`));
 
     const isDryRun = commandInput.dryRun == true;
 
     if (isDryRun) {
-      logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+      console.log(redactText('Dry run - no changes made. Re-run without --dry-run to apply.'));
       return 0;
     }
 
@@ -206,7 +209,9 @@ async function executeAppClips(rawCommandInput: unknown): Promise<number> {
       receiptTitle = 'Applied with errors';
     }
 
-    logger.box(receiptTitle, appliedAppClips.actions.map(renderApplied));
+    console.log(
+      redactText([receiptTitle, ...appliedAppClips.actions.map(renderApplied)].join('\n  ')),
+    );
 
     return appClipsSummary.failed;
   } catch (cause) {

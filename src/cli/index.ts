@@ -9,8 +9,8 @@ import { migrateLegacyAccounts } from '../credentials/accounts.ts';
 import { registerBuiltins } from '../providers/index.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { isCommandExit } from '../terminal/command-exit.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 const packageManifestPath = fileURLToPath(new URL('../../package.json', import.meta.url));
 
@@ -61,7 +61,7 @@ async function main(): Promise<void> {
     await migrateLegacyAccounts();
   } catch (cause) {
     const failureMessage = errorMessage(cause);
-    createLogger(false).warn(`Skipped the old account move. ${failureMessage}`);
+    console.log(redactText(`Skipped the old account move. ${failureMessage}`));
   }
 
   await new Cli().start(launchVersion);
@@ -75,6 +75,6 @@ main().catch(function reportBootFailure(runtimeFailure: unknown): void {
 
   const failureMessage = errorMessage(runtimeFailure);
 
-  createLogger(false).error(failureMessage);
+  console.log(redactText(failureMessage));
   process.exitCode = 1;
 });

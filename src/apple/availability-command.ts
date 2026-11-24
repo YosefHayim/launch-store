@@ -1,7 +1,6 @@
 // Sets the App Store countries an app is sold in from launch.config.ts.
 
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
@@ -12,6 +11,7 @@ import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export type AvailabilityCommandInput = {
   app?: string;
@@ -144,7 +144,6 @@ async function confirmAvailabilityWrite(
 export async function availabilityCommandProgram(rawCommandInput: unknown): Promise<void> {
   try {
     const commandInput = AvailabilityCommandInputSchema(rawCommandInput);
-    const logger = createLogger(false);
     const storeAppContext = await loadStoreAppContext(commandInput.app);
     const bundleId = storeAppContext.app.bundleId;
 
@@ -175,22 +174,24 @@ export async function availabilityCommandProgram(rawCommandInput: unknown): Prom
       dryRun: true,
     });
 
-    logger.gap();
+    console.log('');
 
     const isAlreadyInSync = availabilityPlan.actions.length == 0;
 
     if (isAlreadyInSync) {
-      logger.step(bundleId, 'store availability already in sync');
+      console.log(redactText(`${bundleId} - store availability already in sync`));
       return;
     }
 
-    logger.notice(bundleId, ...availabilityPlan.actions.map(renderPlanned));
-    logger.gap();
+    console.log(
+      redactText([bundleId, ...availabilityPlan.actions.map(renderPlanned)].join('\n  ')),
+    );
+    console.log('');
 
     const isDryRun = commandInput.dryRun == true;
 
     if (isDryRun) {
-      logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+      console.log(redactText('Dry run - no changes made. Re-run without --dry-run to apply.'));
       return;
     }
 
@@ -216,13 +217,15 @@ export async function availabilityCommandProgram(rawCommandInput: unknown): Prom
 
       if (writeFailed) {
         const availabilityAction = renderAvailabilityAction(appliedAction);
-        logger.box('Failed', [availabilityAction]);
+        console.log(redactText(['Failed', ...[availabilityAction]].join('\n  ')));
         completeCommand(1);
         return;
       }
     }
 
-    logger.box('Applied', appliedAvailability.actions.map(appliedLine));
+    console.log(
+      redactText(['Applied', ...appliedAvailability.actions.map(appliedLine)].join('\n  ')),
+    );
   } catch (cause) {
     if (isCommandExit(cause)) {
       throw cause;

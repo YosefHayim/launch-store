@@ -31,7 +31,7 @@ One TypeScript / Node ESM package. Two kinds of code sit next to each other unde
 | `src/store` | Shared store sync used by the Apple and Google programs. |
 | `src/config` | Loads the one `launch.config.ts`. |
 | `src/terminal` | Console links and shell completion. |
-| `src/services` | Paths, exec, logger, prompts, secrets, and the store client adapters. `services/stores` is the door into the Apple and Google HTTP clients. |
+| `src/services` | Paths, exec, prompts, secrets, and the store client adapters. `services/stores` is the door into the Apple and Google HTTP clients. |
 | `src/types` | Launch's own shapes. App Store Connect resource shapes live in `src/types/apple/`, grouped the way Apple's docs group them. Play resource shapes live in `src/types/google/`, grouped the way the Play Developer API groups its REST resources. |
 | `src/providers` | The on-machine credentials store, plus submitters for an already-built App Store or Play artifact. |
 | `src/testkit` | Shared stand-ins the tests import. Vitest and Jest treat `*.test.*` and `*.spec.*` as suites to run, so these files are named for the job and do not use that suffix. |

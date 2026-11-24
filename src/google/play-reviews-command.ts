@@ -2,7 +2,6 @@
 
 import { readFile } from 'node:fs/promises';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import type { PlayReview } from '../types/google/reviews.ts';
 import {
   confirmGoogleStoreWrite,
@@ -13,6 +12,7 @@ import { listPlayReviews, replyToPlayReview, type PlayReviewFilters } from './pl
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export type PlayReviewsListInput = {
   operation: 'list';
@@ -278,17 +278,17 @@ async function listRecentPlayReviews(commandInput: PlayReviewsListInput): Promis
     selectedApp.packageName,
     reviewFilters,
   );
-  const logger = createLogger(false);
-
   if (commandInput.json) {
     const serialized = JSON.stringify(matchingReviews, null, 2);
-    logger.line(serialized);
+    console.log(redactText(serialized));
     return;
   }
 
   if (matchingReviews.length == 0) {
-    logger.line(
-      'No reviews match. Try removing a filter, or check back later (Play shows only recent reviews).',
+    console.log(
+      redactText(
+        'No reviews match. Try removing a filter, or check back later (Play shows only recent reviews).',
+      ),
     );
     return;
   }
@@ -297,7 +297,7 @@ async function listRecentPlayReviews(commandInput: PlayReviewsListInput): Promis
     return renderPlayReview(playReview);
   }
 
-  logger.line(matchingReviews.map(renderOneReview).join('\n\n'));
+  console.log(redactText(matchingReviews.map(renderOneReview).join('\n\n')));
 
   let reviewSuffix = 's';
 
@@ -305,7 +305,7 @@ async function listRecentPlayReviews(commandInput: PlayReviewsListInput): Promis
     reviewSuffix = '';
   }
 
-  logger.line(`\n${matchingReviews.length} review${reviewSuffix}.`);
+  console.log(redactText(`\n${matchingReviews.length} review${reviewSuffix}.`));
 }
 
 function hasExistingReply(existingReview: PlayReview | null): boolean {
@@ -353,15 +353,13 @@ async function replyToRecentPlayReview(commandInput: PlayReviewsReplyInput): Pro
   if (replyOutcome.replaced) {
     operationLabel = 'reply replaced';
   }
-
-  const logger = createLogger(false);
   let editedDetail: string | undefined;
 
   if (replyOutcome.reply.lastEdited != null) {
     editedDetail = `edited: ${replyOutcome.reply.lastEdited}`;
   }
 
-  logger.step(operationLabel, editedDetail);
+  console.log(redactText(`${operationLabel} - ${editedDetail}`));
 }
 
 async function runPlayReviewsOperation(commandInput: PlayReviewsCommandInput): Promise<void> {

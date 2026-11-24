@@ -3,7 +3,6 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
-import type { Logger } from '../services/platform/logger.ts';
 import {
   readAccountCredentialsDirectory,
   readCredentialsDirectory,
@@ -29,6 +28,7 @@ import {
   installProfile,
   readProfileTeamId,
 } from './apple-signing-profiles.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 /** Inputs for {@link ensureSigningCredentials}. */
 type EnsureSigningOptions = {
@@ -36,7 +36,6 @@ type EnsureSigningOptions = {
   bundleId: string;
   appName: string;
   ascKey: AscKey;
-  log: Logger;
   dryRun: boolean;
   confirmCreate: (message: string) => Promise<boolean>;
   extensions?: string[];
@@ -166,13 +165,17 @@ export async function ensureSigningCredentials(
   const extensions = extensionList(signingOptions);
 
   if (signingOptions.dryRun) {
-    signingOptions.log.note(
-      `[dry-run] would ensure App ID, distribution certificate, and App Store profile for ${signingOptions.bundleId}`,
+    console.log(
+      redactText(
+        `[dry-run] would ensure App ID, distribution certificate, and App Store profile for ${signingOptions.bundleId}`,
+      ),
     );
 
     for (const extensionId of extensions) {
-      signingOptions.log.note(
-        `[dry-run] would ensure App ID + App Store profile for extension ${extensionId} (same cert)`,
+      console.log(
+        redactText(
+          `[dry-run] would ensure App ID + App Store profile for extension ${extensionId} (same cert)`,
+        ),
       );
     }
 
@@ -197,7 +200,6 @@ export async function ensureSigningCredentials(
     keyId,
     index,
     confirmCreate: signingOptions.confirmCreate,
-    log: signingOptions.log,
     importToKeychain: true,
     warnAtCertCap: true,
     createConfirmMessage:
@@ -213,7 +215,6 @@ export async function ensureSigningCredentials(
     cert: ensuredCertificate.cert,
     freshCert: ensuredCertificate.freshCert,
     confirmCreate: signingOptions.confirmCreate,
-    log: signingOptions.log,
   });
   const extensionProfiles: Record<string, string> = {};
 
@@ -228,7 +229,6 @@ export async function ensureSigningCredentials(
       cert: ensuredCertificate.cert,
       freshCert: ensuredCertificate.freshCert,
       confirmCreate: signingOptions.confirmCreate,
-      log: signingOptions.log,
     });
 
     extensionProfiles[extensionId] = provisioned.profileName;
@@ -267,8 +267,10 @@ export async function ensureAdHocSigningCredentials(
   const profileType = readAdHocProfileType(signingOptions.platform);
 
   if (signingOptions.dryRun) {
-    signingOptions.log.note(
-      `[dry-run] would ensure App ID + distribution cert + an ad-hoc profile over registered devices for ${signingOptions.bundleId}`,
+    console.log(
+      redactText(
+        `[dry-run] would ensure App ID + distribution cert + an ad-hoc profile over registered devices for ${signingOptions.bundleId}`,
+      ),
     );
 
     const assets = dryRunAssets(signingOptions.bundleId);
@@ -285,7 +287,6 @@ export async function ensureAdHocSigningCredentials(
     bundleId: signingOptions.bundleId,
     appName: signingOptions.appName,
     confirmCreate: signingOptions.confirmCreate,
-    log: signingOptions.log,
     declineMessage: `App ID ${signingOptions.bundleId} is not registered. Re-run and confirm, or register it in the portal.`,
   });
   const ensuredCertificate = await ensureDistributionCertificate({
@@ -293,7 +294,6 @@ export async function ensureAdHocSigningCredentials(
     keyId,
     index,
     confirmCreate: signingOptions.confirmCreate,
-    log: signingOptions.log,
     importToKeychain: true,
     warnAtCertCap: false,
     createConfirmMessage:
@@ -315,9 +315,8 @@ export async function ensureAdHocSigningCredentials(
     );
   }
 
-  signingOptions.log.step(
-    'devices',
-    `${enabledDevices.length} registered device(s) on the ad-hoc profile`,
+  console.log(
+    redactText(`devices - ${enabledDevices.length} registered device(s) on the ad-hoc profile`),
   );
 
   const profileName = `Launch_${signingOptions.bundleId}_AdHoc`;
@@ -344,7 +343,7 @@ export async function ensureAdHocSigningCredentials(
     profile.profileContent,
   );
 
-  signingOptions.log.step('profile', `created ${profileName} (ad-hoc)`, 'provisioning-profile');
+  console.log(redactText(`profile - created ${profileName} (ad-hoc)`));
 
   const teamId = readProfileTeamId(installed.teamId, bundle.seedId);
 
@@ -378,8 +377,10 @@ export async function ensureRemoteSigningAssets(
   if (signingOptions.dryRun) {
     const credentialsDirectory = readAccountCredentialsDirectory(signingOptions.ascKey.keyId);
 
-    signingOptions.log.note(
-      `[dry-run] would ensure App ID + distribution .p12 + App Store profile for ${signingOptions.bundleId}, ready to upload`,
+    console.log(
+      redactText(
+        `[dry-run] would ensure App ID + distribution .p12 + App Store profile for ${signingOptions.bundleId}, ready to upload`,
+      ),
     );
 
     return {
@@ -403,7 +404,6 @@ export async function ensureRemoteSigningAssets(
     bundleId: signingOptions.bundleId,
     appName: signingOptions.appName,
     confirmCreate: signingOptions.confirmCreate,
-    log: signingOptions.log,
     declineMessage: `App ID ${signingOptions.bundleId} is not registered. Re-run and confirm, or register it in the portal.`,
   });
   const ensuredCertificate = await ensureDistributionCertificate({
@@ -411,7 +411,6 @@ export async function ensureRemoteSigningAssets(
     keyId,
     index,
     confirmCreate: signingOptions.confirmCreate,
-    log: signingOptions.log,
     importToKeychain: false,
     warnAtCertCap: true,
     createConfirmMessage:
@@ -424,7 +423,6 @@ export async function ensureRemoteSigningAssets(
     freshCert: ensuredCertificate.freshCert,
     platform: signingOptions.platform,
     bundleId: signingOptions.bundleId,
-    log: signingOptions.log,
   });
   const credentialsDirectory = readAccountCredentialsDirectory(keyId);
 
@@ -460,7 +458,6 @@ async function readRemoteProfile(remoteProfile: {
   freshCert: boolean;
   platform: Platform;
   bundleId: string;
-  log: Logger;
 }): Promise<ProfileResource> {
   const profileName = `Launch_${remoteProfile.bundleId}_AppStore`;
   const existingProfile = await remoteProfile.client.findProfileByName(profileName);
@@ -470,7 +467,7 @@ async function readRemoteProfile(remoteProfile: {
   }
 
   if (remoteProfile.freshCert == false) {
-    remoteProfile.log.step('profile', `reusing ${profileName}`, 'provisioning-profile');
+    console.log(redactText(`profile - reusing ${profileName}`));
 
     return existingProfile;
   }
@@ -486,7 +483,6 @@ async function createRemoteProfile(
     bundleIdResourceId: string;
     certId: string;
     platform: Platform;
-    log: Logger;
   },
   profileName: string,
 ): Promise<ProfileResource> {
@@ -498,7 +494,7 @@ async function createRemoteProfile(
     profileType,
   );
 
-  remoteProfile.log.step('profile', `created ${profileName}`, 'provisioning-profile');
+  console.log(redactText(`profile - created ${profileName}`));
 
   return profile;
 }

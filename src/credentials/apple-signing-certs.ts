@@ -7,12 +7,12 @@ import { pathExists } from '../path-exists.ts';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { captureCommandOutput } from '../services/platform/execute-command.ts';
-import type { Logger } from '../services/platform/logger.ts';
 import { readAccountCredentialsDirectory } from '../services/platform/paths.ts';
 import type { AppleCredentialsClient } from '../services/stores/apple-credentials-client.ts';
 import type { CertificateResource } from '../types/apple/provisioning.ts';
 import { randomHexSecret } from './random-secret.ts';
 import { type CertRecord, type CredentialsIndex, writeIndex } from './apple-signing-index.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 /** Xcode identity name used for App Store and ad-hoc distribution certificates. */
 export const DISTRIBUTION_CERT_NAME = 'Apple Distribution';
@@ -257,9 +257,9 @@ type EnsureDistributionCertificateOptions = {
   client: AppleCredentialsClient;
   keyId: string;
   index: CredentialsIndex;
-  confirmCreate: (message: string) => Promise<boolean>;
-  log: Logger;
-  /** When true, import a reused or freshly minted `.p12` into the local keychain for codesign. */
+  confirmCreate: (
+    message: string,
+  ) => Promise<boolean> /** When true, import a reused or freshly minted `.p12` into the local keychain for codesign. */;
   importToKeychain: boolean;
   /** When true, warn before minting if Apple already sits at the distribution-cert cap. */
   warnAtCertCap: boolean;
@@ -319,11 +319,7 @@ export async function ensureDistributionCertificate(
   if (reusable != null) {
     await importReusedCertificate(certificateOptions.importToKeychain, reusable.p12Path, password);
 
-    certificateOptions.log.step(
-      'certificate',
-      `reusing distribution cert ${reusable.serial}`,
-      'distribution-certificate',
-    );
+    console.log(redactText(`certificate - reusing distribution cert ${reusable.serial}`));
 
     return { cert: reusable, freshCert: false, password };
   }
@@ -334,9 +330,11 @@ export async function ensureDistributionCertificate(
   );
 
   if (warnAboutCap) {
-    certificateOptions.log.warn(
-      `Apple already has ${liveCerts.length} distribution certificate(s) and none are Launch's. ` +
-        `If creation fails, revoke an unused one in the Developer portal (Apple caps these).`,
+    console.log(
+      redactText(
+        `Apple already has ${liveCerts.length} distribution certificate(s) and none are Launch's. ` +
+          `If creation fails, revoke an unused one in the Developer portal (Apple caps these).`,
+      ),
     );
   }
 
@@ -357,11 +355,7 @@ export async function ensureDistributionCertificate(
 
   certificateOptions.index.certificate = cert;
   await writeIndex(certificateOptions.keyId, certificateOptions.index);
-  certificateOptions.log.step(
-    'certificate',
-    `created distribution cert ${cert.serial}`,
-    'distribution-certificate',
-  );
+  console.log(redactText(`certificate - created distribution cert ${cert.serial}`));
 
   return { cert, freshCert: true, password };
 }

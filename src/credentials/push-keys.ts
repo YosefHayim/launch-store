@@ -2,7 +2,6 @@
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { AccountRecord } from '../types/credentials.ts';
 import { getActiveAccount } from './accounts.ts';
@@ -11,13 +10,13 @@ import { displayPath, expandHomePath } from './credentials-paths.ts';
 import { commandCanPrompt, firstDefinedText, requireText } from './credentials-prompt.ts';
 import { extractKeyId, reconcileKeyId } from './key-files.ts';
 import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './push-key-store.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 async function showPushKeys(): Promise<void> {
-  const logger = createLogger(false);
   const pushKeys = await listPushKeys();
 
   if (pushKeys.length == 0) {
-    logger.line('No APNs keys in the vault.');
+    console.log(redactText('No APNs keys in the vault.'));
 
     return;
   }
@@ -47,7 +46,7 @@ async function showPushKeys(): Promise<void> {
       detailText = ` - ${details.join(' - ')}`;
     }
 
-    logger.line(`- ${pushKey.keyId}${detailText}`);
+    console.log(redactText(`- ${pushKey.keyId}${detailText}`));
   }
 }
 
@@ -116,11 +115,8 @@ async function importApnsKey(
   }
 
   await importPushKey(importRequest);
-
-  const logger = createLogger(false);
-
-  logger.ok(`Imported APNs key ${keyId}.`);
-  logger.warn(`Keep ${displayPath(keyPath)}; Apple permits only one download.`);
+  console.log(redactText(`Imported APNs key ${keyId}.`));
+  console.log(redactText(`Keep ${displayPath(keyPath)}; Apple permits only one download.`));
 }
 
 function blocksKeyOverwrite(outputExists: boolean, force: boolean | undefined): boolean {
@@ -178,7 +174,7 @@ async function exportApnsKey(
   const privateFileMode = 0o600;
 
   await writeFile(outputPath, p8, { mode: privateFileMode });
-  createLogger(false).ok(`Wrote APNs key ${keyRecord.keyId} to ${displayPath(outputPath)}.`);
+  console.log(redactText(`Wrote APNs key ${keyRecord.keyId} to ${displayPath(outputPath)}.`));
 }
 
 export async function runPushKeyAction(

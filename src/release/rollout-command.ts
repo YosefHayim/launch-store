@@ -3,7 +3,6 @@
 import { loadConfig } from '../config/config.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import {
   AppleStoreClientService,
@@ -13,6 +12,7 @@ import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import { IOS_PLATFORM, pickCurrentVersion } from './app-store-release.ts';
 import { selectIosApps } from './status-command.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 type RolloutAction = 'pause' | 'resume' | 'complete';
 
@@ -99,14 +99,13 @@ async function updateAppRollout(
   selectedApp: SelectedIosApp,
   phasedReleaseState: 'PAUSE' | 'ACTIVE' | 'COMPLETE',
 ): Promise<boolean> {
-  const logger = createLogger(false);
   const appId = await appleStore.getAppId(selectedApp.bundleId);
 
   const isAppMissing = appId == null;
 
   if (isAppMissing) {
     const appMissingMessage = appRecordMissingMessage(selectedApp.bundleId, 'launch-store rollout');
-    logger.error(`${selectedApp.name}: ${appMissingMessage}`);
+    console.log(redactText(`${selectedApp.name}: ${appMissingMessage}`));
     return true;
   }
 
@@ -116,7 +115,7 @@ async function updateAppRollout(
   const isVersionMissing = currentVersion == null;
 
   if (isVersionMissing) {
-    logger.warn(`${selectedApp.name}: no App Store version to roll out.`);
+    console.log(redactText(`${selectedApp.name}: no App Store version to roll out.`));
     return false;
   }
 
@@ -125,16 +124,19 @@ async function updateAppRollout(
   const isPhasedReleaseMissing = phasedRelease == null;
 
   if (isPhasedReleaseMissing) {
-    logger.warn(
-      `${selectedApp.name}: version ${currentVersion.versionString} has no phased release; it went out all at once.`,
+    console.log(
+      redactText(
+        `${selectedApp.name}: version ${currentVersion.versionString} has no phased release; it went out all at once.`,
+      ),
     );
     return true;
   }
 
   await appleStore.updatePhasedRelease(phasedRelease.id, phasedReleaseState);
-  logger.step(
-    selectedApp.name,
-    `phased release -> ${phasedReleaseState} (was ${phasedRelease.phasedReleaseState})`,
+  console.log(
+    redactText(
+      `${selectedApp.name} - phased release -> ${phasedReleaseState} (was ${phasedRelease.phasedReleaseState})`,
+    ),
   );
 
   return false;
@@ -145,14 +147,15 @@ export async function rolloutCommandProgram(rawCommandInput: unknown): Promise<v
   try {
     const commandInput = decodeRolloutCommandInput(rawCommandInput);
     const launchPaths = readLaunchDirectories();
-    const logger = createLogger(false);
     const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
     const selectedApps = await selectIosApps(loadedConfiguration.apps, commandInput.app);
 
     const isThereNoIosApp = selectedApps.length == 0;
 
     if (isThereNoIosApp) {
-      logger.note('No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.');
+      console.log(
+        redactText('No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.'),
+      );
       return;
     }
 

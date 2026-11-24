@@ -4,7 +4,6 @@ import { stdout } from 'node:process';
 import { launchConfigForApp, loadConfig } from '../config/config.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
 import { hasMessage, errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
 import { summarize } from '../store/shared/reconcile.ts';
@@ -12,6 +11,7 @@ import { selectStoreApp } from '../store/shared/select-store-app.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import { reconcileRelease } from './release-attributes.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 /** Inputs resolved from Commander for App Store release-attribute reconciliation. */
 type ReleaseConfigCommandInput = Readonly<{
@@ -104,7 +104,6 @@ async function confirmReleaseChanges(changeCount: number, yes: boolean): Promise
 export async function releaseConfigCommandProgram(
   commandInput: ReleaseConfigCommandInput,
 ): Promise<void> {
-  const logger = createLogger(false);
   try {
     var loadedConfiguration = await loadConfig();
   } catch (cause) {
@@ -183,36 +182,37 @@ export async function releaseConfigCommandProgram(
 
   const plannedActions = releasePlan.actions.filter(isPlannedAction);
 
-  logger.gap();
+  console.log('');
 
   const isAlreadyInSync = releasePlan.actions.length == 0;
 
   if (isAlreadyInSync) {
-    logger.step(bundleId, 'release attributes already in sync');
+    console.log(redactText(`${bundleId} - release attributes already in sync`));
     return;
   }
 
   const plannedLines = releasePlan.actions.map(renderAction);
 
-  logger.notice(bundleId, ...plannedLines);
+  console.log(redactText([bundleId, ...plannedLines].join('\n  ')));
 
   const hasNothingToApply = plannedActions.length == 0;
 
   if (hasNothingToApply) {
-    logger.gap();
-    logger.step(
-      'release-config',
-      'nothing to apply (everything in sync; skipped areas need a version first)',
+    console.log('');
+    console.log(
+      redactText(
+        'release-config - nothing to apply (everything in sync; skipped areas need a version first)',
+      ),
     );
 
     return;
   }
 
-  logger.gap();
-  logger.note(`${plannedActions.length} change(s) for ${bundleId}.`);
+  console.log('');
+  console.log(redactText(`${plannedActions.length} change(s) for ${bundleId}.`));
 
   if (commandInput.dryRun) {
-    logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+    console.log(redactText('Dry run - no changes made. Re-run without --dry-run to apply.'));
     return;
   }
 
@@ -245,7 +245,7 @@ export async function releaseConfigCommandProgram(
     receiptTitle = 'Applied with errors';
   }
 
-  logger.box(receiptTitle, receiptLines);
+  console.log(redactText([receiptTitle, ...receiptLines].join('\n  ')));
 
   if (hasFailedActions) {
     completeCommand(1);

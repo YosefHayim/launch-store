@@ -1,9 +1,8 @@
 // Runs one Launch command, and prints one JSON result line when JSON output is on.
 
-import { stderr, stdout } from 'node:process';
+import { stdout } from 'node:process';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { setJsonOutput } from '../services/platform/json-output-mode.ts';
-import { jsonLine, useJsonHumanWriter } from '../services/platform/logger.ts';
 import { useJsonPrompts } from '../services/platform/prompt.ts';
 import { isCommandExit } from '../terminal/command-exit.ts';
 
@@ -20,12 +19,8 @@ export async function runCliProgram<Success>(program: Promise<Success>): Promise
   return program;
 }
 
-function writeStdout(text: string): void {
-  stdout.write(text);
-}
-
-function writeStderr(text: string): void {
-  stderr.write(text);
+function writeJsonLine(event: Readonly<Record<string, unknown>>): void {
+  stdout.write(`${JSON.stringify(event)}\n`);
 }
 
 /** Run a command for `--json`. */
@@ -35,20 +30,17 @@ export async function runJsonCliProgram<Success>(
 ): Promise<void> {
   setJsonOutput(true);
   useJsonPrompts(true);
-  useJsonHumanWriter(writeStderr);
 
   try {
     await startProgram();
-    const machineLine = jsonLine({ event: 'result', ok: true, ...summary });
-    writeStdout(machineLine);
+    writeJsonLine({ event: 'result', ok: true, ...summary });
   } catch (cause) {
     const isExit = isCommandExit(cause);
 
     if (isExit == false) {
       const message = errorMessage(cause);
-      const machineLine = jsonLine({ event: 'result', ok: false, ...summary, message });
 
-      writeStdout(machineLine);
+      writeJsonLine({ event: 'result', ok: false, ...summary, message });
       throw new Error(message, { cause });
     }
 
@@ -59,13 +51,10 @@ export async function runJsonCliProgram<Success>(
       message = cause.message;
     }
 
-    const machineLine = jsonLine({ event: 'result', ok: false, ...summary, message });
-
-    writeStdout(machineLine);
+    writeJsonLine({ event: 'result', ok: false, ...summary, message });
     throw new Error(message, { cause });
   } finally {
     setJsonOutput(false);
     useJsonPrompts(false);
-    useJsonHumanWriter(null);
   }
 }

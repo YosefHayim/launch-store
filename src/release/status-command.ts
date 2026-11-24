@@ -3,7 +3,6 @@
 import { loadConfig } from '../config/config.ts';
 import { loadAscKeyForAccount } from '../credentials/accounts.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
 import { completeCommand, isCommandExit, makeCommandExit } from '../terminal/command-exit.ts';
@@ -19,6 +18,7 @@ import {
   waitForValidBuild,
 } from './app-store-release.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 const NO_IOS_APPS_MESSAGE =
   'No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.';
@@ -152,15 +152,13 @@ function decodeStatusFlags(flagsFromCli: StatusCommandFlags): StatusFlags {
 }
 
 function failUsage(message: string, isJson: boolean): never {
-  const logger = createLogger(false);
-
   if (isJson) {
     const serialized = JSON.stringify({ ok: false, error: message });
-    logger.line(serialized);
+    console.log(redactText(serialized));
   }
 
   if (isJson == false) {
-    logger.error(message);
+    console.log(redactText(message));
   }
 
   throw makeCommandExit({ exitCode: 2, message });
@@ -393,8 +391,10 @@ function readSelectedStatuses(
   return Promise.all(selectedApps.map(readStatus));
 }
 
-function printOneAppStatus(logger: Logger, appStatus: AppReleaseStatus): void {
-  logger.step(appStatus.appName, describeReleaseStatus(appStatus.releaseStatus));
+function printOneAppStatus(appStatus: AppReleaseStatus): void {
+  console.log(
+    redactText(`${appStatus.appName} - ${describeReleaseStatus(appStatus.releaseStatus)}`),
+  );
 
   const recentBuilds = appStatus.recentBuilds;
   const isBuildListPresent = recentBuilds != null;
@@ -403,12 +403,12 @@ function printOneAppStatus(logger: Logger, appStatus: AppReleaseStatus): void {
     return;
   }
 
-  logger.line(describeRecentBuilds(recentBuilds));
+  console.log(redactText(describeRecentBuilds(recentBuilds)));
 }
 
-function printStatusBatch(logger: Logger, appStatuses: readonly AppReleaseStatus[]): void {
+function printStatusBatch(appStatuses: readonly AppReleaseStatus[]): void {
   for (const appStatus of appStatuses) {
-    printOneAppStatus(logger, appStatus);
+    printOneAppStatus(appStatus);
   }
 }
 
@@ -435,13 +435,12 @@ function sleepMilliseconds(milliseconds: number): Promise<void> {
 
 async function watchReleaseStatuses(
   readStatuses: () => Promise<AppReleaseStatus[]>,
-  logger: Logger,
 ): Promise<number> {
   for (;;) {
     const appStatuses = await readStatuses();
 
-    logger.gap();
-    printStatusBatch(logger, appStatuses);
+    console.log('');
+    printStatusBatch(appStatuses);
 
     function isDone(appStatus: AppReleaseStatus): boolean {
       return appStatus.releaseStatus.verdict.done;
@@ -467,7 +466,6 @@ type BuildWatchRequest = Readonly<{
   appleClient: AscReleaseApi;
   selectedApp: StatusApp;
   buildNumber: number;
-  logger: Logger;
   isJson: boolean;
 }>;
 
@@ -488,9 +486,10 @@ async function watchBuildProcessing(buildWatchRequest: BuildWatchRequest): Promi
       return;
     }
 
-    buildWatchRequest.logger.step(
-      buildWatchRequest.selectedApp.name,
-      `build ${buildWatchRequest.buildNumber} is ${processingState}`,
+    console.log(
+      redactText(
+        `${buildWatchRequest.selectedApp.name} - build ${buildWatchRequest.buildNumber} is ${processingState}`,
+      ),
     );
   }
 
@@ -509,8 +508,6 @@ async function watchBuildProcessing(buildWatchRequest: BuildWatchRequest): Promi
 }
 
 function reportValidBuild(buildWatchRequest: BuildWatchRequest, storeBuild: BuildResource): void {
-  const logger = buildWatchRequest.logger;
-
   if (buildWatchRequest.isJson) {
     const validBuildReport = {
       ok: true,
@@ -520,14 +517,15 @@ function reportValidBuild(buildWatchRequest: BuildWatchRequest, storeBuild: Buil
     };
     const serialized = JSON.stringify(validBuildReport, null, 2);
 
-    logger.line(serialized);
+    console.log(redactText(serialized));
 
     return;
   }
 
-  logger.step(
-    buildWatchRequest.selectedApp.name,
-    `build ${buildWatchRequest.buildNumber} is ${storeBuild.processingState} - ready to release`,
+  console.log(
+    redactText(
+      `${buildWatchRequest.selectedApp.name} - build ${buildWatchRequest.buildNumber} is ${storeBuild.processingState} - ready to release`,
+    ),
   );
 }
 
@@ -544,7 +542,7 @@ function reportFailedBuildWatch(buildWatchRequest: BuildWatchRequest, watchFailu
   };
   const serialized = JSON.stringify(failedBuildReport, null, 2);
 
-  buildWatchRequest.logger.line(serialized);
+  console.log(redactText(serialized));
 }
 
 function buildWithoutWatch(statusFlags: StatusFlags): boolean {
@@ -611,7 +609,6 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
     }
 
     const launchPaths = readLaunchDirectories();
-    const logger = createLogger(false);
     const loadedConfiguration = await loadConfig(launchPaths.workingDirectory);
     const selectedApps = selectIosApps(loadedConfiguration.apps, statusFlags.app);
     const usageProblem = findStatusUsageProblem(statusFlags, selectedApps.length);
@@ -633,7 +630,7 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
     }
 
     if (isThereNoSelectedApp) {
-      logger.note(NO_IOS_APPS_MESSAGE);
+      console.log(redactText(NO_IOS_APPS_MESSAGE));
       return;
     }
 
@@ -663,7 +660,6 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
         appleClient,
         selectedApp: onlySelectedApp,
         buildNumber: watchedBuildNumber,
-        logger,
         isJson: statusFlags.json,
       };
 
@@ -688,7 +684,7 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
       if (statusFlags.json == false) {
         const watchExitCode = await watchReleaseStatuses(function readStatuses() {
           return readSelectedStatuses(appleClient, selectedApps, false);
-        }, logger);
+        });
 
         completeCommand(watchExitCode);
 
@@ -701,11 +697,11 @@ export async function statusCommandProgram(flagsFromCli: StatusCommandFlags): Pr
     if (statusFlags.json) {
       const jsonRows = appStatuses.map(createStatusJsonRow);
       const serialized = JSON.stringify(jsonRows, null, 2);
-      logger.line(serialized);
+      console.log(redactText(serialized));
     }
 
     if (statusFlags.json == false) {
-      printStatusBatch(logger, appStatuses);
+      printStatusBatch(appStatuses);
     }
 
     function verdictExitCode(appStatus: AppReleaseStatus): number {

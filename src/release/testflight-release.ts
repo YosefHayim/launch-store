@@ -1,6 +1,5 @@
 // Submits one build to TestFlight Beta App Review and shows the planned steps.
 
-import { createLogger } from '../services/platform/logger.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 import { loadActiveAppleStore } from '../apple/apple-store-command.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
@@ -11,6 +10,7 @@ import {
   type BetaReviewReconcileInput,
 } from './beta-review.ts';
 import { confirmAction, loadSelectedAppleApp } from './testflight-group.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export interface ReleaseCommandInput {
   operation: 'release';
@@ -127,32 +127,30 @@ export async function releaseBuild(commandInput: ReleaseCommandInput): Promise<v
   const planReport = await reconcileBetaReview(appleStore, reconciliationInput);
   const plannedActions = planReport.actions.filter(isPlannedAction);
   const releaseLabel = `${selectedApp.name} build ${planReport.buildVersion}`;
-  const logger = createLogger(false);
-
-  logger.gap();
+  console.log('');
 
   const hasNoActions = planReport.actions.length == 0;
 
   if (hasNoActions) {
-    logger.skip(`${releaseLabel}: TestFlight release prep is already in sync.`);
+    console.log(redactText(`${releaseLabel}: TestFlight release prep is already in sync.`));
     return;
   }
 
-  logger.notice(releaseLabel, ...planReport.actions.map(renderBetaAction));
-  logger.gap();
-  logger.line(`${plannedActions.length} change(s) for ${releaseLabel}.`);
+  console.log(redactText([releaseLabel, ...planReport.actions.map(renderBetaAction)].join('\n  ')));
+  console.log('');
+  console.log(redactText(`${plannedActions.length} change(s) for ${releaseLabel}.`));
 
   const isDryRun = commandInput.dryRun == true;
 
   if (isDryRun) {
-    logger.ok('Dry run complete; no changes were made.');
+    console.log(redactText('Dry run complete; no changes were made.'));
     return;
   }
 
   const hasNoPlannedChanges = plannedActions.length == 0;
 
   if (hasNoPlannedChanges) {
-    logger.skip('Nothing to apply; everything is already in sync.');
+    console.log(redactText('Nothing to apply; everything is already in sync.'));
     return;
   }
 
@@ -164,7 +162,7 @@ export async function releaseBuild(commandInput: ReleaseCommandInput): Promise<v
   const isDeclined = confirmed == false;
 
   if (isDeclined) {
-    logger.skip('No TestFlight changes were applied.');
+    console.log(redactText('No TestFlight changes were applied.'));
     return;
   }
 
@@ -176,7 +174,7 @@ export async function releaseBuild(commandInput: ReleaseCommandInput): Promise<v
   const appliedTitle = receiptTitle(actionSummary.failed);
   const appliedLines = appliedReport.actions.map(renderBetaAction);
 
-  logger.box(appliedTitle, appliedLines);
+  console.log(redactText([appliedTitle, ...appliedLines].join('\n  ')));
 
   const hasFailedActions = actionSummary.failed > 0;
 

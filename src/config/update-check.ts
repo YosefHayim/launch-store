@@ -6,7 +6,6 @@ import { dirname, join } from 'node:path';
 import { pathExists } from '../path-exists.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import { captureCommandOutput, type CommandFailed } from '../services/platform/execute-command.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import {
   ensureDirectoryExists,
   readLaunchDirectories,
@@ -17,6 +16,7 @@ import { isCommandExit, makeCommandExit } from '../terminal/command-exit.ts';
 import { readFile, writeFile } from 'node:fs/promises';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import { isFailureTag } from '../services/platform/tagged-failure.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 const PACKAGE_NAME = 'launch-store';
 const checkIntervalMs = 24 * 60 * 60 * 1000;
@@ -359,19 +359,17 @@ async function performUpgrade(
   latest: string,
   homeDirectory: string,
 ): Promise<UpgradeResult> {
-  const logger = createLogger(false);
-
-  logger.line(`Upgrading launch-store ${current} -> ${latest}`);
+  console.log(redactText(`Upgrading launch-store ${current} -> ${latest}`));
 
   try {
     await captureCommandOutput(installer, installArguments(installer, latest), {
       workingDirectory: homeDirectory,
     });
-    logger.line(`launch-store upgraded to ${latest} - relaunching`);
+    console.log(redactText(`launch-store upgraded to ${latest} - relaunching`));
 
     return 'upgraded';
   } catch (cause) {
-    logger.warn(`launch-store ${latest} available - automatic upgrade failed`);
+    console.log(redactText(`launch-store ${latest} available - automatic upgrade failed`));
 
     const isPermissionDenied = permissionDenied(cause);
 
@@ -576,10 +574,10 @@ async function relaunchUpgradedLaunch(
   homeDirectory: string,
 ): Promise<void> {
   const relaunchScript = await readGlobalEntryPath(installer, homeDirectory);
-  const logger = createLogger(false);
-
   if (relaunchScript == null) {
-    logger.warn('launch-store was upgraded - the new version runs from your next command');
+    console.log(
+      redactText('launch-store was upgraded - the new version runs from your next command'),
+    );
 
     return;
   }
@@ -592,7 +590,7 @@ async function relaunchUpgradedLaunch(
 }
 
 async function notifyUpgrade(message: string): Promise<void> {
-  createLogger(false).warn(message);
+  console.log(redactText(message));
 }
 
 export async function runAutoUpgrade(

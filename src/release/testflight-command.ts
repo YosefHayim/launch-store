@@ -1,7 +1,6 @@
 // Runs TestFlight group, tester, feedback, and beta-release commands for one app.
 
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import { loadActiveAppleStore } from '../apple/apple-store-command.ts';
 import type { BetaGroupResource, BetaTesterResource } from '../types/apple/testflight.ts';
@@ -10,6 +9,7 @@ import { countLabel, loadSelectedAppleApp, selectBetaGroup } from './testflight-
 import { releaseBuild, type ReleaseCommandInput } from './testflight-release.ts';
 import { removeTesters, type RemoveCommandInput } from './testflight-remove-testers.ts';
 import { showFeedback, type FeedbackCommandInput } from './testflight-show-feedback.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 const TESTFLIGHT_OPERATIONS = [
   'groups',
@@ -342,13 +342,13 @@ async function listGroups(commandInput: GroupsCommandInput): Promise<void> {
   const appleStore = await loadActiveAppleStore();
   const selectedApp = await loadSelectedAppleApp(appleStore, commandInput.app);
   const betaGroups = await appleStore.listBetaGroups(selectedApp.appId);
-  const logger = createLogger(false);
-
   const isEmpty = betaGroups.length == 0;
 
   if (isEmpty) {
-    logger.line(
-      `No beta groups for ${selectedApp.name}. Create one with \`launch-store testflight create-group <name>\`.`,
+    console.log(
+      redactText(
+        `No beta groups for ${selectedApp.name}. Create one with \`launch-store testflight create-group <name>\`.`,
+      ),
     );
     return;
   }
@@ -356,10 +356,10 @@ async function listGroups(commandInput: GroupsCommandInput): Promise<void> {
   for (const betaGroup of betaGroups) {
     const testers = await appleStore.listBetaTestersInGroup(betaGroup.id);
     const groupLine = formatGroupLine(betaGroup, testers.length);
-    logger.line(groupLine);
+    console.log(redactText(groupLine));
   }
 
-  logger.line(`\n${betaGroups.length} group(s) for ${selectedApp.name}.`);
+  console.log(redactText(`\n${betaGroups.length} group(s) for ${selectedApp.name}.`));
 }
 
 async function createGroup(commandInput: CreateGroupCommandInput): Promise<void> {
@@ -369,18 +369,22 @@ async function createGroup(commandInput: CreateGroupCommandInput): Promise<void>
     selectedApp.appId,
     commandInput.groupName,
   );
-  const logger = createLogger(false);
-
   if (existingGroup != null) {
-    logger.line(`Beta group "${existingGroup.name}" already exists for ${selectedApp.name}.`);
+    console.log(
+      redactText(`Beta group "${existingGroup.name}" already exists for ${selectedApp.name}.`),
+    );
     return;
   }
 
   const createdGroup = await appleStore.createBetaGroup(selectedApp.appId, commandInput.groupName);
 
-  logger.ok(`Created external beta group "${createdGroup.name}" for ${selectedApp.name}.`);
-  logger.line(
-    `- Add testers with \`launch-store testflight add <email> --group "${createdGroup.name}"\`.`,
+  console.log(
+    redactText(`Created external beta group "${createdGroup.name}" for ${selectedApp.name}.`),
+  );
+  console.log(
+    redactText(
+      `- Add testers with \`launch-store testflight add <email> --group "${createdGroup.name}"\`.`,
+    ),
   );
 }
 
@@ -424,23 +428,23 @@ async function listTesters(commandInput: TestersCommandInput): Promise<void> {
   const selectedApp = await loadSelectedAppleApp(appleStore, commandInput.app);
   const betaGroup = await selectBetaGroup(appleStore, selectedApp.appId, commandInput.group, false);
   const betaTesters = await appleStore.listBetaTestersInGroup(betaGroup.id);
-  const logger = createLogger(false);
-
   const isEmpty = betaTesters.length == 0;
 
   if (isEmpty) {
-    logger.line(
-      `No testers in "${betaGroup.name}". Add one with \`launch-store testflight add <email> --group "${betaGroup.name}"\`.`,
+    console.log(
+      redactText(
+        `No testers in "${betaGroup.name}". Add one with \`launch-store testflight add <email> --group "${betaGroup.name}"\`.`,
+      ),
     );
     return;
   }
 
   for (const betaTester of betaTesters) {
     const testerLine = formatTesterLine(betaTester);
-    logger.line(testerLine);
+    console.log(redactText(testerLine));
   }
 
-  logger.line(`\n${betaTesters.length} tester(s) in "${betaGroup.name}".`);
+  console.log(redactText(`\n${betaTesters.length} tester(s) in "${betaGroup.name}".`));
 }
 
 async function runTestflightOperation(commandInput: TestflightCommandInput): Promise<void> {

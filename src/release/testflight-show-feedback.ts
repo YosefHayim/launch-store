@@ -1,6 +1,5 @@
 // Prints TestFlight crash and screenshot feedback and can save the screenshots.
 
-import { createLogger, type Logger } from '../services/platform/logger.ts';
 import type { AppStoreConnect } from '../apple/app-store-connect.ts';
 import { loadActiveAppleStore } from '../apple/apple-store-command.ts';
 import type { BetaFeedback, BetaFeedbackKind } from '../types/app.ts';
@@ -10,6 +9,7 @@ import {
   type FeedbackFilters,
 } from './testflight-feedback.ts';
 import { countLabel, loadSelectedAppleApp } from './testflight-group.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 const FEEDBACK_KINDS: readonly BetaFeedbackKind[] = ['crash', 'screenshot'];
 
@@ -146,7 +146,6 @@ async function downloadRequestedAttachments(
   feedbackEntries: readonly BetaFeedback[],
   outputDirectory: string | undefined,
   wantsJson: boolean,
-  logger: Logger,
 ): Promise<void> {
   if (outputDirectory == null) {
     return;
@@ -164,7 +163,7 @@ async function downloadRequestedAttachments(
 
   const label = countLabel(downloadedAttachments.length, 'screenshot');
 
-  logger.ok(`Downloaded ${label} to ${outputDirectory}.`);
+  console.log(redactText(`Downloaded ${label} to ${outputDirectory}.`));
 }
 
 export async function showFeedback(commandInput: FeedbackCommandInput): Promise<void> {
@@ -173,35 +172,30 @@ export async function showFeedback(commandInput: FeedbackCommandInput): Promise<
   const appleStore = await loadActiveAppleStore();
   const selectedApp = await loadSelectedAppleApp(appleStore, commandInput.app);
   const feedbackEntries = await listBetaFeedback(appleStore, selectedApp.bundleId, filters);
-  const logger = createLogger(false);
   const wantsJson = commandInput.json == true;
 
-  await downloadRequestedAttachments(
-    appleStore,
-    feedbackEntries,
-    commandInput.out,
-    wantsJson,
-    logger,
-  );
+  await downloadRequestedAttachments(appleStore, feedbackEntries, commandInput.out, wantsJson);
 
   if (wantsJson) {
     const serialized = JSON.stringify(feedbackEntries, null, 2);
-    logger.line(serialized);
+    console.log(redactText(serialized));
     return;
   }
 
   const hasNoFeedback = feedbackEntries.length == 0;
 
   if (hasNoFeedback) {
-    logger.skip('No TestFlight feedback yet. Testers submit it from the TestFlight app.');
+    console.log(
+      redactText('No TestFlight feedback yet. Testers submit it from the TestFlight app.'),
+    );
     return;
   }
 
   const feedbackBlocks = feedbackEntries.map(renderFeedback);
 
-  logger.line(feedbackBlocks.join('\n\n'));
+  console.log(redactText(feedbackBlocks.join('\n\n')));
 
   const label = countLabel(feedbackEntries.length, 'feedback item');
 
-  logger.line(`\n${label}.`);
+  console.log(redactText(`\n${label}.`));
 }

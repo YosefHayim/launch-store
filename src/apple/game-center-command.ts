@@ -1,6 +1,5 @@
 // Plans Game Center changes and applies them on App Store Connect.
 
-import { createLogger } from '../services/platform/logger.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import type { GameCenterConfig } from '../types/store-surface.ts';
 import {
@@ -16,6 +15,7 @@ import { errorMessage } from '../services/platform/error-message.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export type GameCenterCommandInput = Readonly<{
   app?: string;
@@ -110,7 +110,6 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
     }
 
     const gameCenterTarget = await readGameCenterTarget(commandInput);
-    const logger = createLogger(false);
     try {
       var appleStore = await loadActiveAppleStore();
     } catch (cause) {
@@ -129,14 +128,15 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
 
     const plannedActions = gameCenterPlan.actions.filter(isPlannedAction);
 
-    logger.gap();
+    console.log('');
 
     const isAlreadyInSync = gameCenterPlan.actions.length == 0;
 
     if (isAlreadyInSync) {
-      logger.step(
-        gameCenterTarget.bundleId,
-        'Game Center achievements & leaderboards already in sync',
+      console.log(
+        redactText(
+          `${gameCenterTarget.bundleId} - Game Center achievements & leaderboards already in sync`,
+        ),
       );
 
       return 0;
@@ -144,23 +144,23 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
 
     const actionLines = gameCenterPlan.actions.map(renderStoreSurfaceAction);
 
-    logger.notice(gameCenterTarget.bundleId, ...actionLines);
+    console.log(redactText([gameCenterTarget.bundleId, ...actionLines].join('\n  ')));
 
     const hasNothingToApply = plannedActions.length == 0;
 
     if (hasNothingToApply) {
-      logger.gap();
-      logger.step('game-center', 'nothing to apply (everything already in sync)');
+      console.log('');
+      console.log(redactText('game-center - nothing to apply (everything already in sync)'));
       return 0;
     }
 
-    logger.gap();
-    logger.note(`${plannedActions.length} change(s) for ${gameCenterTarget.bundleId}.`);
+    console.log('');
+    console.log(redactText(`${plannedActions.length} change(s) for ${gameCenterTarget.bundleId}.`));
 
     const isDryRun = commandInput.dryRun == true;
 
     if (isDryRun) {
-      logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+      console.log(redactText('Dry run - no changes made. Re-run without --dry-run to apply.'));
       return 0;
     }
 
@@ -200,7 +200,7 @@ async function executeGameCenter(rawCommandInput: unknown): Promise<number> {
 
     const receiptLines = appliedGameCenter.actions.map(renderAppliedStoreSurfaceAction);
 
-    logger.box(receiptTitle, receiptLines);
+    console.log(redactText([receiptTitle, ...receiptLines].join('\n  ')));
 
     return gameCenterSummary.failed;
   } catch (cause) {

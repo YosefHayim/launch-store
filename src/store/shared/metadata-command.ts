@@ -6,7 +6,6 @@ import {
   loadServiceAccount,
 } from '../../credentials/android-keystore-assets.ts';
 import { errorMessage } from '../../services/platform/error-message.ts';
-import { createLogger } from '../../services/platform/logger.ts';
 import type { AppStoreConnect } from '../../apple/app-store-connect.ts';
 import type { GooglePlayClient } from '../../google/play-client.ts';
 import { AppleStoreClientService } from '../../services/stores/apple-store-client.ts';
@@ -21,6 +20,7 @@ import { reconcileAppListing } from '../../apple/app-store-sync.ts';
 import { loadStoreAppContext } from './select-store-app.ts';
 import type { AndroidLocaleInfo, AndroidStoreConfig, StoreConfig } from './store-config.ts';
 import { readPlainObject } from '../../services/platform/plain-object.ts';
+import { redactText } from '../../services/platform/redact.ts';
 
 export type MetadataCommandInput = {
   operation: 'pull' | 'push';
@@ -286,7 +286,6 @@ async function requireAppId(ascClient: AppStoreConnect, bundleId: string): Promi
 /** Print the live App Store listing so it can be pasted under `listing` in launch.config.ts. */
 export async function pullAppleListing(bundleId: string, dryRun: boolean): Promise<void> {
   try {
-    const logger = createLogger(false);
     const ascClient = await createAppleClient();
     const appId = await requireAppId(ascClient, bundleId);
     try {
@@ -306,20 +305,22 @@ export async function pullAppleListing(bundleId: string, dryRun: boolean): Promi
     const localeCount = Object.keys(appleListing.info).length;
     const printedListing = JSON.stringify({ apple: appleListing }, null, 2);
 
-    logger.line(printedListing);
+    console.log(redactText(printedListing));
 
     if (dryRun) {
-      logger.step(
-        'metadata',
-        `would add ${localeCount} App Store locale(s) for ${bundleId} under listing in launch.config.ts`,
+      console.log(
+        redactText(
+          `metadata - would add ${localeCount} App Store locale(s) for ${bundleId} under listing in launch.config.ts`,
+        ),
       );
 
       return;
     }
 
-    logger.step(
-      'metadata',
-      `read ${localeCount} App Store locale(s) for ${bundleId}. Add them under listing.${bundleId} in launch.config.ts.`,
+    console.log(
+      redactText(
+        `metadata - read ${localeCount} App Store locale(s) for ${bundleId}. Add them under listing.${bundleId} in launch.config.ts.`,
+      ),
     );
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
@@ -356,7 +357,6 @@ async function pullAndroidListing(
   dryRun: boolean,
 ): Promise<void> {
   try {
-    const logger = createLogger(false);
     const playClient = await createPlayClient(packageName, appName);
     try {
       var listings = await playClient.listListings(packageName);
@@ -377,20 +377,22 @@ async function pullAndroidListing(
 
     const printedListing = JSON.stringify({ android: androidListing }, null, 2);
 
-    logger.line(printedListing);
+    console.log(redactText(printedListing));
 
     if (dryRun) {
-      logger.step(
-        'metadata',
-        `would add ${localeCount} Play locale(s) for ${packageName} under listing in launch.config.ts`,
+      console.log(
+        redactText(
+          `metadata - would add ${localeCount} Play locale(s) for ${packageName} under listing in launch.config.ts`,
+        ),
       );
 
       return;
     }
 
-    logger.step(
-      'metadata',
-      `read ${localeCount} Play locale(s) for ${packageName}. Add them under listing.${packageName} in launch.config.ts.`,
+    console.log(
+      redactText(
+        `metadata - read ${localeCount} Play locale(s) for ${packageName}. Add them under listing.${packageName} in launch.config.ts.`,
+      ),
     );
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
@@ -419,7 +421,6 @@ async function pushAppleListing(
   dryRun: boolean,
 ): Promise<void> {
   try {
-    const logger = createLogger(false);
     const appleListing = storeListing?.apple;
 
     if (appleListing == null) {
@@ -448,7 +449,7 @@ async function pushAppleListing(
     }
 
     for (const action of reconciliation.actions) {
-      logger.step('metadata', `${action.status}: ${action.description}`);
+      console.log(redactText(`metadata - ${action.status}: ${action.description}`));
     }
 
     const failedActions = reconciliation.actions.filter(isFailedListingAction);
@@ -462,11 +463,11 @@ async function pushAppleListing(
     }
 
     if (dryRun) {
-      logger.note('dry run: nothing was written to App Store Connect');
+      console.log(redactText('dry run: nothing was written to App Store Connect'));
       return;
     }
 
-    logger.step('metadata', `pushed App Store listing for ${bundleId}`);
+    console.log(redactText(`metadata - pushed App Store listing for ${bundleId}`));
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
 
@@ -502,7 +503,6 @@ async function pushAndroidListing(
   dryRun: boolean,
 ): Promise<void> {
   try {
-    const logger = createLogger(false);
     const androidListing = storeListing?.android;
 
     if (androidListing == null) {
@@ -517,19 +517,20 @@ async function pushAndroidListing(
       for (const listing of listings) {
         const fieldNames = Object.keys(listing).filter(isNotLanguage);
 
-        logger.step(
-          'metadata',
-          `planned: update Play listing ${listing.language} (${fieldNames.join(', ')}) for ${packageName}`,
+        console.log(
+          redactText(
+            `metadata - planned: update Play listing ${listing.language} (${fieldNames.join(', ')}) for ${packageName}`,
+          ),
         );
       }
 
-      logger.note('dry run: nothing was written to Google Play');
+      console.log(redactText('dry run: nothing was written to Google Play'));
 
       return;
     }
 
     if (listings.length == 0) {
-      logger.note(`${packageName} has no Play locales to push.`);
+      console.log(redactText(`${packageName} has no Play locales to push.`));
       return;
     }
 
@@ -549,7 +550,9 @@ async function pushAndroidListing(
       throw new Error(failureMessage, { cause });
     }
 
-    logger.step('metadata', `pushed ${listings.length} Play listing(s) for ${packageName}`);
+    console.log(
+      redactText(`metadata - pushed ${listings.length} Play listing(s) for ${packageName}`),
+    );
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
 

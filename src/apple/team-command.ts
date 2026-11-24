@@ -1,6 +1,5 @@
 // Lists, invites, and removes members of the App Store Connect team.
 
-import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import type { UserInvitationResource, UserResource } from '../types/apple/users-and-access.ts';
@@ -10,6 +9,7 @@ import { errorMessage } from '../services/platform/error-message.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export type TeamListInput = Readonly<{ operation: 'list'; json: boolean }>;
 
@@ -215,19 +215,17 @@ async function listTeam(commandInput: TeamListInput): Promise<void> {
   try {
     const appleStore = await loadActiveAppleStore();
     const currentTeam = await getTeam(appleStore);
-    const logger = createLogger(false);
-
     const wantsJson = commandInput.json == true;
 
     if (wantsJson) {
       const serialized = JSON.stringify(currentTeam, null, 2);
-      logger.line(serialized);
+      console.log(redactText(serialized));
       return;
     }
 
     const team = renderTeam(currentTeam);
 
-    logger.line(team);
+    console.log(redactText(team));
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });
   }
@@ -255,9 +253,9 @@ async function inviteTeam(commandInput: TeamInviteInput): Promise<void> {
       roles: commandInput.role.split(','),
       provisioningAllowed: commandInput.provisioning,
     });
-    const logger = createLogger(false);
-
-    logger.step('invited', `${createdInvitation.email} - [${createdInvitation.roles.join(', ')}]`);
+    console.log(
+      redactText(`invited - ${createdInvitation.email} - [${createdInvitation.roles.join(', ')}]`),
+    );
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });
   }
@@ -279,20 +277,20 @@ async function removeFromTeam(commandInput: TeamRemoveInput): Promise<void> {
 
     const appleStore = await loadActiveAppleStore();
     const removeOutcome = await removeTeamMember(appleStore, commandInput.email);
-    const logger = createLogger(false);
-
     if (removeOutcome.kind == 'member') {
-      logger.step('removed', `${removeOutcome.user.username} - access revoked`);
+      console.log(redactText(`removed - ${removeOutcome.user.username} - access revoked`));
       return;
     }
 
     if (removeOutcome.kind == 'invitation') {
-      logger.step('invitation cancelled', removeOutcome.invitation.email);
+      console.log(redactText(`invitation cancelled - ${removeOutcome.invitation.email}`));
       return;
     }
 
-    logger.note(
-      `No team member or pending invitation matches ${commandInput.email} - nothing to remove.`,
+    console.log(
+      redactText(
+        `No team member or pending invitation matches ${commandInput.email} - nothing to remove.`,
+      ),
     );
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });

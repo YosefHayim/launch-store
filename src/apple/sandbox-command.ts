@@ -1,12 +1,12 @@
 // Lists StoreKit sandbox testers and clears their purchase history on App Store Connect.
 
-import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import type { SandboxTesterResource } from '../types/apple/users-and-access.ts';
 import { clearPurchaseHistory, listSandboxTesters } from '../services/stores/sandbox.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 /** One sandbox-tester operation selected by Commander. */
 type SandboxCommandInput =
@@ -99,7 +99,6 @@ async function confirmClear(targetLabel: string, confirmed: boolean): Promise<bo
 /** List the active account's StoreKit sandbox testers. */
 async function listSandboxTestersProgram(json: boolean): Promise<void> {
   try {
-    const logger = createLogger(false);
     const sandboxStore = await loadActiveAppleStore();
     const sandboxTesters = await listSandboxTesters(sandboxStore);
 
@@ -107,20 +106,22 @@ async function listSandboxTestersProgram(json: boolean): Promise<void> {
 
     if (wantsJson) {
       const serialized = JSON.stringify(sandboxTesters, null, 2);
-      logger.line(serialized);
+      console.log(redactText(serialized));
       return;
     }
 
     const isEmpty = sandboxTesters.length == 0;
 
     if (isEmpty) {
-      logger.line(
-        'No sandbox testers. Create them in App Store Connect -> Users and Access -> Sandbox Testers.',
+      console.log(
+        redactText(
+          'No sandbox testers. Create them in App Store Connect -> Users and Access -> Sandbox Testers.',
+        ),
       );
       return;
     }
 
-    logger.line(sandboxTesters.map(testerLine).join('\n'));
+    console.log(redactText(sandboxTesters.map(testerLine).join('\n')));
 
     let testerSuffix = 's';
 
@@ -130,7 +131,7 @@ async function listSandboxTestersProgram(json: boolean): Promise<void> {
       testerSuffix = '';
     }
 
-    logger.line(`\n${sandboxTesters.length} sandbox tester${testerSuffix}.`);
+    console.log(redactText(`\n${sandboxTesters.length} sandbox tester${testerSuffix}.`));
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });
   }
@@ -156,8 +157,6 @@ async function clearSandboxTestersProgram(
     if (declined) {
       return;
     }
-
-    const logger = createLogger(false);
     const sandboxStore = await loadActiveAppleStore();
     const clearOutcome = await clearPurchaseHistory(sandboxStore, {
       emails: [...commandInput.emails],
@@ -167,19 +166,23 @@ async function clearSandboxTestersProgram(
     const clearedSomeone = clearOutcome.cleared.length > 0;
 
     if (clearedSomeone) {
-      logger.step('purchase history cleared', clearOutcome.cleared.map(testerEmail).join(', '));
+      console.log(
+        redactText(
+          `purchase history cleared - ${clearOutcome.cleared.map(testerEmail).join(', ')}`,
+        ),
+      );
     }
 
     const clearedNobody = clearedSomeone == false;
 
     if (clearedNobody) {
-      logger.note('No matching sandbox testers - nothing cleared.');
+      console.log(redactText('No matching sandbox testers - nothing cleared.'));
     }
 
     const hasMissingTesters = clearOutcome.notFound.length > 0;
 
     if (hasMissingTesters) {
-      logger.warn(`No sandbox tester found for: ${clearOutcome.notFound.join(', ')}`);
+      console.log(redactText(`No sandbox tester found for: ${clearOutcome.notFound.join(', ')}`));
     }
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });

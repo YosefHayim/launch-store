@@ -3,7 +3,6 @@
 import { join } from 'node:path';
 import type { LocalScreenshot } from '../listing/screenshots/assets.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
@@ -21,6 +20,7 @@ import {
   type VersionExperimentsConfig,
 } from './version-experiments.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export type VersionExperimentsCommandInput = {
   readonly app?: string;
@@ -182,7 +182,6 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
   try {
     const commandInput = decodeVersionExperimentsCommandInput(rawCommandInput);
     const experimentsTarget = await readExperimentsTarget(commandInput);
-    const logger = createLogger(false);
     try {
       var appleStore = await loadActiveAppleStore();
     } catch (cause) {
@@ -207,32 +206,36 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
 
     const plannedActions = experimentsPlan.actions.filter(isPlannedAction);
 
-    logger.gap();
+    console.log('');
 
     const isAlreadyInSync = experimentsPlan.actions.length == 0;
 
     if (isAlreadyInSync) {
-      logger.step(experimentsTarget.bundleId, 'product-page experiments already in sync');
+      console.log(
+        redactText(`${experimentsTarget.bundleId} - product-page experiments already in sync`),
+      );
       return 0;
     }
 
     const plannedLines = experimentsPlan.actions.map(renderStoreSurfaceAction);
 
-    logger.notice(experimentsTarget.bundleId, ...plannedLines);
+    console.log(redactText([experimentsTarget.bundleId, ...plannedLines].join('\n  ')));
 
     const hasNothingToApply = plannedActions.length == 0;
 
     if (hasNothingToApply) {
-      logger.gap();
-      logger.step('experiments', 'nothing to apply (everything already in sync)');
+      console.log('');
+      console.log(redactText('experiments - nothing to apply (everything already in sync)'));
       return 0;
     }
 
-    logger.gap();
-    logger.note(`${plannedActions.length} change(s) for ${experimentsTarget.bundleId}.`);
+    console.log('');
+    console.log(
+      redactText(`${plannedActions.length} change(s) for ${experimentsTarget.bundleId}.`),
+    );
 
     if (commandInput.dryRun) {
-      logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+      console.log(redactText('Dry run - no changes made. Re-run without --dry-run to apply.'));
       return 0;
     }
 
@@ -271,7 +274,7 @@ async function executeVersionExperiments(rawCommandInput: unknown): Promise<numb
 
     const receiptLines = appliedExperiments.actions.map(renderAppliedStoreSurfaceAction);
 
-    logger.box(receiptTitle, receiptLines);
+    console.log(redactText([receiptTitle, ...receiptLines].join('\n  ')));
 
     return experimentsSummary.failed;
   } catch (cause) {

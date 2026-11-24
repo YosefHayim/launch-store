@@ -89,7 +89,7 @@ function makeIo(toolchainOptions: {
   return { io, logs, runs };
 }
 
-/** Run a toolchain program with an isolated logger capability. */
+/** Run a toolchain program. */
 async function runToolchainEffect<TValue>(toolchainWork: Promise<TValue>): Promise<TValue> {
   return toolchainWork;
 }

@@ -1,11 +1,15 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fuzzyMatch } from '../../prompts.ts';
-import { resetLogger, useLoggerSink } from './logger.ts';
 import { LaunchPrompt, pickOne, resetPrompts, usePromptAnswers } from './prompt.ts';
 
 afterEach(function resetPromptSinks() {
   resetPrompts();
-  resetLogger();
+
+  const isLogMocked = vi.isMockFunction(console.log);
+
+  if (isLogMocked) {
+    vi.mocked(console.log).mockRestore();
+  }
 });
 
 function describeFuzzyPieceThePickerSSubsequenceFilter() {
@@ -71,9 +75,11 @@ function describePickOneNonInteractivePolicyNoTTY() {
   async function returnsTheFallbackPieceAndPrintsItsNoteUnderTheFallbackPolicy() {
     const terminalWrites: string[] = [];
 
-    useLoggerSink(function writeLine(text: string) {
-      terminalWrites.push(text);
-    });
+    function writeLine(message: unknown) {
+      terminalWrites.push(`${String(message)}\n`);
+    }
+
+    vi.spyOn(console, 'log').mockImplementation(writeLine);
 
     const chosen = await pickOne({
       message: 'Multiple keys found',

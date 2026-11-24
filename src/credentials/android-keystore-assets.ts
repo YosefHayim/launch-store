@@ -16,7 +16,6 @@ import { pathExists } from '../path-exists.ts';
 import { randomHexSecret } from './random-secret.ts';
 import { LaunchSecretStore } from '../services/credentials/secret-store.ts';
 import { captureCommandOutput } from '../services/platform/execute-command.ts';
-import type { Logger } from '../services/platform/logger.ts';
 import {
   readAndroidCredentialsDirectory,
   readAndroidCredentialsIndexPath,
@@ -25,6 +24,7 @@ import {
 } from '../services/platform/paths.ts';
 import type { KeystoreAssets } from '../types/credentials.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 const SERVICE_ACCOUNT_SECRET = 'play-service-account';
 const KEYSTORE_STORE_PASSWORD = 'android-keystore-store-password';
@@ -51,7 +51,6 @@ export type KeystoreImport = {
 type EnsureKeystoreOptions = {
   appName: string;
   packageName: string;
-  log: Logger;
   dryRun: boolean;
   confirmCreate: (message: string) => Promise<boolean>;
   confirmReplace?: (message: string) => Promise<boolean>;
@@ -775,15 +774,17 @@ async function importWhenRequested(
     throw new Error('Existing upload keystore was not replaced.');
   }
 
-  return importKeystore(keystoreImport, options.log, options.packageName);
+  return importKeystore(keystoreImport, options.packageName);
 }
 
 export async function ensureUploadKeystore(
   options: EnsureKeystoreOptions,
 ): Promise<KeystoreAssets> {
   if (options.dryRun) {
-    options.log.note(
-      '[dry-run] would generate or import an upload keystore under ~/.launch/credentials',
+    console.log(
+      redactText(
+        '[dry-run] would generate or import an upload keystore under ~/.launch/credentials',
+      ),
     );
 
     return dryRunKeystore(options.packageName);
@@ -804,11 +805,7 @@ export async function ensureUploadKeystore(
   const cachedKeystore = await loadCachedKeystore(options.packageName);
 
   if (cachedKeystore != null) {
-    options.log.step(
-      'keystore',
-      `reusing upload keystore (alias ${cachedKeystore.alias})`,
-      'upload-key',
-    );
+    console.log(redactText(`keystore - reusing upload keystore (alias ${cachedKeystore.alias})`));
 
     return cachedKeystore;
   }
@@ -845,14 +842,10 @@ export async function ensureUploadKeystore(
     throw new Error('No upload keystore. Confirm generation or import an existing keystore.');
   }
 
-  return generateKeystore(options.appName, options.log, options.packageName);
+  return generateKeystore(options.appName, options.packageName);
 }
 
-async function generateKeystore(
-  appName: string,
-  log: Logger,
-  packageName: string,
-): Promise<KeystoreAssets> {
+async function generateKeystore(appName: string, packageName: string): Promise<KeystoreAssets> {
   const credentialsDirectory = readAndroidCredentialsDirectory(packageName);
   const keystoreBackupPath = readKeystoreBackupPath(packageName);
   const keystorePasswordBytes = 24;
@@ -901,7 +894,7 @@ async function generateKeystore(
     { keystore: { path: keystoreBackupPath, alias: DEFAULT_ALIAS } },
     packageName,
   );
-  log.step('keystore', `generated upload keystore (alias ${DEFAULT_ALIAS})`, 'upload-key');
+  console.log(redactText(`keystore - generated upload keystore (alias ${DEFAULT_ALIAS})`));
 
   return {
     path: keystoreBackupPath,
@@ -913,7 +906,6 @@ async function generateKeystore(
 
 async function importKeystore(
   keystoreImport: KeystoreImport,
-  log: Logger,
   packageName: string,
 ): Promise<KeystoreAssets> {
   const credentialsDirectory = readAndroidCredentialsDirectory(packageName);
@@ -948,7 +940,7 @@ async function importKeystore(
     { keystore: { path: keystoreBackupPath, alias: keystoreImport.alias } },
     packageName,
   );
-  log.step('keystore', `imported upload keystore (alias ${keystoreImport.alias})`, 'upload-key');
+  console.log(redactText(`keystore - imported upload keystore (alias ${keystoreImport.alias})`));
 
   return {
     path: keystoreBackupPath,

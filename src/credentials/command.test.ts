@@ -1,13 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createTemporaryHomeDirectory,
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '../testkit/temporary-launch-home.ts';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
-import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { CredentialsCommandInputSchema, credentialsCommandProgram } from './command.ts';
 import { credentialSearchDirectories, isCredentialDiscoveryFile } from './credential-discovery.ts';
@@ -216,9 +215,18 @@ function useCommandHome(homeDirectory: string, lines: string[]): void {
     workingDirectory: workPath,
   });
   useSecretStore(new Map());
-  useLoggerSink(function keepLine(text: string) {
-    lines.push(text);
-  });
+
+  function keepLine(message: unknown) {
+    lines.push(`${String(message)}\n`);
+  }
+
+  const isLogMocked = vi.isMockFunction(console.log);
+
+  if (isLogMocked) {
+    vi.mocked(console.log).mockRestore();
+  }
+
+  vi.spyOn(console, 'log').mockImplementation(keepLine);
 }
 
 function describeSetVendorNumberAction() {
@@ -240,7 +248,13 @@ function describeSetVendorNumberAction() {
   function cleanupSetVendorNumberAction() {
     resetLaunchDirectories();
     resetSecretStore();
-    resetLogger();
+
+    const isLogMocked = vi.isMockFunction(console.log);
+
+    if (isLogMocked) {
+      vi.mocked(console.log).mockRestore();
+    }
+
     removeTemporaryHomeDirectory(homeDirectory);
   }
 
@@ -311,7 +325,12 @@ function describeAndroidCredentialStatus() {
   function cleanupAndroidCredentialStatus() {
     resetLaunchDirectories();
     resetSecretStore();
-    resetLogger();
+
+    const isLogMocked = vi.isMockFunction(console.log);
+
+    if (isLogMocked) {
+      vi.mocked(console.log).mockRestore();
+    }
   }
 
   afterEach(cleanupAndroidCredentialStatus);

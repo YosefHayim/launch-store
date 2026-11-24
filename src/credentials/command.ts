@@ -5,7 +5,6 @@ import { pathExists } from '../path-exists.ts';
 import { loadConfig } from '../config/config.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import { parsePlatform } from '../services/stores/platform.ts';
@@ -28,6 +27,7 @@ import { setAppleKey } from './set-apple-key.ts';
 import { setupAndroid } from './setup-android.ts';
 import { setupIos } from './setup-ios.ts';
 import { showCredentialStatus } from './show-credential-status.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 const CREDENTIAL_ACTIONS = [
   'status',
@@ -223,7 +223,7 @@ async function setGoogleKey(
   const serviceAccountJson = await readFile(keyPath, 'utf8');
 
   await storeServiceAccount(serviceAccountJson, packageName);
-  createLogger(false).ok(`Stored the Play service account from ${displayPath(keyPath)}.`);
+  console.log(redactText(`Stored the Play service account from ${displayPath(keyPath)}.`));
   await offerSourceRemoval(keyPath, 'Play service-account key', canPrompt);
 }
 

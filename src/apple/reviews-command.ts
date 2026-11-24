@@ -1,7 +1,6 @@
 // Lists App Store reviews and posts or deletes a developer reply on App Store Connect.
 
 import { readFile } from 'node:fs/promises';
-import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import type { CustomerReviewResource } from '../types/apple/customer-reviews.ts';
@@ -11,6 +10,7 @@ import { readStoreBundleId } from '../store/shared/select-store-app.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 /** Options for listing App Store customer reviews. */
 export type ReviewsListCommandInput = Readonly<{
@@ -199,24 +199,22 @@ async function listReviewsProgram(commandInput: ReviewsListCommandInput): Promis
     const bundleId = await readStoreBundleId(commandInput.app);
     const appleStore = await loadActiveAppleStore();
     const customerReviews = await listReviews(appleStore, bundleId, reviewFilters);
-    const logger = createLogger(false);
-
     const wantsJson = commandInput.json == true;
 
     if (wantsJson) {
       const serialized = JSON.stringify(customerReviews, null, 2);
-      logger.line(serialized);
+      console.log(redactText(serialized));
       return;
     }
 
     const isEmpty = customerReviews.length == 0;
 
     if (isEmpty) {
-      logger.line('No reviews match. Try removing a filter, or check back later.');
+      console.log(redactText('No reviews match. Try removing a filter, or check back later.'));
       return;
     }
 
-    logger.line(customerReviews.map(reviewBlock).join('\n\n'));
+    console.log(redactText(customerReviews.map(reviewBlock).join('\n\n')));
 
     let reviewSuffix = 's';
 
@@ -226,7 +224,7 @@ async function listReviewsProgram(commandInput: ReviewsListCommandInput): Promis
       reviewSuffix = '';
     }
 
-    logger.line(`\n${customerReviews.length} review${reviewSuffix}.`);
+    console.log(redactText(`\n${customerReviews.length} review${reviewSuffix}.`));
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });
   }
@@ -290,10 +288,7 @@ async function replyToReviewProgram(commandInput: ReviewReplyCommandInput): Prom
     if (replacedExisting) {
       operationLabel = 'reply replaced';
     }
-
-    const logger = createLogger(false);
-
-    logger.step(operationLabel, replyOutcome.reviewReply.state);
+    console.log(redactText(`${operationLabel} - ${replyOutcome.reviewReply.state}`));
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });
   }
@@ -318,14 +313,14 @@ async function deleteReviewReplyProgram(
 
     const appleStore = await loadActiveAppleStore();
     const deleted = await deleteReviewResponse(appleStore, commandInput.reviewId);
-    const logger = createLogger(false);
-
     if (deleted) {
-      logger.step('reply deleted', commandInput.reviewId);
+      console.log(redactText(`reply deleted - ${commandInput.reviewId}`));
       return;
     }
 
-    logger.note(`No developer response on review ${commandInput.reviewId} - nothing to delete.`);
+    console.log(
+      redactText(`No developer response on review ${commandInput.reviewId} - nothing to delete.`),
+    );
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });
   }

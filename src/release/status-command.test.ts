@@ -8,7 +8,6 @@ import {
 } from '../testkit/temporary-launch-home.ts';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { setAppleStoreClient } from '../services/stores/apple-store-client.ts';
 import { isCommandExit } from '../terminal/command-exit.ts';
@@ -172,9 +171,17 @@ async function runStatusCommand(
     writeLaunchHomeFile(homeDirectory, 'accounts.json', accountsFileText);
     useLaunchDirectories({ homeDirectory, workingDirectory: workDirectory });
     useSecretStore(new Map([[`asc-p8:${ASC_KEY_ID}`, p8Secret]]));
-    useLoggerSink(function writeLine(text: string) {
-      logLines.push(text);
-    });
+    function writeLine(message: unknown) {
+      logLines.push(`${String(message)}\n`);
+    }
+
+    const isLogMocked = vi.isMockFunction(console.log);
+
+    if (isLogMocked) {
+      vi.mocked(console.log).mockRestore();
+    }
+
+    vi.spyOn(console, 'log').mockImplementation(writeLine);
     setAppleStoreClient(function createClient() {
       return appleReleaseApi as ReturnType<
         InstanceType<
@@ -192,7 +199,13 @@ async function runStatusCommand(
   } finally {
     resetLaunchDirectories();
     resetSecretStore();
-    resetLogger();
+
+    const isLogMocked = vi.isMockFunction(console.log);
+
+    if (isLogMocked) {
+      vi.mocked(console.log).mockRestore();
+    }
+
     setAppleStoreClient(null);
     removeTemporaryHomeDirectory(homeDirectory);
   }
@@ -201,7 +214,13 @@ async function runStatusCommand(
 afterEach(function resetStatusDoubles() {
   resetLaunchDirectories();
   resetSecretStore();
-  resetLogger();
+
+  const isLogMocked = vi.isMockFunction(console.log);
+
+  if (isLogMocked) {
+    vi.mocked(console.log).mockRestore();
+  }
+
   setAppleStoreClient(null);
 });
 

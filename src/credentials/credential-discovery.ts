@@ -2,10 +2,10 @@
 
 import { rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { displayPath } from './credentials-paths.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export function credentialSearchDirectories(
   homeDirectory: string,
@@ -53,12 +53,12 @@ export async function offerSourceRemoval(
   if (isDiscoveryFile == false) {
     return;
   }
-
-  const logger = createLogger(false);
   const shownPath = displayPath(sourcePath);
 
   if (canPrompt == false) {
-    logger.warn(`Plaintext ${secretLabel} remains at ${shownPath}; it is safe to remove.`);
+    console.log(
+      redactText(`Plaintext ${secretLabel} remains at ${shownPath}; it is safe to remove.`),
+    );
 
     return;
   }
@@ -68,11 +68,11 @@ export async function offerSourceRemoval(
   );
 
   if (shouldRemove == false) {
-    logger.line(`Kept ${shownPath}.`);
+    console.log(redactText(`Kept ${shownPath}.`));
 
     return;
   }
 
   await rm(sourcePath, { force: true });
-  logger.ok(`Removed ${shownPath}.`);
+  console.log(redactText(`Removed ${shownPath}.`));
 }

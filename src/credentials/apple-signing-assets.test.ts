@@ -7,7 +7,6 @@ import {
   readProvisioningProfilesDirectory,
   useLaunchDirectories,
 } from '../services/platform/paths.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { ensureAdHocSigningCredentials, loadCachedSigningAssets } from './apple-signing-assets.ts';
 import {
   profileStaleAgainstCapabilities,
@@ -157,13 +156,11 @@ describe(
 
 function describeEnsureAdHocSigningCredentialsMacOSHasNoAdHocDistribution() {
   async function rejectsMacOSUpFrontEvenInDryRunBeforeTouchingTheNetworkOrKeychain() {
-    const logger = createLogger(false);
     const adHocSigningCredentials = ensureAdHocSigningCredentials({
       platform: 'macos',
       bundleId: MAIN,
       appName: 'Mapleleaf',
       ascKey: dummyKey,
-      log: logger,
       dryRun: true,
       confirmCreate: function confirmCreate() {
         return Promise.resolve(true);

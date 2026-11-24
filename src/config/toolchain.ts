@@ -1,9 +1,9 @@
 // Names the iOS and Android tools a local build needs and installs the ones that are missing.
 
 import { checkCommandExists, executeCommand } from '../services/platform/execute-command.ts';
-import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { checkIsMacOperatingSystem } from '../services/platform/host-operating-system.ts';
 import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 /** A tool a local iOS build needs, and how to install it on macOS. */
 export type Tool = {
@@ -181,12 +181,12 @@ export type ToolchainIo = {
   log(message: string): Promise<void>;
 };
 
-function realIo(logger: Logger, prompt: LaunchPromptService): ToolchainIo {
+function realIo(prompt: LaunchPromptService): ToolchainIo {
   return {
     exists: checkCommandExists,
     run: executeCommand,
     async log(message: string): Promise<void> {
-      logger.line(message);
+      console.log(redactText(message));
     },
     confirm: prompt.confirm,
     async confirmText(message: string, expected: string): Promise<boolean> {
@@ -237,10 +237,7 @@ function readToolchainIo(options: { io?: ToolchainIo }): ToolchainIo {
   if (options.io != null) {
     return options.io;
   }
-
-  const logger = createLogger(false);
-
-  return realIo(logger, new LaunchPrompt());
+  return realIo(new LaunchPrompt());
 }
 
 export async function ensureToolchain(options: EnsureToolchainOptions = {}): Promise<boolean> {

@@ -1,10 +1,10 @@
 // Converts one price into recommended Google Play prices for each region.
 
 import { hasMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import type { ConvertedPrices, PlayMoneyUnits } from '../types/google/monetization.ts';
 import { loadActiveGoogleStore, readGoogleStoreApp } from './google-store-command.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export type PlayPricingCommandInput = {
   amount: string;
@@ -263,16 +263,13 @@ export async function playPricingCommandProgram(rawCommandInput: unknown): Promi
       cause: cause,
     });
   }
-
-  const logger = createLogger(false);
-
   if (commandInput.json) {
     const serialized = JSON.stringify(convertedPrices, null, 2);
-    logger.line(serialized);
+    console.log(redactText(serialized));
     return;
   }
 
   const recommendedPrices = renderRecommendedPrices(basePrice, convertedPrices);
 
-  logger.line(recommendedPrices);
+  console.log(redactText(recommendedPrices));
 }

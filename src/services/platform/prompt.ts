@@ -1,7 +1,7 @@
 // Asks the developer to confirm, type, or choose, and skips those questions in JSON mode.
 
 import { Prompts } from '../../prompts.ts';
-import { createLogger } from './logger.ts';
+import { redactText } from './redact.ts';
 
 const prompts = new Prompts();
 
@@ -314,7 +314,7 @@ export async function pickOne<Selection>(request: PickOneArgs<Selection>): Promi
   }
 
   if (policy.note != null) {
-    createLogger(false).line(policy.note);
+    console.log(redactText(policy.note));
   }
 
   return policy.selection;

@@ -1,18 +1,23 @@
-import { afterEach, describe, expect, test } from 'vitest';
-import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { endWithUsageFailure } from './usage-failure.ts';
 
-afterEach(function resetUsageLogger() {
-  resetLogger();
+afterEach(function resetUsageOutput() {
+  const isLogMocked = vi.isMockFunction(console.log);
+
+  if (isLogMocked) {
+    vi.mocked(console.log).mockRestore();
+  }
 });
 
 function describeEndWithUsageFailure() {
   function end(isJson: boolean): { commandExit: unknown; lines: string[] } {
     const lines: string[] = [];
 
-    useLoggerSink(function writeLine(text: string) {
-      lines.push(text);
-    });
+    function writeLine(message: unknown) {
+      lines.push(`${String(message)}\n`);
+    }
+
+    vi.spyOn(console, 'log').mockImplementation(writeLine);
 
     try {
       endWithUsageFailure('--days is wrong.', isJson);

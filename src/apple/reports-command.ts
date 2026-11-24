@@ -5,7 +5,6 @@ import path from 'node:path';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
-import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import type { FinanceReportQuery, SalesReportQuery } from '../types/apple/reporting.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
@@ -14,6 +13,7 @@ import { readStoreBundleId } from '../store/shared/select-store-app.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 type SalesReportsCommandInput = {
   operation: 'sales';
@@ -312,7 +312,6 @@ function isMissingReportPeriod(emptyPeriodOnNotFound: boolean, message: string):
 
 /** Download, decompress, persist, and report one Apple report file. */
 async function downloadReport(
-  logger: Logger,
   fileStem: string,
   writeJson: boolean,
   outputDirectory: string,
@@ -331,9 +330,10 @@ async function downloadReport(
       pluralSuffix = '';
     }
 
-    logger.step(
-      fileStem,
-      `${writtenReport.reportEntryCount} row${pluralSuffix} -> ${writtenReport.reportPath}`,
+    console.log(
+      redactText(
+        `${fileStem} - ${writtenReport.reportEntryCount} row${pluralSuffix} -> ${writtenReport.reportPath}`,
+      ),
     );
   } catch (cause) {
     const message = errorMessage(cause);
@@ -341,7 +341,7 @@ async function downloadReport(
     const isEmptyPeriod = isMissingReportPeriod(emptyPeriodOnNotFound, message);
 
     if (isEmptyPeriod) {
-      logger.note(`${fileStem}: no data for this period.`);
+      console.log(redactText(`${fileStem}: no data for this period.`));
       return;
     }
 
@@ -423,7 +423,6 @@ function selectSalesDates(commandInput: SalesReportsCommandInput): string[] {
 
 /** Download the requested Sales and Trends reports serially. */
 async function downloadSalesReports(commandInput: SalesReportsCommandInput): Promise<void> {
-  const logger = createLogger(false);
   const vendorNumber = selectVendorNumber(commandInput.vendorNumber);
   const reportDates = selectSalesDates(commandInput);
   const outputDirectory = projectOutputDirectory(commandInput.out);
@@ -446,7 +445,6 @@ async function downloadSalesReports(commandInput: SalesReportsCommandInput): Pro
     }
 
     await downloadReport(
-      logger,
       `sales-${commandInput.frequency}-${reportDate}`,
       commandInput.json,
       outputDirectory,
@@ -465,8 +463,6 @@ async function downloadFinanceReport(commandInput: FinanceReportsCommandInput): 
   if (isFiscalPeriodMissing) {
     throw new Error('A fiscal period is required. Pass --date <YYYY-MM>.');
   }
-
-  const logger = createLogger(false);
   const vendorNumber = selectVendorNumber(commandInput.vendorNumber);
   const outputDirectory = projectOutputDirectory(commandInput.out);
   const appleStore = await loadActiveAppleStore();
@@ -478,7 +474,6 @@ async function downloadFinanceReport(commandInput: FinanceReportsCommandInput): 
   };
 
   await downloadReport(
-    logger,
     `finance-${commandInput.region}-${fiscalPeriod}`,
     commandInput.json,
     outputDirectory,
@@ -487,20 +482,21 @@ async function downloadFinanceReport(commandInput: FinanceReportsCommandInput): 
   );
 }
 
-function noteMissingAnalytics(logger: Logger, requestCreated: boolean): void {
+function noteMissingAnalytics(requestCreated: boolean): void {
   if (requestCreated) {
-    logger.note(
-      'Analytics report requested. Apple generally generates it within two days; rerun this command to download it.',
+    console.log(
+      redactText(
+        'Analytics report requested. Apple generally generates it within two days; rerun this command to download it.',
+      ),
     );
     return;
   }
 
-  logger.note('No analytics segments matched the selected filters.');
+  console.log(redactText('No analytics segments matched the selected filters.'));
 }
 
 /** Request and download every matching App Store analytics segment. */
 async function downloadAnalyticsReports(commandInput: AnalyticsReportsCommandInput): Promise<void> {
-  const logger = createLogger(false);
   const bundleId = await readStoreBundleId(commandInput.app);
   const outputDirectory = projectOutputDirectory(commandInput.out);
   const appleStore = await loadActiveAppleStore();
@@ -545,7 +541,7 @@ async function downloadAnalyticsReports(commandInput: AnalyticsReportsCommandInp
   const hasNoDownloads = analyticsCollection.downloads.length == 0;
 
   if (hasNoDownloads) {
-    noteMissingAnalytics(logger, analyticsCollection.requestCreated);
+    noteMissingAnalytics(analyticsCollection.requestCreated);
     return;
   }
 
@@ -564,7 +560,6 @@ async function downloadAnalyticsReports(commandInput: AnalyticsReportsCommandInp
 
     segmentIndex += 1;
     await downloadReport(
-      logger,
       fileStem,
       false,
       outputDirectory,
@@ -573,9 +568,10 @@ async function downloadAnalyticsReports(commandInput: AnalyticsReportsCommandInp
     );
   }
 
-  logger.step(
-    'analytics',
-    `downloaded ${analyticsCollection.downloads.length} segment(s) from ${analyticsCollection.reportCount} report(s)`,
+  console.log(
+    redactText(
+      `analytics - downloaded ${analyticsCollection.downloads.length} segment(s) from ${analyticsCollection.reportCount} report(s)`,
+    ),
   );
 }
 

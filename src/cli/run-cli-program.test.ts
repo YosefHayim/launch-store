@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { completeCommand, makeCommandExit } from '../terminal/command-exit.ts';
-import { createLogger } from '../services/platform/logger.ts';
-import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { setJsonOutput } from '../services/platform/json-output-mode.ts';
+import { LaunchPrompt } from '../services/platform/prompt.ts';
+import { completeCommand, makeCommandExit } from '../terminal/command-exit.ts';
 import { runJsonCliProgram } from './run-cli-program.ts';
 
 const SUMMARY = { command: 'build', platform: 'ios', dryRun: true, profile: 'production' } as const;
@@ -36,8 +35,8 @@ function captureStdoutLines() {
 
   vi.spyOn(process.stdout, 'write').mockImplementation(mockImplementationChunk);
 
-  function isFilledLine(outputLine: string) {
-    return outputLine.length > 0;
+  function isJsonLine(outputLine: string) {
+    return outputLine.startsWith('{');
   }
 
   function parseOutputLine(outputLine: string) {
@@ -45,7 +44,7 @@ function captureStdoutLines() {
   }
 
   function readEvents() {
-    return writtenText.join('').split('\n').filter(isFilledLine).map(parseOutputLine);
+    return writtenText.join('').split('\n').filter(isJsonLine).map(parseOutputLine);
   }
 
   return readEvents;
@@ -61,20 +60,24 @@ afterEach(cleanup);
 function describeRunPieceCliProgramThePiecePieceLine() {
   async function streamsEventsAndEndsWithAnOkPieceCarryingTheRunSummary() {
     const readEvents = captureStdoutLines();
+    const logLines: string[] = [];
+
+    function keepLog(message: unknown) {
+      logLines.push(String(message));
+    }
+
+    vi.spyOn(console, 'log').mockImplementation(keepLog);
 
     async function sampleStep(): Promise<void> {
-      const logger = createLogger(false);
-      logger.step('config', 'sampleapp');
+      console.log('config - sampleapp');
     }
 
     await runJsonCliProgram(SUMMARY, sampleStep);
 
     const events = readEvents();
 
-    expect(events).toEqual([
-      { event: 'step', step: 'config', detail: 'sampleapp' },
-      { event: 'result', ok: true, ...SUMMARY },
-    ]);
+    expect(logLines).toEqual(['config - sampleapp']);
+    expect(events).toEqual([{ event: 'result', ok: true, ...SUMMARY }]);
   }
 
   it(

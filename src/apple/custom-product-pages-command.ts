@@ -2,7 +2,6 @@
 
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import {
   confirmStoreSurfaceWrite,
@@ -19,6 +18,7 @@ import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export type CustomProductPagesCommandInput = {
   app?: string;
@@ -122,8 +122,6 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
     }
 
     const customPagesTarget = await readCustomPagesTarget(commandInput);
-    const logger = createLogger(false);
-
     try {
       var appleStore = await loadActiveAppleStore();
     } catch (cause) {
@@ -142,32 +140,40 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
 
     const plannedActions = customPagesPlan.actions.filter(isPlannedAction);
 
-    logger.gap();
+    console.log('');
 
     const isAlreadyInSync = customPagesPlan.actions.length == 0;
 
     if (isAlreadyInSync) {
-      logger.step(customPagesTarget.bundleId, 'custom product pages already in sync');
+      console.log(
+        redactText(`${customPagesTarget.bundleId} - custom product pages already in sync`),
+      );
       return 0;
     }
 
-    logger.notice(customPagesTarget.bundleId, ...customPagesPlan.actions.map(renderPlanned));
+    console.log(
+      redactText(
+        [customPagesTarget.bundleId, ...customPagesPlan.actions.map(renderPlanned)].join('\n  '),
+      ),
+    );
 
     const hasNothingToApply = plannedActions.length == 0;
 
     if (hasNothingToApply) {
-      logger.gap();
-      logger.step('custom-pages', 'nothing to apply (everything already in sync)');
+      console.log('');
+      console.log(redactText('custom-pages - nothing to apply (everything already in sync)'));
       return 0;
     }
 
-    logger.gap();
-    logger.note(`${plannedActions.length} change(s) for ${customPagesTarget.bundleId}.`);
+    console.log('');
+    console.log(
+      redactText(`${plannedActions.length} change(s) for ${customPagesTarget.bundleId}.`),
+    );
 
     const isDryRun = commandInput.dryRun == true;
 
     if (isDryRun) {
-      logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+      console.log(redactText('Dry run - no changes made. Re-run without --dry-run to apply.'));
       return 0;
     }
 
@@ -205,7 +211,9 @@ async function executeCustomProductPages(rawCommandInput: unknown): Promise<numb
       receiptTitle = 'Applied with errors';
     }
 
-    logger.box(receiptTitle, appliedCustomPages.actions.map(renderApplied));
+    console.log(
+      redactText([receiptTitle, ...appliedCustomPages.actions.map(renderApplied)].join('\n  ')),
+    );
 
     return customPagesSummary.failed;
   } catch (cause) {

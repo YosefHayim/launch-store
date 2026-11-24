@@ -3,7 +3,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
@@ -18,6 +17,7 @@ import type { PlannedAction } from '../types/reconcile.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 type EuDistributionCommandInput =
   | Readonly<{
@@ -105,7 +105,6 @@ function renderApplied(plannedAction: PlannedAction): string {
 async function reconcileDomains(
   commandInput: Extract<EuDistributionCommandInput, { operation: 'reconcile' }>,
 ): Promise<void> {
-  const logger = createLogger(false);
   const storeAppContext = await loadStoreAppContext(undefined);
   const euDistributionSection = storeAppContext.config.euDistribution;
 
@@ -122,25 +121,25 @@ async function reconcileDomains(
     true,
   );
 
-  logger.gap();
+  console.log('');
 
   const isAlreadyAuthorized = plannedActions.length == 0;
 
   if (isAlreadyAuthorized) {
-    logger.step('eu-distribution', 'distribution domains already authorized');
+    console.log(redactText('eu-distribution - distribution domains already authorized'));
     return;
   }
 
   const plannedLines = plannedActions.map(renderPlanned);
 
-  logger.notice('EU alternative distribution', ...plannedLines);
-  logger.gap();
-  logger.note(`${plannedActions.length} domain(s) to authorize.`);
+  console.log(redactText(['EU alternative distribution', ...plannedLines].join('\n  ')));
+  console.log('');
+  console.log(redactText(`${plannedActions.length} domain(s) to authorize.`));
 
   const isDryRun = commandInput.dryRun == true;
 
   if (isDryRun) {
-    logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+    console.log(redactText('Dry run - no changes made. Re-run without --dry-run to apply.'));
     return;
   }
 
@@ -169,7 +168,7 @@ async function reconcileDomains(
     receiptTitle = 'Authorized with errors';
   }
 
-  logger.box(receiptTitle, appliedActions.map(renderApplied));
+  console.log(redactText([receiptTitle, ...appliedActions.map(renderApplied)].join('\n  ')));
 
   if (hasFailures) {
     completeCommand(1);
@@ -177,7 +176,6 @@ async function reconcileDomains(
 }
 
 async function setDistributionKey(pemPath: string): Promise<void> {
-  const logger = createLogger(false);
   const publicKeyPath = projectPath(pemPath);
   const publicKeyFile = await readFile(publicKeyPath, 'utf8');
   const publicKey = publicKeyFile.trim();
@@ -195,14 +193,16 @@ async function setDistributionKey(pemPath: string): Promise<void> {
   const hasRegisteredKey = registeredKey != null;
 
   if (hasRegisteredKey) {
-    logger.note(
-      `A distribution key is already registered (id ${registeredKey.id}). Delete it in App Store Connect to replace it.`,
+    console.log(
+      redactText(
+        `A distribution key is already registered (id ${registeredKey.id}). Delete it in App Store Connect to replace it.`,
+      ),
     );
     return;
   }
 
   await appleStore.createAlternativeDistributionKey(publicKey);
-  logger.ok('Registered the alternative-distribution public key.');
+  console.log(redactText('Registered the alternative-distribution public key.'));
 }
 
 function domainLine(distributionDomain: { domain?: string; referenceName?: string }): string {
@@ -227,7 +227,6 @@ function domainLine(distributionDomain: { domain?: string; referenceName?: strin
 }
 
 async function listDistributionState(): Promise<void> {
-  const logger = createLogger(false);
   const appleStore = await loadActiveAppleStore();
   const listed = await Promise.all([
     appleStore.listAlternativeDistributionDomains(),
@@ -255,7 +254,9 @@ async function listDistributionState(): Promise<void> {
     domainLines.push('- no domains authorized');
   }
 
-  logger.notice(`EU alternative distribution - key ${keyStatus}`, ...domainLines);
+  console.log(
+    redactText([`EU alternative distribution - key ${keyStatus}`, ...domainLines].join('\n  ')),
+  );
 }
 
 export async function euDistributionCommandProgram(rawCommandInput: unknown): Promise<void> {

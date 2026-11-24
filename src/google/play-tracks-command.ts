@@ -2,7 +2,6 @@
 
 import { readFile } from 'node:fs/promises';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import type { PlayCountryAvailability } from '../types/google/edits-country-availability.ts';
 import type { PlayRelease } from '../types/google/edits-tracks.ts';
 import {
@@ -23,6 +22,7 @@ import {
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export type PlayTracksStatusInput = {
   operation: 'status';
@@ -315,30 +315,30 @@ async function showTrackStatus(commandInput: PlayTracksStatusInput): Promise<voi
 
   const countryReads = trackCatalog.map(readTrackCountries);
   const tracksWithCountries = await Promise.all(countryReads);
-  const logger = createLogger(false);
-
   if (commandInput.json) {
     const serialized = JSON.stringify(tracksWithCountries, null, 2);
-    logger.line(serialized);
+    console.log(redactText(serialized));
     return;
   }
 
   if (tracksWithCountries.length == 0) {
-    logger.line(
-      'No tracks yet. Upload a build (`launch-store submit --platform android`) to populate a track.',
+    console.log(
+      redactText(
+        'No tracks yet. Upload a build (`launch-store submit --platform android`) to populate a track.',
+      ),
     );
     return;
   }
 
   for (const trackDetails of tracksWithCountries) {
-    logger.line(`\n${trackDetails.track}`);
+    console.log(redactText(`\n${trackDetails.track}`));
 
     if (trackDetails.releases.length == 0) {
-      logger.line('  (no releases)');
+      console.log(redactText('  (no releases)'));
     }
 
     for (const playRelease of trackDetails.releases) {
-      logger.line(`  - ${describePlayRelease(playRelease)}`);
+      console.log(redactText(`  - ${describePlayRelease(playRelease)}`));
     }
 
     let countryCodes: string[] = [];
@@ -358,7 +358,7 @@ async function showTrackStatus(commandInput: PlayTracksStatusInput): Promise<voi
       countryScope = '-';
     }
 
-    logger.line(`  countries: ${countryScope}`);
+    console.log(redactText(`  countries: ${countryScope}`));
   }
 }
 
@@ -434,12 +434,10 @@ async function promoteTrackRelease(commandInput: PlayTracksPromoteInput): Promis
   }
 
   await googleStore.setTrackReleases(selectedApp.packageName, commandInput.track, [playRelease]);
-
-  const logger = createLogger(false);
-
-  logger.step(
-    'promoted',
-    `v${versionCode} -> ${commandInput.track} (${releaseStatus}${rolloutDescription})`,
+  console.log(
+    redactText(
+      `promoted - v${versionCode} -> ${commandInput.track} (${releaseStatus}${rolloutDescription})`,
+    ),
   );
 }
 
@@ -458,17 +456,15 @@ function formatTesterGroup(groupEmail: string): string {
 async function manageTrackTesters(commandInput: PlayTracksTestersInput): Promise<void> {
   const selectedApp = await readGoogleStoreApp(commandInput.app);
   const googleStore = await loadActiveGoogleStore(selectedApp.packageName, selectedApp.appName);
-  const logger = createLogger(false);
-
   if (commandInput.groups == null) {
     const testerGroups = await googleStore.getTesters(selectedApp.packageName, commandInput.track);
 
     if (testerGroups.length == 0) {
-      logger.line('No tester groups set.');
+      console.log(redactText('No tester groups set.'));
       return;
     }
 
-    logger.line(testerGroups.map(formatTesterGroup).join('\n'));
+    console.log(redactText(testerGroups.map(formatTesterGroup).join('\n')));
 
     return;
   }
@@ -486,7 +482,7 @@ async function manageTrackTesters(commandInput: PlayTracksTestersInput): Promise
   }
 
   await googleStore.setTesters(selectedApp.packageName, commandInput.track, testerGroups);
-  logger.step('testers set', `${testerGroups.length} group(s) on ${commandInput.track}`);
+  console.log(redactText(`testers set - ${testerGroups.length} group(s) on ${commandInput.track}`));
 }
 
 async function runPlayTracksOperation(commandInput: PlayTracksCommandInput): Promise<void> {

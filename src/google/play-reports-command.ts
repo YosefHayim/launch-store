@@ -5,11 +5,11 @@ import {
   describeMissingPlayServiceAccount,
 } from '../credentials/android-keystore-assets.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { GoogleReportingClientService } from '../services/stores/google-reporting-client.ts';
 import type { PlayVitalsMetric, VitalsTimeline } from '../types/google/vitals.ts';
 import { selectStoreApp } from '../store/shared/select-store-app.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 /** Default Play vitals history window shown by the command. */
 export const DEFAULT_VITALS_DAYS = 28;
@@ -198,8 +198,6 @@ export async function playReportsCommandProgram(rawCommandInput: unknown): Promi
       return reportingClient.vitalsTimeline(packageName, metric, historyDays);
     });
     const timelines = await Promise.all(timelineReads);
-    const logger = createLogger(false);
-
     if (commandInput.json) {
       const timelineRows = timelines.flatMap(function rowsOf(timeline: VitalsTimeline) {
         return timeline.rows;
@@ -207,12 +205,12 @@ export async function playReportsCommandProgram(rawCommandInput: unknown): Promi
 
       const serialized = JSON.stringify(timelineRows, null, 2);
 
-      logger.line(serialized);
+      console.log(redactText(serialized));
 
       return;
     }
 
-    logger.line(timelines.map(timelineText).join('\n'));
+    console.log(redactText(timelines.map(timelineText).join('\n')));
   } catch (cause) {
     const isAlreadyError = cause instanceof Error;
 

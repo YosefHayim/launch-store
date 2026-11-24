@@ -5,7 +5,6 @@ import { stdout } from 'node:process';
 import { runCliProgram } from '../cli/run-cli-program.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { Shell } from '../types/remote.ts';
 import {
@@ -18,6 +17,7 @@ import {
   SHELLS,
 } from './completion.ts';
 import { ConsoleLinks } from './console-links.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export interface OpenCommandInput {
   target?: string;
@@ -168,9 +168,7 @@ export class TerminalCommands {
 
       const consoleLinks = new ConsoleLinks();
       const consoleUrl = await consoleLinks.readOpenUrl(commandInput.target, openChoice);
-      const logger = createLogger(false);
-
-      logger.line(`Opening ${consoleUrl}`);
+      console.log(redactText(`Opening ${consoleUrl}`));
       await consoleLinks.openUrl(consoleUrl);
     } catch (cause) {
       const failureMessage = errorMessage(cause);
@@ -214,18 +212,19 @@ export class TerminalCommands {
   }
 
   private async showInstallOutcome(shellText: string | undefined): Promise<void> {
-    const logger = createLogger(false);
     const shell = this.readShell(shellText);
     const installOutcome = await installCompletion({ shell });
 
     if (installOutcome.status == 'manual') {
-      logger.warn(`Could not edit ${installOutcome.rcFile} - its directory does not exist yet.`);
+      console.log(
+        redactText(`Could not edit ${installOutcome.rcFile} - its directory does not exist yet.`),
+      );
 
       const shellName = installOutcome.shell;
       const sourceLine = installOutcome.line;
       const manualLine = `Add this line to your ${shellName} config, then restart your shell: ${sourceLine}`;
 
-      logger.tip(manualLine);
+      console.log(redactText(manualLine));
 
       return;
     }
@@ -239,8 +238,8 @@ export class TerminalCommands {
 
     const installDetail = `${installVerb} for ${installOutcome.shell} in ${installOutcome.rcFile}`;
 
-    logger.step('completion', installDetail);
-    logger.tip('Restart your shell (or source the rc file) to activate it.');
+    console.log(redactText(`completion - ${installDetail}`));
+    console.log(redactText('Restart your shell (or source the rc file) to activate it.'));
   }
 
   private async printCompletionScript(shellText: string | undefined): Promise<void> {

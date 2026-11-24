@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadActiveAscKey } from '../../credentials/accounts.ts';
 import { loadServiceAccount } from '../../credentials/android-keystore-assets.ts';
-import { resetLogger, useLoggerSink } from '../../services/platform/logger.ts';
 import { AppleStoreClientService } from '../../services/stores/apple-store-client.ts';
 import { GoogleStoreClientService } from '../../services/stores/google-store-client.ts';
 import type { AppDescriptor } from '../../types/app.ts';
@@ -277,9 +276,17 @@ function describeMetadataCommandProgram() {
     mkdirSync(appDirectory, { recursive: true });
     configPath = join(appDirectory, 'launch.config.ts');
     terminalWrites = [];
-    useLoggerSink(function captureTerminal(text: string) {
-      terminalWrites.push(text);
-    });
+    function captureTerminal(message: unknown) {
+      terminalWrites.push(`${String(message)}\n`);
+    }
+
+    const isLogMocked = vi.isMockFunction(console.log);
+
+    if (isLogMocked) {
+      vi.mocked(console.log).mockRestore();
+    }
+
+    vi.spyOn(console, 'log').mockImplementation(captureTerminal);
     vi.clearAllMocks();
     installStoreFakes();
     vi.mocked(loadStoreAppContext).mockResolvedValue({
@@ -295,7 +302,12 @@ function describeMetadataCommandProgram() {
   beforeEach(prepareMetadataCommandProgram);
 
   function cleanupMetadataCommandProgram() {
-    resetLogger();
+    const isLogMocked = vi.isMockFunction(console.log);
+
+    if (isLogMocked) {
+      vi.mocked(console.log).mockRestore();
+    }
+
     rmSync(workspaceDirectory, { recursive: true, force: true });
   }
 

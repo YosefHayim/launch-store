@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import {
   adoptLegacyAndroidCredentials,
@@ -200,12 +199,9 @@ function describeLegacyAndroidCredentialAdoption() {
 
   async function rejectsAWrongKeyPasswordWhenImportingAKeystore() {
     const sandbox = setup();
-
-    const logger = createLogger(false);
     const uploadKeystore = ensureUploadKeystore({
       appName: 'demo',
       packageName: 'com.example.app',
-      log: logger,
       dryRun: false,
       confirmCreate: function declineCreate() {
         return Promise.resolve(false);

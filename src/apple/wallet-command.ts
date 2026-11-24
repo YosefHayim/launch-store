@@ -1,7 +1,6 @@
 // Syncs Apple Pay merchant ids and Wallet pass type ids on App Store Connect.
 
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import {
@@ -13,6 +12,7 @@ import { reconcileWalletIds } from './wallet-ids.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 type WalletCommandInput =
   | Readonly<{
@@ -72,7 +72,6 @@ function renderApplied(plannedAction: PlannedAction): string {
 async function reconcileWallet(
   commandInput: Extract<WalletCommandInput, { operation: 'reconcile' }>,
 ): Promise<void> {
-  const logger = createLogger(false);
   const storeAppContext = await loadStoreAppContext(undefined);
   const walletSection = storeAppContext.config.wallet;
 
@@ -85,23 +84,27 @@ async function reconcileWallet(
   const appleStore = await loadActiveAppleStore();
   const plannedActions = await reconcileWalletIds(appleStore, walletSection, true);
 
-  logger.gap();
+  console.log('');
 
   const isAlreadyRegistered = plannedActions.length == 0;
 
   if (isAlreadyRegistered) {
-    logger.step('wallet', 'merchant ids and pass type ids already registered');
+    console.log(redactText('wallet - merchant ids and pass type ids already registered'));
     return;
   }
 
-  logger.notice('Apple Pay / Wallet identifiers', ...plannedActions.map(renderPlanned));
-  logger.gap();
-  logger.note(`${plannedActions.length} identifier(s) to register.`);
+  console.log(
+    redactText(
+      ['Apple Pay / Wallet identifiers', ...plannedActions.map(renderPlanned)].join('\n  '),
+    ),
+  );
+  console.log('');
+  console.log(redactText(`${plannedActions.length} identifier(s) to register.`));
 
   const isDryRun = commandInput.dryRun == true;
 
   if (isDryRun) {
-    logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+    console.log(redactText('Dry run - no changes made. Re-run without --dry-run to apply.'));
     return;
   }
 
@@ -126,7 +129,7 @@ async function reconcileWallet(
     receiptTitle = 'Registered with errors';
   }
 
-  logger.box(receiptTitle, appliedActions.map(renderApplied));
+  console.log(redactText([receiptTitle, ...appliedActions.map(renderApplied)].join('\n  ')));
 
   if (hasFailures) {
     completeCommand(1);
@@ -169,14 +172,13 @@ function identifierLines(
 }
 
 async function listWalletIdentifiers(): Promise<void> {
-  const logger = createLogger(false);
   const appleStore = await loadActiveAppleStore();
   const listed = await Promise.all([appleStore.listMerchantIds(), appleStore.listPassTypeIds()]);
   const merchantSection = identifierLines('Apple Pay merchant ids', listed[0]);
   const passSection = identifierLines('Wallet pass type ids', listed[1]);
 
-  logger.notice(merchantSection.title, ...merchantSection.lines);
-  logger.notice(passSection.title, ...passSection.lines);
+  console.log(redactText([merchantSection.title, ...merchantSection.lines].join('\n  ')));
+  console.log(redactText([passSection.title, ...passSection.lines].join('\n  ')));
 }
 
 export async function walletCommandProgram(rawCommandInput: unknown): Promise<void> {

@@ -2,7 +2,6 @@
 
 import { loadActiveAscKey } from '../credentials/accounts.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
@@ -12,6 +11,7 @@ import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 /** Inputs accepted by the accessibility command. */
 type AccessibilityCommandInput = Readonly<{
@@ -78,8 +78,6 @@ function receiptLine(appliedAction: PlannedAction): string {
 export async function accessibilityCommandProgram(
   commandInput: AccessibilityCommandInput,
 ): Promise<void> {
-  const logger = createLogger(false);
-
   try {
     var storeAppContext = await loadStoreAppContext(commandInput.app);
   } catch (cause) {
@@ -138,23 +136,23 @@ export async function accessibilityCommandProgram(
 
   const plannedActions = accessibilityPlan.actions.filter(isPlannedAction);
 
-  logger.gap();
+  console.log('');
 
   const isAlreadyInSync = accessibilityPlan.actions.length == 0;
 
   if (isAlreadyInSync) {
-    logger.step(bundleId, 'accessibility declarations already in sync');
+    console.log(redactText(`${bundleId} - accessibility declarations already in sync`));
     return;
   }
 
-  logger.notice(bundleId, ...accessibilityPlan.actions.map(renderPlanned));
-  logger.gap();
-  logger.note(`${plannedActions.length} change(s) for ${bundleId}.`);
+  console.log(redactText([bundleId, ...accessibilityPlan.actions.map(renderPlanned)].join('\n  ')));
+  console.log('');
+  console.log(redactText(`${plannedActions.length} change(s) for ${bundleId}.`));
 
   const isDryRun = commandInput.dryRun == true;
 
   if (isDryRun) {
-    logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+    console.log(redactText('Dry run - no changes made. Re-run without --dry-run to apply.'));
     return;
   }
 
@@ -207,7 +205,9 @@ export async function accessibilityCommandProgram(
     receiptTitle = 'Applied with errors';
   }
 
-  logger.box(receiptTitle, appliedAccessibility.actions.map(receiptLine));
+  console.log(
+    redactText([receiptTitle, ...appliedAccessibility.actions.map(receiptLine)].join('\n  ')),
+  );
 
   if (hasFailures) {
     completeCommand(1);

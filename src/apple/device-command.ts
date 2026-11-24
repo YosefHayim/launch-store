@@ -1,10 +1,10 @@
 // Adds one iOS device on App Store Connect for internal installs, and lists devices already there.
 
-import { createLogger } from '../services/platform/logger.ts';
 import type { DeviceResource } from '../types/apple/provisioning.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export type DeviceAddInput = Readonly<{
   operation: 'add';
@@ -81,11 +81,11 @@ async function addDevice(commandInput: DeviceAddInput): Promise<void> {
     if (commandInput.name != null) deviceName = commandInput.name;
 
     const registeredDevice = await appleStore.registerDevice(commandInput.udid, deviceName);
-    const logger = createLogger(false);
-
-    logger.line(`OK Registered ${registeredDevice.name} (${registeredDevice.udid})`);
-    logger.line(
-      "- It'll be included on the next `launch-store build ios --distribution internal`.",
+    console.log(redactText(`OK Registered ${registeredDevice.name} (${registeredDevice.udid})`));
+    console.log(
+      redactText(
+        "- It'll be included on the next `launch-store build ios --distribution internal`.",
+      ),
     );
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });
@@ -97,20 +97,20 @@ async function listDevices(): Promise<void> {
   try {
     const appleStore = await loadActiveAppleStore();
     const registeredDevices = await appleStore.listDevices();
-    const logger = createLogger(false);
-
     const isDeviceListEmpty = registeredDevices.length == 0;
 
     if (isDeviceListEmpty) {
-      logger.line('No registered devices. Add one with `launch-store device add <udid> [name]`.');
+      console.log(
+        redactText('No registered devices. Add one with `launch-store device add <udid> [name]`.'),
+      );
       return;
     }
 
     for (const registeredDevice of registeredDevices) {
-      logger.line(renderRegisteredDevice(registeredDevice));
+      console.log(redactText(renderRegisteredDevice(registeredDevice)));
     }
 
-    logger.line(`\n${registeredDevices.length} device(s).`);
+    console.log(redactText(`\n${registeredDevices.length} device(s).`));
   } catch (cause) {
     throw new Error(errorMessage(cause), { cause: cause });
   }

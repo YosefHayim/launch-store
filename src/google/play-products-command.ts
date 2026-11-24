@@ -1,7 +1,6 @@
 // Syncs Google Play in-app products from the Launch product catalog.
 
 import { errorMessage } from '../services/platform/error-message.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import type { InAppPurchaseConfig } from '../types/catalog.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
@@ -15,6 +14,7 @@ import { reconcilePlayProducts, summarizePlayProducts } from './play-products.ts
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import type { Command } from '../cli/command.ts';
 import { runCliProgram } from '../cli/run-cli-program.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export type PlayProductsCommandInput = {
   app?: string;
@@ -138,12 +138,12 @@ function appliedLine(appliedAction: Parameters<typeof renderAppliedPlayCatalogAc
 async function executePlayProducts(rawCommandInput: unknown): Promise<number> {
   const commandInput = decodePlayProductsCommandInput(rawCommandInput);
   const productsTarget = await readProductsTarget(commandInput.app);
-  const logger = createLogger(false);
-
   if (productsTarget.products.length == 0) {
-    logger.gap();
-    logger.skip(
-      `${productsTarget.packageName}: no in-app purchases carry a play override - nothing to reconcile`,
+    console.log('');
+    console.log(
+      redactText(
+        `${productsTarget.packageName}: no in-app purchases carry a play override - nothing to reconcile`,
+      ),
     );
 
     return 0;
@@ -160,19 +160,21 @@ async function executePlayProducts(rawCommandInput: unknown): Promise<number> {
   });
   const plannedActions = productsPlan.actions.filter(isPlanned);
 
-  logger.gap();
+  console.log('');
 
   if (productsPlan.actions.length == 0) {
-    logger.ok(`${productsTarget.packageName}: Play in-app products already in sync`);
+    console.log(redactText(`${productsTarget.packageName}: Play in-app products already in sync`));
     return 0;
   }
 
-  logger.notice(productsTarget.packageName, ...productsPlan.actions.map(catalogLine));
-  logger.gap();
-  logger.note(`${plannedActions.length} change(s) for ${productsTarget.packageName}.`);
+  console.log(
+    redactText([productsTarget.packageName, ...productsPlan.actions.map(catalogLine)].join('\n  ')),
+  );
+  console.log('');
+  console.log(redactText(`${plannedActions.length} change(s) for ${productsTarget.packageName}.`));
 
   if (commandInput.dryRun) {
-    logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+    console.log(redactText('Dry run - no changes made. Re-run without --dry-run to apply.'));
     return 0;
   }
 
@@ -197,7 +199,7 @@ async function executePlayProducts(rawCommandInput: unknown): Promise<number> {
     receiptTitle = 'Applied with errors';
   }
 
-  logger.box(receiptTitle, appliedProducts.actions.map(appliedLine));
+  console.log(redactText([receiptTitle, ...appliedProducts.actions.map(appliedLine)].join('\n  ')));
 
   return productsSummary.failed;
 }

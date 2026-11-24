@@ -5,7 +5,6 @@ import type { SizeReport } from './artifacts.ts';
 import type { LaunchConfig, BuildContext } from './config.ts';
 import type { MutableDeep } from './mutable.ts';
 import type { RemoteTarget } from './remote.ts';
-import type { Logger } from '../services/platform/logger.ts';
 import type { BumpKind } from '../release/version.ts';
 
 /** Options for one `launch-store build` invocation. */
@@ -32,14 +31,13 @@ export type BuildRunOptions = {
   bump?: BumpKind | 'ask';
 };
 
-/** The shared front half of every build path: config + app + profile + validated env + a logger. */
+/** The shared front half of every build path: config + app + profile + validated env. */
 export type PreparedBuild = {
   config: LaunchConfig;
   app: MutableDeep<AppDescriptor>;
   profile: BuildContext['profile'];
   env: Record<string, string>;
   buildContext: MutableDeep<BuildContext>;
-  log: Logger;
 };
 
 /** The contract every build fork satisfies */
@@ -92,7 +90,6 @@ export type ConfirmUploadOptions = {
       }
     | undefined;
   yes: boolean;
-  log: Logger;
 };
 
 /** Inputs for the end-of-run {@link renderReceipt} summary. */
@@ -103,5 +100,4 @@ export type ReceiptOptions = {
   report: SizeReport;
   destination: string;
   link?: string | undefined;
-  log: Logger;
 };

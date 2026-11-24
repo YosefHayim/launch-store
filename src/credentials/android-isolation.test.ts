@@ -3,7 +3,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resetSecretStore, useSecretStore } from '../services/credentials/secret-store.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import {
@@ -102,12 +101,9 @@ function describeAndroidPackageCredentialIsolation() {
     writeFileSync(betaInput, 'dummy beta key');
 
     async function importForPackage(packageName: string, inputPath: string, password: string) {
-      const logger = createLogger(false);
-
       return ensureUploadKeystore({
         appName: 'same-display-name',
         packageName,
-        log: logger,
         dryRun: false,
         confirmCreate: refuseCreate,
         confirmReplace: allowReplace,
@@ -178,7 +174,6 @@ function describeAndroidPackageCredentialIsolation() {
       const keystoreOptions = {
         appName: 'alpha',
         packageName: 'com.example.alpha',
-        log: createLogger(false),
         dryRun: false,
         confirmCreate: function refuseGeneration() {
           return Promise.reject(new Error('must not generate'));
@@ -222,12 +217,9 @@ function describeAndroidPackageCredentialIsolation() {
     writeFileSync(replacement, 'replacement key');
 
     function provision(path: string, confirmReplace: () => Promise<boolean>) {
-      const logger = createLogger(false);
-
       return ensureUploadKeystore({
         appName: 'demo',
         packageName: 'com.example.app',
-        log: logger,
         dryRun: false,
         confirmCreate: function declineCreate() {
           return Promise.resolve(false);
@@ -281,12 +273,9 @@ function describeAndroidPackageCredentialIsolation() {
     expect(cachedKeystore).toBeNull();
 
     let offered = false;
-
-    const logger = createLogger(false);
     const uploadKeystore = ensureUploadKeystore({
       appName: 'demo',
       packageName: 'com.example.app',
-      log: logger,
       dryRun: false,
       confirmCreate: function noteOffer() {
         offered = true;

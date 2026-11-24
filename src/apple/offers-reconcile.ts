@@ -3,7 +3,6 @@
 import { errorMessage } from '../services/platform/error-message.ts';
 import { loadConfig } from '../config/config.ts';
 import type { AppStoreConnect } from './app-store-connect.ts';
-import { createLogger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
@@ -14,6 +13,7 @@ import { loadActiveAppleStore } from './apple-store-command.ts';
 import { appDeclaresOffers, reconcileOffers } from './offers.ts';
 import { summarize } from '../store/shared/reconcile.ts';
 import type { OffersReconcileInput } from './offers-command.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 type OffersJob = Readonly<{
   readonly app: AppDescriptor;
@@ -296,14 +296,15 @@ function hasPlannedAction(plannedActions: readonly PlannedAction[]): boolean {
 /** Plan, confirm, and apply declared offers across selected apps. */
 export async function executeOffersReconcile(commandInput: OffersReconcileInput): Promise<number> {
   try {
-    const logger = createLogger(false);
     const offersJobs = await readOffersJobs(commandInput.app);
 
     const hasNoJobs = offersJobs.length == 0;
 
     if (hasNoJobs) {
-      logger.note(
-        'Nothing to reconcile - no app declares offers or promoted purchases. Add them under `products`.',
+      console.log(
+        redactText(
+          'Nothing to reconcile - no app declares offers or promoted purchases. Add them under `products`.',
+        ),
       );
       return 0;
     }
@@ -324,15 +325,17 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
     let mutationCount = 0;
     let planFailureCount = 0;
 
-    logger.gap();
+    console.log('');
 
     for (const planOutcome of planOutcomes) {
       const isPlanFailed = planOutcome._tag == 'OffersJobFailed';
 
       if (isPlanFailed) {
         planFailureCount += 1;
-        logger.error(
-          `${planOutcome.job.app.name} (${planOutcome.job.bundleId}): ${planOutcome.message}`,
+        console.log(
+          redactText(
+            `${planOutcome.job.app.name} (${planOutcome.job.bundleId}): ${planOutcome.message}`,
+          ),
         );
 
         continue;
@@ -345,7 +348,7 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
       const isAlreadyInSync = plannedActions.length == 0;
 
       if (isAlreadyInSync) {
-        logger.step(planOutcome.job.app.name, 'offers already in sync');
+        console.log(redactText(`${planOutcome.job.app.name} - offers already in sync`));
         continue;
       }
 
@@ -356,33 +359,39 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
         actionLines.push(offerAction);
       }
 
-      logger.notice(`${planOutcome.job.app.name} (${planOutcome.job.bundleId})`, ...actionLines);
+      console.log(
+        redactText(
+          [`${planOutcome.job.app.name} (${planOutcome.job.bundleId})`, ...actionLines].join(
+            '\n  ',
+          ),
+        ),
+      );
     }
 
     const hasNoMutations = mutationCount == 0;
 
     if (hasNoMutations) {
-      logger.gap();
+      console.log('');
 
       const hasPlanFailures = planFailureCount > 0;
 
       if (hasPlanFailures) {
-        logger.error(`${planFailureCount} app(s) could not be planned (see above).`);
+        console.log(redactText(`${planFailureCount} app(s) could not be planned (see above).`));
         return planFailureCount;
       }
 
-      logger.step('offers', 'everything is already in sync');
+      console.log(redactText('offers - everything is already in sync'));
 
       return 0;
     }
 
-    logger.gap();
-    logger.note(`${mutationCount} change(s) across ${offersJobs.length} app(s).`);
+    console.log('');
+    console.log(redactText(`${mutationCount} change(s) across ${offersJobs.length} app(s).`));
 
     const isDryRun = commandInput.dryRun == true;
 
     if (isDryRun) {
-      logger.note('Dry run - no changes made. Re-run without --dry-run to apply.');
+      console.log(redactText('Dry run - no changes made. Re-run without --dry-run to apply.'));
       return planFailureCount;
     }
 
@@ -473,7 +482,7 @@ export async function executeOffersReconcile(commandInput: OffersReconcileInput)
       receiptTitle = 'Offers synced with errors';
     }
 
-    logger.box(receiptTitle, receiptLines);
+    console.log(redactText([receiptTitle, ...receiptLines].join('\n  ')));
 
     return failureCount;
   } catch (cause) {

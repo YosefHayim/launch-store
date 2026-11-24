@@ -4,7 +4,6 @@ import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { extractProfileEntitlements } from './profile-entitlements.ts';
 import { captureCommandOutput } from '../services/platform/execute-command.ts';
-import type { Logger } from '../services/platform/logger.ts';
 import {
   readAccountCredentialsDirectory,
   readProvisioningProfilesDirectory,
@@ -17,6 +16,7 @@ import type { SigningAssets } from '../types/credentials.ts';
 import { staleProfileCapabilities } from './capabilities.ts';
 import { DISTRIBUTION_CERT_NAME } from './apple-signing-certs.ts';
 import { type CertRecord, type CredentialsIndex, writeIndex } from './apple-signing-index.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 /** Pull a single `<key>...</key><string>...</string>` value out of a provisioning profile's plist XML. */
 function plistString(xml: string, key: string): string | null {
@@ -149,9 +149,9 @@ type EnsureRegisteredBundleIdOptions = {
   platform: Platform;
   bundleId: string;
   appName: string;
-  confirmCreate: (message: string) => Promise<boolean>;
-  log: Logger;
-  /** Portal vs Developer portal wording when the user declines registration. */
+  confirmCreate: (
+    message: string,
+  ) => Promise<boolean> /** Portal vs Developer portal wording when the user declines registration. */;
   declineMessage: string;
 };
 
@@ -162,7 +162,7 @@ export async function ensureRegisteredBundleId(
   const existingBundle = await bundleOptions.client.findBundleId(bundleOptions.bundleId);
 
   if (existingBundle != null) {
-    bundleOptions.log.step('app id', `${bundleOptions.bundleId} already registered`, 'bundle-id');
+    console.log(redactText(`app id - ${bundleOptions.bundleId} already registered`));
 
     return existingBundle;
   }
@@ -182,7 +182,7 @@ export async function ensureRegisteredBundleId(
     bundleIdPlatform,
   );
 
-  bundleOptions.log.step('app id', `registered ${bundleOptions.bundleId}`, 'bundle-id');
+  console.log(redactText(`app id - registered ${bundleOptions.bundleId}`));
 
   return createdBundle;
 }
@@ -289,7 +289,6 @@ type EnsureProfileForBundleOptions = {
   cert: CertRecord;
   freshCert: boolean;
   confirmCreate: (message: string) => Promise<boolean>;
-  log: Logger;
 };
 
 function shouldInspectStaleCapabilities(
@@ -325,7 +324,6 @@ export async function ensureAppStoreProfileForBundle(
     bundleId: profileOptions.bundleId,
     appName: profileOptions.appName,
     confirmCreate: profileOptions.confirmCreate,
-    log: profileOptions.log,
     declineMessage: `App ID ${profileOptions.bundleId} is not registered. Re-run and confirm, or register it in the Developer portal.`,
   });
   // App Store profile: reuse by name unless we just minted a new cert (then recreate to match it) OR the
@@ -394,11 +392,7 @@ async function readAppStoreProfile(profileRequest: {
       profileRequest.staleCapabilities.length,
     )
   ) {
-    profileRequest.profileOptions.log.step(
-      'profile',
-      `reusing ${profileRequest.profileName}`,
-      'provisioning-profile',
-    );
+    console.log(redactText(`profile - reusing ${profileRequest.profileName}`));
 
     return existingProfile;
   }
@@ -422,7 +416,7 @@ async function readAppStoreProfile(profileRequest: {
     reason = `regenerated ${profileRequest.profileName} (was missing ${profileRequest.staleCapabilities.join(', ')})`;
   }
 
-  profileRequest.profileOptions.log.step('profile', reason, 'provisioning-profile');
+  console.log(redactText(`profile - ${reason}`));
 
   return profile;
 }

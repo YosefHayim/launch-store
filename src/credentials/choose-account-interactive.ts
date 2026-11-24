@@ -1,6 +1,5 @@
 // Asks which App Store Connect account to use, and imports a key when none are saved.
 
-import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { AccountRecord } from '../types/credentials.ts';
 import {
@@ -12,6 +11,7 @@ import {
 } from './accounts.ts';
 import type { CredentialsCommandOptions } from './credentials-command-options.ts';
 import { importAppleKey, selectAppleKeyFile } from './set-apple-key.ts';
+import { redactText } from '../services/platform/redact.ts';
 
 export async function chooseAccountInteractive(
   commandOptions: CredentialsCommandOptions = {},
@@ -53,8 +53,8 @@ export async function chooseAccountInteractive(
   });
 
   await setActiveKeyId(chosenAccount.keyId);
-  createLogger(false).ok(
-    `Active Apple account: ${chosenAccount.label} (key ${chosenAccount.keyId}).`,
+  console.log(
+    redactText(`Active Apple account: ${chosenAccount.label} (key ${chosenAccount.keyId}).`),
   );
 
   return chosenAccount;
