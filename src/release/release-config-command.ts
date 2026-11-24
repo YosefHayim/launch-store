@@ -178,11 +178,7 @@ export async function releaseConfigCommandProgram(
     throw releaseConfigFailure('load active Apple account', cause);
   }
 
-  const activeAscKey = ascKey;
-
-  const isAccountMissing = activeAscKey == null;
-
-  if (isAccountMissing) {
+  if (ascKey == null) {
     throw releaseConfigFailure(
       'load active Apple account',
       bundleId,
@@ -191,7 +187,7 @@ export async function releaseConfigCommandProgram(
   }
 
   try {
-    var ascClient = new AppleStoreClientService().createClient(activeAscKey);
+    var ascClient = new AppleStoreClientService().createClient(ascKey);
   } catch (cause) {
     throw releaseConfigFailure('create App Store client', cause);
   }

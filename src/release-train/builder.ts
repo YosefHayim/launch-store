@@ -174,11 +174,7 @@ export function createTrainRuntime(
       throw trainRuntimeFailure('load active Apple account', cause);
     }
 
-    const activeAscKey = ascKey;
-
-    const isKeyMissing = activeAscKey == null;
-
-    if (isKeyMissing) {
+    if (ascKey == null) {
       throw trainRuntimeFailure(
         'load active Apple account',
         appDescriptor.name,
@@ -187,7 +183,7 @@ export function createTrainRuntime(
     }
 
     try {
-      cachedAppleClient = new AppleStoreClientService().createClient(activeAscKey);
+      cachedAppleClient = new AppleStoreClientService().createClient(ascKey);
     } catch (cause) {
       throw trainRuntimeFailure('create App Store client', cause);
     }
@@ -228,11 +224,7 @@ export function createTrainRuntime(
       throw trainRuntimeFailure('load Google Play service account', cause);
     }
 
-    const loadedServiceAccount = serviceAccountJson;
-
-    const isAccountMissing = loadedServiceAccount == null;
-
-    if (isAccountMissing) {
+    if (serviceAccountJson == null) {
       try {
         var missingAccountMessage = await describeMissingPlayServiceAccount(appDescriptor.name);
       } catch (cause) {
@@ -247,7 +239,7 @@ export function createTrainRuntime(
     }
 
     try {
-      cachedGoogleClient = new GoogleStoreClientService().createClient(loadedServiceAccount);
+      cachedGoogleClient = new GoogleStoreClientService().createClient(serviceAccountJson);
     } catch (cause) {
       throw trainRuntimeFailure('create Google Play client', cause);
     }

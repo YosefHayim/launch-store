@@ -15,18 +15,14 @@ export async function loadActiveAppleStore(): Promise<AppStoreConnect> {
     throw new Error(`Could not load the active Apple account: ${failureMessage}`, { cause });
   }
 
-  const loadedAscKey = ascKey;
-
-  const isAccountMissing = loadedAscKey == null;
-
-  if (isAccountMissing) {
+  if (ascKey == null) {
     throw new Error('No active Apple account. Run `launch-store creds set-key` first.', {
       cause: 'missing-active-account',
     });
   }
 
   try {
-    return new AppleStoreClientService().createClient(loadedAscKey);
+    return new AppleStoreClientService().createClient(ascKey);
   } catch (cause) {
     throw new Error('Could not create the App Store Connect client.', { cause });
   }

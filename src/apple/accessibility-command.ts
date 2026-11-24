@@ -133,11 +133,7 @@ export async function accessibilityCommandProgram(
     throw accessibilityFailure('load active Apple account', cause);
   }
 
-  const loadedAscKey = ascKey;
-
-  const isAccountMissing = loadedAscKey == null;
-
-  if (isAccountMissing) {
+  if (ascKey == null) {
     throw accessibilityFailure(
       'load active Apple account',
       bundleId,
@@ -146,7 +142,7 @@ export async function accessibilityCommandProgram(
   }
 
   try {
-    var ascClient = new AppleStoreClientService().createClient(loadedAscKey);
+    var ascClient = new AppleStoreClientService().createClient(ascKey);
   } catch (cause) {
     throw accessibilityFailure('create App Store client', cause);
   }

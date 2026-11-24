@@ -67,14 +67,6 @@ function findNamedApp(apps: readonly AppDescriptor[], appName: string): AppDescr
   return namedApp;
 }
 
-function selectionFailureMessage(cause: unknown): string {
-  if (hasMessage(cause)) {
-    return cause.message;
-  }
-
-  return 'Could not choose an app.';
-}
-
 /** Pick the app to build: an explicit `--app`, the sole discovered app */
 export async function selectApp(
   apps: readonly AppDescriptor[],
@@ -126,8 +118,14 @@ export async function selectApp(
     const pickedApp = await pickOne(pickRequest);
 
     return pickedApp;
-  } catch (error) {
-    throw new Error(selectionFailureMessage(error), { cause: error });
+  } catch (cause) {
+    const hasCauseMessage = hasMessage(cause);
+
+    if (hasCauseMessage) {
+      throw new Error(cause.message, { cause });
+    }
+
+    throw new Error('Could not choose an app.', { cause });
   }
 }
 

@@ -263,16 +263,15 @@ export async function playPricingCommandProgram(rawCommandInput: unknown): Promi
   }
 
   const basePrice = parsePlayPrice(commandInput.amount, commandInput.currency);
-  let packageName = '';
-  let appName = '';
 
   try {
-    const selectedApp = await readGoogleStoreApp(commandInput.app);
-    packageName = selectedApp.packageName;
-    appName = selectedApp.appName;
+    var selectedApp = await readGoogleStoreApp(commandInput.app);
   } catch (cause) {
     throw pricingFailure('app', 'Could not select an app.', cause);
   }
+
+  const packageName = selectedApp.packageName;
+  const appName = selectedApp.appName;
 
   try {
     var googleStore = await loadActiveGoogleStore(packageName, appName);

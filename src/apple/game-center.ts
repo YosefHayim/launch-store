@@ -438,12 +438,10 @@ async function createItemWithLocalization(
     return;
   }
 
-  let versionId: string | null = null;
-
   try {
     const created = await createItem();
     createAction.status = 'applied';
-    versionId = created.versionId;
+    var versionId = created.versionId;
   } catch (writeFailure) {
     createAction.status = 'failed';
     createAction.error = errorMessage(writeFailure);

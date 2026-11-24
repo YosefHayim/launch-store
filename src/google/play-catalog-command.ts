@@ -5,14 +5,6 @@ import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 
-function confirmationMessage(cause: unknown): string {
-  if (hasMessage(cause)) {
-    return cause.message;
-  }
-
-  return 'Play catalog confirmation failed.';
-}
-
 /** Render one planned Google Play catalog action. */
 export function renderPlayCatalogAction(plannedAction: PlannedAction): string {
   if (plannedAction.status != 'failed') {
@@ -68,9 +60,13 @@ export async function confirmPlayCatalogWrite(
   try {
     var confirmed = await new LaunchPrompt().confirm(confirmationMessageText);
   } catch (cause) {
-    const failureMessage = confirmationMessage(cause);
+    const hasCauseMessage = hasMessage(cause);
 
-    throw new Error(failureMessage, { cause });
+    if (hasCauseMessage) {
+      throw new Error(cause.message, { cause });
+    }
+
+    throw new Error('Play catalog confirmation failed.', { cause });
   }
 
   if (confirmed) {
