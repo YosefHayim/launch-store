@@ -1,6 +1,6 @@
 // Copies App Store Connect in-app purchases and subscriptions into Launch product config.
 
-import type { AdoptCatalogApi, Adopter, PlannedWrite } from '../types/adopt.ts';
+import type { AdoptCatalogApi, AdoptTarget, Adopter, PlannedWrite } from '../types/adopt.ts';
 import type { InAppPurchaseResource } from '../types/apple/in-app-purchases.ts';
 import type { LocalizationResource, SubscriptionResource } from '../types/apple/subscriptions.ts';
 import type {
@@ -242,11 +242,12 @@ function isPlannedWrite(plannedWrite: PlannedWrite | null): plannedWrite is Plan
   return plannedWrite != null;
 }
 
-/** Read products and plan their launch.config imports. */
-export const productsAdopter: Adopter = {
-  domain: 'products',
-  fidelity: 'importable',
-  async read(appleCatalog, target) {
+export class ProductsAdoption implements Adopter {
+  readonly domain = 'products';
+
+  readonly fidelity = 'importable' as const;
+
+  async read(appleCatalog: AdoptCatalogApi, target: AdoptTarget): Promise<PlannedWrite[]> {
     const purchasesPromise = appleCatalog.listInAppPurchases(target.appId);
     const groupsPromise = appleCatalog.listSubscriptionGroups(target.appId);
     const purchases = await purchasesPromise;
@@ -268,5 +269,5 @@ export const productsAdopter: Adopter = {
     const subscriptionWrites = await subscriptionWritesPromise;
 
     return [...purchaseWrites, ...subscriptionWrites].filter(isPlannedWrite);
-  },
-};
+  }
+}

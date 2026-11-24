@@ -14,14 +14,11 @@ import { pullAppleListing } from '../store/shared/metadata-command.ts';
 import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import type { AdoptCatalogApi, Fidelity } from '../types/adopt.ts';
 import type { AppDescriptor } from '../types/app.ts';
-import {
-  applyAdopt,
-  detectTargets,
-  planTargets,
-  type AdoptApplyResult,
-  type TargetPlan,
-} from './adoption.ts';
-import { listAdopters, registerBuiltinAdopters } from './registry.ts';
+import { Adoption, type AdoptApplyResult, type TargetPlan } from './adoption.ts';
+import { CapabilitiesAdoption } from './capabilities.ts';
+import { CertificatesAdoption } from './certificates.ts';
+import { ListingAdoption } from './app-store-listing.ts';
+import { ProductsAdoption } from './products.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 export type AdoptCommandInput = {
@@ -332,9 +329,13 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
     const launchConfigPath = join(launchPaths.workingDirectory, 'launch.config.ts');
     const hasLaunchConfig = await pathExists(launchConfigPath);
 
-    registerBuiltinAdopters();
-
-    const detection = await detectTargets(appleCatalog, selectedApps, {
+    const adoption = new Adoption(appleCatalog, [
+      new ProductsAdoption(),
+      new CapabilitiesAdoption(),
+      new CertificatesAdoption(),
+      new ListingAdoption(),
+    ]);
+    const detection = await adoption.detect(selectedApps, {
       keyId: ascKey.keyId,
       cwd: launchPaths.workingDirectory,
       hasLaunchConfig,
@@ -355,8 +356,7 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
       return;
     }
 
-    const adopters = listAdopters();
-    const targetPlans = await planTargets(appleCatalog, detection, adopters);
+    const targetPlans = await adoption.plan(detection);
 
     logger.gap();
 
@@ -403,7 +403,7 @@ export async function adoptCommandProgram(rawCommandInput: unknown): Promise<voi
       relative,
       sep,
     });
-    const adoptionSummary = await applyAdopt(targetPlans, {
+    const adoptionSummary = await adoption.apply(targetPlans, {
       cwd: launchPaths.workingDirectory,
       hasLaunchConfig,
       appRoot: sharedAppRoot,

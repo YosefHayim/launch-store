@@ -6,12 +6,10 @@ import type { AdoptCatalogApi, AdoptTarget, Adopter, PlannedWrite } from '../typ
 import type { AppDescriptor } from '../types/app.ts';
 import type { InAppPurchaseConfig } from '../types/catalog.ts';
 import {
-  applyAdopt,
+  Adoption,
   type ApplyContext,
   collectAdoptedProducts,
   describeAdoptSignal,
-  detectTargets,
-  planTargets,
   type TargetPlan,
 } from './adoption.ts';
 
@@ -119,8 +117,7 @@ function describeDetectTargets() {
         return ready(null);
       },
     });
-    const detection = await detectTargets(
-      appleCatalog,
+    const detection = await new Adoption(appleCatalog).detect(
       [
         appDescriptor('good', 'com.acme.good'),
         appDescriptor('norec', 'com.acme.norec'),
@@ -201,10 +198,9 @@ function describePlanTargets() {
       ],
       skipped: [],
     };
-    const [targetPlan] = await planTargets(emptyAdoptCatalog(), detection, [
-      goodAdopter,
-      badAdopter,
-    ]);
+    const [targetPlan] = await new Adoption(emptyAdoptCatalog(), [goodAdopter, badAdopter]).plan(
+      detection,
+    );
 
     expect(targetPlan).toBeDefined();
 
@@ -333,7 +329,7 @@ function describeApplyAdopt() {
       hasLaunchConfig: false,
     };
     const apply = applyContext(pullNothing);
-    const adoptionSummary = await applyAdopt(
+    const adoptionSummary = await new Adoption(emptyAdoptCatalog()).apply(
       [
         plan(target, [
           {
@@ -374,7 +370,7 @@ function describeApplyAdopt() {
       cwd: workspaceDir,
       hasLaunchConfig: true,
     };
-    const adoptionSummary = await applyAdopt(
+    const adoptionSummary = await new Adoption(emptyAdoptCatalog()).apply(
       [
         plan(target, [
           {
@@ -423,7 +419,7 @@ function describeApplyAdopt() {
       cwd: workspaceDir,
       hasLaunchConfig: true,
     };
-    const adoptionSummary = await applyAdopt(
+    const adoptionSummary = await new Adoption(emptyAdoptCatalog()).apply(
       [
         plan(target, [
           {
@@ -468,7 +464,7 @@ function describeApplyAdopt() {
       cwd: workspaceDir,
       hasLaunchConfig: true,
     };
-    const adoptionSummary = await applyAdopt(
+    const adoptionSummary = await new Adoption(emptyAdoptCatalog()).apply(
       [
         plan(target, [
           {
@@ -528,12 +524,15 @@ function describeApplyAdopt() {
       },
     ];
     const successfulPull = vi.fn(pullNothing);
-    const successfulAdoption = await applyAdopt([plan(target, writes)], {
-      cwd: workspaceDir,
-      hasLaunchConfig: true,
-      appRoot: null,
-      pullListing: successfulPull,
-    });
+    const successfulAdoption = await new Adoption(emptyAdoptCatalog()).apply(
+      [plan(target, writes)],
+      {
+        cwd: workspaceDir,
+        hasLaunchConfig: true,
+        appRoot: null,
+        pullListing: successfulPull,
+      },
+    );
 
     expect(successfulPull).toHaveBeenCalledWith('com.acme.app', storeConfig);
     expect(successfulAdoption.listingsPulled).toEqual(['acme']);
@@ -543,7 +542,7 @@ function describeApplyAdopt() {
     }
 
     const failedPull = vi.fn(failPull);
-    const failedAdoption = await applyAdopt([plan(target, writes)], {
+    const failedAdoption = await new Adoption(emptyAdoptCatalog()).apply([plan(target, writes)], {
       cwd: workspaceDir,
       hasLaunchConfig: true,
       appRoot: null,

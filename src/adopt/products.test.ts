@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AdoptCatalogApi, AdoptTarget } from '../types/adopt.ts';
 import type { AppDescriptor } from '../types/app.ts';
-import { productsAdopter } from './products.ts';
+import { ProductsAdoption } from './products.ts';
 
 function ready<Value>(value: Value): Promise<Value> {
   return Promise.resolve(value);
@@ -100,7 +100,7 @@ function describeProductsAdopter() {
       },
     });
     const target = adoptTarget();
-    const writes = await productsAdopter.read(appleCatalog, target);
+    const writes = await new ProductsAdoption().read(appleCatalog, target);
 
     expect(writes).toHaveLength(1);
 
@@ -153,7 +153,7 @@ function describeProductsAdopter() {
       },
     });
     const target = adoptTarget();
-    const writes = await productsAdopter.read(appleCatalog, target);
+    const writes = await new ProductsAdoption().read(appleCatalog, target);
     const firstWrite = writes[0];
 
     expect(firstWrite).toBeDefined();
@@ -180,7 +180,7 @@ function describeProductsAdopter() {
     });
     const target = adoptTarget();
 
-    expect(await productsAdopter.read(appleCatalog, target)).toEqual([]);
+    expect(await new ProductsAdoption().read(appleCatalog, target)).toEqual([]);
   }
 
   it(
@@ -211,7 +211,7 @@ function describeProductsAdopter() {
       },
     });
     const target = adoptTarget();
-    const writes = await productsAdopter.read(appleCatalog, target);
+    const writes = await new ProductsAdoption().read(appleCatalog, target);
     const firstWrite = writes[0];
 
     expect(firstWrite).toBeDefined();
@@ -258,7 +258,7 @@ function describeProductsAdopter() {
     });
     const target = adoptTarget();
 
-    expect(await productsAdopter.read(appleCatalog, target)).toEqual([]);
+    expect(await new ProductsAdoption().read(appleCatalog, target)).toEqual([]);
   }
 
   it(
@@ -267,4 +267,4 @@ function describeProductsAdopter() {
   );
 }
 
-describe('productsAdopter', describeProductsAdopter);
+describe('ProductsAdoption', describeProductsAdopter);

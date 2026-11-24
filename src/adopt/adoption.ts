@@ -93,7 +93,7 @@ function byAppName(firstApp: SkippedApp, secondApp: SkippedApp): number {
 }
 
 /** Resolve discovered apps against App Store Connect. */
-export async function detectTargets(
+async function detectTargets(
   appleCatalog: AdoptCatalogApi,
   apps: readonly AppDescriptor[],
   detectionContext: DetectContext,
@@ -174,8 +174,8 @@ export async function detectTargets(
   return { detected, skipped };
 }
 
-/** Run adopters in registry order while isolating each domain failure. */
-export async function planTargets(
+/** Run adopters in list order while isolating each domain failure. */
+async function planTargets(
   appleCatalog: AdoptCatalogApi,
   detection: Detection,
   adopters: readonly Adopter[],
@@ -390,7 +390,7 @@ async function applyListingPulls(
 }
 
 /** Apply a confirmed adoption plan to local configuration and delegated listing pulls. */
-export async function applyAdopt(
+async function applyAdopt(
   targetPlans: readonly TargetPlan[],
   applyContext: ApplyContext,
 ): Promise<AdoptApplyResult> {
@@ -425,4 +425,23 @@ export async function applyAdopt(
   }
 
   return adoptionSummary;
+}
+
+export class Adoption {
+  constructor(
+    private readonly appleCatalog: AdoptCatalogApi,
+    private readonly adopters: readonly Adopter[] = [],
+  ) {}
+
+  detect(apps: readonly AppDescriptor[], detectionContext: DetectContext): Promise<Detection> {
+    return detectTargets(this.appleCatalog, apps, detectionContext);
+  }
+
+  plan(detection: Detection): Promise<TargetPlan[]> {
+    return planTargets(this.appleCatalog, detection, this.adopters);
+  }
+
+  apply(targetPlans: readonly TargetPlan[], applyContext: ApplyContext): Promise<AdoptApplyResult> {
+    return applyAdopt(targetPlans, applyContext);
+  }
 }

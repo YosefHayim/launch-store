@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AdoptCatalogApi, AdoptTarget } from '../types/adopt.ts';
 import type { AppDescriptor } from '../types/app.ts';
-import { capabilitiesAdopter, NEEDS_VALUE, planCapabilityEntitlements } from './capabilities.ts';
+import { CapabilitiesAdoption, NEEDS_VALUE, planCapabilityEntitlements } from './capabilities.ts';
 
 function ready<Value>(value: Value): Promise<Value> {
   return Promise.resolve(value);
@@ -210,7 +210,7 @@ function describeCapabilitiesAdopter() {
       },
     });
 
-    expect(await capabilitiesAdopter.read(appleCatalog, TARGET)).toEqual([]);
+    expect(await new CapabilitiesAdoption().read(appleCatalog, TARGET)).toEqual([]);
   }
 
   it(
@@ -227,7 +227,7 @@ function describeCapabilitiesAdopter() {
         return ready([]);
       },
     });
-    const writes = await capabilitiesAdopter.read(appleCatalog, TARGET);
+    const writes = await new CapabilitiesAdoption().read(appleCatalog, TARGET);
 
     expect(writes).toHaveLength(1);
 
@@ -254,4 +254,4 @@ function describeCapabilitiesAdopter() {
   );
 }
 
-describe('capabilitiesAdopter', describeCapabilitiesAdopter);
+describe('CapabilitiesAdoption', describeCapabilitiesAdopter);

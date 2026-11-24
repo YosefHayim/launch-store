@@ -1,7 +1,13 @@
 // Plans entitlements still missing after reading enabled App Store Connect capabilities.
 
 import { entitlementForCapability, isCapabilityEntitlement } from '../credentials/capabilities.ts';
-import type { AdoptTarget, Adopter, EntitlementValue, PlannedWrite } from '../types/adopt.ts';
+import type {
+  AdoptCatalogApi,
+  AdoptTarget,
+  Adopter,
+  EntitlementValue,
+  PlannedWrite,
+} from '../types/adopt.ts';
 import type { CapabilitySetting } from '../types/apple/provisioning.ts';
 import { extractProfileEntitlements } from './profile-entitlements.ts';
 
@@ -139,8 +145,17 @@ type ProfileWithContent = Readonly<{
 }>;
 
 function isAppStoreProfile(profile: ProfileWithContent): boolean {
-  // Matches an App Store distribution profile name, ignoring spaces and case.
-  return /app\s*store/i.test(profile.name);
+  const loweredName = profile.name.toLowerCase();
+  const appAt = loweredName.indexOf('app');
+  const isMissing = appAt == -1;
+
+  if (isMissing) {
+    return false;
+  }
+
+  const afterApp = loweredName.slice(appAt + 3).trimStart();
+
+  return afterApp.startsWith('store');
 }
 
 /** Choose the best profile content for entitlement recovery. */
@@ -209,11 +224,12 @@ function plannedWriteFor(configPath: string) {
   };
 }
 
-/** Read enabled capabilities and plan missing app.json entitlements. */
-export const capabilitiesAdopter: Adopter = {
-  domain: 'capabilities',
-  fidelity: 'advisory',
-  async read(appleCatalog, target: AdoptTarget) {
+export class CapabilitiesAdoption implements Adopter {
+  readonly domain = 'capabilities';
+
+  readonly fidelity = 'advisory' as const;
+
+  async read(appleCatalog: AdoptCatalogApi, target: AdoptTarget): Promise<PlannedWrite[]> {
     const bundleResource = await appleCatalog.findBundleId(target.bundleId);
 
     if (bundleResource == null) {
@@ -257,5 +273,5 @@ export const capabilitiesAdopter: Adopter = {
     });
 
     return plannedEntitlements.map(plannedWriteFor(target.app.configPath));
-  },
-};
+  }
+}

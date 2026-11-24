@@ -1,7 +1,7 @@
 // Reports whether App Store Connect certificates and profiles match the local keychain.
 
 import { describeStoredCredentials } from '../credentials/apple-signing-assets.ts';
-import type { Adopter, PlannedWrite } from '../types/adopt.ts';
+import type { AdoptCatalogApi, AdoptTarget, Adopter, PlannedWrite } from '../types/adopt.ts';
 import type { CertificateResource, ProfileResource } from '../types/apple/provisioning.ts';
 
 type LocalSigningView = Readonly<{
@@ -98,11 +98,12 @@ export function planCertReports(certPlan: CertPlanInput): PlannedWrite[] {
   return plannedWrites;
 }
 
-/** Read live and local signing assets and plan detect-only reports. */
-export const certsAdopter: Adopter = {
-  domain: 'certs',
-  fidelity: 'detect',
-  async read(appleCatalog, target) {
+export class CertificatesAdoption implements Adopter {
+  readonly domain = 'certs';
+
+  readonly fidelity = 'detect' as const;
+
+  async read(appleCatalog: AdoptCatalogApi, target: AdoptTarget): Promise<PlannedWrite[]> {
     const bundleResource = await appleCatalog.findBundleId(target.bundleId);
     const certificates = await appleCatalog.listDistributionCertificates();
     let profiles: readonly ProfileResource[] = [];
@@ -122,5 +123,5 @@ export const certsAdopter: Adopter = {
       },
       bundleId: target.bundleId,
     });
-  },
-};
+  }
+}
