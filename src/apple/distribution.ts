@@ -3,12 +3,11 @@
 import type {
   AlternativeDistributionDomainResource,
   AlternativeDistributionKeyResource,
-  MerchantIdResource,
-  PassTypeIdResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/alternative-distribution.ts';
+import type { MerchantIdResource, PassTypeIdResource } from '../types/apple/provisioning.ts';
 import type { AscHost } from './host.ts';
 import type { ResourceSingle } from './shared.ts';
-import type { components } from '../types/apple-api-types.ts';
+import type { components } from '../types/apple/apple-api-types.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectDistribution {

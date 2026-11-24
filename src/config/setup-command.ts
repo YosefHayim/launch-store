@@ -17,7 +17,7 @@ import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { Prompts } from '../prompts.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
 import { parsePlatform } from '../services/stores/platform.ts';
-import type { DeviceResource } from '../types/apple-catalog.ts';
+import type { DeviceResource } from '../types/apple/provisioning.ts';
 import type { AccountRecord, AscKey, SigningAssets } from '../types/credentials.ts';
 import { loadStoreAppContext } from '../store/shared/select-store-app.ts';
 import { runSetup } from './setup.ts';

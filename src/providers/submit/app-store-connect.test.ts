@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { BuildUploadStatus } from '../../types/apple-catalog.ts';
+import type { BuildUploadStatus } from '../../types/apple/builds.ts';
 import type { ResolvedBuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
 

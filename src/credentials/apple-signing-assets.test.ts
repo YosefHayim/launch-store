@@ -15,7 +15,7 @@ import {
 } from './apple-signing-profiles.ts';
 import { extractProfileEntitlements } from '../adopt/profile-entitlements.ts';
 import type { AscKey, SigningAssets } from '../types/credentials.ts';
-import type { BundleIdCapabilityResource, ProfileResource } from '../types/apple-catalog.ts';
+import type { BundleIdCapabilityResource, ProfileResource } from '../types/apple/provisioning.ts';
 import type { AppleCredentialsClient } from '../services/stores/apple-credentials-client.ts';
 
 const systemTemporaryDirectory = tmpdir();

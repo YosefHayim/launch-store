@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type {
   BetaAppReviewSubmissionResource,
   BetaBuildLocalizationResource,
-  BuildResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/testflight.ts';
+import type { BuildResource } from '../types/apple/builds.ts';
 import {
   type AscBetaReviewApi,
   parseBetaReviewConfig,

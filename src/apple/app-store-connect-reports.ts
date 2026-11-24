@@ -5,9 +5,8 @@ import type {
   AnalyticsReportRequestResource,
   AnalyticsReportResource,
   AnalyticsReportSegmentResource,
-  FinanceReportQuery,
-  SalesReportQuery,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/analytics.ts';
+import type { FinanceReportQuery, SalesReportQuery } from '../types/apple/reporting.ts';
 import type { AscHost } from './host.ts';
 import {
   BASE_URL,

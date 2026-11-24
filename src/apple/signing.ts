@@ -8,15 +8,16 @@ import type {
   CertificateResource,
   DeviceResource,
   ProfileResource,
-} from '../types/apple-catalog.ts';
-import type { ProvisioningProfileType, ResourceList } from './shared.ts';
-import type { components } from '../types/apple-api-types.ts';
+} from '../types/apple/provisioning.ts';
 import {
+  type ProvisioningProfileType,
+  type ResourceList,
   DISTRIBUTION_CERT_TYPE,
   APP_STORE_PROFILE_TYPE,
   AD_HOC_PROFILE_TYPE,
   IOS_DEVICE_PLATFORM,
 } from './shared.ts';
+import type { components } from '../types/apple/apple-api-types.ts';
 import {
   APPLE_PAGE_LIMIT,
   applyAppleListQuery,

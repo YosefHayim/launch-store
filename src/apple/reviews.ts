@@ -3,7 +3,7 @@
 import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/customer-reviews.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 
 /** The App Store transport operations required by the customer-reviews domain. */

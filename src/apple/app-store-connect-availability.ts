@@ -1,10 +1,14 @@
 // Reads and sets the territories where an app is for sale on App Store Connect.
 
-import type { AppAvailabilityResource } from '../types/apple-catalog.ts';
+import type { AppAvailabilityResource } from '../types/apple/app-info.ts';
 import type { AscHost } from './host.ts';
-import type { TerritoryAvailabilityRow, TerritoryAvailabilityPage } from './shared.ts';
-import type { components } from '../types/apple-api-types.ts';
-import { AscAvailabilityUpdateError, TERRITORY_AVAILABILITY_UPDATE_CONCURRENCY } from './shared.ts';
+import {
+  type TerritoryAvailabilityRow,
+  type TerritoryAvailabilityPage,
+  AscAvailabilityUpdateError,
+  TERRITORY_AVAILABILITY_UPDATE_CONCURRENCY,
+} from './shared.ts';
+import type { components } from '../types/apple/apple-api-types.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectAvailability {

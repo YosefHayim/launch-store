@@ -9,8 +9,8 @@ import { getBuildEngine, getCredentialsProvider } from '../services/provider-sup
 import { rememberLastRun } from '../distribution/last-run.ts';
 import { withSpinner } from '../services/platform/progress.ts';
 import { distributeArtifact } from '../distribution/distribute.ts';
-import { type BuildRunOptions, type PreparedBuild, DRY_RUN_KEY } from './pipeline-types.ts';
-import { resolveBuildEngineName } from './pipeline-providers.ts';
+import type { BuildRunOptions, PreparedBuild } from '../types/build-run.ts';
+import { DRY_RUN_KEY, resolveBuildEngineName } from './pipeline-providers.ts';
 import { resolveIosAccount, resolveSigning } from './pipeline-signing.ts';
 import { nextBuildNumber, resolveMarketingVersion, setIosBuildNumber } from './pipeline-version.ts';
 import {

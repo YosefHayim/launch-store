@@ -15,10 +15,12 @@ import { appRecordMissing, plan } from '../store/shared/reconcile.ts';
 import type {
   ExperimentTreatmentLocalizationResource,
   ExperimentTreatmentResource,
+  VersionExperimentResource,
+} from '../types/apple/app-store-version-experiments.ts';
+import type {
   ReviewSubmissionResource,
   ScreenshotSetResource,
-  VersionExperimentResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-store-versions.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 

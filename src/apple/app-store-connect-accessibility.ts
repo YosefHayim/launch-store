@@ -1,13 +1,12 @@
 // Reads and writes accessibility nutrition labels for an app on App Store Connect.
 
-import type { AccessibilityDeclarationAttributes } from './shared.ts';
+import { type AccessibilityDeclarationAttributes, pickAccessibilitySupport } from './shared.ts';
 import type {
   AccessibilityDeclarationResource,
   AccessibilitySupport,
   DeviceFamily,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-info.ts';
 import type { AscHost } from './host.ts';
-import { pickAccessibilitySupport } from './shared.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectAccessibility {

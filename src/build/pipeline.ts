@@ -8,7 +8,7 @@ import { loadConfig } from '../config/config.ts';
 import { checkApp, formatFinding } from '../config/config-check.ts';
 import { ENV_SOURCE } from '../config/environment-file.ts';
 import { createLogger } from '../services/platform/logger.ts';
-import type { BuildRunOptions, PreparedBuild } from './pipeline-types.ts';
+import type { BuildRunOptions, PreparedBuild } from '../types/build-run.ts';
 import {
   resolveAndroidRelease,
   resolveAndroidSubmitReleaseNotes,

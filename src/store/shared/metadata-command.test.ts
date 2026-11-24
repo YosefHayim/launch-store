@@ -9,7 +9,7 @@ import { AppleStoreClientService } from '../../services/stores/apple-store-clien
 import { GoogleStoreClientService } from '../../services/stores/google-store-client.ts';
 import type { AppDescriptor } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
-import type { PlayListing } from '../../types/google-play.ts';
+import type { PlayListing } from '../../types/google/edits-listings.ts';
 import type { StoreConfig } from './store-config.ts';
 import {
   assertListingPlatform,

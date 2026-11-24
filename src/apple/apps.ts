@@ -4,11 +4,12 @@ import type {
   AgeRatingDeclarationResource,
   AgeRatingValue,
   AppInfoResource,
-  ListingLocalization,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-info.ts';
+import type { ListingLocalization } from '../types/apple/app-store-versions.ts';
 import type { AscHost } from './host.ts';
-import type { ResourceList, AppInfoStates } from './shared.ts';
 import {
+  type ResourceList,
+  type AppInfoStates,
   REQUIRED_AGREEMENTS_ERROR_CODE,
   EDITABLE_APPINFO_STATES,
   LIVE_STATES,

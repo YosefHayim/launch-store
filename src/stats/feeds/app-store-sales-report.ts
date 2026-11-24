@@ -1,8 +1,8 @@
 // Sums one day of an App Store Connect sales report into downloads and proceeds.
 
 import type { DailyStat } from '../../types/stats.ts';
-import type { ReportLine, SalesReportKind } from './app-store-feed-types.ts';
-import { findSalesReportKind } from './app-store-product-types.ts';
+import type { ReportLine, SalesReportKind } from '../../types/apple/reporting.ts';
+import { findSalesReportKind } from './product-type-identifiers.ts';
 import { readCell, readNumberCell, readTotal, roundMoney } from './report-cells.ts';
 
 const APPLE_IDENTIFIER_COLUMN = 'Apple Identifier';

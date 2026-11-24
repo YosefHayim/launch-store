@@ -8,9 +8,9 @@ import {
   type AgeRatingDeclarationResource,
   type AgeRatingValue,
   type AppInfoResource,
-  type AppStoreReviewDetailResource,
-  type PricePointResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-info.ts';
+import type { AppStoreReviewDetailResource } from '../types/apple/app-store-versions.ts';
+import type { PricePointResource } from '../types/apple/subscriptions.ts';
 import type { PlannedAction, ReconcileReport } from '../types/reconcile.ts';
 import type {
   ReleaseAttributesConfig,

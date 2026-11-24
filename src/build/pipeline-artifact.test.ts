@@ -8,7 +8,7 @@ import { nativeProjectDirName } from '../services/stores/platform.ts';
 import type { Platform } from '../types/app.ts';
 import type { SizeReport } from '../types/artifacts.ts';
 import type { PrebuildMode, ResolvedBuildContext } from '../types/config.ts';
-import type { BuildRunOptions } from './pipeline-types.ts';
+import type { BuildRunOptions } from '../types/build-run.ts';
 import {
   ensureAndroidProject,
   ensureNativeProject,

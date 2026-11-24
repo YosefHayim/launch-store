@@ -2,7 +2,7 @@
 
 import { entitlementForCapability, isCapabilityEntitlement } from '../credentials/capabilities.ts';
 import type { AdoptTarget, Adopter, EntitlementValue, PlannedWrite } from '../types/adopt.ts';
-import type { CapabilitySetting } from '../types/apple-catalog.ts';
+import type { CapabilitySetting } from '../types/apple/provisioning.ts';
 import { extractProfileEntitlements } from './profile-entitlements.ts';
 
 export const NEEDS_VALUE = 'NEEDS_VALUE';

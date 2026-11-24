@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AppEventLocalizationInput, NewAppEvent } from '../types/apple-catalog.ts';
+import type { AppEventLocalizationInput, NewAppEvent } from '../types/apple/app-events.ts';
 import { AppEvents, type AscAppEventsApi } from './app-events.ts';
 
 function readThrownMessage(cause: unknown): string | null {

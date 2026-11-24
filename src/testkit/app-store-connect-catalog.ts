@@ -1,12 +1,12 @@
 import { vi } from 'vitest';
+import type { BundleIdCapabilityResource } from '../types/apple/provisioning.ts';
+import type { InAppPurchaseResource } from '../types/apple/in-app-purchases.ts';
 import type {
-  BundleIdCapabilityResource,
-  InAppPurchaseResource,
   LocalizationResource,
   PricePointResource,
   SubscriptionGroupResource,
   SubscriptionResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/subscriptions.ts';
 import type { AscCatalogApi } from '../apple/app-store-sync.ts';
 
 function readAppId(): Promise<string> {

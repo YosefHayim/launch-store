@@ -6,7 +6,7 @@ import { getBuildEngine, getCredentialsProvider } from '../services/provider-sup
 import { rememberLastRun } from '../distribution/last-run.ts';
 import { withSpinner } from '../services/platform/progress.ts';
 import { distributeArtifact } from '../distribution/distribute.ts';
-import type { BuildRunOptions, PreparedBuild } from './pipeline-types.ts';
+import type { BuildRunOptions, PreparedBuild } from '../types/build-run.ts';
 import {
   resolveBuildEngineName,
   resolveSizeBudgetMB,

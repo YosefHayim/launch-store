@@ -1,6 +1,6 @@
 // Reconciles Apple Pay merchant ids and Wallet pass type ids on App Store Connect.
 
-import type { MerchantIdResource, PassTypeIdResource } from '../types/apple-catalog.ts';
+import type { MerchantIdResource, PassTypeIdResource } from '../types/apple/provisioning.ts';
 import { plan, type ReconcileContext } from '../store/shared/reconcile.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { PlannedAction } from '../types/reconcile.ts';

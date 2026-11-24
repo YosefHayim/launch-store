@@ -1,19 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import type {
   InAppPurchaseResource,
+  PromotedPurchaseCreate,
+  PromotedPurchaseResource,
+} from '../types/apple/in-app-purchases.ts';
+import type {
   IntroductoryOfferResource,
   OfferCodeCreate,
   OfferCodeResource,
   PricePointResource,
-  PromotedPurchaseCreate,
-  PromotedPurchaseResource,
   PromotionalOfferCreate,
   PromotionalOfferResource,
   SubscriptionGroupResource,
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/subscriptions.ts';
 import type { AppProducts, SubscriptionConfig } from '../types/catalog.ts';
 import { appDeclaresOffers, reconcileOffers, type AscOffersApi } from './offers.ts';
 import type { ActionStatus } from '../types/reconcile.ts';

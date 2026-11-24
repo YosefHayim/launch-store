@@ -10,7 +10,7 @@ import {
 import { mb, submitToStores } from '../build/pipeline-providers.ts';
 import { resolveIosAccount } from '../build/pipeline-signing.ts';
 import { loadConfig } from '../config/config.ts';
-import { parseCliEnv } from '../config/environment-file.ts';
+import { parseCliEnv, type ResolvedEnv } from '../config/environment-file.ts';
 import { loadAscKeyById } from '../credentials/accounts.ts';
 import { ensureArtifactPresent, resolveStorageProvider } from '../distribution/storage.ts';
 import { errorMessage, hasMessage } from '../services/platform/error-message.ts';
@@ -30,9 +30,8 @@ import {
 import { completeCommand, isCommandExit } from '../terminal/command-exit.ts';
 import type { AndroidReleaseOptions, AppDescriptor, BuildProfile, Platform } from '../types/app.ts';
 import type { BuildArtifact } from '../types/artifacts.ts';
-import type { BuildResource } from '../types/apple-catalog.ts';
+import type { BuildResource } from '../types/apple/builds.ts';
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';
-import type { ResolvedEnv } from '../config/environment-file.ts';
 import {
   releaseApp,
   waitForValidBuild,

@@ -5,7 +5,7 @@ import {
   type AccessibilityDeclarationResource,
   type AccessibilitySupport,
   type DeviceFamily,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-info.ts';
 import { appRecordMissing, plan, type ReconcileContext } from '../store/shared/reconcile.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { PlannedAction } from '../types/reconcile.ts';

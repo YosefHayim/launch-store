@@ -1,39 +1,6 @@
-// Holds Google Play releases, listings, products, subscriptions, and reviews.
+// Google Play subscription, base plan, and offer resources.
 
-import type { PlayMoneyUnits } from './play-pricing.ts';
-
-export type PlayRelease = Readonly<{
-  name?: string;
-  versionCodes?: readonly string[];
-  status?: string;
-  userFraction?: number;
-  releaseNotes?: Readonly<{ language: string; text: string }>[];
-}>;
-
-export type PlayListing = Readonly<{
-  language: string;
-  title?: string;
-  shortDescription?: string;
-  fullDescription?: string;
-  video?: string;
-}>;
-
-export type PlayCountryAvailability = Readonly<{
-  restOfWorld?: boolean;
-  countries: Readonly<{ countryCode: string }>[];
-}>;
-
-export type PlayMoney = Readonly<{ priceMicros?: string; currency?: string }>;
-
-export type InAppProductResource = Readonly<{
-  sku: string;
-  status?: string;
-  purchaseType?: string;
-  defaultLanguage?: string;
-  defaultPrice?: PlayMoney;
-  prices?: Record<string, PlayMoney>;
-  listings?: Record<string, Readonly<{ title?: string; description?: string }>>;
-}>;
+import type { PlayMoneyUnits } from './monetization.ts';
 
 export type SubscriptionListing = Readonly<{
   languageCode: string;
@@ -92,18 +59,3 @@ export type SubscriptionOfferResource = Readonly<{
   regionalConfigs: readonly RegionalSubscriptionOfferConfig[];
   offerTags?: Readonly<{ tag: string }>[];
 }>;
-
-export type PlayReview = Readonly<{
-  reviewId: string;
-  authorName?: string;
-  rating: number;
-  text?: string;
-  reviewerLanguage?: string;
-  device?: string;
-  appVersionName?: string;
-  lastModified?: string;
-  answered: boolean;
-  developerReply?: string;
-}>;
-
-export type PlayReplyResult = Readonly<{ replyText: string; lastEdited?: string }>;

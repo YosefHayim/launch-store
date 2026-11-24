@@ -2,7 +2,7 @@
 
 import { hasMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
-import type { ConvertedPrices, PlayMoneyUnits } from '../types/play-pricing.ts';
+import type { ConvertedPrices, PlayMoneyUnits } from '../types/google/monetization.ts';
 import { loadActiveGoogleStore, resolveGoogleStoreApp } from './google-store-command.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 

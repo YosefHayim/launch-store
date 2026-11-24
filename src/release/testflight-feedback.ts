@@ -6,8 +6,8 @@ import type {
   BetaFeedbackCrashSubmissionResource,
   BetaFeedbackQuery,
   BetaFeedbackScreenshotSubmissionResource,
-  BuildResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/testflight.ts';
+import type { BuildResource } from '../types/apple/builds.ts';
 import type { BetaFeedback, BetaFeedbackKind } from '../types/app.ts';
 
 export type AscFeedbackApi = Readonly<{

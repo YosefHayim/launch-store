@@ -11,7 +11,7 @@ import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { setAppleStoreClient } from '../services/stores/apple-store-client.ts';
 import type { AppDescriptor } from '../types/app.ts';
-import type { BuildResource } from '../types/apple-catalog.ts';
+import type { BuildResource } from '../types/apple/builds.ts';
 import type { AscReleaseApi, ReleaseAction, ReleaseReport } from './app-store-release.ts';
 import {
   androidReleasePlanLines,

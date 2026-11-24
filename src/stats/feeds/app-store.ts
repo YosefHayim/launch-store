@@ -24,9 +24,8 @@ import type {
   AnalyticsAccessType,
   AnalyticsReportBatch,
   AnalyticsReportKind,
-  AppStoreStatsPath,
-  ReportLine,
-} from './app-store-feed-types.ts';
+} from '../../types/apple/analytics.ts';
+import type { AppStoreStatsPath, ReportLine } from '../../types/apple/reporting.ts';
 import { findAppSkus, summarizeSalesLines } from './app-store-sales-report.ts';
 
 interface AppStoreFetchRequest {

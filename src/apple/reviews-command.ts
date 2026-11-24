@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
-import type { CustomerReviewResource } from '../types/apple-catalog.ts';
+import type { CustomerReviewResource } from '../types/apple/customer-reviews.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { deleteReviewResponse, listReviews, replyToReview } from './reviews.ts';
 import { resolveStoreBundleId } from '../store/shared/select-store-app.ts';

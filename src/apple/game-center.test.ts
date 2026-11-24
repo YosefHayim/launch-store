@@ -4,7 +4,7 @@ import type {
   GameCenterAchievementResource,
   GameCenterLeaderboardCreate,
   GameCenterLeaderboardResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/game-center.ts';
 import { summarize } from '../store/shared/reconcile.ts';
 import {
   type AscGameCenterApi,

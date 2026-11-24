@@ -3,7 +3,7 @@
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import type { AppStoreConnect } from '../apple/app-store-connect.ts';
 import { selectStoreApp } from '../store/shared/select-store-app.ts';
-import type { BetaGroupResource } from '../types/apple-catalog.ts';
+import type { BetaGroupResource } from '../types/apple/testflight.ts';
 
 type TestflightCommandFailure = Readonly<{
   _tag: 'TestflightCommandFailure';

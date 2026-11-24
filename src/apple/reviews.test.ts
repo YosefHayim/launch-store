@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/customer-reviews.ts';
 import { deleteReviewResponse, listReviews, replyToReview, type AscReviewsApi } from './reviews.ts';
 
 function readThrownMessage(cause: unknown): string | null {

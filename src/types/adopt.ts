@@ -4,13 +4,15 @@ import type {
   BundleIdCapabilityResource,
   BundleIdResource,
   CertificateResource,
-  InAppPurchaseResource,
-  LocalizationResource,
   MerchantIdResource,
   ProfileResource,
+} from './apple/provisioning.ts';
+import type { InAppPurchaseResource } from './apple/in-app-purchases.ts';
+import type {
+  LocalizationResource,
   SubscriptionGroupResource,
   SubscriptionResource,
-} from './apple-catalog.ts';
+} from './apple/subscriptions.ts';
 import type { AppDescriptor } from './app.ts';
 import type { InAppPurchaseConfig, SubscriptionGroupConfig } from './catalog.ts';
 

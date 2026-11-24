@@ -4,12 +4,14 @@ import type {
   ListingLocalization,
   PreviewResource,
   PreviewSetResource,
-  ReviewScreenshotResource,
   ScreenshotResource,
   ScreenshotSetResource,
+} from '../types/apple/app-store-versions.ts';
+import type {
+  ReviewScreenshotResource,
   SubscriptionGroupResource,
   SubscriptionResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/subscriptions.ts';
 import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from './app-store-sync.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import {

@@ -1,6 +1,6 @@
 // Reconciles alternative distribution domains for the European Union on App Store Connect.
 
-import type { AlternativeDistributionDomainResource } from '../types/apple-catalog.ts';
+import type { AlternativeDistributionDomainResource } from '../types/apple/alternative-distribution.ts';
 import { plan, type ReconcileContext } from '../store/shared/reconcile.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { PlannedAction } from '../types/reconcile.ts';

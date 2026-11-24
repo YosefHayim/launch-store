@@ -18,7 +18,7 @@ import type {
   RegionalBasePlanConfig,
   SubscriptionListing,
   SubscriptionResource,
-} from '../../types/google-play.ts';
+} from '../../types/google/subscriptions.ts';
 import type { PlannedAction } from '../../types/reconcile.ts';
 import {
   periodFromIso,
@@ -33,7 +33,7 @@ import {
   stringField,
   readPriceConfig,
 } from './play-restore.ts';
-import type { PlayMoneyUnits } from '../../types/play-pricing.ts';
+import type { PlayMoneyUnits } from '../../types/google/monetization.ts';
 
 /** A base plan's per-region prices -> the snapshot's `{ priceMicros */
 function regionalPrices(configs: readonly RegionalBasePlanConfig[]): Record<string, JsonValue> {

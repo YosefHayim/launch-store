@@ -1,6 +1,6 @@
 // Reconciles in-app products on Google Play with the products Launch declares.
 
-import type { InAppProductResource, PlayMoney } from '../types/google-play.ts';
+import type { InAppProductResource, PlayMoney } from '../types/google/in-app-products.ts';
 import type { InAppPurchaseConfig, PlayPriceConfig } from '../types/catalog.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import { plan, type ReconcileContext } from '../store/shared/reconcile.ts';

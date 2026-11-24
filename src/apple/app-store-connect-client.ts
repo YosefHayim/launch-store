@@ -5,24 +5,46 @@ import type {
   AccessibilitySupport,
   AgeRatingDeclarationResource,
   AgeRatingValue,
+  AppAvailabilityResource,
+  AppInfoResource,
+  DeviceFamily,
+  EncryptionDeclarationResource,
+} from '../types/apple/app-info.ts';
+import type {
   AlternativeDistributionDomainResource,
   AlternativeDistributionKeyResource,
+} from '../types/apple/alternative-distribution.ts';
+import type {
   AnalyticsReportInstanceResource,
   AnalyticsReportRequestResource,
   AnalyticsReportResource,
   AnalyticsReportSegmentResource,
-  AppAvailabilityResource,
+} from '../types/apple/analytics.ts';
+import type {
   AppClipActionValue,
   AppClipDefaultExperienceResource,
   AppClipLocalizationResource,
   AppClipResource,
+} from '../types/apple/app-clips.ts';
+import type {
   AppEventLocalizationInput,
   AppEventLocalizationResource,
   AppEventResource,
-  AppInfoResource,
+  NewAppEvent,
+} from '../types/apple/app-events.ts';
+import type {
   AppStoreReviewDetailResource,
   AppStoreVersionLocalizationResource,
   AppStoreVersionResource,
+  ListingLocalization,
+  PhasedReleaseResource,
+  PreviewResource,
+  PreviewSetResource,
+  ReviewSubmissionResource,
+  ScreenshotResource,
+  ScreenshotSetResource,
+} from '../types/apple/app-store-versions.ts';
+import type {
   BetaAppReviewSubmissionResource,
   BetaBuildLocalizationResource,
   BetaFeedbackCrashSubmissionResource,
@@ -30,64 +52,68 @@ import type {
   BetaFeedbackScreenshotSubmissionResource,
   BetaGroupResource,
   BetaTesterResource,
-  BuildResource,
-  BuildUploadStatus,
+} from '../types/apple/testflight.ts';
+import type { BuildResource, BuildUploadStatus } from '../types/apple/builds.ts';
+import type {
   BundleIdCapabilityResource,
   BundleIdResource,
   CertificateResource,
+  DeviceResource,
+  MerchantIdResource,
+  PassTypeIdResource,
+  ProfileResource,
+} from '../types/apple/provisioning.ts';
+import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
+} from '../types/apple/customer-reviews.ts';
+import type {
   CustomProductPageLocalizationResource,
   CustomProductPageResource,
   CustomProductPageVersionResource,
-  DeviceFamily,
-  DeviceResource,
-  EncryptionDeclarationResource,
+} from '../types/apple/custom-product-pages.ts';
+import type {
   ExperimentTreatmentLocalizationResource,
   ExperimentTreatmentResource,
-  FinanceReportQuery,
+  VersionExperimentResource,
+} from '../types/apple/app-store-version-experiments.ts';
+import type { FinanceReportQuery, SalesReportQuery } from '../types/apple/reporting.ts';
+import type {
   GameCenterAchievementCreate,
   GameCenterAchievementResource,
   GameCenterDetailResource,
   GameCenterLeaderboardCreate,
   GameCenterLeaderboardResource,
-  InAppPurchaseResource,
-  IntroductoryOfferCreate,
-  IntroductoryOfferResource,
   LeaderboardFormatter,
-  ListingLocalization,
-  LocalizationResource,
-  MerchantIdResource,
-  NewAppEvent,
-  NewUserInvitation,
-  OfferCodeCreate,
-  OfferCodeResource,
-  PassTypeIdResource,
-  PhasedReleaseResource,
-  PreviewResource,
-  PreviewSetResource,
-  PricePointResource,
-  ProfileResource,
+} from '../types/apple/game-center.ts';
+import type {
+  InAppPurchaseResource,
   PromotedPurchaseCreate,
   PromotedPurchaseResource,
+} from '../types/apple/in-app-purchases.ts';
+import type {
+  IntroductoryOfferCreate,
+  IntroductoryOfferResource,
+  LocalizationResource,
+  OfferCodeCreate,
+  OfferCodeResource,
+  PricePointResource,
   PromotionalOfferCreate,
   PromotionalOfferResource,
   ReviewScreenshotResource,
-  ReviewSubmissionResource,
-  SalesReportQuery,
-  SandboxTesterResource,
-  ScreenshotResource,
-  ScreenshotSetResource,
   SubscriptionGroupResource,
   SubscriptionResource,
-  UserInvitationResource,
-  UserResource,
-  VersionExperimentResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/subscriptions.ts';
+import type {
+  NewUserInvitation,
+  SandboxTesterResource,
+  UserInvitationResource,
+  UserResource,
+} from '../types/apple/users-and-access.ts';
 import type { AscKey } from '../types/credentials.ts';
-import type { components } from '../types/apple-api-types.ts';
+import type { components } from '../types/apple/apple-api-types.ts';
 import { platform as detectOperatingSystem } from 'node:os';
 import { retryAppleTransportRequest } from './transport-helpers.ts';
 import type { AscHost } from './host.ts';
@@ -126,18 +152,16 @@ import {
   clockSkewHint,
   describeErrors,
   parseErrorCodes,
-} from './shared.ts';
-import type {
-  ProvisioningProfileType,
-  LocaleCopy,
-  ResourceList,
-  AppInfoStates,
-  VersionStates,
-  ResourceSingle,
-  AppleResource,
-  PagedList,
-  UploadOperation,
-  AssetReservation,
+  type ProvisioningProfileType,
+  type LocaleCopy,
+  type ResourceList,
+  type AppInfoStates,
+  type VersionStates,
+  type ResourceSingle,
+  type AppleResource,
+  type PagedList,
+  type UploadOperation,
+  type AssetReservation,
 } from './shared.ts';
 import type { AppleListQuery } from './list-query.ts';
 

@@ -2,7 +2,7 @@
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { deprecatedAgeRatingVerdict, type AgeRatingValue } from '../types/apple-catalog.ts';
+import { deprecatedAgeRatingVerdict, type AgeRatingValue } from '../types/apple/app-info.ts';
 import {
   DEFAULT_BUILD_ENGINE,
   DEFAULT_CREDENTIALS_PROVIDER,

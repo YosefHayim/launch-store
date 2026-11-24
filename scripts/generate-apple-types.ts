@@ -5,7 +5,9 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import openapiTypeScript, { astToString } from 'openapi-typescript';
 
-const appleTypesPath = fileURLToPath(new URL('../src/types/apple-api-types.ts', import.meta.url));
+const appleTypesPath = fileURLToPath(
+  new URL('../src/types/apple/apple-api-types.ts', import.meta.url),
+);
 const ASC_SPEC_URL =
   'https://developer.apple.com/sample-code/app-store-connect/app-store-connect-openapi-specification.zip';
 

@@ -3,7 +3,7 @@
 import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
-import type { UserInvitationResource, UserResource } from '../types/apple-catalog.ts';
+import type { UserInvitationResource, UserResource } from '../types/apple/users-and-access.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { getTeam, inviteTeamMember, removeTeamMember, type Team } from './team.ts';
 import { hasMessage } from '../services/platform/error-message.ts';

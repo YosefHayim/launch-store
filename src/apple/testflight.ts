@@ -11,9 +11,10 @@ import type {
   BetaGroupResource,
   BetaReviewState,
   BetaTesterResource,
-} from '../types/apple-catalog.ts';
-import type { BetaFeedbackPage, BetaFeedbackRow } from './shared.ts';
+} from '../types/apple/testflight.ts';
 import {
+  type BetaFeedbackPage,
+  type BetaFeedbackRow,
   AscRequestError,
   isRetryableIdempotentFailure,
   readFeedbackScreenshots,

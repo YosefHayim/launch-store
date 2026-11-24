@@ -12,7 +12,7 @@ import {
 import type { AppleCredentialsClient } from '../services/stores/apple-credentials-client.ts';
 import { appStoreProfileType, readBundleIdPlatform } from '../services/stores/platform.ts';
 import type { Platform } from '../types/app.ts';
-import type { BundleIdResource, ProfileResource } from '../types/apple-catalog.ts';
+import type { BundleIdResource, ProfileResource } from '../types/apple/provisioning.ts';
 import type { SigningAssets } from '../types/credentials.ts';
 import { staleProfileCapabilities } from './capabilities.ts';
 import { DISTRIBUTION_CERT_NAME } from './apple-signing-certs.ts';

@@ -31,7 +31,7 @@ import {
 import { ensureUploadKeystore } from '../credentials/android-keystore-assets.ts';
 import { discoverExtensionBundleIds } from './apple-targets.ts';
 import { nativeProjectDirName } from '../services/stores/platform.ts';
-import type { BuildRunOptions } from './pipeline-types.ts';
+import type { BuildRunOptions } from '../types/build-run.ts';
 
 async function pickAccount(
   launchPrompt: LaunchPromptService,

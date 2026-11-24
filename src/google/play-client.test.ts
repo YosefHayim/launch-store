@@ -8,7 +8,7 @@ import {
   serviceAccountJwtOptions,
   type GooglePlayTransport,
 } from './play-client.ts';
-import type { PlayMoneyUnits } from '../types/play-pricing.ts';
+import type { PlayMoneyUnits } from '../types/google/monetization.ts';
 
 /** Minimal valid service-account JSON for adapter construction. */
 function makeServiceAccountJson(): string {

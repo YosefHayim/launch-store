@@ -1,6 +1,6 @@
 // Reconciles the territories where an app is available on App Store Connect.
 
-import type { AppAvailabilityResource } from '../types/apple-catalog.ts';
+import type { AppAvailabilityResource } from '../types/apple/app-info.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import { appRecordMissing } from '../store/shared/reconcile.ts';

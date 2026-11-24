@@ -2,7 +2,7 @@
 
 import type { AscKey } from '../types/credentials.ts';
 import type { MutableDeep } from '../types/mutable.ts';
-import type { components } from '../types/apple-api-types.ts';
+import type { components } from '../types/apple/apple-api-types.ts';
 import { createHash } from 'node:crypto';
 import { signAppStoreConnectToken } from './app-store-token.ts';
 import { open, readFile, stat, type FileHandle } from 'node:fs/promises';
@@ -11,19 +11,19 @@ import { retryAppleTransportRequest } from './transport-helpers.ts';
 import {
   type AccessibilityDeclarationResource,
   type AccessibilitySupport,
-  type AnalyticsReportRequestResource,
-  type AppEventLocalizationResource,
-  type AppEventResource,
-  type AppStoreVersionResource,
-  type BetaFeedbackSubmissionResource,
-  type BuildResource,
-  type BuildUploadProblem,
-  type CustomerReviewResponseResource,
   type DeviceFamily,
-  type PhasedReleaseResource,
-  type PricePointResource,
   ACCESSIBILITY_SUPPORT_KEYS,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-info.ts';
+import type { AnalyticsReportRequestResource } from '../types/apple/analytics.ts';
+import type { AppEventLocalizationResource, AppEventResource } from '../types/apple/app-events.ts';
+import type {
+  AppStoreVersionResource,
+  PhasedReleaseResource,
+} from '../types/apple/app-store-versions.ts';
+import type { BetaFeedbackSubmissionResource } from '../types/apple/testflight.ts';
+import type { BuildResource, BuildUploadProblem } from '../types/apple/builds.ts';
+import type { CustomerReviewResponseResource } from '../types/apple/customer-reviews.ts';
+import type { PricePointResource } from '../types/apple/subscriptions.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import { isFailureTag } from '../services/platform/tagged-failure.ts';
 import type { AppleListQuery } from './list-query.ts';

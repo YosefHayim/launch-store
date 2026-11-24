@@ -10,26 +10,24 @@ import type { ServiceAccount } from '../types/credentials.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import type {
   BasePlan,
-  InAppProductResource,
   OfferPhaseRegionalConfig,
-  PlayCountryAvailability,
-  PlayListing,
-  PlayMoney,
-  PlayRelease,
-  PlayReplyResult,
-  PlayReview,
   RegionalBasePlanConfig,
   RegionalSubscriptionOfferConfig,
   SubscriptionListing,
   SubscriptionOfferPhase,
   SubscriptionOfferResource,
   SubscriptionResource,
-} from '../types/google-play.ts';
+} from '../types/google/subscriptions.ts';
+import type { InAppProductResource, PlayMoney } from '../types/google/in-app-products.ts';
+import type { PlayCountryAvailability } from '../types/google/edits-country-availability.ts';
+import type { PlayListing } from '../types/google/edits-listings.ts';
+import type { PlayRelease } from '../types/google/edits-tracks.ts';
+import type { PlayReplyResult, PlayReview } from '../types/google/reviews.ts';
 import type {
   ConvertedPrices,
   ConvertedRegionPrice,
   PlayMoneyUnits,
-} from '../types/play-pricing.ts';
+} from '../types/google/monetization.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import { isFailureTag } from '../services/platform/tagged-failure.ts';
 

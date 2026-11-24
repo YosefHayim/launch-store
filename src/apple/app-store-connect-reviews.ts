@@ -1,12 +1,11 @@
 // Lists customer reviews and writes or deletes a reply on App Store Connect.
 
 import type { AscHost } from './host.ts';
-import type { CustomerReviewPage } from './shared.ts';
+import { type CustomerReviewPage, readReviewResponse } from './shared.ts';
 import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
-} from '../types/apple-catalog.ts';
-import { readReviewResponse } from './shared.ts';
+} from '../types/apple/customer-reviews.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectReviews {

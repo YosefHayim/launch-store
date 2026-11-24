@@ -12,8 +12,8 @@ import {
 } from '../store/shared/store-clients.ts';
 import { selectApps } from '../store/shared/sync-jobs.ts';
 import type { AppDescriptor } from '../types/app.ts';
-import type { CustomerReviewResource } from '../types/apple-catalog.ts';
-import type { PlayReview } from '../types/google-play.ts';
+import type { CustomerReviewResource } from '../types/apple/customer-reviews.ts';
+import type { PlayReview } from '../types/google/reviews.ts';
 import type {
   InsightsReport,
   InsightsStore,

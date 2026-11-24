@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AlternativeDistributionDomainResource } from '../types/apple-catalog.ts';
+import type { AlternativeDistributionDomainResource } from '../types/apple/alternative-distribution.ts';
 import { summarize } from '../store/shared/reconcile.ts';
 import {
   type AscEuDistributionApi,

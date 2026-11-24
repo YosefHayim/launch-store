@@ -2,13 +2,15 @@
 
 import type {
   InAppPurchaseResource,
+  PromotedPurchaseCreate,
+  PromotedPurchaseResource,
+} from '../types/apple/in-app-purchases.ts';
+import type {
   IntroductoryOfferCreate,
   IntroductoryOfferResource,
   OfferCodeCreate,
   OfferCodeResource,
   PricePointResource,
-  PromotedPurchaseCreate,
-  PromotedPurchaseResource,
   PromotionalOfferCreate,
   PromotionalOfferResource,
   ResolvedOfferPrice,
@@ -16,7 +18,7 @@ import type {
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/subscriptions.ts';
 import type { PlannedAction, ReconcileReport } from '../types/reconcile.ts';
 import type {
   AppProducts,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { MerchantIdResource, PassTypeIdResource } from '../types/apple-catalog.ts';
+import type { MerchantIdResource, PassTypeIdResource } from '../types/apple/provisioning.ts';
 import { summarize } from '../store/shared/reconcile.ts';
 import { type AscWalletApi, parseWalletConfig, reconcileWalletIds } from './wallet-ids.ts';
 import type { WalletConfig } from '../types/store-surface.ts';

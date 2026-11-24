@@ -2,15 +2,17 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { LocalScreenshot } from '../listing/screenshots/assets.ts';
+import type { LocalScreenshot, LocalAsset } from '../listing/screenshots/assets.ts';
 import type {
   ExperimentTreatmentLocalizationResource,
   ExperimentTreatmentResource,
+  VersionExperimentResource,
+} from '../types/apple/app-store-version-experiments.ts';
+import type {
   ReviewSubmissionResource,
   ScreenshotResource,
   ScreenshotSetResource,
-  VersionExperimentResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-store-versions.ts';
 import {
   type AscExperimentsApi,
   discoverTreatmentScreenshots,
@@ -22,7 +24,6 @@ import {
   type VersionExperimentsConfig,
 } from './version-experiments.ts';
 import type { ActionStatus } from '../types/reconcile.ts';
-import type { LocalAsset } from '../listing/screenshots/assets.ts';
 
 type ExperimentWrites = {
   createdExperiments: Array<{

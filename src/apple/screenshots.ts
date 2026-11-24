@@ -4,10 +4,10 @@ import type { AscHost } from './host.ts';
 import type {
   PreviewResource,
   PreviewSetResource,
-  ReviewScreenshotResource,
   ScreenshotResource,
   ScreenshotSetResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-store-versions.ts';
+import type { ReviewScreenshotResource } from '../types/apple/subscriptions.ts';
 import { readTransportFile, putAssetFile } from './shared.ts';
 import {
   APPLE_PAGE_LIMIT,

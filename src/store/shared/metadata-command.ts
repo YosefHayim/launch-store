@@ -15,7 +15,7 @@ import { isApplePlatform, parsePlatform, platformLabel } from '../../services/st
 import type { AppDescriptor, Platform } from '../../types/app.ts';
 import type { LaunchConfig } from '../../types/config.ts';
 import type { AscKey } from '../../types/credentials.ts';
-import type { PlayListing } from '../../types/google-play.ts';
+import type { PlayListing } from '../../types/google/edits-listings.ts';
 import { readAppleListing } from '../../apple/apple-listing-read.ts';
 import { reconcileAppListing } from '../../apple/app-store-sync.ts';
 import { loadStoreAppContext } from './select-store-app.ts';

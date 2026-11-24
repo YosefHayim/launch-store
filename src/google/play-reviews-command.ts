@@ -3,7 +3,7 @@
 import { readFile } from 'node:fs/promises';
 import { hasMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
-import type { PlayReview } from '../types/google-play.ts';
+import type { PlayReview } from '../types/google/reviews.ts';
 import {
   confirmGoogleStoreWrite,
   loadActiveGoogleStore,

@@ -5,13 +5,11 @@ import type {
   BundleIdResource as AscBundleIdResource,
   CertificateResource as AscCertificateResource,
   DeviceResource as AscDeviceResource,
-} from '../../types/apple-catalog.ts';
-import type {
   BundleIdCapabilityResource,
   BundleIdResource,
   CertificateResource,
   ProfileResource,
-} from '../../types/apple-catalog.ts';
+} from '../../types/apple/provisioning.ts';
 import type { AscKey } from '../../types/credentials.ts';
 import { AppleStoreClientService } from './apple-store-client.ts';
 

@@ -1,7 +1,7 @@
 // Plans each release-train car and maps App Store and Google Play review onto its state.
 
 import type { ReleaseVerdict } from '../release/app-store-release.ts';
-import type { PlayRelease } from '../types/google-play.ts';
+import type { PlayRelease } from '../types/google/edits-tracks.ts';
 import type { NativeCarState, TrainPlatform } from '../types/release-train.ts';
 import type { OtaCarSpec } from './orchestrator.ts';
 

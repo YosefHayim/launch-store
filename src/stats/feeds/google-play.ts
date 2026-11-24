@@ -2,7 +2,7 @@
 
 import { errorMessage } from '../../services/platform/error-message.ts';
 import type { PortfolioApp } from '../../types/portfolio.ts';
-import type { PlayVitalsMetric, VitalsTimeline } from '../../types/vitals.ts';
+import type { PlayVitalsMetric, VitalsTimeline } from '../../types/google/vitals.ts';
 import type {
   DailyStat,
   DateRange,

@@ -18,8 +18,8 @@ import {
   resolveSizeBudgetMB,
   resolveSubmitters,
   submitToStores,
+  DEFAULT_SIZE_BUDGET_MB,
 } from './pipeline-providers.ts';
-import { DEFAULT_SIZE_BUDGET_MB } from './pipeline-types.ts';
 import { resolveBumpKind } from './pipeline-version.ts';
 import type { AppDescriptor, BuildProfile } from '../types/app.ts';
 import type { SizeReport } from '../types/artifacts.ts';

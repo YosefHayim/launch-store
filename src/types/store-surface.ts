@@ -1,11 +1,11 @@
 // Holds App Store release, Game Center, App Clip, Wallet, and related store settings.
 
+import type { APP_CLIP_ACTIONS } from './apple/app-clips.ts';
 import type {
-  APP_CLIP_ACTIONS,
   LEADERBOARD_FORMATTERS,
   LEADERBOARD_SORT_TYPES,
   LEADERBOARD_SUBMISSION_TYPES,
-} from './apple-catalog.ts';
+} from './apple/game-center.ts';
 
 /** How an approved iOS build reaches the public App Store. */
 export type ReleaseType = 'AFTER_APPROVAL' | 'MANUAL' | 'SCHEDULED';

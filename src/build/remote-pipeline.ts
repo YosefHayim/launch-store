@@ -13,8 +13,8 @@ import {
   uploadIosBuild,
 } from './pipeline-artifact.ts';
 import { interactiveConfirm, resolveIosAccount } from './pipeline-signing.ts';
-import type { BuildRunOptions, PreparedBuild } from './pipeline-types.ts';
-import { DRY_RUN_KEY } from './pipeline-types.ts';
+import type { BuildRunOptions, PreparedBuild } from '../types/build-run.ts';
+import { DRY_RUN_KEY } from './pipeline-providers.ts';
 import { nextBuildNumber } from './pipeline-version.ts';
 import { loadAscKeyById, refreshIdentityIfStale } from '../credentials/accounts.ts';
 import { withSpinner } from '../services/platform/progress.ts';

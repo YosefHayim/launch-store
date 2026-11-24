@@ -16,11 +16,13 @@ import { resolveWhatsNew } from '../release/release-inputs.ts';
 import { parseReleaseNotesJson } from '../google/play-tracks.ts';
 import { getSubmitter } from '../services/provider-support/registry.ts';
 import { platformLabel } from '../services/stores/platform.ts';
-import {
-  DEFAULT_SIZE_BUDGET_MB,
-  type BuildRunOptions,
-  type BuildTransportChoice,
-} from './pipeline-types.ts';
+import type { BuildRunOptions, BuildTransportChoice } from '../types/build-run.ts';
+
+/** Placeholder API key used in `--dry-run`, so the flow runs without an imported credential. */
+export const DRY_RUN_KEY = { keyId: 'DRYRUN', issuerId: 'DRYRUN', p8: '' };
+
+/** The soft size budget (MB) applied when neither the run nor the profile sets one. */
+export const DEFAULT_SIZE_BUDGET_MB = 200;
 
 const IOS_SUBMITTER = 'app-store-connect';
 const ANDROID_SUBMITTER = 'google-play';

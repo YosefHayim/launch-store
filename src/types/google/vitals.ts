@@ -1,4 +1,4 @@
-// Holds Google Play crash rates and application-not-responding rates for a day window.
+// Crash and ANR rates from the Play Developer Reporting API.
 
 export type PlayVitalsMetric = 'crash' | 'anr';
 

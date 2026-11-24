@@ -5,7 +5,7 @@ import type {
   CustomProductPageLocalizationResource,
   CustomProductPageResource,
   CustomProductPageVersionResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/custom-product-pages.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectCustomProductPages {

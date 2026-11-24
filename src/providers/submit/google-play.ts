@@ -4,7 +4,7 @@ import { createReadStream } from 'node:fs';
 import type { AndroidReleaseNote, PlayTrack } from '../../types/app.ts';
 import type { ResolvedBuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
-import type { PlayRelease } from '../../types/google-play.ts';
+import type { PlayRelease } from '../../types/google/edits-tracks.ts';
 import {
   makeProviderInputFailure,
   type SubmitArtifact,

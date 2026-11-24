@@ -5,7 +5,7 @@ import type {
   NewUserInvitation,
   UserInvitationResource,
   UserResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/users-and-access.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectTeam {

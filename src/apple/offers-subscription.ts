@@ -5,7 +5,7 @@ import type { AppStoreConnect } from './app-store-connect.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import type { AppDescriptor } from '../types/app.ts';
-import type { OfferCodeResource } from '../types/apple-catalog.ts';
+import type { OfferCodeResource } from '../types/apple/subscriptions.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 
 /** Convert a dependency failure into an Error the offers commands throw. */

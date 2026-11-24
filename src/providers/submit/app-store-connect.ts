@@ -1,7 +1,7 @@
 // Uploads a finished Apple build to App Store Connect and waits until processing finishes.
 
 import { basename } from 'node:path';
-import type { BuildUploadProblem } from '../../types/apple-catalog.ts';
+import type { BuildUploadProblem } from '../../types/apple/builds.ts';
 import type { ResolvedBuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
 import {

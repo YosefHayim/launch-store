@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { SubscriptionOfferResource, SubscriptionResource } from '../types/google-play.ts';
+import type {
+  SubscriptionOfferResource,
+  SubscriptionResource,
+} from '../types/google/subscriptions.ts';
 import type { SubscriptionConfig } from '../types/catalog.ts';
 import { expectArrayElement } from '../testkit/expect-defined.ts';
 import {

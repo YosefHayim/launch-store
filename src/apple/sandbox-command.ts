@@ -3,7 +3,7 @@
 import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
-import type { SandboxTesterResource } from '../types/apple-catalog.ts';
+import type { SandboxTesterResource } from '../types/apple/users-and-access.ts';
 import { clearPurchaseHistory, listSandboxTesters } from '../services/stores/sandbox.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { hasMessage } from '../services/platform/error-message.ts';

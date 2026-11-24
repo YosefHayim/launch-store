@@ -10,7 +10,7 @@ import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import { resolveAccountCredentialsDirectory } from '../services/platform/paths.ts';
 import type { AppleCredentialsClient } from '../services/stores/apple-credentials-client.ts';
-import type { CertificateResource } from '../types/apple-catalog.ts';
+import type { CertificateResource } from '../types/apple/provisioning.ts';
 import { randomHexSecret } from './random-secret.ts';
 import { type CertRecord, type CredentialsIndex, writeIndex } from './apple-signing-index.ts';
 

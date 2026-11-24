@@ -7,7 +7,7 @@ import { readPlainObject } from '../services/platform/plain-object.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
-import type { FinanceReportQuery, SalesReportQuery } from '../types/apple-catalog.ts';
+import type { FinanceReportQuery, SalesReportQuery } from '../types/apple/reporting.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { collectAnalyticsSegments, decompressReport, eachDate, parseTsv } from './reports.ts';
 import { resolveStoreBundleId } from '../store/shared/select-store-app.ts';

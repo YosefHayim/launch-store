@@ -1,7 +1,7 @@
 // Finds a price point and schedules a new app price on App Store Connect.
 
 import type { AscHost } from './host.ts';
-import type { PricePointResource } from '../types/apple-catalog.ts';
+import type { PricePointResource } from '../types/apple/subscriptions.ts';
 import { matchPricePoint } from './shared.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 

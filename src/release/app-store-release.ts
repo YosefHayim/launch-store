@@ -4,9 +4,9 @@ import { appRecordMissingMessage } from '../services/stores/apple-store-client.t
 import { errorMessage } from '../services/platform/error-message.ts';
 import type {
   AppStoreVersionResource,
-  BuildResource,
   ReviewSubmissionResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-store-versions.ts';
+import type { BuildResource } from '../types/apple/builds.ts';
 import type { ReleaseType } from '../types/store-surface.ts';
 
 const BUILD_AND_RELEASE_STEP = 'run `launch-store build ios`, then release that build.';

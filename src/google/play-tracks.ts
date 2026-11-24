@@ -1,6 +1,6 @@
 // Checks rollout, notes, and status, then builds one Google Play track release.
 
-import type { PlayRelease } from '../types/google-play.ts';
+import type { PlayRelease } from '../types/google/edits-tracks.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 

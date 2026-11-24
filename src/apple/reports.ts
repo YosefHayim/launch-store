@@ -6,7 +6,7 @@ import type {
   AnalyticsReportRequestResource,
   AnalyticsReportResource,
   AnalyticsReportSegmentResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/analytics.ts';
 import { appRecordNotFound } from '../store/shared/reconcile.ts';
 
 /** Decompress an Apple report to UTF-8 text. */

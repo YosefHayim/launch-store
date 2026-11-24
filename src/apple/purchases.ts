@@ -3,31 +3,30 @@
 import type { AscHost } from './host.ts';
 import type {
   InAppPurchaseResource,
+  PromotedPurchaseCreate,
+  PromotedPurchaseResource,
+} from '../types/apple/in-app-purchases.ts';
+import type {
   IntroductoryOfferCreate,
   IntroductoryOfferResource,
   LocalizationResource,
   OfferCodeCreate,
   OfferCodeResource,
   PricePointResource,
-  PromotedPurchaseCreate,
-  PromotedPurchaseResource,
   PromotionalOfferCreate,
   PromotionalOfferResource,
   SubscriptionGroupResource,
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '../types/apple-catalog.ts';
-import type {
-  VersionedLocalizationResources,
-  ProductVersion,
-  LocaleCopy,
-  ResourceList,
-  ResourceSingle,
-  PromotedPurchasePage,
-} from './shared.ts';
-import type { components } from '../types/apple-api-types.ts';
+} from '../types/apple/subscriptions.ts';
 import {
+  type VersionedLocalizationResources,
+  type ProductVersion,
+  type LocaleCopy,
+  type ResourceList,
+  type ResourceSingle,
+  type PromotedPurchasePage,
   IN_APP_PURCHASE_VERSION_RESOURCES,
   SUBSCRIPTION_VERSION_RESOURCES,
   SUBSCRIPTION_GROUP_VERSION_RESOURCES,
@@ -36,6 +35,7 @@ import {
   inlinePriceId,
   matchPricePoint,
 } from './shared.ts';
+import type { components } from '../types/apple/apple-api-types.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectPurchases {

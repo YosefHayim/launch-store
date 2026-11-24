@@ -3,7 +3,7 @@
 import type { BuildArtifact } from '../types/artifacts.ts';
 import { confirmUpload, reportSize, renderReceipt } from './pipeline-artifact.ts';
 import { resolveSizeBudgetMB } from './pipeline-providers.ts';
-import type { BuildRunOptions, PreparedBuild } from './pipeline-types.ts';
+import type { BuildRunOptions, PreparedBuild } from '../types/build-run.ts';
 import { resolveStorageProvider } from '../distribution/storage.ts';
 import { getHostedBuildProvider } from '../services/provider-support/registry.ts';
 

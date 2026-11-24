@@ -5,7 +5,7 @@ import type {
   ExperimentTreatmentLocalizationResource,
   ExperimentTreatmentResource,
   VersionExperimentResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-store-version-experiments.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectExperiments {

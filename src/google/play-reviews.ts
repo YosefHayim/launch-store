@@ -1,6 +1,6 @@
 // Lists Google Play reviews and stores a developer reply on one review.
 
-import type { PlayReplyResult, PlayReview } from '../types/google-play.ts';
+import type { PlayReplyResult, PlayReview } from '../types/google/reviews.ts';
 
 /** The Google Play review operations used by the reviews domain. */
 export type PlayReviewsApi = Readonly<{

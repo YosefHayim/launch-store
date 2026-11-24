@@ -72,16 +72,19 @@ async function readAppleSpecCheck(): Promise<AppleSpecCheck> {
     'diff',
     '--numstat',
     '--',
-    'src/types/apple-api-types.ts',
+    'src/types/apple/apple-api-types.ts',
   ]);
   const trimmedDiff = diffStat.trim();
   const hasTypeDiff = trimmedDiff != '';
-  const committedTypes = readCommandOutput('git', ['show', 'HEAD:src/types/apple-api-types.ts']);
+  const committedTypes = readCommandOutput('git', [
+    'show',
+    'HEAD:src/types/apple/apple-api-types.ts',
+  ]);
 
   try {
-    var workingTypes = await readFile('src/types/apple-api-types.ts', 'utf8');
+    var workingTypes = await readFile('src/types/apple/apple-api-types.ts', 'utf8');
   } catch (error) {
-    throw new Error('Could not read src/types/apple-api-types.ts', { cause: error });
+    throw new Error('Could not read src/types/apple/apple-api-types.ts', { cause: error });
   }
 
   return {
@@ -608,7 +611,7 @@ function createGoogleLines(googleCheck: GoogleApiCheck): string[] {
 function createClosingLines(): string[] {
   const appleStep = [
     '1. When App Store Connect types differ, run `pnpm gen:asc`',
-    'and review the diff of `src/types/apple-api-types.ts` before committing it.',
+    'and review the diff of `src/types/apple/apple-api-types.ts` before committing it.',
   ].join(' ');
   const googleStep = [
     '2. When Google methods are missing, update `@googleapis/androidpublisher`',

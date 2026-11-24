@@ -3,7 +3,7 @@ import type {
   AppClipDefaultExperienceResource,
   AppClipLocalizationResource,
   AppClipResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-clips.ts';
 import { summarize } from '../store/shared/reconcile.ts';
 import { type AscAppClipsApi, parseAppClipsConfig, reconcileAppClips } from './app-clips.ts';
 import type { AppClipsConfig } from '../types/store-surface.ts';

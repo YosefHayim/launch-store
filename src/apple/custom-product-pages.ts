@@ -4,7 +4,7 @@ import type {
   CustomProductPageLocalizationResource,
   CustomProductPageResource,
   CustomProductPageVersionResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/custom-product-pages.ts';
 import { appRecordMissing, plan, skip, type ReconcileContext } from '../store/shared/reconcile.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { PlannedAction } from '../types/reconcile.ts';

@@ -18,13 +18,13 @@ import type {
   AnalyticsReportRequestResource,
   AnalyticsReportResource,
   AnalyticsReportSegmentResource,
-  CustomerReviewResource,
-  SalesReportQuery,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/analytics.ts';
+import type { CustomerReviewResource } from '../types/apple/customer-reviews.ts';
+import type { SalesReportQuery } from '../types/apple/reporting.ts';
 import type { AccountRecord, ServiceAccount } from '../types/credentials.ts';
 import type { PortfolioApp } from '../types/portfolio.ts';
 import type { StatsCredentialsFailure } from '../types/stats.ts';
-import type { PlayVitalsMetric, VitalsTimeline } from '../types/vitals.ts';
+import type { PlayVitalsMetric, VitalsTimeline } from '../types/google/vitals.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import { isFailureTag } from '../services/platform/tagged-failure.ts';
 

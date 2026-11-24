@@ -7,7 +7,7 @@ import {
 import { errorMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { GoogleReportingClientService } from '../services/stores/google-reporting-client.ts';
-import type { PlayVitalsMetric, VitalsTimeline } from '../types/vitals.ts';
+import type { PlayVitalsMetric, VitalsTimeline } from '../types/google/vitals.ts';
 import { selectStoreApp } from '../store/shared/select-store-app.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 

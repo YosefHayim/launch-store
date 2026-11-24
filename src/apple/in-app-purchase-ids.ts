@@ -1,7 +1,7 @@
 // Lists in-app purchase product ids already registered on App Store Connect.
 
 import type { AppStoreConnect } from './app-store-connect.ts';
-import type { InAppPurchaseResource } from '../types/apple-catalog.ts';
+import type { InAppPurchaseResource } from '../types/apple/in-app-purchases.ts';
 
 export class InAppPurchaseIds {
   constructor(private readonly apple: AppStoreConnect) {}

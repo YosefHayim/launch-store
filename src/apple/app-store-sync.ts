@@ -1,15 +1,14 @@
 // Reconciles capabilities, in-app purchases, subscriptions, and the listing on App Store Connect.
 
+import type { BundleIdCapabilityResource, BundleIdResource } from '../types/apple/provisioning.ts';
+import type { InAppPurchaseResource } from '../types/apple/in-app-purchases.ts';
+import type { ListingLocalization } from '../types/apple/app-store-versions.ts';
 import type {
-  BundleIdCapabilityResource,
-  BundleIdResource,
-  InAppPurchaseResource,
-  ListingLocalization,
   LocalizationResource,
   PricePointResource,
   SubscriptionGroupResource,
   SubscriptionResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/subscriptions.ts';
 import type { CapabilityType } from '../credentials/capabilities.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { AppleLocaleInfo, AppleStoreConfig } from '../store/shared/store-config.ts';

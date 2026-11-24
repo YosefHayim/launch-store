@@ -1,10 +1,10 @@
-// Holds the options, prepared context, and upload receipt shapes shared by one build run.
+// The options, prepared context, and upload receipt for one build run.
 
-import type { AppDescriptor, Distribution, Platform, PlayTrack } from '../types/app.ts';
-import type { SizeReport } from '../types/artifacts.ts';
-import type { LaunchConfig, ResolvedBuildContext } from '../types/config.ts';
-import type { MutableDeep } from '../types/mutable.ts';
-import type { RemoteTarget } from '../types/remote.ts';
+import type { AppDescriptor, Distribution, Platform, PlayTrack } from './app.ts';
+import type { SizeReport } from './artifacts.ts';
+import type { LaunchConfig, ResolvedBuildContext } from './config.ts';
+import type { MutableDeep } from './mutable.ts';
+import type { RemoteTarget } from './remote.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import type { BumpKind } from '../release/version.ts';
 
@@ -41,10 +41,6 @@ export type PreparedBuild = {
   buildContext: MutableDeep<ResolvedBuildContext>;
   log: Logger;
 };
-/** Placeholder API key used in `--dry-run`, so the flow runs without an imported credential. */
-export const DRY_RUN_KEY = { keyId: 'DRYRUN', issuerId: 'DRYRUN', p8: '' };
-/** The soft size budget (MB) applied when neither the run nor the profile sets one. */
-export const DEFAULT_SIZE_BUDGET_MB = 200;
 
 /** The contract every build fork satisfies */
 /** Which build fork a run resolves to, plus the data that fork needs. */

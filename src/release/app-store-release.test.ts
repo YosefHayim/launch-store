@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AppStoreVersionResource, BuildResource } from '../types/apple-catalog.ts';
+import type { AppStoreVersionResource } from '../types/apple/app-store-versions.ts';
+import type { BuildResource } from '../types/apple/builds.ts';
 import {
   classifyVerdict,
   IOS_PLATFORM,

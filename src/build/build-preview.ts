@@ -8,7 +8,7 @@ import {
   resolveBuildEngineName,
   resolveSubmitterName,
 } from './pipeline-providers.ts';
-import type { BuildRunOptions } from './pipeline-types.ts';
+import type { BuildRunOptions } from '../types/build-run.ts';
 
 /** One app's resolved build decisions before native work starts. */
 type AppBuildPlan = Readonly<{

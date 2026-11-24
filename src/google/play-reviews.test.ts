@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { PlayReplyResult, PlayReview } from '../types/google-play.ts';
+import type { PlayReplyResult, PlayReview } from '../types/google/reviews.ts';
 import { type PlayReviewsApi, listPlayReviews, replyToPlayReview } from './play-reviews.ts';
 
 type PlayReviewsCalls = {

@@ -22,7 +22,7 @@ import { nativeProjectDirName } from '../services/stores/platform.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
 import { GoogleStoreClientService } from '../services/stores/google-store-client.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
-import type { BuildRunOptions, BumpResolution } from './pipeline-types.ts';
+import type { BuildRunOptions, BumpResolution } from '../types/build-run.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 
 type PromptedVersion = Readonly<{

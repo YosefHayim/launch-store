@@ -6,7 +6,7 @@ import type {
   AppEventLocalizationResource,
   AppEventResource,
   NewAppEvent,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-events.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 
 /** The App Store transport operations required by the in-app-events domain. */

@@ -12,7 +12,8 @@ import { resetLogger, useLoggerSink } from '../services/platform/logger.ts';
 import { resetLaunchDirectories, useLaunchDirectories } from '../services/platform/paths.ts';
 import { setAppleStoreClient } from '../services/stores/apple-store-client.ts';
 import { isCommandExit } from '../terminal/command-exit.ts';
-import type { AppStoreVersionResource, BuildResource } from '../types/apple-catalog.ts';
+import type { AppStoreVersionResource } from '../types/apple/app-store-versions.ts';
+import type { BuildResource } from '../types/apple/builds.ts';
 import type { AscReleaseApi } from './app-store-release.ts';
 import { type StatusCommandFlags, statusCommandProgram } from './status-command.ts';
 

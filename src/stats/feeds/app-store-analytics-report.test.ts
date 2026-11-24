@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { summarizeAnalyticsBatches } from './app-store-analytics-report.ts';
-import type { AnalyticsReportBatch } from './app-store-feed-types.ts';
+import type { AnalyticsReportBatch } from '../../types/apple/analytics.ts';
 
 const APP_ID = '6802289557';
 const RANGE = { from: '2026-10-01', to: '2026-10-10' };

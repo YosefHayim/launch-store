@@ -19,7 +19,7 @@ import {
   platformLabel,
 } from '../services/stores/platform.ts';
 import type { Platform } from '../types/app.ts';
-import type { ProfileResource } from '../types/apple-catalog.ts';
+import type { ProfileResource } from '../types/apple/provisioning.ts';
 import type { AscKey, SigningAssets } from '../types/credentials.ts';
 import { decodeCredentialsIndex, readIndex } from './apple-signing-index.ts';
 import { DISTRIBUTION_CERT_NAME, ensureDistributionCertificate } from './apple-signing-certs.ts';

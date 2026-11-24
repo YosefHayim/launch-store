@@ -7,10 +7,13 @@ import type {
   ListingLocalization,
   PhasedReleaseResource,
   ReviewSubmissionResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-store-versions.ts';
 import type { AscHost } from './host.ts';
-import type { ResourceList, VersionStates, ResourceSingle, AppStoreVersionPage } from './shared.ts';
 import {
+  type ResourceList,
+  type VersionStates,
+  type ResourceSingle,
+  type AppStoreVersionPage,
   EDITABLE_VERSION_STATES,
   LIVE_STATES,
   VERSION_LISTING_FIELDS,

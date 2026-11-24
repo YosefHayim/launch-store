@@ -9,7 +9,7 @@ import { AppleStoreClientService } from '../services/stores/apple-store-client.t
 import { completeCommand, isCommandExit, makeCommandExit } from '../terminal/command-exit.ts';
 import { alignTableColumns, type Column } from '../terminal/table.ts';
 import type { AppDescriptor } from '../types/app.ts';
-import type { BuildResource } from '../types/apple-catalog.ts';
+import type { BuildResource } from '../types/apple/builds.ts';
 import {
   IOS_PLATFORM,
   readAppStoreAppId,

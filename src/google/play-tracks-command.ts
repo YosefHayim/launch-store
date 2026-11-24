@@ -3,7 +3,8 @@
 import { readFile } from 'node:fs/promises';
 import { hasMessage } from '../services/platform/error-message.ts';
 import { createLogger } from '../services/platform/logger.ts';
-import type { PlayCountryAvailability, PlayRelease } from '../types/google-play.ts';
+import type { PlayCountryAvailability } from '../types/google/edits-country-availability.ts';
+import type { PlayRelease } from '../types/google/edits-tracks.ts';
 import {
   confirmGoogleStoreWrite,
   loadActiveGoogleStore,

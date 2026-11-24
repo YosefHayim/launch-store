@@ -4,7 +4,7 @@ import type {
   NewUserInvitation,
   UserInvitationResource,
   UserResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/users-and-access.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 
 /** App Store Connect operations needed for team membership. */

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ResolvedBuildContext } from '../../types/config.ts';
 import type { BuildCredentials } from '../../types/credentials.ts';
-import type { PlayRelease } from '../../types/google-play.ts';
+import type { PlayRelease } from '../../types/google/edits-tracks.ts';
 
 const uploadBundleToTrack = vi.hoisted(function hoistUploadBundleToTrack() {
   return vi.fn<

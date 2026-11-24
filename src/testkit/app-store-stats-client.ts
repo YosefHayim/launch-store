@@ -6,9 +6,9 @@ import type {
   AnalyticsReportRequestResource,
   AnalyticsReportResource,
   AnalyticsReportSegmentResource,
-  CustomerReviewResource,
-  SalesReportQuery,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/analytics.ts';
+import type { CustomerReviewResource } from '../types/apple/customer-reviews.ts';
+import type { SalesReportQuery } from '../types/apple/reporting.ts';
 
 interface FakeAnalyticsInstance {
   readonly processingDate: string;

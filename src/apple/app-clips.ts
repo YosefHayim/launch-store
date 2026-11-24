@@ -6,7 +6,7 @@ import {
   type AppClipDefaultExperienceResource,
   type AppClipLocalizationResource,
   type AppClipResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-clips.ts';
 import type { PlannedAction, ReconcileReport } from '../types/reconcile.ts';
 import { appRecordMissing, plan, skip, type ReconcileContext } from '../store/shared/reconcile.ts';
 import { errorMessage } from '../services/platform/error-message.ts';

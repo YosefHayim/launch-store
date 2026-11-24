@@ -1,6 +1,6 @@
 // Reads one app's live App Store Connect listing into the Launch store config.
 
-import type { ListingLocalization } from '../types/apple-catalog.ts';
+import type { ListingLocalization } from '../types/apple/app-store-versions.ts';
 import type { JsonValue } from '../types/snapshot.ts';
 import type { AppleLocaleInfo, AppleStoreConfig } from '../store/shared/store-config.ts';
 

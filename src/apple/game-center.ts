@@ -9,7 +9,7 @@ import {
   type GameCenterDetailResource,
   type GameCenterLeaderboardCreate,
   type GameCenterLeaderboardResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/game-center.ts';
 import { appRecordMissing, plan, skip, type ReconcileContext } from '../store/shared/reconcile.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { PlannedAction } from '../types/reconcile.ts';

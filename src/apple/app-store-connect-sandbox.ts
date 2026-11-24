@@ -1,7 +1,7 @@
 // Lists sandbox testers and clears their purchase history on App Store Connect.
 
 import type { AscHost } from './host.ts';
-import type { SandboxTesterResource } from '../types/apple-catalog.ts';
+import type { SandboxTesterResource } from '../types/apple/users-and-access.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectSandbox {

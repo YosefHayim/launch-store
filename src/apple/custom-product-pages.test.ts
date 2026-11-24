@@ -3,7 +3,7 @@ import type {
   CustomProductPageLocalizationResource,
   CustomProductPageResource,
   CustomProductPageVersionResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/custom-product-pages.ts';
 import {
   type AscCustomPagesApi,
   type CustomProductPagesConfig,

@@ -6,8 +6,8 @@ import type {
   SubscriptionOfferPhase,
   SubscriptionOfferResource,
   SubscriptionResource,
-} from '../types/google-play.ts';
-import type { PlayMoneyUnits } from '../types/play-pricing.ts';
+} from '../types/google/subscriptions.ts';
+import type { PlayMoneyUnits } from '../types/google/monetization.ts';
 import type {
   PlaySubscriptionOfferConfig,
   PlayPriceConfig,

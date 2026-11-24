@@ -6,8 +6,8 @@ import type {
   BetaAppReviewSubmissionResource,
   BetaBuildLocalizationResource,
   BetaReviewState,
-  BuildResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/testflight.ts';
+import type { BuildResource } from '../types/apple/builds.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 

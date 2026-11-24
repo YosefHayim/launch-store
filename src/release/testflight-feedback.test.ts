@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type {
   BetaFeedbackCrashSubmissionResource,
   BetaFeedbackScreenshotSubmissionResource,
-  BuildResource,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/testflight.ts';
+import type { BuildResource } from '../types/apple/builds.ts';
 import type { BetaFeedback } from '../types/app.ts';
 import {
   type AscFeedbackApi,

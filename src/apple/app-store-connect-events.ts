@@ -1,18 +1,19 @@
 // Lists and writes in-app events shown on an App Store Connect product page.
 
-import type {
-  AppEventAttributes,
-  AppEventLocalizationAttributes,
-  ResourceSingle,
+import {
+  type AppEventAttributes,
+  type AppEventLocalizationAttributes,
+  type ResourceSingle,
+  readAppEvent,
+  readAppEventLocalization,
 } from './shared.ts';
 import type {
   AppEventLocalizationInput,
   AppEventLocalizationResource,
   AppEventResource,
   NewAppEvent,
-} from '../types/apple-catalog.ts';
+} from '../types/apple/app-events.ts';
 import type { AscHost } from './host.ts';
-import { readAppEvent, readAppEventLocalization } from './shared.ts';
 import { APPLE_PAGE_LIMIT, applyAppleListQuery, type AppleListQuery } from './list-query.ts';
 
 export class ConnectEvents {

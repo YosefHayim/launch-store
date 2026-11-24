@@ -5,8 +5,8 @@ import type {
   AnalyticsAccessType,
   AnalyticsReportBatch,
   AnalyticsReportKind,
-  ReportLine,
-} from './app-store-feed-types.ts';
+} from '../../types/apple/analytics.ts';
+import type { ReportLine } from '../../types/apple/reporting.ts';
 import { readCell, roundMoney, sumColumn } from './report-cells.ts';
 
 /** The Standard report names Apple lists under an analytics report request. */

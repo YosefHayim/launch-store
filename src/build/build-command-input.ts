@@ -3,7 +3,7 @@
 import { parseCliEnv } from '../config/environment-file.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
 import { parsePlatform, PLATFORMS } from '../services/stores/platform.ts';
-import type { BuildRunOptions } from './pipeline-types.ts';
+import type { BuildRunOptions } from '../types/build-run.ts';
 import type { Distribution, Platform, PlayTrack } from '../types/app.ts';
 import type { RemoteTarget } from '../types/remote.ts';
 import type { BumpKind } from '../release/version.ts';

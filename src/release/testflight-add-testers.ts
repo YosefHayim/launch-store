@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { pathExists } from '../path-exists.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { loadActiveAppleStore } from '../apple/apple-store-command.ts';
-import type { BetaTesterResource } from '../types/apple-catalog.ts';
+import type { BetaTesterResource } from '../types/apple/testflight.ts';
 import {
   confirmAction,
   loadSelectedAppleApp,

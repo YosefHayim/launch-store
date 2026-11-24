@@ -1,6 +1,6 @@
 // Maps an App Store Connect product type identifier to a sales report kind.
 
-import type { SalesReportKind } from './app-store-feed-types.ts';
+import type { SalesReportKind } from '../../types/apple/reporting.ts';
 
 // https://developer.apple.com/help/app-store-connect/reference/product-type-identifiers
 const productTypeIdsByKind: Readonly<Record<SalesReportKind, readonly string[]>> = {

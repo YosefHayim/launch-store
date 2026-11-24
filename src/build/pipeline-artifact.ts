@@ -37,7 +37,7 @@ import type {
   ConfirmUploadOptions,
   PreparedBuild,
   ReceiptOptions,
-} from './pipeline-types.ts';
+} from '../types/build-run.ts';
 
 const BYTES_PER_KILOBYTE = 1024;
 const bytesPerMegabyte = BYTES_PER_KILOBYTE * BYTES_PER_KILOBYTE;

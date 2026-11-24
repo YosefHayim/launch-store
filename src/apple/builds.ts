@@ -1,15 +1,11 @@
 // Uploads an App Store Connect build and reads its number, state, and encryption.
 
 import type { AscHost } from './host.ts';
-import type {
-  BuildResource,
-  BuildUploadStatus,
-  EncryptionDeclarationResource,
-} from '../types/apple-catalog.ts';
-import type { ResourceList, BuildPage } from './shared.ts';
-import type { components } from '../types/apple-api-types.ts';
-import { highestAppleMarketingVersion } from './transport-helpers.ts';
+import type { BuildResource, BuildUploadStatus } from '../types/apple/builds.ts';
+import type { EncryptionDeclarationResource } from '../types/apple/app-info.ts';
 import {
+  type ResourceList,
+  type BuildPage,
   readTransportSize,
   BUILD_PAGE_QUERY,
   createMarketingVersionFilter,
@@ -17,6 +13,8 @@ import {
   putAssetFile,
   readBuildResources,
 } from './shared.ts';
+import type { components } from '../types/apple/apple-api-types.ts';
+import { highestAppleMarketingVersion } from './transport-helpers.ts';
 import {
   APPLE_PAGE_LIMIT,
   applyAppleListQuery,

@@ -11,7 +11,7 @@ import type {
   PlayVitalsRow,
   VitalsTimeline,
   VitalsWindow,
-} from '../types/vitals.ts';
+} from '../types/google/vitals.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import {
   describePlayErrors,
