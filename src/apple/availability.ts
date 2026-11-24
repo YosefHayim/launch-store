@@ -1,10 +1,8 @@
 // Reconciles the territories where an app is available on App Store Connect.
 
-import { readFile } from 'node:fs/promises';
 import type { AppAvailabilityResource } from '../types/apple-catalog.ts';
 import type { MutableDeep } from '../types/mutable.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
-import { pathExists } from '../path-exists.ts';
 import { appRecordMissing } from '../store/shared/reconcile.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
@@ -16,22 +14,6 @@ export type AvailabilityConfig = {
   availableInNewTerritories?: boolean;
   territories: string[];
 };
-
-/** Reading or decoding availability.config.json failed. */
-type AvailabilityConfigFailure = Readonly<{
-  readonly _tag: 'AvailabilityConfigFailure';
-  readonly path: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-function makeAvailabilityConfigFailure(fields: {
-  path: string;
-  message: string;
-  cause: unknown;
-}): AvailabilityConfigFailure {
-  return { _tag: 'AvailabilityConfigFailure', ...fields };
-}
 
 /** The exact slice of App Store Connect the availability reconciler depends on. */
 export type AscAvailabilityApi = {
@@ -79,7 +61,7 @@ export function parseAvailabilityConfig(rawConfig: unknown): AvailabilityConfig 
   const rawConfigObject = readPlainObject(rawConfig);
 
   if (rawConfigObject == null) {
-    throw new Error('availability.config.json must be a JSON object.');
+    throw new Error('launch.config.ts availability must be a JSON object.');
   }
 
   const hasTerritories = Object.hasOwn(rawConfigObject, 'territories');
@@ -119,54 +101,6 @@ export function parseAvailabilityConfig(rawConfig: unknown): AvailabilityConfig 
   availabilityConfig.availableInNewTerritories = flag;
 
   return availabilityConfig;
-}
-
-/** Read and decode availability.config.json. */
-export async function readAvailabilityConfig(configPath: string): Promise<AvailabilityConfig> {
-  let configExists = false;
-
-  try {
-    configExists = await pathExists(configPath);
-  } catch (cause) {
-    throw makeAvailabilityConfigFailure({
-      path: configPath,
-      message: `Could not inspect availability config at ${configPath}.`,
-      cause,
-    });
-  }
-
-  if (configExists == false) {
-    throw makeAvailabilityConfigFailure({
-      path: configPath,
-      message: `No availability config at ${configPath}. Create one with a "territories" list (see \`launch-store availability --help\`).`,
-      cause: 'missing-availability-config',
-    });
-  }
-
-  let configSource = '';
-
-  try {
-    configSource = await readFile(configPath, 'utf8');
-  } catch (cause) {
-    throw makeAvailabilityConfigFailure({
-      path: configPath,
-      message: `Could not read availability config at ${configPath}.`,
-      cause,
-    });
-  }
-
-  try {
-    const rawConfig: unknown = JSON.parse(configSource);
-    return parseAvailabilityConfig(rawConfig);
-  } catch (cause) {
-    const failureMessage = errorMessage(cause);
-
-    throw makeAvailabilityConfigFailure({
-      path: configPath,
-      message: `Invalid availability config at ${configPath}: ${failureMessage}`,
-      cause,
-    });
-  }
 }
 
 function normalizeTerritory(territoryCode: string): string {

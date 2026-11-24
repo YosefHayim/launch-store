@@ -1,12 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AppEventLocalizationInput, NewAppEvent } from '../types/apple-catalog.ts';
-import {
-  createEvent,
-  deleteEvent,
-  listEvents,
-  localizeEvent,
-  type AscAppEventsApi,
-} from './app-events.ts';
+import { AppEvents, type AscAppEventsApi } from './app-events.ts';
 
 function readThrownMessage(cause: unknown): string | null {
   const isMissing = cause == null;
@@ -119,7 +113,7 @@ function describeListEvents() {
       listAppEvents: vi.fn(mockCall5),
       listAppEventLocalizations: vi.fn().mockImplementation(mockImplementationPiece),
     });
-    const found = await listEvents(api, 'com.acme.app');
+    const found = await new AppEvents(api).list('com.acme.app');
 
     expect(found).toHaveLength(1);
     expect(found[0]?.event.referenceName).toBe('Summer');
@@ -135,7 +129,7 @@ function describeListEvents() {
     }
 
     const api = makeApi({ getAppId: vi.fn(mockCall6) });
-    const events = listEvents(api, 'com.acme.app');
+    const events = new AppEvents(api).list('com.acme.app');
     const missingApp = await captureThrown(events);
 
     expect(missingApp.message).toContain('No App Store Connect app record');
@@ -153,7 +147,7 @@ function describeCreateEvent() {
   async function createsWithATrimmedNameAndUpperCasedValidatedEnums() {
     const api = makeApi();
 
-    await createEvent(api, 'com.acme.app', {
+    await new AppEvents(api).create('com.acme.app', {
       referenceName: ' Summer Sale ',
       badge: 'live_event',
       priority: 'high',
@@ -178,7 +172,7 @@ function describeCreateEvent() {
 
   async function rejectsAnEmptyReferenceName() {
     const api = makeApi();
-    const event = createEvent(api, 'com.acme.app', { referenceName: '  ' });
+    const event = new AppEvents(api).create('com.acme.app', { referenceName: '  ' });
     const invalidEvent = await captureThrown(event);
     expect(invalidEvent.message).toContain('reference name is required');
   }
@@ -187,7 +181,7 @@ function describeCreateEvent() {
 
   async function rejectsAnUnknownBadgeWithTheValidList() {
     const api = makeApi();
-    const event = createEvent(api, 'com.acme.app', {
+    const event = new AppEvents(api).create('com.acme.app', {
       referenceName: 'X',
       badge: 'MEGA_EVENT',
     });
@@ -200,7 +194,10 @@ function describeCreateEvent() {
 
   async function rejectsAnUnknownPriority() {
     const api = makeApi();
-    const event = createEvent(api, 'com.acme.app', { referenceName: 'X', priority: 'URGENT' });
+    const event = new AppEvents(api).create('com.acme.app', {
+      referenceName: 'X',
+      priority: 'URGENT',
+    });
     const invalidPriority = await captureThrown(event);
     expect(invalidPriority.message).toContain('Invalid priority');
   }
@@ -209,7 +206,10 @@ function describeCreateEvent() {
 
   async function rejectsAnUnknownPurpose() {
     const api = makeApi();
-    const event = createEvent(api, 'com.acme.app', { referenceName: 'X', purpose: 'FOR_FUN' });
+    const event = new AppEvents(api).create('com.acme.app', {
+      referenceName: 'X',
+      purpose: 'FOR_FUN',
+    });
     const invalidPurpose = await captureThrown(event);
     expect(invalidPurpose.message).toContain('Invalid purpose');
   }
@@ -222,7 +222,7 @@ function describeCreateEvent() {
     }
 
     const api = makeApi({ getAppId: vi.fn(mockCall7) });
-    const event = createEvent(api, 'com.acme.app', { referenceName: 'X' });
+    const event = new AppEvents(api).create('com.acme.app', { referenceName: 'X' });
     const missingApp = await captureThrown(event);
 
     expect(missingApp.message).toContain('No App Store Connect app record');
@@ -240,7 +240,10 @@ describe('createEvent', describeCreateEvent);
 function describeLocalizeEvent() {
   async function createsALocalizationWhenNoneExistsForTheLocale() {
     const api = makeApi();
-    const localizationOutcome = await localizeEvent(api, 'e1', { locale: 'en-US', name: 'Hello' });
+    const localizationOutcome = await new AppEvents(api).localize('e1', {
+      locale: 'en-US',
+      name: 'Hello',
+    });
 
     expect(localizationOutcome.replaced).toBe(false);
     expect(api.createAppEventLocalization).toHaveBeenCalledWith('e1', 'en-US', { name: 'Hello' });
@@ -260,7 +263,10 @@ function describeLocalizeEvent() {
     const api = makeApi({
       listAppEventLocalizations: vi.fn().mockImplementation(mockImplementationPiece2),
     });
-    const localizationOutcome = await localizeEvent(api, 'e1', { locale: 'EN-us', name: 'New' });
+    const localizationOutcome = await new AppEvents(api).localize('e1', {
+      locale: 'EN-us',
+      name: 'New',
+    });
 
     expect(localizationOutcome.replaced).toBe(true);
     expect(localizationOutcome.localization.locale).toBe('en-US');
@@ -276,7 +282,7 @@ function describeLocalizeEvent() {
   async function rejectsAnEmptyLocale() {
     const api = makeApi();
     const invalidLocale = await captureThrown(
-      localizeEvent(api, 'e1', { locale: '  ', name: 'x' }),
+      new AppEvents(api).localize('e1', { locale: '  ', name: 'x' }),
     );
 
     expect(invalidLocale.message).toContain('locale is required');
@@ -286,7 +292,7 @@ function describeLocalizeEvent() {
 
   async function rejectsWhenNoCopyFieldsAreProvided() {
     const api = makeApi();
-    const missingCopy = await captureThrown(localizeEvent(api, 'e1', { locale: 'en-US' }));
+    const missingCopy = await captureThrown(new AppEvents(api).localize('e1', { locale: 'en-US' }));
     expect(missingCopy.message).toContain('at least one of');
   }
 
@@ -298,7 +304,7 @@ describe('localizeEvent', describeLocalizeEvent);
 function describeDeleteEvent() {
   async function deletesTheEventById() {
     const api = makeApi();
-    await deleteEvent(api, 'e1');
+    await new AppEvents(api).delete('e1');
     expect(api.deleteAppEvent).toHaveBeenCalledWith('e1');
   }
 

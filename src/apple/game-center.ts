@@ -19,13 +19,10 @@ import type {
   LeaderboardConfig,
 } from '../types/store-surface.ts';
 import type { MutableDeep } from '../types/mutable.ts';
-import {
-  decodeStoreSurfaceConfig,
-  loadStoreSurfaceConfig,
-} from '../store/shared/surface-config.ts';
+import { decodeStoreSurfaceConfig } from '../store/shared/surface-config.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
-const GAME_CENTER_DOCUMENT_NAME = 'gamecenter.config.json';
+const GAME_CENTER_DOCUMENT_NAME = 'launch.config.ts gameCenter';
 
 type CreatedGameCenterItem = {
   id: string;
@@ -337,7 +334,7 @@ function decodeGameCenterDocument(rawDocument: unknown): GameCenterConfig {
 
   if (hasDeclaration == false) {
     throw new Error(
-      'gamecenter.config.json must declare at least one entry under "achievements" or "leaderboards".',
+      'launch.config.ts gameCenter must declare at least one entry under "achievements" or "leaderboards".',
     );
   }
 
@@ -361,14 +358,9 @@ function decodeGameCenterDocument(rawDocument: unknown): GameCenterConfig {
   return gameCenterConfig;
 }
 
-function missingGameCenterMessage(configPath: string): string {
-  return `No Game Center config at ${configPath}. Create one (see \`launch-store game-center --help\`) or pass --config.`;
-}
-
 const gameCenterConfigSpec = {
   documentName: GAME_CENTER_DOCUMENT_NAME,
   displayName: 'Game Center config',
-  missingMessage: missingGameCenterMessage,
   decodeDocument: decodeGameCenterDocument,
 };
 
@@ -678,12 +670,7 @@ export async function reconcileGameCenter(
   return { bundleId: reconcileInput.bundleId, actions: reconcileContext.actions };
 }
 
-/** Decode an untrusted Game Center config document. */
+/** Decode a Game Center section from launch.config.ts. */
 export function parseGameCenterConfig(rawDocument: unknown): GameCenterConfig {
   return decodeStoreSurfaceConfig(rawDocument, gameCenterConfigSpec);
-}
-
-/** Read and decode gamecenter.config.json. */
-export function loadGameCenterConfig(configPath: string): Promise<GameCenterConfig> {
-  return loadStoreSurfaceConfig(configPath, gameCenterConfigSpec);
 }

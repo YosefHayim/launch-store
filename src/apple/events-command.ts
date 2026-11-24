@@ -3,13 +3,7 @@
 import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
-import {
-  createEvent,
-  deleteEvent,
-  listEvents,
-  localizeEvent,
-  type AppEventWithLocalizations,
-} from './app-events.ts';
+import { AppEvents, type AppEventWithLocalizations } from './app-events.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 import { resolveStoreBundleId } from '../store/shared/select-store-app.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
@@ -131,10 +125,10 @@ async function listEventsProgram(
   try {
     const bundleId = await resolveStoreBundleId(commandInput.app);
     const appleStore = await loadActiveAppleStore();
-    const appEvents = await listEvents(appleStore, bundleId);
+    const events = new AppEvents(appleStore);
+    const appEvents = await events.list(bundleId);
     const logger = createLogger(false);
-
-    const wantsJson = commandInput.json == true;
+    const wantsJson = commandInput.json;
 
     if (wantsJson) {
       const serialized = JSON.stringify(appEvents, null, 2);
@@ -172,7 +166,8 @@ async function createEventProgram(commandInput: CreateEventCommandInput): Promis
   try {
     const bundleId = await resolveStoreBundleId(commandInput.app);
     const appleStore = await loadActiveAppleStore();
-    const createdEvent = await createEvent(appleStore, bundleId, {
+    const events = new AppEvents(appleStore);
+    const createdEvent = await events.create(bundleId, {
       referenceName: commandInput.referenceName,
       badge: commandInput.badge,
       primaryLocale: commandInput.locale,
@@ -203,7 +198,8 @@ async function createEventProgram(commandInput: CreateEventCommandInput): Promis
 async function localizeEventProgram(commandInput: LocalizeEventCommandInput): Promise<void> {
   try {
     const appleStore = await loadActiveAppleStore();
-    const localizationOutcome = await localizeEvent(appleStore, commandInput.eventId, {
+    const events = new AppEvents(appleStore);
+    const localizationOutcome = await events.localize(commandInput.eventId, {
       locale: commandInput.locale,
       name: commandInput.name,
       shortDescription: commandInput.short,
@@ -211,7 +207,7 @@ async function localizeEventProgram(commandInput: LocalizeEventCommandInput): Pr
     });
     let operationLabel = 'localization created';
 
-    const replacedExisting = localizationOutcome.replaced == true;
+    const replacedExisting = localizationOutcome.replaced;
 
     if (replacedExisting) {
       operationLabel = 'localization updated';
@@ -233,12 +229,12 @@ async function deleteEventProgram(
   commandInput: Extract<EventsCommandInput, { operation: 'delete' }>,
 ): Promise<void> {
   try {
-    const skipConfirmation = commandInput.yes == true;
+    const skipConfirmation = commandInput.yes;
+    const needsConfirmation = !skipConfirmation;
 
-    if (skipConfirmation == false) {
+    if (needsConfirmation) {
       const terminalIsInteractive = checkTerminalIsInteractive();
-
-      const needsATerminal = terminalIsInteractive == false;
+      const needsATerminal = !terminalIsInteractive;
 
       if (needsATerminal) {
         throw makeEventsCommandFailure({
@@ -252,7 +248,7 @@ async function deleteEventProgram(
         `Delete in-app event ${commandInput.eventId}?`,
       );
 
-      const declined = confirmed == false;
+      const declined = !confirmed;
 
       if (declined) {
         new LaunchPrompt().cancel('Aborted - nothing deleted.');
@@ -261,8 +257,9 @@ async function deleteEventProgram(
     }
 
     const appleStore = await loadActiveAppleStore();
+    const events = new AppEvents(appleStore);
 
-    await deleteEvent(appleStore, commandInput.eventId);
+    await events.delete(commandInput.eventId);
 
     const logger = createLogger(false);
 

@@ -5,13 +5,10 @@ import { plan, type ReconcileContext } from '../store/shared/reconcile.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import type { EuDistributionConfig, EuDistributionDomainConfig } from '../types/store-surface.ts';
-import {
-  decodeStoreSurfaceConfig,
-  loadStoreSurfaceConfig,
-} from '../store/shared/surface-config.ts';
+import { decodeStoreSurfaceConfig } from '../store/shared/surface-config.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
-const EU_DISTRIBUTION_DOCUMENT_NAME = 'eu-distribution.config.json';
+const EU_DISTRIBUTION_DOCUMENT_NAME = 'launch.config.ts euDistribution';
 
 function readRequiredText(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
@@ -74,14 +71,9 @@ function decodeEuDistributionDocument(rawDocument: unknown): EuDistributionConfi
   return { domains };
 }
 
-function missingEuDistributionMessage(configPath: string): string {
-  return `No EU distribution config at ${configPath}. Create one (see \`launch-store eu-distribution --help\`) or pass --config.`;
-}
-
 const euDistributionConfigSpec = {
   documentName: EU_DISTRIBUTION_DOCUMENT_NAME,
   displayName: 'EU distribution config',
-  missingMessage: missingEuDistributionMessage,
   decodeDocument: decodeEuDistributionDocument,
 };
 
@@ -152,12 +144,7 @@ export async function reconcileEuDistributionDomains(
   return reconcileContext.actions;
 }
 
-/** Decode an untrusted EU distribution config document. */
+/** Decode an EU distribution section from launch.config.ts. */
 export function parseEuDistributionConfig(rawDocument: unknown): EuDistributionConfig {
   return decodeStoreSurfaceConfig(rawDocument, euDistributionConfigSpec);
-}
-
-/** Read and decode eu-distribution.config.json. */
-export function loadEuDistributionConfig(configPath: string): Promise<EuDistributionConfig> {
-  return loadStoreSurfaceConfig(configPath, euDistributionConfigSpec);
 }

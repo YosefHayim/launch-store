@@ -100,7 +100,7 @@ type AdoptChange =
       value: EntitlementValue;
     }>
   | Readonly<{
-      home: 'store.config';
+      home: 'listing';
       bundleId: string;
       configPath: string;
       appName: string;

@@ -188,7 +188,7 @@ async function readDiscoveryDocument(discoveryUrl: string): Promise<unknown> {
     throw new Error(`Could not download ${discoveryUrl}`, { cause: error });
   }
 
-  const isFailed = discoveryReply.ok == false;
+  const isFailed = !discoveryReply.ok;
 
   if (isFailed) {
     throw new Error(`Could not download ${discoveryUrl} (${discoveryReply.status})`);
@@ -201,44 +201,184 @@ async function readDiscoveryDocument(discoveryUrl: string): Promise<unknown> {
   }
 }
 
+function isAsciiDigit(character: string): boolean {
+  const isBeforeZero = character < '0';
+
+  if (isBeforeZero) {
+    return false;
+  }
+
+  const isAfterNine = character > '9';
+
+  if (isAfterNine) {
+    return false;
+  }
+
+  return true;
+}
+
+function isAsciiUpper(character: string): boolean {
+  const isBeforeA = character < 'A';
+
+  if (isBeforeA) {
+    return false;
+  }
+
+  const isAfterZ = character > 'Z';
+
+  if (isAfterZ) {
+    return false;
+  }
+
+  return true;
+}
+
+function isAsciiLower(character: string): boolean {
+  const isBeforeA = character < 'a';
+
+  if (isBeforeA) {
+    return false;
+  }
+
+  const isAfterZ = character > 'z';
+
+  if (isAfterZ) {
+    return false;
+  }
+
+  return true;
+}
+
+function isAsciiLetter(character: string): boolean {
+  const isUpper = isAsciiUpper(character);
+
+  if (isUpper) {
+    return true;
+  }
+
+  return isAsciiLower(character);
+}
+
+function isResourceClassCharacter(character: string): boolean {
+  const isDigit = isAsciiDigit(character);
+
+  if (isDigit) {
+    return true;
+  }
+
+  const isLetter = isAsciiLetter(character);
+
+  if (isLetter) {
+    return true;
+  }
+
+  return character == '$';
+}
+
+function isResourceClassName(className: string): boolean {
+  const isEmpty = className.length == 0;
+
+  if (isEmpty) {
+    return false;
+  }
+
+  for (const character of className) {
+    const isAllowed = isResourceClassCharacter(character);
+
+    if (isAllowed) {
+      continue;
+    }
+
+    return false;
+  }
+
+  return true;
+}
+
+function isMethodName(methodName: string): boolean {
+  const isEmpty = methodName.length == 0;
+
+  if (isEmpty) {
+    return false;
+  }
+
+  const firstCharacter = methodName.charAt(0);
+  const firstIsLetter = isAsciiLetter(firstCharacter);
+  const firstIsNotALetter = !firstIsLetter;
+
+  if (firstIsNotALetter) {
+    return false;
+  }
+
+  const rest = methodName.slice(1);
+
+  for (const character of rest) {
+    const isDigit = isAsciiDigit(character);
+
+    if (isDigit) {
+      continue;
+    }
+
+    const isLetter = isAsciiLetter(character);
+
+    if (isLetter) {
+      continue;
+    }
+
+    return false;
+  }
+
+  return true;
+}
+
 function readResourcePath(line: string): string | null {
-  // Resource$Edits$Apks is the discovery path edits.apks.
-  const classPattern = /^ {2}export class Resource\$([A-Za-z0-9$]+) \{$/;
-  const classHit = classPattern.exec(line);
-  const isMissing = classHit == null;
+  const classPrefix = '  export class Resource$';
+  const classSuffix = ' {';
+  const isMissingPrefix = !line.startsWith(classPrefix);
 
-  if (isMissing) {
+  if (isMissingPrefix) {
     return null;
   }
 
-  const className = classHit[1];
-  const isNameMissing = className == null;
+  const isMissingSuffix = !line.endsWith(classSuffix);
 
-  if (isNameMissing) {
+  if (isMissingSuffix) {
     return null;
   }
 
-  return className.toLowerCase().replaceAll('$', '.');
+  const className = line.slice(classPrefix.length, line.length - classSuffix.length);
+  const isClassName = isResourceClassName(className);
+
+  if (isClassName) {
+    return className.toLowerCase().replaceAll('$', '.');
+  }
+
+  return null;
 }
 
 function readMethodName(line: string): string | null {
-  // A generated client method is indented four spaces and opens on that line.
-  const methodPattern = /^ {4}([A-Za-z][A-Za-z0-9]*)\($/;
-  const methodHit = methodPattern.exec(line);
-  const isMissing = methodHit == null;
+  const methodIndent = '    ';
+  const isMissingIndent = !line.startsWith(methodIndent);
 
-  if (isMissing) {
+  if (isMissingIndent) {
     return null;
   }
 
-  const methodName = methodHit[1];
-  const isNameMissing = methodName == null;
+  const opensOnThisLine = line.endsWith('(');
+  const doesNotOpen = !opensOnThisLine;
 
-  if (isNameMissing) {
+  if (doesNotOpen) {
     return null;
   }
 
-  return methodName;
+  const methodName = line.slice(methodIndent.length, line.length - 1);
+  const isMethod = isMethodName(methodName);
+
+  if (isMethod) {
+    return methodName;
+  }
+
+  return null;
 }
 
 function pickResourcePath(line: string, previousPath: string | null): string | null {

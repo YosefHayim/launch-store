@@ -358,7 +358,7 @@ async function applyEntitlementWrites(
   return { appJsonPatched, appJsonBlocks };
 }
 
-/** Delegate store.config listing pulls and capture per-app failures. */
+/** Delegate listing pulls into launch.config.ts and capture per-app failures. */
 async function applyListingPulls(
   targetPlans: readonly TargetPlan[],
   pullListing: (bundleId: string, configPath: string) => Promise<void>,
@@ -368,7 +368,7 @@ async function applyListingPulls(
 
   for (const targetPlan of targetPlans) {
     for (const plannedWrite of targetPlan.writes) {
-      if (plannedWrite.change.home != 'store.config') {
+      if (plannedWrite.change.home != 'listing') {
         continue;
       }
 

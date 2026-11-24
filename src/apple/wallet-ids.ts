@@ -5,13 +5,10 @@ import { plan, type ReconcileContext } from '../store/shared/reconcile.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import type { WalletConfig, WalletIdConfig } from '../types/store-surface.ts';
-import {
-  decodeStoreSurfaceConfig,
-  loadStoreSurfaceConfig,
-} from '../store/shared/surface-config.ts';
+import { decodeStoreSurfaceConfig } from '../store/shared/surface-config.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
-const WALLET_DOCUMENT_NAME = 'wallet.config.json';
+const WALLET_DOCUMENT_NAME = 'launch.config.ts wallet';
 
 function readRequiredText(record: Record<string, unknown>, fieldName: string): string {
   const field = record[fieldName];
@@ -87,7 +84,7 @@ function decodeWalletDocument(rawDocument: unknown): WalletConfig {
 
   if (hasDeclaration == false) {
     throw new Error(
-      'wallet.config.json must declare at least one entry under "merchantIds" or "passTypeIds".',
+      'launch.config.ts wallet must declare at least one entry under "merchantIds" or "passTypeIds".',
     );
   }
 
@@ -111,14 +108,9 @@ function decodeWalletDocument(rawDocument: unknown): WalletConfig {
   return walletConfig;
 }
 
-function missingWalletMessage(configPath: string): string {
-  return `No wallet config at ${configPath}. Create one (see \`launch-store wallet --help\`) or pass --config.`;
-}
-
 const walletConfigSpec = {
   documentName: WALLET_DOCUMENT_NAME,
   displayName: 'wallet config',
-  missingMessage: missingWalletMessage,
   decodeDocument: decodeWalletDocument,
 };
 
@@ -248,12 +240,7 @@ export async function reconcileWalletIds(
   return reconcileContext.actions;
 }
 
-/** Decode an untrusted Wallet config document. */
+/** Decode a wallet section from launch.config.ts. */
 export function parseWalletConfig(rawDocument: unknown): WalletConfig {
   return decodeStoreSurfaceConfig(rawDocument, walletConfigSpec);
-}
-
-/** Read and decode wallet.config.json. */
-export function loadWalletConfig(configPath: string): Promise<WalletConfig> {
-  return loadStoreSurfaceConfig(configPath, walletConfigSpec);
 }

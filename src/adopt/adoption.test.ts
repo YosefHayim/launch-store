@@ -13,7 +13,7 @@ import {
   detectTargets,
   planTargets,
   type TargetPlan,
-} from './orchestrator.ts';
+} from './adoption.ts';
 
 function ready<Value>(value: Value): Promise<Value> {
   return Promise.resolve(value);
@@ -514,13 +514,13 @@ function describeApplyAdopt() {
       cwd: workspaceDir,
       hasLaunchConfig: true,
     };
-    const storeConfig = join(workspaceDir, 'store.config.json');
+    const storeConfig = join(workspaceDir, 'launch.config.ts');
     const writes: PlannedWrite[] = [
       {
         description: 'listing',
         fidelity: 'importable',
         change: {
-          home: 'store.config',
+          home: 'listing',
           bundleId: 'com.acme.app',
           configPath: storeConfig,
           appName: 'acme',

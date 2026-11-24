@@ -20,7 +20,7 @@ import {
   planTargets,
   type AdoptApplyResult,
   type TargetPlan,
-} from './orchestrator.ts';
+} from './adoption.ts';
 import { listAdopters, registerBuiltinAdopters } from './registry.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 import { isFailureTag } from '../services/platform/tagged-failure.ts';

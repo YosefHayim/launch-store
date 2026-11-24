@@ -10,10 +10,7 @@ import { appRecordMissing, plan, type ReconcileContext } from '../store/shared/r
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import type { MutableDeep } from '../types/mutable.ts';
-import {
-  decodeStoreSurfaceConfig,
-  loadStoreSurfaceConfig,
-} from '../store/shared/surface-config.ts';
+import { decodeStoreSurfaceConfig } from '../store/shared/surface-config.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /** The ordered list of DeviceFamily values, for validating config and iterating. */
@@ -26,7 +23,7 @@ const DEVICE_FAMILIES: readonly DeviceFamily[] = [
   'VISION',
 ];
 
-const ACCESSIBILITY_DOCUMENT_NAME = 'accessibility.config.json';
+const ACCESSIBILITY_DOCUMENT_NAME = 'launch.config.ts accessibility';
 
 /** One device family's declared accessibility support. */
 type AccessibilityDeclarationConfig = AccessibilitySupport & {
@@ -193,14 +190,9 @@ function decodeAccessibilityDocument(rawDocument: unknown): AccessibilityConfig 
   return accessibilityConfig;
 }
 
-function missingAccessibilityMessage(configPath: string): string {
-  return `No accessibility config at ${configPath}. Create one (see \`launch-store accessibility --help\`) or pass --config.`;
-}
-
 const accessibilityConfigSpec = {
   documentName: ACCESSIBILITY_DOCUMENT_NAME,
   displayName: 'accessibility config',
-  missingMessage: missingAccessibilityMessage,
   decodeDocument: decodeAccessibilityDocument,
 };
 
@@ -452,14 +444,9 @@ export async function reconcileAccessibility(
   return { bundleId: reconcileInput.bundleId, actions: reconcileContext.actions };
 }
 
-/** Decode an untrusted accessibility config document. */
+/** Decode an accessibility section from launch.config.ts. */
 export function parseAccessibilityConfig(rawDocument: unknown): AccessibilityConfig {
   return decodeStoreSurfaceConfig(rawDocument, accessibilityConfigSpec);
-}
-
-/** Read and decode accessibility.config.json. */
-export function loadAccessibilityConfig(configPath: string): Promise<AccessibilityConfig> {
-  return loadStoreSurfaceConfig(configPath, accessibilityConfigSpec);
 }
 
 /** Tally a report's action statuses for the run summary. */

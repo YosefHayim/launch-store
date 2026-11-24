@@ -8,7 +8,7 @@ import {
   detectSharedAppRoot,
   selectAdoptApps,
 } from './command.ts';
-import type { TargetPlan } from './orchestrator.ts';
+import type { TargetPlan } from './adoption.ts';
 
 function discoveredApp(appName: string, dir: string = `/workspace/${appName}`): AppDescriptor {
   return {
@@ -107,9 +107,9 @@ function describeCountAdoptMutations() {
           description: 'listing',
           fidelity: 'importable',
           change: {
-            home: 'store.config',
+            home: 'listing',
             bundleId: 'com.acme.app',
-            configPath: '/workspace/store.config.json',
+            configPath: '/workspace/launch.config.ts',
             appName: 'acme',
           },
         },

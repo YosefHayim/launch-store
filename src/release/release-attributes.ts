@@ -1,8 +1,6 @@
-// Reconciles App Store categories, age rating, price, and review details from a config file.
+// Reconciles App Store categories, age rating, price, and review details from launch.config.ts.
 
-import { readFile } from 'node:fs/promises';
 import { resolveSecretRef } from '../credentials/secret-ref.ts';
-import { pathExists } from '../path-exists.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { appRecordMissing, skip, type ReconcileContext } from '../store/shared/reconcile.ts';
 import {
@@ -660,7 +658,7 @@ function readOptionalText(
     throw releaseAttributesFailure(
       'decode release config fields',
       record,
-      `release.config.json: ${documentLabel}.${fieldName} must be a string.`,
+      `launch.config.ts releaseAttributes: ${documentLabel}.${fieldName} must be a string.`,
     );
   }
 
@@ -684,7 +682,7 @@ function readOptionalBoolean(
     throw releaseAttributesFailure(
       'decode release config fields',
       record,
-      `release.config.json: reviewDetails.${fieldName} must be a boolean.`,
+      `launch.config.ts releaseAttributes: reviewDetails.${fieldName} must be a boolean.`,
     );
   }
 
@@ -698,7 +696,7 @@ function decodeCategories(candidate: unknown): ReleaseCategories {
     throw releaseAttributesFailure(
       'decode release config fields',
       candidate,
-      'release.config.json: categories must be an object.',
+      'launch.config.ts releaseAttributes: categories must be an object.',
     );
   }
 
@@ -724,7 +722,7 @@ function decodeCustomerPrice(candidate: unknown): number {
     throw releaseAttributesFailure(
       'decode release config fields',
       candidate,
-      'release.config.json: pricing.customerPrice must be a non-negative number.',
+      'launch.config.ts releaseAttributes: pricing.customerPrice must be a non-negative number.',
     );
   }
 
@@ -734,7 +732,7 @@ function decodeCustomerPrice(candidate: unknown): number {
     throw releaseAttributesFailure(
       'decode release config fields',
       candidate,
-      'release.config.json: pricing.customerPrice must be a non-negative number.',
+      'launch.config.ts releaseAttributes: pricing.customerPrice must be a non-negative number.',
     );
   }
 
@@ -744,7 +742,7 @@ function decodeCustomerPrice(candidate: unknown): number {
     throw releaseAttributesFailure(
       'decode release config fields',
       candidate,
-      'release.config.json: pricing.customerPrice must be a non-negative number.',
+      'launch.config.ts releaseAttributes: pricing.customerPrice must be a non-negative number.',
     );
   }
 
@@ -758,7 +756,7 @@ function decodePricing(candidate: unknown): ReleasePricing {
     throw releaseAttributesFailure(
       'decode release config fields',
       candidate,
-      'release.config.json: pricing must be an object.',
+      'launch.config.ts releaseAttributes: pricing must be an object.',
     );
   }
 
@@ -780,7 +778,7 @@ function decodeReviewDetails(candidate: unknown): ReviewDetailsConfig {
     throw releaseAttributesFailure(
       'decode release config fields',
       candidate,
-      'release.config.json: reviewDetails must be an object.',
+      'launch.config.ts releaseAttributes: reviewDetails must be an object.',
     );
   }
 
@@ -849,7 +847,7 @@ function decodeAgeRating(candidate: unknown): Record<string, AgeRatingValue> {
     throw releaseAttributesFailure(
       'decode release config fields',
       candidate,
-      'release.config.json: ageRating answers must be a string or boolean.',
+      'launch.config.ts releaseAttributes: ageRating answers must be a string or boolean.',
     );
   }
 
@@ -862,7 +860,7 @@ function decodeAgeRating(candidate: unknown): Record<string, AgeRatingValue> {
       throw releaseAttributesFailure(
         'decode release config fields',
         candidateObject,
-        'release.config.json: ageRating answers must be a string or boolean.',
+        'launch.config.ts releaseAttributes: ageRating answers must be a string or boolean.',
       );
     }
 
@@ -896,7 +894,7 @@ function hasDeclaredSection(releaseConfig: ReleaseAttributesConfig): boolean {
   return releaseConfig.reviewDetails != null;
 }
 
-/** Decode an untrusted release.config.json document. */
+/** Decode an untrusted launch.config.ts releaseAttributes document. */
 export function parseReleaseConfig(rawDocument: unknown): ReleaseAttributesConfig {
   const rawDocumentObject = readPlainObject(rawDocument);
 
@@ -904,7 +902,7 @@ export function parseReleaseConfig(rawDocument: unknown): ReleaseAttributesConfi
     throw releaseAttributesFailure(
       'decode release config document',
       rawDocument,
-      'release.config.json must be a JSON object.',
+      'launch.config.ts releaseAttributes must be a JSON object.',
     );
   }
 
@@ -937,50 +935,9 @@ export function parseReleaseConfig(rawDocument: unknown): ReleaseAttributesConfi
     throw releaseAttributesFailure(
       'decode release config fields',
       rawDocumentObject,
-      'release.config.json has no recognized section - declare at least one of ageRating / categories / pricing / reviewDetails.',
+      'launch.config.ts releaseAttributes has no recognized section - declare at least one of ageRating / categories / pricing / reviewDetails.',
     );
   }
 
   return releaseConfig;
-}
-
-/** Read and decode release.config.json. */
-export async function loadReleaseConfig(configPath: string): Promise<ReleaseAttributesConfig> {
-  let configExists = false;
-
-  try {
-    configExists = await pathExists(configPath);
-  } catch (cause) {
-    throw releaseAttributesFailure('inspect release config', cause);
-  }
-
-  if (configExists == false) {
-    throw releaseAttributesFailure(
-      'read release config',
-      configPath,
-      `No release config at ${configPath}. Create one (see \`launch-store release-config --help\`) or pass --config.`,
-    );
-  }
-
-  let configSource = '';
-
-  try {
-    configSource = await readFile(configPath, 'utf8');
-  } catch (cause) {
-    throw releaseAttributesFailure('read release config', cause);
-  }
-
-  let rawDocument: unknown;
-
-  try {
-    rawDocument = JSON.parse(configSource);
-  } catch (cause) {
-    throw releaseAttributesFailure(
-      'parse release config JSON',
-      cause,
-      `Invalid JSON in ${configPath}.`,
-    );
-  }
-
-  return parseReleaseConfig(rawDocument);
 }

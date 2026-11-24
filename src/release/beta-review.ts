@@ -1,7 +1,5 @@
 // Writes TestFlight What to Test notes and submits a build for Beta App Review.
 
-import { readFile } from 'node:fs/promises';
-import { pathExists } from '../path-exists.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { plan, skip, type ReconcileContext } from '../store/shared/reconcile.ts';
 import type {
@@ -319,7 +317,7 @@ export function parseBetaReviewConfig(rawConfiguration: unknown): BetaReviewConf
   if (rawConfigurationObject == null) {
     throw makeBetaReviewFailure({
       operation: 'decode TestFlight config',
-      message: 'Invalid testflight.config.json: expected an object.',
+      message: 'Invalid launch.config.ts testFlight: expected an object.',
       cause: rawConfiguration,
     });
   }
@@ -330,7 +328,7 @@ export function parseBetaReviewConfig(rawConfiguration: unknown): BetaReviewConf
   if (localizedNotesObject == null) {
     throw makeBetaReviewFailure({
       operation: 'decode TestFlight config',
-      message: 'Invalid testflight.config.json: whatToTest must be an object.',
+      message: 'Invalid launch.config.ts testFlight: whatToTest must be an object.',
       cause: rawConfigurationObject,
     });
   }
@@ -342,7 +340,7 @@ export function parseBetaReviewConfig(rawConfiguration: unknown): BetaReviewConf
   if (hasNoLocales) {
     throw makeBetaReviewFailure({
       operation: 'decode TestFlight config',
-      message: 'Invalid testflight.config.json: whatToTest must declare at least one locale.',
+      message: 'Invalid launch.config.ts testFlight: whatToTest must declare at least one locale.',
       cause: rawConfigurationObject,
     });
   }
@@ -356,7 +354,7 @@ export function parseBetaReviewConfig(rawConfiguration: unknown): BetaReviewConf
     if (isValidNote == false) {
       throw makeBetaReviewFailure({
         operation: 'decode TestFlight config',
-        message: `Invalid testflight.config.json: whatToTest.${locale} must be a non-empty string.`,
+        message: `Invalid launch.config.ts testFlight: whatToTest.${locale} must be a non-empty string.`,
         cause: rawConfigurationObject,
       });
     }
@@ -365,54 +363,6 @@ export function parseBetaReviewConfig(rawConfiguration: unknown): BetaReviewConf
   }
 
   return { whatToTest };
-}
-
-/** Read and decode a TestFlight configuration file. */
-export async function loadBetaReviewConfig(configPath: string): Promise<BetaReviewConfig> {
-  let configExists = false;
-
-  try {
-    configExists = await pathExists(configPath);
-  } catch (cause) {
-    throw makeBetaReviewFailure({
-      operation: 'inspect TestFlight config',
-      message: `Could not inspect ${configPath}.`,
-      cause,
-    });
-  }
-
-  if (configExists == false) {
-    throw makeBetaReviewFailure({
-      operation: 'read TestFlight config',
-      message: `No TestFlight config at ${configPath}. Add a "whatToTest" map, or pass --whats-new <text>.`,
-    });
-  }
-
-  let configurationText = '';
-
-  try {
-    configurationText = await readFile(configPath, 'utf8');
-  } catch (cause) {
-    throw makeBetaReviewFailure({
-      operation: 'read TestFlight config',
-      message: `Could not read ${configPath}.`,
-      cause,
-    });
-  }
-
-  let rawConfiguration: unknown;
-
-  try {
-    rawConfiguration = JSON.parse(configurationText);
-  } catch (cause) {
-    throw makeBetaReviewFailure({
-      operation: 'parse TestFlight config',
-      message: `Invalid JSON in ${configPath}.`,
-      cause,
-    });
-  }
-
-  return parseBetaReviewConfig(rawConfiguration);
 }
 
 /** Count applied, failed, and skipped beta-review actions. */

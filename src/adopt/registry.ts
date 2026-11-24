@@ -3,7 +3,7 @@
 import type { Adopter } from '../types/adopt.ts';
 import { capabilitiesAdopter } from './capabilities.ts';
 import { certsAdopter } from './certificates.ts';
-import { listingAdopter } from './listing.ts';
+import { listingAdopter } from './app-store-listing.ts';
 import { productsAdopter } from './products.ts';
 
 /** Registered adopters keyed by domain; re-registering one replaces it. */

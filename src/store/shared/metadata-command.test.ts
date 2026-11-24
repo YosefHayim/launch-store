@@ -275,7 +275,7 @@ function describeMetadataCommandProgram() {
     workspaceDirectory = mkdtempSync(launchMetadataCmdPath);
     appDirectory = join(workspaceDirectory, 'apps', 'demo');
     mkdirSync(appDirectory, { recursive: true });
-    configPath = join(appDirectory, 'store.config.json');
+    configPath = join(appDirectory, 'launch.config.ts');
     terminalWrites = [];
     useLoggerSink(function captureTerminal(text: string) {
       terminalWrites.push(text);

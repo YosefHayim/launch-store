@@ -3,11 +3,7 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '../../path-exists.ts';
-import {
-  decodeStoreSurfaceConfig,
-  loadStoreSurfaceConfig,
-  type StoreSurfaceConfigSpec,
-} from './surface-config.ts';
+import { decodeStoreSurfaceConfig, type StoreSurfaceConfigSpec } from './surface-config.ts';
 import { readPlainObject } from '../../services/platform/plain-object.ts';
 
 /** App Store and Play listing metadata. */
@@ -258,7 +254,7 @@ function decodeStoreConfigFields(rawDocument: unknown): StoreConfig {
   const rawDocumentObject = readPlainObject(rawDocument);
 
   if (rawDocumentObject == null) {
-    throw new Error('store.config.json must be a JSON object.');
+    throw new Error('launch.config.ts listing must be a JSON object.');
   }
 
   const storeConfig: StoreConfig = {};
@@ -300,31 +296,22 @@ function decodeStoreConfigFields(rawDocument: unknown): StoreConfig {
   }
 
   throw new Error(
-    'store.config.json has neither an "apple" nor an "android" section - nothing to push.',
+    'launch.config.ts listing has neither an "apple" nor an "android" section - nothing to push.',
   );
 }
 
 function storeConfigSpec(): StoreSurfaceConfigSpec<StoreConfig> {
   return {
-    documentName: 'store.config.json',
+    documentName: 'launch.config.ts listing',
     displayName: 'store config',
-    missingMessage(configPath: string) {
-      return `No store.config.json at ${configPath}. Run \`launch-store metadata pull\` to create one.`;
-    },
     decodeDocument: decodeStoreConfigFields,
   };
 }
 
-/** Decode an untrusted store.config.json document. */
+/** Decode a listing section from launch.config.ts. */
 export function parseStoreConfig(rawDocument: unknown): StoreConfig {
   const storeSpec = storeConfigSpec();
   return decodeStoreSurfaceConfig(rawDocument, storeSpec);
-}
-
-/** Read and decode store.config.json. */
-export function loadStoreConfig(configPath: string): Promise<StoreConfig> {
-  const storeSpec = storeConfigSpec();
-  return loadStoreSurfaceConfig(configPath, storeSpec);
 }
 
 /** Read a single metadata `.txt` file, returning undefined when it's absent or blank. */
@@ -334,8 +321,9 @@ async function readMetadataField(
 ): Promise<string | undefined> {
   const fieldPath = join(localeDirectory, fileName);
   const fieldExists = await pathExists(fieldPath);
+  const isFieldMissing = !fieldExists;
 
-  if (fieldExists == false) {
+  if (isFieldMissing) {
     return undefined;
   }
 
@@ -351,8 +339,9 @@ async function readMetadataField(
 /** List the immediate subdirectories of `dir` (the per-locale folders), or [] when `dir` is absent. */
 async function listLocaleDirectories(metadataDirectory: string): Promise<string[]> {
   const directoryExists = await pathExists(metadataDirectory);
+  const isDirectoryMissing = !directoryExists;
 
-  if (directoryExists == false) {
+  if (isDirectoryMissing) {
     return [];
   }
 
@@ -514,7 +503,7 @@ export async function readAndroidMetadataDir(
   return { info: localeInfoByName };
 }
 
-/** Serialize a {@link StoreConfig} to pretty JSON (the on-disk `store.config.json` form). */
+/** Print a listing section as JSON. */
 export function serializeStoreConfig(config: StoreConfig): string {
   return `${JSON.stringify(config, null, 2)}\n`;
 }

@@ -1,16 +1,8 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resetLaunchEnvironment } from '../services/platform/environment.ts';
 import { summarize } from '../store/shared/reconcile.ts';
 import type { ReleaseAttributesConfig } from '../types/store-surface.ts';
-import {
-  type AscReleaseApi,
-  loadReleaseConfig,
-  parseReleaseConfig,
-  reconcileRelease,
-} from './release-attributes.ts';
+import { type AscReleaseApi, parseReleaseConfig, reconcileRelease } from './release-attributes.ts';
 
 function makeReleaseApi(methodOverrides: Partial<AscReleaseApi> = {}): AscReleaseApi {
   return {
@@ -176,24 +168,6 @@ function describeReleasePieceSchema() {
     'rejects deprecated age-rating values and attributes with the replacement',
     rejectsDeprecatedAgeRatingValuesAndAttributesWithTheReplacement,
   );
-
-  async function readsAndDecodesASidecar() {
-    const systemTemporaryDirectory = tmpdir();
-    const launchReleaseAttrsPath = join(systemTemporaryDirectory, 'launch-release-attrs-');
-    const temporaryDirectory = mkdtempSync(launchReleaseAttrsPath);
-    const configPath = join(temporaryDirectory, 'release.config.json');
-
-    try {
-      const serialized = JSON.stringify({ pricing: { customerPrice: 4.99 } });
-      writeFileSync(configPath, serialized);
-      const releaseConfig = await loadReleaseConfig(configPath);
-      expect(releaseConfig.pricing?.customerPrice).toBe(4.99);
-    } finally {
-      rmSync(temporaryDirectory, { recursive: true, force: true });
-    }
-  }
-
-  it('reads and decodes a sidecar', readsAndDecodesASidecar);
 }
 
 describe('release config schema', describeReleasePieceSchema);

@@ -8,15 +8,12 @@ import type {
 import { appRecordMissing, plan, skip, type ReconcileContext } from '../store/shared/reconcile.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
-import {
-  decodeStoreSurfaceConfig,
-  loadStoreSurfaceConfig,
-} from '../store/shared/surface-config.ts';
+import { decodeStoreSurfaceConfig } from '../store/shared/surface-config.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
 /** Custom-product-page version states Apple still lets us edit localizations in. */
 const editableVersionStates = new Set(['PREPARE_FOR_SUBMISSION', 'REJECTED']);
-const CUSTOM_PAGES_DOCUMENT_NAME = 'custom-pages.config.json';
+const CUSTOM_PAGES_DOCUMENT_NAME = 'launch.config.ts customPages';
 
 /** One declared custom product page: a name plus optional per-locale promotional text. */
 type CustomProductPageConfig = {
@@ -24,7 +21,7 @@ type CustomProductPageConfig = {
   promotionalText?: Record<string, string>;
 };
 
-/** The full custom-pages.config.json document. */
+/** The full launch.config.ts customPages document. */
 export type CustomProductPagesConfig = {
   pages: CustomProductPageConfig[];
 };
@@ -178,14 +175,9 @@ function decodeCustomProductPagesDocument(rawDocument: unknown): CustomProductPa
   return { pages };
 }
 
-function missingCustomPagesMessage(configPath: string): string {
-  return `No custom-pages config at ${configPath}. Create one (see \`launch-store custom-pages --help\`) or pass --config.`;
-}
-
 const customProductPagesConfigSpec = {
   documentName: CUSTOM_PAGES_DOCUMENT_NAME,
   displayName: 'custom product pages config',
-  missingMessage: missingCustomPagesMessage,
   decodeDocument: decodeCustomProductPagesDocument,
 };
 
@@ -375,16 +367,9 @@ export async function reconcileCustomProductPages(
   return { bundleId: reconcileInput.bundleId, actions: reconcileContext.actions };
 }
 
-/** Decode an untrusted custom product pages config document. */
+/** Decode a custom product pages section from launch.config.ts. */
 export function parseCustomProductPagesConfig(rawDocument: unknown): CustomProductPagesConfig {
   return decodeStoreSurfaceConfig(rawDocument, customProductPagesConfigSpec);
-}
-
-/** Read and decode custom-pages.config.json. */
-export function loadCustomProductPagesConfig(
-  configPath: string,
-): Promise<CustomProductPagesConfig> {
-  return loadStoreSurfaceConfig(configPath, customProductPagesConfigSpec);
 }
 
 /** Tally a report's action statuses for the run summary. */

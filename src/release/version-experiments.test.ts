@@ -15,7 +15,6 @@ import {
   type AscExperimentsApi,
   discoverTreatmentScreenshots,
   type ExperimentsReconcileInput,
-  loadVersionExperimentsConfig,
   parseVersionExperimentsConfig,
   reconcileVersionExperiments,
   summarizeExperiments,
@@ -384,7 +383,7 @@ function describeVersionExperimentsSchema() {
     const systemTemporaryDirectory = tmpdir();
     const launchExperimentsPath = join(systemTemporaryDirectory, 'launch-experiments-');
     const temporaryDirectory = mkdtempSync(launchExperimentsPath);
-    const configPath = join(temporaryDirectory, 'store', 'experiments.config.json');
+    const configPath = join(temporaryDirectory, 'store', 'launch.config.ts');
     const displayTypeDirectory = join(
       temporaryDirectory,
       'store',
@@ -435,24 +434,6 @@ function describeVersionExperimentsSchema() {
     'reads treatment screenshot folders relative to the config file',
     readsTreatmentScreenshotFoldersRelativeToThePieceFile,
   );
-
-  async function readsAndDecodesASidecar() {
-    const systemTemporaryDirectory = tmpdir();
-    const launchExperimentsPath = join(systemTemporaryDirectory, 'launch-experiments-');
-    const temporaryDirectory = mkdtempSync(launchExperimentsPath);
-    const configPath = join(temporaryDirectory, 'experiments.config.json');
-
-    try {
-      const serialized = JSON.stringify(experimentConfig);
-      writeFileSync(configPath, serialized);
-      const loadedConfig = await loadVersionExperimentsConfig(configPath);
-      expect(loadedConfig).toEqual(experimentConfig);
-    } finally {
-      rmSync(temporaryDirectory, { recursive: true, force: true });
-    }
-  }
-
-  it('reads and decodes a sidecar', readsAndDecodesASidecar);
 }
 
 describe('version experiments schema', describeVersionExperimentsSchema);

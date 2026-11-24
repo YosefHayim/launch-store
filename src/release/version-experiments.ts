@@ -1,6 +1,5 @@
 // Creates product-page experiment treatments and submits them for App Review.
 
-import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { discoverScreenshotsAt, type LocalScreenshot } from '../listing/screenshots/assets.ts';
 import { pathExists } from '../path-exists.ts';
@@ -27,10 +26,11 @@ const NEW_EXPERIMENT_STATE = 'PREPARE_FOR_SUBMISSION';
 const submittableStates = new Set([NEW_EXPERIMENT_STATE, 'READY_FOR_REVIEW', 'REJECTED']);
 const startableStates = new Set(['ACCEPTED', 'APPROVED']);
 const NAME_MESSAGE =
-  'experiments.config.json: experiment and treatment names must be non-empty strings.';
-const TRAFFIC_MESSAGE = 'experiments.config.json: trafficProportion must be a positive number.';
+  'launch.config.ts experiments: experiment and treatment names must be non-empty strings.';
+const TRAFFIC_MESSAGE =
+  'launch.config.ts experiments: trafficProportion must be a positive number.';
 const MINIMUM_EXPERIMENTS_MESSAGE =
-  'experiments.config.json must declare at least one entry under "experiments".';
+  'launch.config.ts experiments must declare at least one entry under "experiments".';
 
 export interface TreatmentConfig {
   name: string;
@@ -189,7 +189,7 @@ function readExactOptionalString(record: Record<string, unknown>, key: string): 
   const field = record[key];
 
   if (typeof field != 'string') {
-    failConfigFields(field, `experiments.config.json: ${key} must be a string.`);
+    failConfigFields(field, `launch.config.ts experiments: ${key} must be a string.`);
   }
 
   return field;
@@ -220,7 +220,7 @@ function readTreatment(rawTreatment: unknown): TreatmentConfig {
 
   return failConfigFields(
     rawTreatment,
-    'experiments.config.json: a treatment must be a JSON object.',
+    'launch.config.ts experiments: a treatment must be a JSON object.',
   );
 }
 
@@ -236,7 +236,7 @@ function readTreatments(field: unknown): TreatmentConfig[] {
     return treatments;
   }
 
-  return failConfigFields(field, 'experiments.config.json: treatments must be a list.');
+  return failConfigFields(field, 'launch.config.ts experiments: treatments must be a list.');
 }
 
 function readExperimentRecord(rawExperiment: Record<string, unknown>): ExperimentConfig {
@@ -269,7 +269,7 @@ function readExperiment(rawExperiment: unknown): ExperimentConfig {
 
   return failConfigFields(
     rawExperiment,
-    'experiments.config.json: an experiment must be a JSON object.',
+    'launch.config.ts experiments: an experiment must be a JSON object.',
   );
 }
 
@@ -309,7 +309,7 @@ function readExperimentList(field: unknown[]): ExperimentConfig[] {
     if (isDuplicate) {
       failConfigFields(
         experiment.name,
-        `experiments.config.json: duplicate experiment name "${experiment.name}".`,
+        `launch.config.ts experiments: duplicate experiment name "${experiment.name}".`,
       );
     }
 
@@ -927,7 +927,7 @@ export async function discoverTreatmentScreenshots(
   return treatmentScreenshots;
 }
 
-/** Decode an untrusted experiments.config.json document. */
+/** Decode an untrusted launch.config.ts experiments document. */
 export async function parseVersionExperimentsConfig(
   rawDocument: unknown,
 ): Promise<VersionExperimentsConfig> {
@@ -940,53 +940,8 @@ export async function parseVersionExperimentsConfig(
   throw versionExperimentsFailure(
     'decode experiments config document',
     rawDocument,
-    'experiments.config.json must be a JSON object.',
+    'launch.config.ts experiments must be a JSON object.',
   );
-}
-
-/** Read and decode experiments.config.json. */
-export async function loadVersionExperimentsConfig(
-  configPath: string,
-): Promise<VersionExperimentsConfig> {
-  var configExists = false;
-
-  try {
-    configExists = await pathExists(configPath);
-  } catch (error) {
-    throw versionExperimentsFailure('inspect experiments config', error);
-  }
-
-  const configIsMissing = configExists == false;
-
-  if (configIsMissing) {
-    throw versionExperimentsFailure(
-      'read experiments config',
-      configPath,
-      `No experiments config at ${configPath}. Create one (see \`launch-store experiments --help\`) or pass --config.`,
-    );
-  }
-
-  var configSource = '';
-
-  try {
-    configSource = await readFile(configPath, 'utf8');
-  } catch (error) {
-    throw versionExperimentsFailure('read experiments config', error);
-  }
-
-  var rawDocument: unknown;
-
-  try {
-    rawDocument = JSON.parse(configSource);
-  } catch (error) {
-    throw versionExperimentsFailure(
-      'parse experiments config JSON',
-      error,
-      `Invalid JSON in ${configPath}.`,
-    );
-  }
-
-  return parseVersionExperimentsConfig(rawDocument);
 }
 
 /** Count applied, failed, and skipped experiment actions. */

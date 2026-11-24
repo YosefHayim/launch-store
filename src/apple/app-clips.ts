@@ -15,13 +15,10 @@ import type {
   AppClipLocalizationConfig,
   AppClipsConfig,
 } from '../types/store-surface.ts';
-import {
-  decodeStoreSurfaceConfig,
-  loadStoreSurfaceConfig,
-} from '../store/shared/surface-config.ts';
+import { decodeStoreSurfaceConfig } from '../store/shared/surface-config.ts';
 import { readPlainObject } from '../services/platform/plain-object.ts';
 
-const APP_CLIPS_DOCUMENT_NAME = 'appclips.config.json';
+const APP_CLIPS_DOCUMENT_NAME = 'launch.config.ts appClips';
 
 /** The exact slice of App Store Connect the App Clips reconciler depends on. */
 export type AscAppClipsApi = {
@@ -210,14 +207,9 @@ function decodeAppClipsDocument(rawDocument: unknown): AppClipsConfig {
   return { clips };
 }
 
-function missingAppClipsMessage(configPath: string): string {
-  return `No App Clips config at ${configPath}. Create one (see \`launch-store app-clips --help\`) or pass --config.`;
-}
-
 const appClipsConfigSpec = {
   documentName: APP_CLIPS_DOCUMENT_NAME,
   displayName: 'App Clips config',
-  missingMessage: missingAppClipsMessage,
   decodeDocument: decodeAppClipsDocument,
 };
 
@@ -522,12 +514,7 @@ export async function reconcileAppClips(
   return { bundleId: reconcileInput.bundleId, actions: reconcileContext.actions };
 }
 
-/** Decode an untrusted App Clips config document. */
+/** Decode an App Clips section from launch.config.ts. */
 export function parseAppClipsConfig(rawDocument: unknown): AppClipsConfig {
   return decodeStoreSurfaceConfig(rawDocument, appClipsConfigSpec);
-}
-
-/** Read and decode appclips.config.json. */
-export function loadAppClipsConfig(configPath: string): Promise<AppClipsConfig> {
-  return loadStoreSurfaceConfig(configPath, appClipsConfigSpec);
 }

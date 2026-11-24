@@ -1,7 +1,5 @@
-// Reads and checks a JSON file that configures one store surface for Launch.
+// Checks one launch.config.ts section before Launch sends it to a store.
 
-import { readFile } from 'node:fs/promises';
-import { pathExists } from '../../path-exists.ts';
 import { errorMessage } from '../../services/platform/error-message.ts';
 import { readPlainObject } from '../../services/platform/plain-object.ts';
 import { isFailureTag } from '../../services/platform/tagged-failure.ts';
@@ -25,7 +23,6 @@ function makeStoreSurfaceConfigFailure(fields: {
 export type StoreSurfaceConfigSpec<Config> = Readonly<{
   documentName: string;
   displayName: string;
-  missingMessage: (configPath: string) => string;
   decodeDocument: (rawDocument: unknown) => Config;
 }>;
 
@@ -69,48 +66,4 @@ export function decodeStoreSurfaceConfig<Config>(
 
     throw surfaceConfigFailure(`decode ${configSpec.displayName} fields`, cause, failureMessage);
   }
-}
-
-/** Read and decode one store-surface JSON sidecar. */
-export async function loadStoreSurfaceConfig<Config>(
-  configPath: string,
-  configSpec: StoreSurfaceConfigSpec<Config>,
-): Promise<Config> {
-  let configExists = false;
-
-  try {
-    configExists = await pathExists(configPath);
-  } catch (cause) {
-    throw surfaceConfigFailure(`inspect ${configSpec.displayName}`, cause);
-  }
-
-  if (configExists == false) {
-    throw surfaceConfigFailure(
-      `read ${configSpec.displayName}`,
-      configPath,
-      configSpec.missingMessage(configPath),
-    );
-  }
-
-  let configSource = '';
-
-  try {
-    configSource = await readFile(configPath, 'utf8');
-  } catch (cause) {
-    throw surfaceConfigFailure(`read ${configSpec.displayName}`, cause);
-  }
-
-  let rawDocument: unknown;
-
-  try {
-    rawDocument = JSON.parse(configSource);
-  } catch (cause) {
-    throw surfaceConfigFailure(
-      `parse ${configSpec.displayName} JSON`,
-      cause,
-      `Invalid JSON in ${configPath}.`,
-    );
-  }
-
-  return decodeStoreSurfaceConfig(rawDocument, configSpec);
 }

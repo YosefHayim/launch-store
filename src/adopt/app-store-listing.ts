@@ -15,7 +15,7 @@ export const listingAdopter: Adopter = {
         description: `listing: print the App Store copy for ${target.app.name} so it can be added under listing in launch.config.ts`,
         fidelity: 'importable' as const,
         change: {
-          home: 'store.config' as const,
+          home: 'listing' as const,
           bundleId: target.bundleId,
           configPath,
           appName: target.app.name,
