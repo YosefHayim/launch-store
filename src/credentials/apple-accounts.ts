@@ -1,20 +1,12 @@
 // Runs account changes for App Store Connect and adopts old Google Play credentials.
 
 import { loadConfig } from '../config/config.ts';
-import {
-  readDocumentFile,
-  writeDocumentFileAtomically,
-} from '../services/platform/atomic-document-file.ts';
 import { createLogger, type Logger } from '../services/platform/logger.ts';
-import { locatePortfolioFilePath, readLaunchDirectories } from '../services/platform/paths.ts';
-import { readPlainObject } from '../services/platform/plain-object.ts';
+import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { AppStoreIdentityService } from '../services/stores/app-store-identity.ts';
 import { GoogleStoreClientService } from '../services/stores/google-store-client.ts';
-import { pickSavedPortfolioFile } from '../portfolio/portfolio-store.ts';
-import { parsePlayReportsBucket } from '../stats/play-reports-bucket.ts';
 import type { AccountRecord } from '../types/credentials.ts';
-import type { PortfolioFile } from '../types/portfolio.ts';
 import {
   listAccounts,
   loadAscKeyById,
@@ -129,69 +121,6 @@ export async function setAppleVendorNumber(
 
   await setAccountVendorNumber(selectedAccount.keyId, trimmedVendorNumber);
   createLogger(false).ok(`Saved the vendor number for account "${selectedAccount.label}".`);
-}
-
-function isPortfolioFile(candidate: unknown): candidate is PortfolioFile {
-  const candidateObject = readPlainObject(candidate);
-
-  if (candidateObject == null) {
-    return false;
-  }
-
-  if (candidateObject['version'] != 1) {
-    return false;
-  }
-
-  if (Array.isArray(candidateObject['apps']) == false) {
-    return false;
-  }
-
-  return Array.isArray(candidateObject['tags']);
-}
-
-async function readPortfolioDocument(): Promise<PortfolioFile | null> {
-  const portfolioFilePath = locatePortfolioFilePath();
-
-  return readDocumentFile(portfolioFilePath, function decodePortfolio(documentText) {
-    const parsed: unknown = JSON.parse(documentText);
-
-    if (isPortfolioFile(parsed)) {
-      return parsed;
-    }
-
-    throw new Error('portfolio.json must be a portfolio file.');
-  });
-}
-
-export async function setPlayReportsBucket(
-  commandOptions: CredentialsCommandOptions,
-): Promise<void> {
-  const usage =
-    'Usage: launch-store creds set-play-reports-bucket --play-reports-bucket <uri or name>.';
-  const copiedBucket = commandOptions.playReportsBucket;
-
-  if (copiedBucket == null) {
-    throw new Error(usage);
-  }
-
-  const bucketName = parsePlayReportsBucket(copiedBucket);
-
-  if (bucketName == null) {
-    throw new Error(
-      'Expected a Cloud Storage URI like gs://pubsite_prod_rev_0123456789/ or its bucket name.',
-    );
-  }
-
-  const savedFile = await readPortfolioDocument();
-  const portfolioFile = pickSavedPortfolioFile(savedFile);
-
-  const portfolioFilePath = locatePortfolioFilePath();
-
-  await writeDocumentFileAtomically(portfolioFilePath, {
-    ...portfolioFile,
-    playReportsBucket: bucketName,
-  });
-  createLogger(false).ok(`Saved the Play reports bucket ${bucketName}.`);
 }
 
 export async function removeAppleAccount(

@@ -1,4 +1,4 @@
-// Registers and runs the explain, open, and completion commands.
+// Registers and runs the open and completion commands.
 
 import type { Command } from '../cli/command.ts';
 import { stdout } from 'node:process';
@@ -18,7 +18,6 @@ import {
   SHELLS,
 } from './completion.ts';
 import { ConsoleLinks } from './console-links.ts';
-import { explainTopic, isExplainTerm, listTopics } from './explain-terms.ts';
 
 export interface OpenCommandInput {
   target?: string;
@@ -37,34 +36,6 @@ type CompletionCommandInput =
   | Readonly<{ operation: 'complete'; words: readonly string[]; commandTree: Command }>;
 
 export class TerminalCommands {
-  registerExplain(program: Command): void {
-    const terminalCommands = this;
-
-    function runExplain(topic?: string): Promise<void> {
-      const commandInput: { topic?: string } = {};
-
-      if (typeof topic == 'string') {
-        commandInput.topic = topic;
-      }
-
-      async function startExplain(): Promise<void> {
-        terminalCommands.explain(commandInput);
-      }
-
-      const startedExplain = startExplain();
-
-      return runCliProgram(startedExplain);
-    }
-
-    program
-      .command('explain')
-      .description(
-        'plain-English terms for an Apple or iOS word (csr, app-record, provisioning-profile)',
-      )
-      .argument('[topic]', 'a term to explain, for example provisioning-profile')
-      .action(runExplain);
-  }
-
   registerOpen(program: Command): void {
     const terminalCommands = this;
 
@@ -153,25 +124,6 @@ export class TerminalCommands {
       .action(printCandidates);
   }
 
-  explain(rawCommandInput: unknown): void {
-    const topic = this.readExplainTopic(rawCommandInput);
-    const logger = createLogger(false);
-
-    if (topic == null) {
-      logger.line(`Topics: ${listTopics().join(', ')}`);
-      return;
-    }
-
-    if (isExplainTerm(topic)) {
-      logger.line(explainTopic(topic));
-      return;
-    }
-
-    const knownTopics = listTopics().join(', ');
-
-    throw new Error(`Unknown topic "${topic}". Known topics: ${knownTopics}`);
-  }
-
   readOpenCommandInput(rawCommandInput: unknown): OpenCommandInput {
     const commandFields = readPlainObject(rawCommandInput);
 
@@ -225,32 +177,6 @@ export class TerminalCommands {
 
       throw new Error(failureMessage, { cause });
     }
-  }
-
-  private readExplainTopic(rawCommandInput: unknown): string | null {
-    const commandFields = readPlainObject(rawCommandInput);
-
-    if (commandFields == null) {
-      throw new Error('Could not run the explain command.');
-    }
-
-    const topicIsPresent = Object.hasOwn(commandFields, 'topic');
-
-    if (!topicIsPresent) {
-      return null;
-    }
-
-    const topic = commandFields['topic'];
-
-    if (typeof topic == 'string') {
-      return topic;
-    }
-
-    if (topic == null) {
-      return null;
-    }
-
-    throw new Error('Could not run the explain command.');
   }
 
   private readOptionalText(

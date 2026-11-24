@@ -2,7 +2,7 @@
 
 import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { extractProfileEntitlements } from '../adopt/profile-entitlements.ts';
+import { extractProfileEntitlements } from './profile-entitlements.ts';
 import { captureCommandOutput } from '../services/platform/execute-command.ts';
 import type { Logger } from '../services/platform/logger.ts';
 import {

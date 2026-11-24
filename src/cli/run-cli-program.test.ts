@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { completeCommand, makeCommandExit } from '../terminal/command-exit.ts';
-import { makeBuildCommandExecutionError } from '../build/build-command-program.ts';
 import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { setJsonOutput } from '../services/platform/json-output-mode.ts';
@@ -87,10 +86,7 @@ function describeRunPieceCliProgramThePiecePieceLine() {
     const readEvents = captureStdoutLines();
 
     async function failBuild(): Promise<void> {
-      throw makeBuildCommandExecutionError({
-        message: 'No build engine named "missing-engine".',
-        cause: { _tag: 'Hidden' },
-      });
+      throw new Error('No build engine named "missing-engine".');
     }
 
     const failedRun = runJsonCliProgram(SUMMARY, failBuild);

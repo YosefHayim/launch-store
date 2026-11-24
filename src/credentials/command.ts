@@ -16,7 +16,6 @@ import {
   removeAppleAccount,
   renameAppleAccount,
   setAppleVendorNumber,
-  setPlayReportsBucket,
   useAppleAccount,
 } from './apple-accounts.ts';
 import { offerSourceRemoval } from './credential-discovery.ts';
@@ -43,7 +42,6 @@ const CREDENTIAL_ACTIONS = [
   'refresh',
   'push-key',
   'set-vendor-number',
-  'set-play-reports-bucket',
 ] as const;
 
 type CredentialsAction = (typeof CREDENTIAL_ACTIONS)[number];
@@ -316,12 +314,6 @@ async function executeCredentialsCommand(decodedCommand: CredentialsCommandInput
 
   if (decodedCommand.action == 'set-vendor-number') {
     await setAppleVendorNumber(decodedCommand.options);
-
-    return;
-  }
-
-  if (decodedCommand.action == 'set-play-reports-bucket') {
-    await setPlayReportsBucket(decodedCommand.options);
 
     return;
   }

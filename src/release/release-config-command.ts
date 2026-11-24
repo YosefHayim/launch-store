@@ -1,7 +1,6 @@
 // Applies the release attribute config for one app through the active Apple account.
 
 import { stdout } from 'node:process';
-import { selectApp } from '../build/pipeline-environment.ts';
 import { launchConfigForApp, loadConfig } from '../config/config.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
 import { hasMessage } from '../services/platform/error-message.ts';
@@ -9,6 +8,7 @@ import { createLogger } from '../services/platform/logger.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
 import { summarize } from '../store/shared/reconcile.ts';
+import { selectStoreApp } from '../store/shared/select-store-app.ts';
 import { completeCommand } from '../terminal/command-exit.ts';
 import type { PlannedAction } from '../types/reconcile.ts';
 import { reconcileRelease } from './release-attributes.ts';
@@ -129,7 +129,7 @@ export async function releaseConfigCommandProgram(
   }
 
   try {
-    var selectedApp = await selectApp(loadedConfiguration.apps, commandInput.app);
+    var selectedApp = await selectStoreApp(commandInput.app);
   } catch (cause) {
     let explicitMessage: string | undefined;
 

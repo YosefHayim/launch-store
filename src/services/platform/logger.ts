@@ -1,7 +1,6 @@
-// Prints run, warning, and progress lines, or one JSON event per line, with secrets hidden.
+// Prints a line or an error, or one JSON event per line, with secrets hidden.
 
 import { stdout } from 'node:process';
-import { explainTopic, type ExplainTerm } from '../../terminal/explain-terms.ts';
 import { formatElapsed } from './elapsed.ts';
 import { redactText } from './redact.ts';
 
@@ -17,7 +16,7 @@ export type Logger = Readonly<{
   progressStart: (label: string) => void;
   progressDone: (label: string, elapsedMs: number) => void;
   progressFail: (label: string, failureText: string) => void;
-  step: (label: string, detail?: string, topic?: ExplainTerm) => void;
+  step: (label: string, detail?: string, topic?: string) => void;
   chip: (chipText: string) => string;
   note: (message: string) => void;
   tip: (message: string) => void;
@@ -30,8 +29,8 @@ export type Logger = Readonly<{
 
 type JsonEvent = Readonly<Record<string, unknown>>;
 
-function statusText(status: 'RUN' | 'OK' | 'WARN' | 'ERROR' | 'SKIP', message: string): string {
-  return `[${status}] ${message}\n`;
+function statusText(message: string): string {
+  return `${message}\n`;
 }
 
 function redactingWrite(write: LogWrite): LogWrite {
@@ -43,75 +42,65 @@ function redactingWrite(write: LogWrite): LogWrite {
 }
 
 function makeLogger(display: LogWrite, explain: boolean): Logger {
+  void explain;
+
   const logger: Logger = {
     withExplanation(enabled) {
       return makeLogger(display, enabled);
     },
     run(message) {
-      const statusLine = statusText('RUN', message);
+      const statusLine = statusText(message);
       return display(statusLine);
     },
     ok(message) {
-      const statusLine = statusText('OK', message);
+      const statusLine = statusText(message);
       return display(statusLine);
     },
     warn(message) {
-      const statusLine = statusText('WARN', message);
+      const statusLine = statusText(message);
       return display(statusLine);
     },
     error(message) {
-      const statusLine = statusText('ERROR', message);
+      const statusLine = statusText(message);
       return display(statusLine);
     },
     skip(message) {
-      const statusLine = statusText('SKIP', message);
+      const statusLine = statusText(message);
       return display(statusLine);
     },
     progressStart(label) {
-      const statusLine = statusText('RUN', label);
+      const statusLine = statusText(label);
       return display(statusLine);
     },
     progressDone(label, elapsedMs) {
       const elapsedLabel = formatElapsed(elapsedMs);
-      const statusLine = statusText('OK', `${label} - ${elapsedLabel}`);
+      const statusLine = statusText(`${label} - ${elapsedLabel}`);
       return display(statusLine);
     },
     progressFail(_label, failureText) {
-      const statusLine = statusText('ERROR', failureText);
+      const statusLine = statusText(failureText);
       return display(statusLine);
     },
-    step(label, detail, topic) {
+    step(label, detail) {
       let detailText = '';
 
       if (detail != null) {
         detailText = ` - ${detail}`;
       }
 
-      const statusLine = statusText('RUN', `${label}${detailText}`);
+      const statusLine = statusText(`${label}${detailText}`);
 
       display(statusLine);
-
-      if (explain == false) {
-        return;
-      }
-
-      if (topic == null) {
-        return;
-      }
-
-      for (const explanationLine of explainTopic(topic).split('\n')) {
-        display(`  ${explanationLine}\n`);
-      }
     },
     chip(chipText) {
       return chipText;
     },
     note(message) {
-      const statusLine = statusText('RUN', message);
+      const statusLine = statusText(message);
       return display(statusLine);
     },
     tip(message) {
-      const statusLine = statusText('RUN', `Tip: ${message}`);
+      const statusLine = statusText(message);
       return display(statusLine);
     },
     notice(lead, ...details) {
@@ -120,7 +109,7 @@ function makeLogger(display: LogWrite, explain: boolean): Logger {
       }
 
       const detailLines = details.map(indentNoticeLine).join('');
-      const statusLine = statusText('RUN', lead);
+      const statusLine = statusText(lead);
 
       display(`${statusLine}${detailLines}`);
     },
@@ -130,7 +119,7 @@ function makeLogger(display: LogWrite, explain: boolean): Logger {
       }
 
       const receipt = receiptLines.map(indentReceiptLine).join('');
-      const statusLine = statusText('OK', title);
+      const statusLine = statusText(title);
 
       display(`${statusLine}${receipt}`);
     },
@@ -140,7 +129,7 @@ function makeLogger(display: LogWrite, explain: boolean): Logger {
       }
 
       const receipt = receiptLines.map(indentReceiptLine).join('');
-      const statusLine = statusText('OK', 'Shipped');
+      const statusLine = statusText('Shipped');
 
       display(`${statusLine}${receipt}`);
     },

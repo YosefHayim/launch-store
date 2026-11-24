@@ -446,41 +446,6 @@ function describeResolveCompletionsTheCompleteCallback() {
 
   it('resolves -a/--app values from discovered apps', resolvesAAppValuesFromDiscoveredApps);
 
-  async function resolvesThePlanSurfacePositionalFromThePlannerRegistry() {
-    const candidates = await runCompletionResolution(['plan', ''], program());
-    expect(candidates).toContain('catalog');
-    expect(candidates).toContain('listing');
-  }
-
-  it(
-    'resolves the plan [surface] positional from the planner registry',
-    resolvesThePlanSurfacePositionalFromThePlannerRegistry,
-  );
-
-  async function doesNotReCompleteAPositionalOnceItHasBeenSupplied() {
-    const candidates = await runCompletionResolution(['plan', 'catalog', ''], program());
-    // The surface slot is filled, so we fall through to subcommands/flags (none -> flags only here).
-    expect(candidates).not.toContain('listing');
-    expect(candidates).toContain('--app');
-  }
-
-  it(
-    'does not re-complete a positional once it has been supplied',
-    doesNotReCompleteAPositionalOnceItHasBeenSupplied,
-  );
-
-  async function stillCompletesThePositionalAfterAPieceTakingFlagAndItsPiece() {
-    // `--app atlas` is a flag and its value, not a positional - the [surface] slot must stay open.
-    const candidates = await runCompletionResolution(['plan', '--app', 'atlas', ''], program());
-    expect(candidates).toContain('catalog');
-    expect(candidates).toContain('listing');
-  }
-
-  it(
-    'still completes the positional after a value-taking flag and its value',
-    stillCompletesThePositionalAfterAPieceTakingFlagAndItsPiece,
-  );
-
   async function neverThrowsWhenThereIsNoLaunchPieceTsFallsBackToTheDefaultProfile() {
     const repo = makeDir('launch-completion-empty-');
     const saved = process.cwd();

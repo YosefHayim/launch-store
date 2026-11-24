@@ -7,7 +7,7 @@ import { createLogger, type Logger } from '../services/platform/logger.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
 import { completeCommand, isCommandExit, makeCommandExit } from '../terminal/command-exit.ts';
-import { alignTableColumns, type Column } from '../terminal/table.ts';
+
 import type { AppDescriptor } from '../types/app.ts';
 import type { BuildResource } from '../types/apple/builds.ts';
 import {
@@ -317,6 +317,18 @@ function describeUploadTime(uploadedDate: string | undefined): string {
   return new Date(uploadedDate).toISOString().slice(0, 16).replace('T', ' ');
 }
 
+function describeOneBuild(build: BuildResource): string {
+  let marketingVersion = '-';
+
+  if (build.marketingVersion != null) {
+    marketingVersion = build.marketingVersion;
+  }
+
+  const uploadedAt = describeUploadTime(build.uploadedDate);
+
+  return `  ${marketingVersion} ${build.version} ${build.processingState} ${uploadedAt}`;
+}
+
 function describeRecentBuilds(recentBuilds: readonly BuildResource[]): string {
   const isThereNoBuild = recentBuilds.length == 0;
 
@@ -324,38 +336,7 @@ function describeRecentBuilds(recentBuilds: readonly BuildResource[]): string {
     return '  no builds uploaded yet';
   }
 
-  const recentBuildColumns: readonly Column<BuildResource>[] = [
-    {
-      header: 'VERSION',
-      cell: function marketingVersion(build) {
-        if (build.marketingVersion == null) {
-          return '-';
-        }
-
-        return build.marketingVersion;
-      },
-    },
-    {
-      header: 'BUILD',
-      cell: function buildNumber(build) {
-        return build.version;
-      },
-    },
-    {
-      header: 'PROCESSING',
-      cell: function processingState(build) {
-        return build.processingState;
-      },
-    },
-    {
-      header: 'UPLOADED (UTC)',
-      cell: function uploadedAt(build) {
-        return describeUploadTime(build.uploadedDate);
-      },
-    },
-  ];
-
-  return alignTableColumns(recentBuildColumns, recentBuilds);
+  return recentBuilds.map(describeOneBuild).join('\n');
 }
 
 async function readOneAppStatus(

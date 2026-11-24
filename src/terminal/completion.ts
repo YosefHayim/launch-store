@@ -5,10 +5,8 @@ import { dirname, join } from 'node:path';
 import type { Command, CommandOption } from '../cli/command.ts';
 import { loadConfig } from '../config/config.ts';
 import { pathExists } from '../path-exists.ts';
-import { listSurfacePlanners, registerBuiltinPlanners } from '../plan/registry.ts';
 import { readLaunchEnvironment } from '../services/platform/environment.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
-import { listSnapshots } from '../snapshot/store.ts';
 import type { Shell } from '../types/remote.ts';
 
 /** The shells `launch-store completion` supports, in the order help lists them; the first is the default fallback. */
@@ -109,14 +107,6 @@ function pickAppName(app: { name: string }): string {
   return app.name;
 }
 
-function pickPlannerId(planner: { id: string }): string {
-  return planner.id;
-}
-
-function pickSnapshotName(snapshot: { name: string }): string {
-  return snapshot.name;
-}
-
 async function appHandles(): Promise<string[]> {
   const loaded = await loadConfig();
 
@@ -129,17 +119,6 @@ async function profileNames(): Promise<string[]> {
   return Object.keys(loaded.config.profiles);
 }
 
-async function planSurfaceIds(): Promise<string[]> {
-  registerBuiltinPlanners();
-
-  return listSurfacePlanners().map(pickPlannerId);
-}
-
-async function snapshotNames(): Promise<string[]> {
-  const snapshots = await listSnapshots();
-
-  return snapshots.map(pickSnapshotName);
-}
 /** Flags whose VALUE has a dynamic candidate set */
 const flagSources: ReadonlyMap<string, CompletionCandidateSource> = new Map([
   ['-a', appHandles],
@@ -148,12 +127,7 @@ const flagSources: ReadonlyMap<string, CompletionCandidateSource> = new Map([
   ['--profile', profileNames],
 ]);
 /** Commands whose POSITIONAL argument has a dynamic candidate set */
-const argumentSources: ReadonlyMap<string, CompletionCandidateSource> = new Map([
-  ['plan', planSurfaceIds],
-  ['drift', planSurfaceIds],
-  ['snapshot diff', snapshotNames],
-  ['snapshot export', snapshotNames],
-]);
+const argumentSources: ReadonlyMap<string, CompletionCandidateSource> = new Map();
 
 /** Every option spelling a command accepts (short and long, e.g. `-a`, `--app`), for flag-name completion. */
 function optionFlags(command: Command): string[] {

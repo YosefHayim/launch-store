@@ -27,13 +27,13 @@ function describeLoggerASCIIRendering() {
     captured.logger.notice('Upload to TestFlight', 'sampleapp 1.0.0 (build 42)');
 
     expect(captured.lines.join('')).toBe(
-      '[OK] Synced\n' +
+      'Synced\n' +
         '  3 apps\n' +
         '  0 errors\n' +
-        '[OK] Shipped\n' +
+        'Shipped\n' +
         '  sampleapp 1.0.0 (42)\n' +
         '  download 47.2 MB - on disk 61.3 MB\n' +
-        '[RUN] Upload to TestFlight\n' +
+        'Upload to TestFlight\n' +
         '  sampleapp 1.0.0 (build 42)\n',
     );
   }
@@ -51,9 +51,9 @@ function describeLoggerASCIIRendering() {
 
     const transcript = captured.lines.join('');
 
-    expect(transcript).toContain('[RUN] native project - using existing ios/');
-    expect(transcript).toContain('[RUN] com.example.sampleapp - already in sync');
-    expect(transcript).toContain('Bundle ID');
+    expect(transcript).toContain('native project - using existing ios/');
+    expect(transcript).toContain('com.example.sampleapp - already in sync');
+    expect(transcript).not.toContain('Bundle ID');
   }
 
   it(
@@ -85,9 +85,7 @@ function describeLoggerProgressEvents() {
     captured.logger.progressDone('Archiving', 72000);
     captured.logger.progressFail('Archiving', 'Archiving failed');
 
-    expect(captured.lines.join('')).toBe(
-      '[RUN] Archiving\n[OK] Archiving - 1m 12s\n[ERROR] Archiving failed\n',
-    );
+    expect(captured.lines.join('')).toBe('Archiving\nArchiving - 1m 12s\nArchiving failed\n');
   }
 
   it(
@@ -194,7 +192,7 @@ function describeSecretRedaction() {
 
     captured.logger.warn('API_TOKEN=dummy-token-value');
 
-    expect(captured.lines.join('')).toBe('[WARN] API_TOKEN=***\n');
+    expect(captured.lines.join('')).toBe('API_TOKEN=***\n');
     expect(captured.lines.join('')).not.toContain('dummy-token-value');
   }
 

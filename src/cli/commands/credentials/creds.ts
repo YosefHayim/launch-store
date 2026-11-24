@@ -32,7 +32,7 @@ export function registerCredsCommand(program: Command): void {
     )
     .argument(
       '[action]',
-      'status | adopt | set-key | setup | use | rename | remove | refresh | push-key | set-vendor-number | set-play-reports-bucket',
+      'status | adopt | set-key | setup | use | rename | remove | refresh | push-key | set-vendor-number',
       'status',
     )
     .argument('[firstArgument]', 'account selector, Android key path, or push-key action')
@@ -48,10 +48,6 @@ export function registerCredsCommand(program: Command): void {
     .option('--alias <alias>', 'alias inside an imported Android keystore')
     .option('--team-id <id>', 'Apple Team ID for an APNs key')
     .option('--vendor-number <number>', 'Apple vendor number for sales reports (set-vendor-number)')
-    .option(
-      '--play-reports-bucket <uri or name>',
-      'Play Console reports Cloud Storage URI, like gs://pubsite_prod_rev_123/ (set-play-reports-bucket)',
-    )
     .option('--out <path>', 'APNs export destination')
     .option('--force', 'overwrite an existing APNs export destination')
     .option('--yes', 'run without interactive prompts; allow adoption to replace app credentials')

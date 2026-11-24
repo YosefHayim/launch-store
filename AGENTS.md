@@ -15,7 +15,7 @@ Config the engineering skills read.
 
 - **Issue tracker:** GitHub issues on `YosefHayim/launch-store`, via the `gh` CLI.
 - **Triage labels:** the five canonical triage roles, mapped to their default label strings.
-- **Domain language:** `src/terminal/explain-terms.ts`.
+- **Domain language:** Apple and Google docs, named in the `@see` on each client method.
 
 ## Repo Layout - Who Owns What
 
@@ -27,28 +27,28 @@ One TypeScript / Node ESM package. Two kinds of code sit next to each other unde
 | `src/apple` | App Store Connect. The client, the resource modules, and the Launch command programs. |
 | `src/types/apple/apple-api-types.ts` | Apple's generated OpenAPI types, one file. The client imports it. The generator is `scripts/generate-apple-types.ts`. Do not put this file under `src/apple`. |
 | `src/google` | Google Play. The client and the Launch command programs. Types come from `@googleapis`. |
-| `src/listing`, `src/readiness`, `src/release`, `src/release-train`, `src/plan`, `src/build`, `src/credentials` | The bridge. Launch's own product. These call the clients and decide what Launch does. |
+| `src/listing`, `src/release`, `src/credentials` | Store listing sync, TestFlight and release attributes, and the saved Apple key and Play service account. |
 | `src/store` | Shared store sync used by the Apple and Google programs. |
-| `src/adopt`, `src/config`, `src/distribution`, `src/insights`, `src/migrate`, `src/portfolio`, `src/privacy`, `src/snapshot`, `src/stats` | The rest of the bridge. |
-| `src/terminal`, `src/docs` | Explain terms, console links, terminal commands, and the config reference. |
+| `src/config` | Loads the one `launch.config.ts`. |
+| `src/terminal` | Console links and shell completion. |
 | `src/services` | Paths, exec, logger, prompts, secrets, and the store client adapters. `services/stores` is the door into the Apple and Google HTTP clients. |
 | `src/types` | Launch's own shapes. App Store Connect resource shapes live in `src/types/apple/`, grouped the way Apple's docs group them. Play resource shapes live in `src/types/google/`, grouped the way the Play Developer API groups its REST resources. |
-| `src/providers` | Swappable backends for build, storage, credentials, submit, and compute. |
+| `src/providers` | The on-machine credentials store, plus submitters for an already-built App Store or Play artifact. |
 | `src/testkit` | Shared stand-ins the tests import. Vitest and Jest treat `*.test.*` and `*.spec.*` as suites to run, so these files are named for the job and do not use that suffix. |
-| `schema/` | Published `launch.config.schema.json`. `launch-store config` reads it. It ships in the npm package. Do not delete it. |
+| `schema/` | Published `launch.config.schema.json`. `src/config/` checks `launch.config.ts` against it. Do not delete it. |
 
 A file that performs one documented Apple or Google request belongs in `src/apple` or `src/google`. A file that decides something for Launch belongs in the job folder. Do not add `src/core` back.
 
-`init`, `creds`, `build`, `release`, `plan`, `drift`, `sync`, and `adopt` are plain TypeScript. Their classes live in `src/build`, `src/credentials`, `src/launch-file`, and `src/store`. `launch-store release` is `src/cli/commands/release/release.ts` calling `src/release/release-command.ts`.
+`init` and `creds` are plain TypeScript. `init` lives in `src/launch-file`. The Apple key and Play service account live in `src/credentials`.
 
-`src/cli/commands/` registers each job: `setup/`, `build/`, `credentials/`, `release/`, `store/`, `listing/`, `readiness/`, `insights/`. Explain, open, and completion are `TerminalCommands` in `src/terminal/terminal-commands.ts`. App Store command programs live in `src/apple`. Play command programs live in `src/google`. Shared store sync stays in `src/store`. The Apple type generator stays in `scripts` and writes `src/types/apple/apple-api-types.ts`.
+`src/cli/program.ts` registers the commands. Open and completion are `TerminalCommands` in `src/terminal/terminal-commands.ts`. App Store command programs live in `src/apple`. Play command programs live in `src/google`. Shared store sync stays in `src/store`. The Apple type generator stays in `scripts` and writes `src/types/apple/apple-api-types.ts`.
 
 ## Conventions A Linter Can't Infer
 
 ### Source Of Truth Files
 
 - Product direction: [README.md](./README.md). Commands are `launch-store --help`.
-- Domain language: runtime teaching text in `src/terminal/explain-terms.ts`.
+- Domain language: the `@see` URL on each App Store Connect and Google Play method.
 - Config schema: `schema/launch.config.schema.json` is the published copy. `src/config/` loads and checks it. The root `launch.config.ts` is the full example of every field a developer can set.
 - Root files: there is no `LICENSE` file, no `.env.example`, and no `launch.config.example.ts`. The root sample is `launch.config.ts`. `package.json` keeps `"license": "MIT"`. `launch-store init` still writes a starter `.env.example` into the app being set up.
 
@@ -78,7 +78,7 @@ Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys,
 
 ### Rules Digest
 
-- **Commands are plain TypeScript.** They return `Promise` or a plain value. The explain, open, and completion commands throw `new Error`. `CommandExit` is still the process exit code. Other failures are still a readonly `{ _tag }` object. File names are kebab-case (`build-command.ts`). Every local import is a relative path ending in `.ts` (`./file.ts`, `../file.ts`). TypeScript 5.7 [`rewriteRelativeImportExtensions`](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-7.html#path-rewriting-for-relative-paths) rewrites that to `.js` on emit. Do not import through `@/`. The same page says `@/file.ts` is not rewritten and does not work, and `tsc` reports TS2877. A runtime file URL such as `new URL('../index.js', import.meta.url)` stays `.js`, because Node loads the emitted file and that string is not an import. Biome's import-extension rule stays off so it does not demand the runtime `.js` extension in source. Do not add a `#` import map. A published package keeps the `.js` path it documents. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names. `launch-store release` stays `src/release/release-command.ts`.
+- **Commands are plain TypeScript.** They return `Promise` or a plain value. Open and completion throw `new Error`. `CommandExit` is still the process exit code. Other failures are still a readonly `{ _tag }` object. File names are kebab-case. Every local import is a relative path ending in `.ts` (`./file.ts`, `../file.ts`). TypeScript 5.7 [`rewriteRelativeImportExtensions`](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-7.html#path-rewriting-for-relative-paths) rewrites that to `.js` on emit. Do not import through `@/`. The same page says `@/file.ts` is not rewritten and does not work, and `tsc` reports TS2877. A runtime file URL such as `new URL('../index.js', import.meta.url)` stays `.js`, because Node loads the emitted file and that string is not an import. Biome's import-extension rule stays off so it does not demand the runtime `.js` extension in source. Do not add a `#` import map. A published package keeps the `.js` path it documents. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names.
 - **New modules use function declarations.** An arrow only when a method is passed elsewhere and must keep `this`. Do not add `&&` or `||`. Comparisons use `==` and `!=`. A missing value is `== null`. `??` and `?.` are allowed. Name each condition. A `SCREAMING_SNAKE` constant is only for a literal used twice or more in that file. A literal used once stays inline. A number used once is a camelCase const next to that use.
 - **Registration is thin.** `src/cli/program.ts` registers the commands. Prompts require a TTY or `--yes`. `--json` emits one object. Only the entry sets exit codes.
 - **JSON Schema is the config source.** Do not delete `schema/`.
@@ -86,7 +86,7 @@ Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys,
 - **One public barrel.** `src/index.ts` is the package entrypoint. Internal modules import the owning file.
 - **Prose naming.** Generic bindings such as `data`, `result`, and `value` are banned. `build` is reserved for the real build domain.
 - **Comments explain hidden intent.** No narrated headers or TSDoc that restates types.
-- **ASCII output.** Logging uses `[RUN]`, `[OK]`, `[WARN]`, `[ERROR]`, and `[SKIP]`. JSON stays machine-clean.
+- **ASCII output.** A command prints a plain line. JSON stays machine-clean. Do not add boxes, chips, progress bars, or a glossary.
 - **Tests are colocated.** Vitest, no snapshots, hand fakes in `src/testkit/`. A test covers the contract a caller sees: inputs, outputs, errors, and side effects ([Vitest: testing in practice](https://vitest.dev/guide/learn/testing-in-practice.html)). Do not add a test that only copies a catalog, checks README prose, or asserts which names a module exports. A function that production never calls, and a test that only exists to call it, do not stay.
 
 ## Style Is Enforced, Not Re-Explained

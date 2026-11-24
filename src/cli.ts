@@ -1,8 +1,7 @@
-// Starts Launch and maps a usage or drift failure onto an exit code.
+// Starts Launch and maps a usage failure onto an exit code.
 
 import { isUsageError } from './cli/command.ts';
 import { Program } from './program.ts';
-import { DRIFT_MESSAGE } from './store/plan-store.ts';
 
 export class Cli {
   async start(launchVersion: string): Promise<void> {
@@ -21,18 +20,6 @@ export class Cli {
         process.exitCode = error.exitCode;
 
         return;
-      }
-
-      const isError = error instanceof Error;
-
-      if (isError) {
-        const isDrift = error.message == DRIFT_MESSAGE;
-
-        if (isDrift) {
-          console.error({ message: error.message });
-          process.exitCode = 2;
-          return;
-        }
       }
 
       throw error;

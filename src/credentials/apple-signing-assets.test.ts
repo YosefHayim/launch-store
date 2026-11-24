@@ -13,7 +13,7 @@ import {
   profileStaleAgainstCapabilities,
   staleCachedSigningTargets,
 } from './apple-signing-profiles.ts';
-import { extractProfileEntitlements } from '../adopt/profile-entitlements.ts';
+import { extractProfileEntitlements } from './profile-entitlements.ts';
 import type { AscKey, SigningAssets } from '../types/credentials.ts';
 import type { BundleIdCapabilityResource, ProfileResource } from '../types/apple/provisioning.ts';
 import type { AppleCredentialsClient } from '../services/stores/apple-credentials-client.ts';
@@ -22,7 +22,7 @@ const systemTemporaryDirectory = tmpdir();
 const launchCredentialsTestPath = join(systemTemporaryDirectory, 'launch-credentials-test-');
 const home = { dir: mkdtempSync(launchCredentialsTestPath) };
 
-vi.mock('../adopt/profile-entitlements.ts', function mockProfileEntitlements() {
+vi.mock('./profile-entitlements.ts', function mockProfileEntitlements() {
   return {
     extractProfileEntitlements: vi.fn(),
   };

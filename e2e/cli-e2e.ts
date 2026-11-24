@@ -140,72 +140,16 @@ function describeLaunchStoreCLIOfflineSurfaceCompiledDist() {
   async function printsHelpThatListsThePieceCommand() {
     const help = await launch('--help');
     expect(help).toContain('Usage:');
-    expect(help).toContain('config');
+    expect(help).toContain('metadata');
   }
 
-  it('prints help that lists the config command', printsHelpThatListsThePieceCommand);
-
-  async function explainsAGlossaryTopic() {
-    expect((await launch('explain', 'csr')).length).toBeGreaterThan(0);
-  }
-
-  it('explains a glossary topic', explainsAGlossaryTopic);
-
-  async function emitsAJSONSchemaThatDescribesThePiece() {
-    const raw = await launch('config', 'schema');
-
-    function expectCall() {
-      return JSON.parse(raw);
-    }
-
-    expect(expectCall).not.toThrow();
-    expect(raw).toContain('profiles');
-  }
-
-  it('emits a JSON Schema that describes the config', emitsAJSONSchemaThatDescribesThePiece);
-
-  async function printsThePieceFieldReference() {
-    expect((await launch('config', 'docs')).length).toBeGreaterThan(0);
-  }
-
-  it('prints the config field reference', printsThePieceFieldReference);
-
-  async function validatesAGoodPieceWithExit0() {
-    const goodPath = join(workdir, 'good.json');
-    expect(await launch('config', 'validate', goodPath)).toContain('Config valid');
-  }
-
-  it('validates a good config with exit 0', validatesAGoodPieceWithExit0);
-
-  async function rejectsABadPieceWithANonZeroExitThatNamesTheOffendingKey() {
-    const badPath = join(workdir, 'bad.json');
-    await expect(launch('config', 'validate', badPath)).rejects.toMatchObject({
-      stderr: expect.stringMatching(/totallyBogusKey|unknown|unrecognized/i),
-    });
-  }
-
-  it(
-    'rejects a bad config with a non-zero exit that names the offending key',
-    rejectsABadPieceWithANonZeroExitThatNamesTheOffendingKey,
-  );
-
-  async function rejectsInvalidAppleProductIDsAndExplainsTheAllowedCharacters() {
-    const badProductIdPath = join(workdir, 'bad-product-id.json');
-    await expect(launch('config', 'validate', badProductIdPath)).rejects.toMatchObject({
-      stderr: expect.stringMatching(/productId.*only letters, digits, underscores, and periods/i),
-    });
-  }
-
-  it(
-    'rejects invalid Apple product IDs and explains the allowed characters',
-    rejectsInvalidAppleProductIDsAndExplainsTheAllowedCharacters,
-  );
+  it('prints help that lists the metadata command', printsHelpThatListsThePieceCommand);
 
   async function printsAFailedCommandSMessageNotItsPieceFailureObject() {
     let commandFailure: CommandFailed | null = null;
 
     try {
-      await captureCommandOutput('node', [CLI, 'release', 'android'], {
+      await captureCommandOutput('node', [CLI, 'status'], {
         workingDirectory: workdir,
       });
     } catch (caught) {
@@ -216,7 +160,7 @@ function describeLaunchStoreCLIOfflineSurfaceCompiledDist() {
       }
     }
 
-    expect(commandFailure?.stderr).toContain('[ERROR] No apps found.');
+    expect(commandFailure?.stderr).toContain('No apps found.');
     expect(commandFailure?.stderr).not.toContain('"_tag"');
   }
 
