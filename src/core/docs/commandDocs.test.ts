@@ -1,0 +1,340 @@
+import { describe, expect, it } from 'vitest';
+import { Effect } from 'effect';
+import {
+  AGENT_SKILLS_BLURB,
+  AGENT_SKILLS_END,
+  AGENT_SKILLS_SIGNATURE,
+  AGENT_SKILLS_START,
+  CANONICAL_SENTENCE,
+  FAQ_REGION_END,
+  FAQ_REGION_START,
+  FAQ_SIGNATURE,
+  FEATURE_SECTIONS,
+  FEATURES_REGION_END,
+  FEATURES_REGION_START,
+  FEATURES_SIGNATURE,
+  GENERATIVE_AI_FAQ,
+  IS_NOT_SIGNATURE,
+  STATS_BADGES_END,
+  STATS_BADGES_START,
+} from './commandDocs/content.js';
+import { countAsyncMethods, countTestCases } from './commandDocs/common.js';
+import { renderLlmsFullTxt, renderLlmsTxt } from './commandDocs/llmsTxt.js';
+import {
+  renderAgentSkillsRegion,
+  renderCollapsibleFaq,
+  renderCollapsibleFeatures,
+  renderFaqRegion,
+  renderFeaturesList,
+  renderFeaturesRegion,
+  renderStatsBadges,
+  spliceReadmeAgentSkills,
+  spliceReadmeBadges,
+  spliceReadmeFaq,
+  spliceReadmeFeatures,
+} from './commandDocs/readme.js';
+import type { CommandSpec, DocStats } from '../types/commandDocs.js';
+const STATS: DocStats = { commands: 2, operations: 203, tests: 920 };
+/** A tiny two-command tree: one leaf with flags, one parent with a subcommand - covers every render branch. */
+const SAMPLE: CommandSpec[] = [
+  {
+    path: 'build',
+    args: '<platform>',
+    description: 'run the full pipeline',
+    options: [
+      { flags: '-p, --profile <name>', description: 'build profile' },
+      { flags: '--bump <kind>', description: 'version bump: patch|minor|major' },
+    ],
+    subcommands: [],
+  },
+  {
+    path: 'metadata',
+    args: '',
+    description: 'sync the store listing',
+    options: [],
+    subcommands: [
+      {
+        path: 'metadata pull',
+        args: '',
+        description: 'download the live listing',
+        options: [],
+        subcommands: [],
+      },
+    ],
+  },
+];
+describe('AI-facing llms documents', () => {
+  const txt = renderLlmsTxt(SAMPLE, STATS);
+  it('leads with the canonical sentence as the llmstxt.org summary blockquote', () => {
+    expect(txt).toContain(`> ${CANONICAL_SENTENCE}`);
+  });
+  it('carries the what-Launch-is-not disambiguation for AI engines', () => {
+    expect(txt).toContain(IS_NOT_SIGNATURE);
+  });
+  it('carries the generative-AI FAQ so engines can lift the EAS-alternative answers', () => {
+    expect(txt).toContain('## FAQ');
+    expect(txt).toContain(FAQ_SIGNATURE);
+  });
+  it('inlines the numbered feature map so one fetch ingests every capability', () => {
+    expect(txt).toContain('## Features');
+    expect(txt).toContain(FEATURES_SIGNATURE);
+  });
+  it('inlines every command, nesting subcommands under their parent', () => {
+    expect(txt).toContain('- `launch build <platform>` - run the full pipeline');
+    expect(txt).toContain('- `launch metadata` - sync the store listing');
+    expect(txt).toContain('  - `launch metadata pull` - download the live listing');
+  });
+  it('states the live command count', () => {
+    expect(txt).toContain('All 2 `launch` commands');
+  });
+  it('documents Genshot setup, OAuth, source layout, credit consent, and review', () => {
+    expect(txt).toContain('## Genshot screenshot generation');
+    expect(txt).toContain('npm install --save-dev @genshot/cli');
+    expect(txt).toContain('npx genshot login');
+    expect(txt).toContain('<app>/screenshots/<locale>/<DISPLAY_TYPE>/');
+    expect(txt).toContain('Generation spends Genshot Credits');
+    expect(txt).toContain('launch plan screenshots');
+  });
+  it('renders llms-full.txt from the same complete source', () => {
+    const fullText = renderLlmsFullTxt(SAMPLE, STATS);
+    expect(fullText).toContain('Launch - full context for AI agents');
+    expect(fullText).toContain('## Genshot screenshot generation');
+    expect(fullText).toContain('- `launch metadata` - sync the store listing');
+  });
+});
+describe('renderStatsBadges', () => {
+  const block = renderStatsBadges(STATS);
+  it('is fenced by the markers so docs:gen can splice it back in', () => {
+    expect(block.startsWith(STATS_BADGES_START)).toBe(true);
+    expect(block.endsWith(STATS_BADGES_END)).toBe(true);
+  });
+  it('bakes the live operation count into the endpoint badge', () => {
+    expect(block).toContain('store%20API-203%20endpoints');
+  });
+  it('bakes the live test count into the tests badge', () => {
+    expect(block).toContain('tests-920%20passing');
+  });
+  it('renders a qualitative CRUD badge that carries no number to go stale', () => {
+    expect(block).toContain('CRUD-full%20lifecycle');
+  });
+});
+describe('spliceReadmeBadges', () => {
+  const readme = [
+    '# Launch',
+    '',
+    STATS_BADGES_START,
+    '',
+    '<p>stale</p>',
+    '',
+    STATS_BADGES_END,
+    '',
+    'Body.',
+  ].join('\n');
+  it('replaces the whole fenced region with the freshly rendered badges', () => {
+    const spliced = Effect.runSync(spliceReadmeBadges(readme, renderStatsBadges(STATS)));
+    expect(spliced).toContain('tests-920%20passing');
+    expect(spliced).not.toContain('<p>stale</p>');
+    expect(spliced.startsWith('# Launch')).toBe(true);
+    expect(spliced.endsWith('Body.')).toBe(true);
+  });
+  it('throws when the markers are missing rather than dropping the badges', () => {
+    expect(() => Effect.runSync(spliceReadmeBadges('# Launch\n\nNo markers here.', 'x'))).toThrow(
+      /stats-badges markers/,
+    );
+  });
+});
+describe('renderFaqRegion', () => {
+  const block = Effect.runSync(renderFaqRegion());
+  it('is fenced by the FAQ markers so docs:gen can splice it back in', () => {
+    expect(block.startsWith(FAQ_REGION_START)).toBe(true);
+    expect(block.endsWith(FAQ_REGION_END)).toBe(true);
+  });
+  it('carries the collapsible FAQ, so the README renders each question on its own', () => {
+    expect(block).toContain(Effect.runSync(renderCollapsibleFaq()));
+    expect(block).toContain(FAQ_SIGNATURE);
+  });
+});
+describe("renderCollapsibleFaq (the README's per-question collapsible FAQ)", () => {
+  const block = Effect.runSync(renderCollapsibleFaq());
+  // The FAQ source is one `**Q?** A` paragraph per blank-line-separated block, so this is the entry count
+  // (blank line matched LF-or-CRLF, matching the parser, so a Windows checkout can't skew the count).
+  const entryCount = GENERATIVE_AI_FAQ.split(/\r?\n\r?\n/).length;
+  it('wraps every Q&A in a default-collapsed <details> with the question as the summary', () => {
+    expect(block.match(/<details>/g)).toHaveLength(entryCount);
+    expect(block).not.toContain('<details open>');
+    expect(block).toContain(`<summary><strong>${FAQ_SIGNATURE}</strong></summary>`);
+  });
+  it('keeps the answer prose under each question, so the signature survives for the consistency test', () => {
+    expect(block).toContain(FAQ_SIGNATURE);
+    expect(block).toContain('MIT-licensed');
+  });
+  it("adds no `## ` heading, so it can't shift the README's section skeleton or the parity test", () => {
+    expect(block).not.toContain('\n## ');
+  });
+});
+describe('spliceReadmeFaq', () => {
+  const readme = [
+    '# Launch',
+    '',
+    FAQ_REGION_START,
+    '',
+    'stale Q&A',
+    '',
+    FAQ_REGION_END,
+    '',
+    'Body.',
+  ].join('\n');
+  it('replaces the whole fenced FAQ region with the freshly rendered block', () => {
+    const spliced = Effect.runSync(spliceReadmeFaq(readme, Effect.runSync(renderFaqRegion())));
+    expect(spliced).toContain(FAQ_SIGNATURE);
+    expect(spliced).not.toContain('stale Q&A');
+    expect(spliced.startsWith('# Launch')).toBe(true);
+    expect(spliced.endsWith('Body.')).toBe(true);
+  });
+  it('throws when the FAQ markers are missing rather than dropping the FAQ', () => {
+    expect(() => Effect.runSync(spliceReadmeFaq('# Launch\n\nNo markers here.', 'x'))).toThrow(
+      /faq markers/,
+    );
+  });
+});
+describe('renderFeaturesList (the numbered capability map)', () => {
+  const list = renderFeaturesList();
+  it('numbers every feature continuously across sections, with no gaps or restarts', () => {
+    const numbers = [...list.matchAll(/^(\d+)\. /gm)].map((match) => Number(match[1]));
+    const total = FEATURE_SECTIONS.reduce((sum, section) => sum + section.features.length, 0);
+    expect(numbers).toEqual(Array.from({ length: total }, (_, i) => i + 1));
+  });
+  it("renders every section's bold label", () => {
+    for (const section of FEATURE_SECTIONS) expect(list).toContain(`**${section.title}**`);
+  });
+  it('keeps each feature on a single line, so the list stays scannable', () => {
+    for (const section of FEATURE_SECTIONS) {
+      for (const feature of section.features) expect(feature).not.toContain('\n');
+    }
+  });
+  it("adds no `## ` heading, so it can't shift the README's section skeleton or the parity test", () => {
+    expect(list).not.toContain('\n## ');
+  });
+});
+describe("renderCollapsibleFeatures (the README's per-group collapsible map)", () => {
+  const block = renderCollapsibleFeatures();
+  it('wraps every section in a default-collapsed <details> with its title as the summary', () => {
+    expect(block.match(/<details>/g)).toHaveLength(FEATURE_SECTIONS.length);
+    expect(block).not.toContain('<details open>');
+    for (const section of FEATURE_SECTIONS) {
+      const title = section.title.replace(/&/g, '&amp;');
+      expect(block).toContain(`<summary><strong>${title}</strong></summary>`);
+    }
+  });
+  it('restarts the ordered list at 1 inside each group, so each reads on its own', () => {
+    for (const section of FEATURE_SECTIONS) {
+      expect(block).toContain(`1. ${section.features[0]}`);
+    }
+  });
+  it('keeps the feature copy, so the signature survives for the consistency test', () => {
+    expect(block).toContain(FEATURES_SIGNATURE);
+  });
+  it("adds no `## ` heading, so it can't shift the README's section skeleton or the parity test", () => {
+    expect(block).not.toContain('\n## ');
+  });
+});
+describe('renderFeaturesRegion', () => {
+  const block = renderFeaturesRegion();
+  it('is fenced by the features markers so docs:gen can splice it back in', () => {
+    expect(block.startsWith(FEATURES_REGION_START)).toBe(true);
+    expect(block.endsWith(FEATURES_REGION_END)).toBe(true);
+  });
+  it('carries the collapsible feature groups, so the README renders them per section', () => {
+    expect(block).toContain(FEATURES_SIGNATURE);
+    expect(block).toContain(renderCollapsibleFeatures());
+  });
+});
+describe('spliceReadmeFeatures', () => {
+  const readme = [
+    '# Launch',
+    '',
+    FEATURES_REGION_START,
+    '',
+    'stale features',
+    '',
+    FEATURES_REGION_END,
+    '',
+    'Body.',
+  ].join('\n');
+  it('replaces the whole fenced Features region with the freshly rendered list', () => {
+    const spliced = Effect.runSync(spliceReadmeFeatures(readme, renderFeaturesRegion()));
+    expect(spliced).toContain(FEATURES_SIGNATURE);
+    expect(spliced).not.toContain('stale features');
+    expect(spliced.startsWith('# Launch')).toBe(true);
+    expect(spliced.endsWith('Body.')).toBe(true);
+  });
+  it('throws when the markers are missing rather than dropping the features', () => {
+    expect(() => Effect.runSync(spliceReadmeFeatures('# Launch\n\nNo markers here.', 'x'))).toThrow(
+      /features markers/,
+    );
+  });
+});
+describe('renderAgentSkillsRegion', () => {
+  const block = renderAgentSkillsRegion();
+  it('is fenced by the agent-skills markers so docs:gen can splice it back in', () => {
+    expect(block.startsWith(AGENT_SKILLS_START)).toBe(true);
+    expect(block.endsWith(AGENT_SKILLS_END)).toBe(true);
+  });
+  it('carries the shared blurb verbatim, so every README cites one source', () => {
+    expect(block).toContain(AGENT_SKILLS_BLURB);
+    expect(block).toContain(AGENT_SKILLS_SIGNATURE);
+  });
+  it('stays a heading-less callout, so it cannot shift the README section skeleton', () => {
+    expect(block).not.toContain('\n## ');
+  });
+});
+describe('spliceReadmeAgentSkills', () => {
+  const readme = [
+    '# Launch',
+    '',
+    AGENT_SKILLS_START,
+    '',
+    'stale',
+    '',
+    AGENT_SKILLS_END,
+    '',
+    'Body.',
+  ].join('\n');
+  it('replaces the whole fenced region with the freshly rendered callout', () => {
+    const spliced = Effect.runSync(spliceReadmeAgentSkills(readme, renderAgentSkillsRegion()));
+    expect(spliced).toContain(AGENT_SKILLS_SIGNATURE);
+    expect(spliced).not.toContain('stale');
+    expect(spliced.startsWith('# Launch')).toBe(true);
+    expect(spliced.endsWith('Body.')).toBe(true);
+  });
+  it('throws when the markers are missing rather than dropping the callout', () => {
+    expect(() =>
+      Effect.runSync(spliceReadmeAgentSkills('# Launch\n\nNo markers here.', 'x')),
+    ).toThrow(/agent-skills markers/);
+  });
+});
+describe('countAsyncMethods', () => {
+  it('counts public async methods and ignores private ones and bare keywords', () => {
+    const source = [
+      'class Client {',
+      '  async listApps() {}',
+      '  async getApp(id) {}',
+      '  private async refreshToken() {}',
+      '  build() { const x = async () => 1; }',
+      '}',
+    ].join('\n');
+    expect(countAsyncMethods(source)).toBe(2);
+  });
+});
+describe('countTestCases', () => {
+  it('counts it/test calls (incl. .each/.skip) and ignores describe', () => {
+    const a = [
+      'describe("x", () => {',
+      '  it("a", () => {});',
+      '  test("b", () => {});',
+      '});',
+    ].join('\n');
+    const b = ['it.each([1])("c", () => {});', 'it.skip("d", () => {});'].join('\n');
+    expect(countTestCases([a, b])).toBe(4);
+  });
+});

@@ -1,34 +1,151 @@
 # AGENTS.md
 
-Working rules for AI agents editing Launch. Usage is in [README.md](./README.md). Branch names are `feat|fix|refactor|chore|docs/<domain>/<slug>`. Do not commit to `main`.
+Working rules for AI agents and contributors editing **Launch**. This file holds only what you **can't infer** from the code and configs: module ownership, conventions a linter can't catch, and the validation gate every change must pass. Usage lives in [README.md](./README.md) (keep agent rules out of it). Branch and PR workflow lives in [BRANCHING.md](./BRANCHING.md).
 
-## Layout
+> This is the only agent instructions file. Claude Code and Codex load it natively.
+
+## Branching And PRs
+
+- **Do not commit to `main`.** Branch as `feat|fix|refactor|chore|docs/<domain>/<slug>`, open a PR, label `domain:<domain>`, keep the gate green, delete the branch after merge.
+- Domains: `foundation`, `config`, `credentials`, `build`, `apple`, `google`, `store`, `release`, `testflight`, `readiness`, `agents`, `cli`, `docs`.
+- Full rules, CODEOWNERS path map, and the optional `experiment/layered-history` lab: [BRANCHING.md](./BRANCHING.md).
+
+## Agent Skills
+
+Config the engineering skills read.
+
+- **Issue tracker:** GitHub issues on `YosefHayim/launch-store`, via the `gh` CLI.
+- **Triage labels:** the five canonical triage roles, mapped to their default label strings.
+- **Domain docs:** single-context - `CONTEXT.md` + `LANGUAGE.md` + `TECH.md` at the repo root.
+
+## Repo Layout - Who Owns What
+
+One TypeScript / Node ESM package plus its Claude Code mod. Top-level ownership:
+
+| Path | Owns |
+| --- | --- |
+| `src/cli` | Thin Commander wiring: command names, flags, help text, `runCliProgram(...)`. No domain orchestration. |
+| `src/core` | Domain programs, Effect services, config/schema, build/release/store/readiness logic, generated docs, and type homes. |
+| `src/providers` | Swappable backend implementations for build, storage, credentials, submit, and compute providers. |
+| `src/apple` | App Store Connect transport and the generated Apple API mirror. |
+| `src/google` | Google Play transport wrappers around Google's official generated clients. |
+| `src/testkit` | Shared test fakes and Effect test layers. |
+| `.claude-plugin/launch-store` | The Claude Code mod: tools and `/launch` that run `launch <command> --json`. Not in the npm package. Check it with `claude plugin validate --strict .claude-plugin/launch-store` and `claude plugin test .claude-plugin/launch-store`. |
+
+Current `src/core` layout:
 
 ```text
-src/cli.ts                 # the words you typed
-src/commands/              # one file per command
-src/config/                # launch.config.ts
-src/credentials/keychain.ts
-src/apple/app-store-connect.ts
-src/google/google-play.ts
-src/build/                 # BuildPipeline, xcodebuild, gradle
-src/plan/plan-store.ts     # desired config versus the live store
+src/core/
+ adopt/          # importing live store state into config
+ agents/         # agent skill scaffolding
+ build/          # pipeline, build flags, fingerprint, logs, diagnostics, remote/eas handoff
+ config/         # config schema/load/scaffold/semantics/project setup
+ credentials/    # accounts, secrets, keychain, signing assets
+ distribution/   # install manifests, OTA updates, storage-facing distribution helpers
+ docs/           # README and llms.txt generators, config reference renderer
+ doctor/         # doctor context/inspection
+ insights/       # review/vitals aggregation
+ listing/        # listing drafts/apply logic and screenshot asset specifications
+ mcp/            # MCP server/tools
+ migrate/        # EAS/fastlane migration helpers
+ plan/           # config-vs-store planning/drift
+ portfolio/      # every app on this machine: discover, tag, list
+ privacy/        # privacy parsing/reconciliation/nutrition labels
+ readiness/      # store readiness/probes/preflight
+ release/        # release, rollout, TestFlight/public release
+ releaseTrain/   # release-train records/guards/orchestration
+ services/       # Launch-owned Effect service contracts + Live/Test layers
+   platform/       # the machine: os, paths, exec, logger, prompt, progress
+   stores/         # live Apple and Google clients, the only door to src/apple and src/google
+   credentials/    # keychain and local credential stores
+   providerSupport/ # the provider registry and the support code providers plug into
+ snapshot/       # live store snapshot/diff/source capture
+ stats/          # download and sales stats feeds and their local store
+ store/          # store sync, catalog/product/offers/pricing/reviews/reports across stores
+   apple/          # App Store Connect programs
+   google/         # Google Play programs
+   shared/         # sync, reconcile, store config and app selection used by both
+ terminal/       # CLI presentation helpers, glossary, completion
+ types/          # exported domain shapes imported from owning modules
 ```
 
-A command reads the flags and calls one method. `AppStoreConnect` and `GooglePlay` hold the key and make the HTTP calls. `Keychain`, `BuildPipeline`, and those two classes are the classes. A command or a pure step stays a function.
+Do not create flat `src/core/*.ts` files. Pick the purpose folder that owns the job.
 
-Add a store action by adding one method, then one command that calls it. Do not add it before a person runs that command.
+`src/cli/commands/` follows the same jobs: `setup/`, `build/`, `credentials/`, `release/`, `store/` (with `apple/` and `google/`), `listing/`, `readiness/`, `insights/`, `agents/`, `terminal/`.
 
-Same-folder imports stay `./file.js`. Anything else is `@/`.
+## Conventions A Linter Can't Infer
 
-## Secrets
+### Source Of Truth Files
 
-The Apple key and the Play service account live in the OS keychain under the service name `launch`. Do not write them into the repo or into `~/.launch`. Do not log them.
+- Product direction: [PROJECT.md](./PROJECT.md).
+- Architecture orientation: [CONTEXT.md](./CONTEXT.md).
+- Domain language: [LANGUAGE.md](./LANGUAGE.md) and runtime teaching text in `src/core/terminal/glossary.ts`.
+- Technical ecosystem language: [TECH.md](./TECH.md).
+- Config schema: Effect Schema in `src/core/config/`; zod is migration debt.
 
-## Checks
+### Imports Follow Ownership
+
+```text
+src/cli       -> src/core only; src/cli/index.ts may compose provider live layers
+src/providers -> src/core/types + src/core/services only, plus vendor SDKs
+src/core      -> src/apple and src/google only from live adapters under src/core/services/stores
+src/apple     -> src/core/types only, never src/core logic
+src/google    -> src/core/types only, never src/core logic
+```
+
+### Types And Public Exports
+
+`src/index.ts` is the package's only passive barrel. Internal modules import domain shapes directly from their owning files under `src/core/types/`. Apple generated shapes stay under `src/apple/generated/`; Google generated shapes stay inside the official Google client packages and their adapters.
+
+The service interfaces in `src/core/types/` ripple through every provider and the pipeline. Plan a change to them before writing code.
+
+### Providers
+
+Adding a backend means implementing one of the five provider roles as Effect-returning methods and registering it through the ProviderRegistry live layer. Do not edit the pipeline to add a backend. Heavy SDKs stay lazy inside live layers or optional dependency helpers.
+
+### Secrets
+
+Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys, service-account JSON, and passwords live in the OS keychain/secret store or environment. Do not log, write, or commit secrets.
+
+### Rules Digest
+
+- **Effect everywhere in production.** Exported behavior returns `Effect`; pure logic -> `Effect.sync`, I/O -> `Effect.gen`.
+- **Tagged failure values.** Expected failures are readonly tagged data in the Effect channel; no raw production throws or error classes.
+- **Official platform services.** Use Effect FileSystem, Path, CommandExecutor, and Terminal; Launch services own domain policy only.
+- **Services, not classes.** Use readonly service types with `Context.GenericTag` and `Layer`; tests provide hand `*Test` layers.
+- **Prompting and I/O behind services.** No direct `@clack/prompts`, `fetch`, `fs`, `spawn`, `console.*`, or `process.env` outside live layers/entrypoints/tests/scripts.
+- **CLI is thin.** Commander files parse names/flags and call a core Effect program; both interactive and non-interactive paths share that program.
+- **Non-TTY never hangs.** Prompts require TTY or explicit flags/`--yes`; `--json` emits machine-clean output.
+- **Effect Schema is config SSOT.** zod is temporary migration debt.
+- **Purpose-grouped core.** New code goes under `src/core/<job>/`; no new flat-core files.
+- **One public barrel.** `src/index.ts` is the package entrypoint; internal code imports owning modules directly.
+- **Prose naming.** Generic bindings such as `data`, `result`, and `value` are banned; `build` is reserved for the real build domain.
+- **Comments explain hidden intent.** No narrated headers, change history, caller lists, or TSDoc that restates types.
+- **Explicit control flow.** No ternary, `??`, or `||`; use guards, exhaustive switches, and named lookups.
+- **Arrow module functions.** Authored module functions are const arrows declared before first use.
+- **ASCII output.** Effect logging uses `[RUN]`, `[OK]`, `[WARN]`, `[ERROR]`, and `[SKIP]`; JSON stays machine-clean.
+- **Tests are colocated.** Vitest, no snapshots, hand fakes, Effect `*Test` layers, shared testkit in `src/testkit/`.
+
+## Style Is Enforced, Not Re-Explained
+
+Formatting and generic TypeScript rules live in `tsconfig.json`, `biome.json`, and the Husky hook. The authored tree is enforced globally with generated artifacts excluded.
+
+## Before You Call A Change Done
 
 ```bash
 pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build
 ```
 
-`pnpm check` runs those through Turborepo. A new worktree needs its own `pnpm install`.
+All five must be green. Add or update colocated tests for any new behavior.
+(`npm run <script>` still works once dependencies are installed with **pnpm**; do not use `npm install` - this repo is `packageManager: pnpm@10` and only has `pnpm-lock.yaml`.)
+
+## Local CI
+
+CI runs on `pull_request`, on `push` to main (markdown-only pushes skip it) and on `workflow_dispatch`.
+The Husky pre-push hook runs `pnpm check` (lint, typecheck, docs sync check, test, build through Turborepo); lint, style, typecheck and the docs sync check do not run in CI. A new worktree needs `pnpm install` before its first push.
+The `changes` job in `ci.yml` (`dorny/paths-filter`, `token: ''`) decides what runs:
+
+- Docs-only changes skip every job, and `CI Gate` still passes.
+- Test (`vitest run --changed`) checks only the changed files; build and the CLI smoke test run in full when code changes. E2E runs when `src/` or `package.json` change.
+- A change to the lockfile, workspace file, `biome.json`, `tsconfig*.json`, `*.config.ts` or `.github/**`, and a manual run, run everything in full with coverage. A `package.json` change alone does not.
+- `CI Gate` fails only when a job failed or was cancelled.

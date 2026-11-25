@@ -7,7 +7,12 @@
     "baseUrl": ".",
     "types": ["node"],
     "paths": {
-      "@/*": ["src/*"]
+      "@apple/*": ["src/apple/*"],
+      "@cli/*": ["src/cli/*"],
+      "@core/*": ["src/core/*"],
+      "@google/*": ["src/google/*"],
+      "@providers/*": ["src/providers/*"],
+      "@testkit/*": ["src/testkit/*"]
     },
     "outDir": "dist",
     "rootDir": "src",

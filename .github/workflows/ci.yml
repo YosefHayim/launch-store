@@ -75,9 +75,9 @@ jobs:
       - run: pnpm build
       - name: Smoke-test the built CLI
         run: |
-          node dist/cli.js --version
-          node dist/cli.js --help
-          node dist/cli.js help
+          node dist/cli/index.js --version
+          node dist/cli/index.js --help
+          node dist/cli/index.js explain csr
       - name: Run E2E tests
         if: needs.changes.outputs.cli == 'true'
         run: pnpm test:e2e
