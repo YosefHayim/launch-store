@@ -377,6 +377,9 @@ export function signAppleToken(key: AppleKey): string {
   );
   const tokenPrefix = `${header}.${payload}`;
   const signer = createSign('SHA256');
+
+  // Apple requires this ES256 signature. The keychain item is the signing key, not a password hash.
+  // codeql[js/insufficient-password-hash]
   signer.update(tokenPrefix);
   signer.end();
   const signature = signer.sign({ key: key.privateKey, dsaEncoding: 'ieee-p1363' });
