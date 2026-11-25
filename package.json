@@ -42,7 +42,7 @@
     }
   },
   "bin": {
-    "launch": "dist/cli/index.js"
+    "launch": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -52,11 +52,9 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && chmod +x dist/cli/index.js",
-    "dev": "tsx src/cli/index.ts",
-    "gen:asc": "tsx scripts/dev/generate-apple-types.ts",
-    "docs:gen": "tsx scripts/dev/generate-docs.ts",
-    "docs:check": "tsx scripts/dev/generate-docs.ts --check",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && chmod +x dist/cli.js",
+    "dev": "tsx src/cli.ts",
+    "docs:check": "node scripts/check-readme.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "biome check . && knip",
     "lint:fix": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true .",
@@ -65,23 +63,13 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "launch": "tsx src/cli/index.ts",
+    "launch": "tsx src/cli.ts",
     "check": "turbo run lint typecheck docs:check test build --output-logs=errors-only",
     "prepare": "husky",
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
-    "@clack/prompts": "^1.8.1",
-    "@effect/platform": "^0.96.3",
-    "@effect/platform-node": "0.107.0",
-    "@googleapis/androidpublisher": "^42.2.0",
-    "@googleapis/playdeveloperreporting": "^15.0.1",
-    "commander": "^12.1.0",
-    "csv-parse": "7.0.2",
-    "effect": "^3.22.3",
-    "fflate": "0.8.3",
-    "jiti": "^2.7.0",
-    "jose": "^5.10.0"
+    "@googleapis/androidpublisher": "^42.2.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
@@ -89,20 +77,13 @@
     "@vitest/coverage-v8": "^4.1.12",
     "husky": "^9.1.7",
     "knip": "6.43.0",
-    "openapi-typescript": "^7.13.0",
     "tsc-alias": "^1.9.8",
     "tsx": "^4.23.15",
     "turbo": "2.11.8",
     "typescript": "^5.9.3",
-    "vite": "^8.3.5",
-    "vitest": "^4.1.12",
-    "zod": "^4.6.7"
+    "vitest": "^4.1.12"
   },
   "optionalDependencies": {
-    "@aws-sdk/client-ec2": "^3.1153.0",
-    "@aws-sdk/client-s3": "^3.1153.0",
-    "@aws-sdk/credential-providers": "^3.1153.0",
-    "@modelcontextprotocol/sdk": "^1.32.1",
     "@napi-rs/keyring": "^1.3.0"
   },
   "packageManager": "pnpm@10.33.2"
