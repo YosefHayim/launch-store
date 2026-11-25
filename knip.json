@@ -1,5 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/**/*.test.ts", "src/**/*.e2e.ts"],
-  "project": ["src/**/*.ts"]
+  "entry": [
+    "scripts/dev/*.ts",
+    "src/**/*.e2e.ts",
+    "src/**/*.testkit.ts",
+    ".claude-plugin/launch-store/hooks/register.ts",
+    ".claude-plugin/launch-store/tests/*.test.ts"
+  ],
+  "project": ["src/**/*.ts", "scripts/**/*.ts", ".claude-plugin/**/*.ts"],
+  "ignoreDependencies": ["claude-code"],
+  "ignoreBinaries": ["keytool"]
 }
