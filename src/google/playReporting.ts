@@ -107,7 +107,8 @@ export type PlayReportingApiError = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makePlayReportingApiError = Data.tagged<PlayReportingApiError>('PlayReportingApiError');
+export const makePlayReportingApiError =
+  Data.tagged<PlayReportingApiError>('PlayReportingApiError');
 const PLAY_APPS_PAGE_SIZE = 1000;
 export type PlayReportingApp = Readonly<{ packageName: string; displayName: string }>;
 const createAppsSearchRequest = (

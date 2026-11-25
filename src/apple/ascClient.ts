@@ -860,6 +860,37 @@ export class AppStoreConnectClient {
       return requestWithBackoff();
     }
   }
+  /**
+   * JSON call for {@link AppStoreConnectApi}. `pathOrUrl` may be absolute. A 204 comes back undefined.
+   */
+  async sendJson<Document>(
+    method: string,
+    pathOrUrl: string,
+    requestDocument?: unknown,
+  ): Promise<Document> {
+    return this.request<Document>(method, pathOrUrl, requestDocument);
+  }
+  /** Text call for CSV App Store Connect responses. */
+  async sendText(method: string, pathOrUrl: string, accept: string): Promise<string> {
+    const bytes = await this.sendBytes(method, pathOrUrl, accept);
+    return bytes.toString('utf8');
+  }
+  /** Byte call for gzip and other non-JSON App Store Connect responses. */
+  async sendBytes(method: string, pathOrUrl: string, accept: string): Promise<Buffer> {
+    let isRetryableFailure = isRetryableAscError;
+    if (method === 'GET') isRetryableFailure = isRetryableIdempotentFailure;
+    const readWithBackoff = () =>
+      retryAppleTransportRequest(() => this.readBytes(method, pathOrUrl, accept), {
+        isRetryableFailure,
+      });
+    try {
+      return await readWithBackoff();
+    } catch (requestFailure) {
+      if (!isRejectedToken(requestFailure)) throw requestFailure;
+      forgetToken(this.key);
+      return readWithBackoff();
+    }
+  }
   /** A single (un-retried) authenticated request - the retry wrapper lives in {@link request}. */
   private async requestOnce<T>(
     method: string,
@@ -3945,25 +3976,23 @@ export class AppStoreConnectClient {
    * on a 4xx instead of a bare status, so the command can show an actionable message.
    */
   private async getReportBytes(pathOrUrl: string): Promise<Buffer> {
-    return retryAppleTransportRequest(() => this.getReportBytesOnce(pathOrUrl), {
-      isRetryableFailure: isRetryableIdempotentFailure,
-    });
+    return this.sendBytes('GET', pathOrUrl, 'application/a-gzip');
   }
-  /** A single (un-retried) gzipped-report fetch - the retry wrapper lives in {@link getReportBytes}. */
-  private async getReportBytesOnce(pathOrUrl: string): Promise<Buffer> {
+  /** A single authenticated byte fetch. JSON errors still parse because `application/json` stays accepted. */
+  private async readBytes(method: string, pathOrUrl: string, accept: string): Promise<Buffer> {
     let url = pathOrUrl;
     if (!pathOrUrl.startsWith('http')) url = `${BASE_URL}${pathOrUrl}`;
     const appleResponse = await fetch(url, {
-      method: 'GET',
+      method,
       headers: {
         Authorization: `Bearer ${await this.token()}`,
-        Accept: 'application/a-gzip, application/json',
+        Accept: `${accept}, application/json`,
       },
     });
     if (!appleResponse.ok) {
       const text = await appleResponse.text();
       throw new AscRequestError(
-        `App Store Connect GET ${pathOrUrl} failed (${appleResponse.status}): ${describeErrors(text)}`,
+        `App Store Connect ${method} ${pathOrUrl} failed (${appleResponse.status}): ${describeErrors(text)}`,
         appleResponse.status,
         parseErrorCodes(text),
       );

@@ -51,7 +51,7 @@ export type GooglePlayApiError = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-const makeGooglePlayApiError = Data.tagged<GooglePlayApiError>('GooglePlayApiError');
+export const makeGooglePlayApiError = Data.tagged<GooglePlayApiError>('GooglePlayApiError');
 /** Raised when a package has no Play app record or the service account cannot reach it. */
 export type PlayAppNotFoundError = Readonly<{
   readonly _tag: 'PlayAppNotFoundError';
@@ -70,7 +70,7 @@ const makeServiceAccountParseError = Data.tagged<ServiceAccountParseError>(
   'ServiceAccountParseError',
 );
 /** Read the numeric status exposed by a generated-client failure, when present. */
-const googleFailureStatus = (cause: unknown): number | undefined => {
+export const googleFailureStatus = (cause: unknown): number | undefined => {
   if (typeof cause !== 'object') return;
   if (cause === null) return;
   if (!('status' in cause)) return;
@@ -78,7 +78,7 @@ const googleFailureStatus = (cause: unknown): number | undefined => {
   return cause.status;
 };
 /** Turn a generated-client failure into the actionable text Launch already exposes. */
-const googleFailureMessage = (cause: unknown): string => {
+export const googleFailureMessage = (cause: unknown): string => {
   if (cause instanceof Error) return describePlayErrors(cause.message);
   return describePlayErrors(String(cause));
 };

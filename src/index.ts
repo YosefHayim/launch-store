@@ -35,3 +35,6 @@ export type {
   WalletConfig,
   WalletIdConfig,
 } from './core/types/storeSurface.js';
+export { AppStoreConnectApi } from './apple/appStoreConnectApi.js';
+export { GooglePlayApi } from './google/playApi.js';
+export { PlayReportingApi } from './google/playReportingApi.js';
