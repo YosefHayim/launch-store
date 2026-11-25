@@ -361,6 +361,91 @@ export class AppStoreConnect {
 
     return parseAppleDocument(replyText);
   }
+
+  /**
+   * JSON call for AppStoreConnectApi. An absolute URL is sent as given. A 204 comes back empty.
+   */
+  async sendJson<Document>(
+    method: string,
+    pathOrUrl: string,
+    document?: unknown,
+  ): Promise<Document> {
+    const appleDocument = await this.request(method, pathOrUrl, document);
+
+    return appleDocument as Document;
+  }
+
+  /** Text call for a CSV App Store Connect response. */
+  async sendText(method: string, pathOrUrl: string, accept: string): Promise<string> {
+    const bytes = await this.sendBytes(method, pathOrUrl, accept);
+
+    return bytes.toString('utf8');
+  }
+
+  /** Byte call for a gzip App Store Connect response. */
+  async sendBytes(method: string, pathOrUrl: string, accept: string): Promise<Buffer> {
+    try {
+      return await this.readBytes(method, pathOrUrl, accept);
+    } catch (error) {
+      const isGet = method === 'GET';
+
+      if (!isGet) {
+        throw error;
+      }
+
+      const isAppleError = error instanceof AppleRequestError;
+
+      if (!isAppleError) {
+        throw error;
+      }
+
+      const shouldRetry = isTransientStatus(error.status);
+
+      if (!shouldRetry) {
+        throw error;
+      }
+
+      const retryDelayMilliseconds = 1000;
+      await delay(retryDelayMilliseconds);
+
+      return this.readBytes(method, pathOrUrl, accept);
+    }
+  }
+
+  private async readBytes(method: string, pathOrUrl: string, accept: string): Promise<Buffer> {
+    const isAbsolute = pathOrUrl.startsWith('http');
+    let url = `${APPLE_API}${pathOrUrl}`;
+
+    if (isAbsolute) {
+      url = pathOrUrl;
+    }
+
+    var appleReply: Response;
+
+    try {
+      appleReply = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${signAppleToken(this.key)}`,
+          Accept: `${accept}, application/json`,
+        },
+      });
+    } catch (error) {
+      throw new Error(`App Store Connect ${method} ${pathOrUrl} failed.`, { cause: error });
+    }
+
+    const isOk = appleReply.ok;
+
+    if (!isOk) {
+      const replyText = await appleReply.text();
+      throw new AppleRequestError(
+        appleFailure(method, pathOrUrl, appleReply.status, replyText),
+        appleReply.status,
+      );
+    }
+
+    return Buffer.from(await appleReply.arrayBuffer());
+  }
 }
 
 export function signAppleToken(key: AppleKey): string {

@@ -11,6 +11,9 @@ importers:
       '@googleapis/androidpublisher':
         specifier: ^42.2.0
         version: 42.2.0
+      '@googleapis/playdeveloperreporting':
+        specifier: ^15.0.2
+        version: 15.0.2
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.5.15
@@ -275,6 +278,10 @@ packages:
 
   '@googleapis/androidpublisher@42.2.0':
     resolution: {integrity: sha512-bwz5tntlt86hzLRHRMUeKDG34zV2bisZQ+581SOOrBTRu1v1ZM6Ta4bkOQrjym5rCFvTxPjy4ICDoGO8tzitDw==}
+    engines: {node: '>=22.0.0'}
+
+  '@googleapis/playdeveloperreporting@15.0.2':
+    resolution: {integrity: sha512-BU1UT8S2Z2JyQiGXa/SLJDLZjr4ETEZKTu9N5UrN7w/ius0IANfzcPNYyWMBLpVv/xXKGjTld0TGKbt4VUec7A==}
     engines: {node: '>=22.0.0'}
 
   '@jridgewell/resolve-uri@3.1.2':
@@ -1221,6 +1228,12 @@ snapshots:
     optional: true
 
   '@googleapis/androidpublisher@42.2.0':
+    dependencies:
+      googleapis-common: 9.3.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@googleapis/playdeveloperreporting@15.0.2':
     dependencies:
       googleapis-common: 9.3.1
     transitivePeerDependencies:

@@ -64,12 +64,14 @@
     "test:coverage": "vitest run --coverage --project unit",
     "test:e2e": "vitest run --project e2e",
     "launch": "tsx src/cli.ts",
+    "gen:api": "python3 scripts/generate-api-methods.py",
     "check": "pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build",
     "prepare": "husky",
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
-    "@googleapis/androidpublisher": "^42.2.0"
+    "@googleapis/androidpublisher": "^42.2.0",
+    "@googleapis/playdeveloperreporting": "^15.0.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
