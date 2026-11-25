@@ -6,7 +6,7 @@ import {
   loadServiceAccount,
 } from '../../credentials/android-keystore-assets.ts';
 import { errorMessage } from '../../services/platform/error-message.ts';
-import type { AppStoreConnect } from '../../apple/app-store-connect.ts';
+import type { AppStoreConnectClient } from '../../apple/app-store-connect-client.ts';
 import type { GooglePlayClient } from '../../google/play-client.ts';
 import { AppleStoreClientService } from '../../services/stores/apple-store-client.ts';
 import { GoogleStoreClientService } from '../../services/stores/google-store-client.ts';
@@ -235,7 +235,7 @@ async function requirePlayServiceAccount(packageName: string, appName: string): 
   throw new Error(missingMessage, { cause: 'missing-service-account' });
 }
 
-async function createAppleClient(): Promise<AppStoreConnect> {
+async function createAppleClient(): Promise<AppStoreConnectClient> {
   const ascKey = await requireActiveAscKey();
 
   return new AppleStoreClientService().createClient(ascKey);
@@ -259,7 +259,7 @@ async function createPlayClient(packageName: string, appName: string): Promise<G
   }
 }
 
-async function requireAppId(ascClient: AppStoreConnect, bundleId: string): Promise<string> {
+async function requireAppId(ascClient: AppStoreConnectClient, bundleId: string): Promise<string> {
   try {
     var appId = await ascClient.getAppId(bundleId);
   } catch (cause) {

@@ -2,7 +2,7 @@
 
 import { errorMessage } from '../services/platform/error-message.ts';
 import { loadConfig } from '../config/config.ts';
-import type { AppStoreConnect } from './app-store-connect.ts';
+import type { AppStoreConnectClient } from './app-store-connect-client.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import { LaunchPrompt } from '../services/platform/prompt.ts';
 import { checkTerminalIsInteractive } from '../services/platform/progress.ts';
@@ -173,7 +173,7 @@ async function readOffersJobs(appSelector: string | undefined): Promise<OffersJo
 
 /** Reconcile one app while keeping its failure isolated from concurrent jobs. */
 async function reconcileOffersJob(
-  appleStore: AppStoreConnect,
+  appleStore: AppStoreConnectClient,
   offersJob: OffersJob,
   dryRun: boolean,
 ): Promise<OffersJobOutcome> {

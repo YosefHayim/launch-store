@@ -1,7 +1,7 @@
 // Finds the App Store Connect subscription and offer-code campaign an offer action needs.
 
 import { loadConfig } from '../config/config.ts';
-import type { AppStoreConnect } from './app-store-connect.ts';
+import type { AppStoreConnectClient } from './app-store-connect-client.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { readLaunchDirectories } from '../services/platform/paths.ts';
 import type { AppDescriptor } from '../types/app.ts';
@@ -9,7 +9,7 @@ import type { OfferCodeResource } from '../types/apple/subscriptions.ts';
 import { loadActiveAppleStore } from './apple-store-command.ts';
 
 type ChosenSubscription = Readonly<{
-  readonly appleStore: AppStoreConnect;
+  readonly appleStore: AppStoreConnectClient;
   readonly appName: string;
   readonly subscriptionId: string;
 }>;

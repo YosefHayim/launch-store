@@ -1,12 +1,12 @@
 // Opens an App Store Connect client for the active saved account.
 
-import type { AppStoreConnect } from './app-store-connect.ts';
+import type { AppStoreConnectClient } from './app-store-connect-client.ts';
 import { loadActiveAscKey } from '../credentials/accounts.ts';
 import { errorMessage } from '../services/platform/error-message.ts';
 import { AppleStoreClientService } from '../services/stores/apple-store-client.ts';
 
 /** Load the active keychain-backed Apple account and create its transport client. */
-export async function loadActiveAppleStore(): Promise<AppStoreConnect> {
+export async function loadActiveAppleStore(): Promise<AppStoreConnectClient> {
   try {
     var ascKey = await loadActiveAscKey();
   } catch (cause) {

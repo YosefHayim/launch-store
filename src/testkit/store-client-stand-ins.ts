@@ -1,5 +1,5 @@
 import type { PlayReportingApp, PlayReportingClient } from '../google/play-reporting.ts';
-import type { AppStoreConnect } from '../apple/app-store-connect.ts';
+import type { AppStoreConnectClient } from '../apple/app-store-connect-client.ts';
 
 interface FakeAscApp {
   readonly id: string;
@@ -7,7 +7,9 @@ interface FakeAscApp {
   readonly bundleId: string | null;
 }
 
-export function makeFakeAscClient(appsOrFailure: readonly FakeAscApp[] | Error): AppStoreConnect {
+export function makeFakeAscClient(
+  appsOrFailure: readonly FakeAscApp[] | Error,
+): AppStoreConnectClient {
   async function listApps(): Promise<FakeAscApp[]> {
     if (appsOrFailure instanceof Error) {
       throw appsOrFailure;
@@ -17,7 +19,7 @@ export function makeFakeAscClient(appsOrFailure: readonly FakeAscApp[] | Error):
   }
 
   // Only listApps is exercised; the rest of the client is unused by these tests.
-  return { listApps } as unknown as AppStoreConnect;
+  return { listApps } as unknown as AppStoreConnectClient;
 }
 
 export function makeFakePlayReportingClient(
