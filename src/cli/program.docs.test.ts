@@ -2,7 +2,11 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { countAsyncMethods, countTestCases } from '../core/docs/commandDocs/common.js';
+import {
+  APP_STORE_CONNECT_TRANSPORT_METHODS,
+  countAsyncMethods,
+  countTestCases,
+} from '../core/docs/commandDocs/common.js';
 import {
   AGENT_SKILLS_SIGNATURE,
   CANONICAL_SENTENCE,
@@ -88,7 +92,7 @@ describe('Genshot is discoverable from every primary documentation surface', () 
 describe('the README live-stats badges track the real codebase (gated alongside docs:check)', () => {
   it("shows the actual store-API operation and test counts, so they can't silently drift", () => {
     const operations =
-      countAsyncMethods(read('src/apple/ascClient.ts')) +
+      countAsyncMethods(read('src/apple/ascClient.ts'), APP_STORE_CONNECT_TRANSPORT_METHODS) +
       countAsyncMethods(read('src/google/playClient.ts'));
     const tests = countTestCases(
       readdirSync(join(ROOT, 'src'), { recursive: true, encoding: 'utf8' })

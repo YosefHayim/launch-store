@@ -325,6 +325,10 @@ describe('countAsyncMethods', () => {
     ].join('\n');
     expect(countAsyncMethods(source)).toBe(2);
   });
+  it('skips named transport helpers', () => {
+    const source = ['  async listApps() {}', '  async sendJson() {}'].join('\n');
+    expect(countAsyncMethods(source, ['sendJson'])).toBe(1);
+  });
 });
 describe('countTestCases', () => {
   it('counts it/test calls (incl. .each/.skip) and ignores describe', () => {

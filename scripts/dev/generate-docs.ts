@@ -7,7 +7,11 @@ import { Effect, JSONSchema, Schema } from 'effect';
 import { buildProgram } from '@cli/program.ts';
 import { renderContributorSkills } from '@core/agents/render.ts';
 import { LaunchConfigEffectSchema } from '@core/config/schema.ts';
-import { countAsyncMethods, countTestCases } from '@core/docs/commandDocs/common.ts';
+import {
+  APP_STORE_CONNECT_TRANSPORT_METHODS,
+  countAsyncMethods,
+  countTestCases,
+} from '@core/docs/commandDocs/common.ts';
 import { renderLlmsFullTxt, renderLlmsTxt } from '@core/docs/commandDocs/llmsTxt.ts';
 import {
   renderAgentSkillsRegion,
@@ -55,8 +59,10 @@ const readTestSources = (): string[] => {
 };
 const computeStats = (commands: CommandSpec[]): DocStats => {
   const operations =
-    countAsyncMethods(readFileSync(join(ROOT, 'src/apple/ascClient.ts'), 'utf8')) +
-    countAsyncMethods(readFileSync(join(ROOT, 'src/google/playClient.ts'), 'utf8'));
+    countAsyncMethods(
+      readFileSync(join(ROOT, 'src/apple/ascClient.ts'), 'utf8'),
+      APP_STORE_CONNECT_TRANSPORT_METHODS,
+    ) + countAsyncMethods(readFileSync(join(ROOT, 'src/google/playClient.ts'), 'utf8'));
   return { commands: commands.length, operations, tests: countTestCases(readTestSources()) };
 };
 // Effect emits `$defs`; Launch publishes the equivalent draft-07 `definitions` spelling.
