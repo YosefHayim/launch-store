@@ -31,4 +31,4 @@ The Apple key and the Play service account live in the OS keychain under the ser
 pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build
 ```
 
-`pnpm check` runs those through Turborepo. A new worktree needs its own `pnpm install`.
+`pnpm check` runs those in that order. A new worktree needs its own `pnpm install`.

@@ -56,15 +56,15 @@
     "dev": "tsx src/cli.ts",
     "docs:check": "node scripts/check-readme.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "biome check . && knip",
+    "lint": "biome check .",
     "lint:fix": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true .",
     "format": "biome format --write .",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "test:coverage": "vitest run --coverage --project unit",
+    "test:e2e": "vitest run --project e2e",
     "launch": "tsx src/cli.ts",
-    "check": "turbo run lint typecheck docs:check test build --output-logs=errors-only",
+    "check": "pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build",
     "prepare": "husky",
     "prepublishOnly": "pnpm build"
   },
@@ -76,15 +76,10 @@
     "@types/node": "^20.19.43",
     "@vitest/coverage-v8": "^4.1.12",
     "husky": "^9.1.7",
-    "knip": "6.43.0",
     "tsc-alias": "^1.9.8",
     "tsx": "^4.23.15",
-    "turbo": "2.11.8",
     "typescript": "^5.9.3",
     "vitest": "^4.1.12"
-  },
-  "optionalDependencies": {
-    "@napi-rs/keyring": "^1.3.0"
   },
   "packageManager": "pnpm@10.33.2"
 }

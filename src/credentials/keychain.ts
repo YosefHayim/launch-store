@@ -1,4 +1,7 @@
-// Saves the Apple key and the Play service account in the OS keychain.
+// Saves the Apple key and the Play service account in the macOS keychain.
+// Node has no keychain API. `security -w` is the platform command; the secret
+// is base64 for that one call so a newline still round-trips. Other processes
+// can see the command line while `security` runs.
 
 import { spawnSync } from 'node:child_process';
 
@@ -9,7 +12,7 @@ const macosItemNotFoundExitCode = 44;
 
 export class Keychain {
   async readApple(): Promise<AppleKey> {
-    const secretText = await this.readSecret('apple');
+    const secretText = readKeychainItem('apple');
     const isMissing = secretText == null;
 
     if (isMissing) {
@@ -20,11 +23,11 @@ export class Keychain {
   }
 
   async saveApple(key: AppleKey): Promise<void> {
-    await this.saveSecret('apple', JSON.stringify(key));
+    writeKeychainItem('apple', JSON.stringify(key));
   }
 
   async readGoogle(packageName: string): Promise<string> {
-    const secretText = await this.readSecret(`google:${packageName}`);
+    const secretText = readKeychainItem(`google:${packageName}`);
     const isMissing = secretText == null;
 
     if (isMissing) {
@@ -35,49 +38,7 @@ export class Keychain {
   }
 
   async saveGoogle(packageName: string, serviceAccountJson: string): Promise<void> {
-    await this.saveSecret(`google:${packageName}`, serviceAccountJson);
-  }
-
-  private async readSecret(account: string): Promise<string | null> {
-    const { Entry } = await loadKeyring();
-
-    var password: string | null;
-
-    try {
-      password = new Entry(KEYCHAIN_SERVICE, account).getPassword();
-    } catch (error) {
-      const isDenied = isKeychainDenied(account);
-
-      if (isDenied) {
-        throw new Error(`Could not read ${account} from the keychain.`, { cause: error });
-      }
-
-      return null;
-    }
-
-    const isMissing = password == null;
-
-    if (isMissing) {
-      const isDenied = isKeychainDenied(account);
-
-      if (isDenied) {
-        throw new Error(`Could not read ${account} from the keychain.`);
-      }
-
-      return null;
-    }
-
-    return password;
-  }
-
-  private async saveSecret(account: string, secretText: string): Promise<void> {
-    const { Entry } = await loadKeyring();
-
-    try {
-      new Entry(KEYCHAIN_SERVICE, account).setPassword(secretText);
-    } catch (error) {
-      throw new Error(`Could not save ${account} in the keychain.`, { cause: error });
-    }
+    writeKeychainItem(`google:${packageName}`, serviceAccountJson);
   }
 }
 
@@ -128,35 +89,83 @@ function readKeyField(record: Record<string, unknown>, fieldName: string): strin
   return field;
 }
 
-async function loadKeyring(): Promise<typeof import('@napi-rs/keyring')> {
-  var keyring: typeof import('@napi-rs/keyring');
-
-  try {
-    keyring = await import('@napi-rs/keyring');
-  } catch (error) {
-    throw new Error('Install the keychain module: pnpm add @napi-rs/keyring', { cause: error });
-  }
-
-  return keyring;
-}
-
-function isKeychainDenied(account: string): boolean {
-  const isMac = process.platform === 'darwin';
-
-  if (!isMac) {
-    return false;
-  }
-
-  const security = spawnSync(
-    'security',
-    ['find-generic-password', '-s', KEYCHAIN_SERVICE, '-a', account],
-    { encoding: 'utf8' },
-  );
+function readKeychainItem(account: string): string | null {
+  const security = runSecurity([
+    'find-generic-password',
+    '-s',
+    KEYCHAIN_SERVICE,
+    '-a',
+    account,
+    '-w',
+  ]);
   const isMissing = security.status === macosItemNotFoundExitCode;
 
   if (isMissing) {
-    return false;
+    return null;
   }
 
-  return true;
+  const isFailed = security.status !== 0;
+
+  if (isFailed) {
+    throw new Error(`Could not read ${account} from the keychain.`, { cause: security.cause });
+  }
+
+  return readStoredSecret(security.stdout);
+}
+
+function writeKeychainItem(account: string, secretText: string): void {
+  const stored = Buffer.from(secretText, 'utf8').toString('base64');
+  const security = runSecurity([
+    'add-generic-password',
+    '-s',
+    KEYCHAIN_SERVICE,
+    '-a',
+    account,
+    '-w',
+    stored,
+    '-U',
+  ]);
+  const isFailed = security.status !== 0;
+
+  if (isFailed) {
+    throw new Error(`Could not save ${account} in the keychain.`, { cause: security.cause });
+  }
+}
+
+function runSecurity(args: string[]): { status: number | null; stdout: string; cause: unknown } {
+  const isNotMac = process.platform !== 'darwin';
+
+  if (isNotMac) {
+    throw new Error('The keychain needs macOS.');
+  }
+
+  const security = spawnSync('security', args, { encoding: 'utf8' });
+  const spawnError = security.error;
+
+  if (spawnError != null) {
+    return { status: security.status, stdout: '', cause: spawnError };
+  }
+
+  return { status: security.status, stdout: security.stdout, cause: security.stderr };
+}
+
+export function readStoredSecret(printed: string): string {
+  const hasTrailingLine = printed.endsWith('\n');
+
+  if (hasTrailingLine) {
+    return readSecretText(printed.slice(0, -1));
+  }
+
+  return readSecretText(printed);
+}
+
+function readSecretText(stored: string): string {
+  // Items saved by the old keychain addon are the secret text. New items are base64.
+  const isLegacySecret = stored.startsWith('{');
+
+  if (isLegacySecret) {
+    return stored;
+  }
+
+  return Buffer.from(stored, 'base64').toString('utf8');
 }

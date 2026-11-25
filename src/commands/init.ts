@@ -3,13 +3,13 @@
 import { access, writeFile } from 'node:fs/promises';
 
 import { printLaunchFile, type LaunchFile } from '@/config/launch-file.js';
-import { UsageError } from '@/usage-error.js';
+import { createUsageError } from '@/cli.js';
 
 export async function runInit(argv: string[]): Promise<void> {
   const hasExtraWords = argv.length !== 0;
 
   if (hasExtraWords) {
-    throw new UsageError('launch init');
+    throw createUsageError('launch init');
   }
 
   const launchFilePath = 'launch.config.ts';

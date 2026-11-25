@@ -59,7 +59,7 @@ jobs:
         if: needs.changes.outputs.since != ''
         env:
           SINCE: ${{ needs.changes.outputs.since }}
-        run: pnpm exec vitest run --changed "$SINCE"
+        run: pnpm exec vitest run --project unit --changed "$SINCE"
       - name: Test (with coverage)
         if: needs.changes.outputs.since == ''
         run: pnpm test:coverage | tee coverage.txt

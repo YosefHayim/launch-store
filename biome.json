@@ -89,7 +89,7 @@
   },
   "overrides": [
     {
-      "includes": ["**/*.config.ts", "launch.config.example.ts", "examples/hello-world/App.tsx"],
+      "includes": ["**/*.config.ts"],
       "linter": { "rules": { "style": { "noDefaultExport": "off" } } }
     },
     {

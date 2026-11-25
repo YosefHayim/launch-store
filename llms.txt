@@ -1,7 +1,0 @@
-# Launch
-
-CLI that builds an app and talks to App Store Connect and Google Play.
-
-Commands: launch init, launch credentials, launch build ios, launch build android, launch release ios, launch release android, launch plan, launch sync, launch adopt.
-
-Apple is a fetch client. Google Play uses @googleapis/androidpublisher. Secrets stay in the OS keychain.

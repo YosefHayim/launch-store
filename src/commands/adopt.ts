@@ -14,13 +14,13 @@ import { loadLaunchFile } from '@/config/load-launch-file.js';
 import { Keychain } from '@/credentials/keychain.js';
 import { GooglePlay } from '@/google/google-play.js';
 import type { StoreSnapshot } from '@/plan/plan-store.js';
-import { UsageError } from '@/usage-error.js';
+import { createUsageError } from '@/cli.js';
 
 export async function runAdopt(argv: string[]): Promise<void> {
   const hasExtraWords = argv.length !== 0;
 
   if (hasExtraWords) {
-    throw new UsageError('launch adopt');
+    throw createUsageError('launch adopt');
   }
 
   const launchFile = await loadLaunchFile();

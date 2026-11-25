@@ -6,13 +6,13 @@ import { loadLaunchFile } from '@/config/load-launch-file.js';
 import { Keychain } from '@/credentials/keychain.js';
 import { GooglePlay } from '@/google/google-play.js';
 import { describeChanges, planStore, type StoreSnapshot } from '@/plan/plan-store.js';
-import { UsageError } from '@/usage-error.js';
+import { createUsageError } from '@/cli.js';
 
 export async function runPlan(argv: string[]): Promise<void> {
   const hasExtraWords = argv.length !== 0;
 
   if (hasExtraWords) {
-    throw new UsageError('launch plan');
+    throw createUsageError('launch plan');
   }
 
   const launchFile = await loadLaunchFile();

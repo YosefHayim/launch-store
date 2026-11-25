@@ -4,7 +4,6 @@
 * @YosefHayim
 
 # foundation — tooling, shared spine
-/BRANCHING.md @YosefHayim
 /AGENTS.md @YosefHayim
 /biome.json @YosefHayim
 /tsconfig.json @YosefHayim
@@ -22,7 +21,6 @@
 /src/core/config/ @YosefHayim
 /schema/ @YosefHayim
 /launch.config.ts @YosefHayim
-/launch.config.example.ts @YosefHayim
 
 # credentials
 /src/core/credentials/ @YosefHayim

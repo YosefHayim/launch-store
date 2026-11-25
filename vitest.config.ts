@@ -1,6 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
+// Unit and e2e differ only by file list and timeout.
+// https://vitest.dev/guide/projects
 export default defineConfig({
   resolve: {
     alias: {
@@ -8,9 +10,6 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/**/*.test.ts'],
-    environment: 'node',
-    forceRerunTriggers: ['**/{vitest,vite}.config.*'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
@@ -23,5 +22,24 @@ export default defineConfig({
       ],
       reporter: ['text', 'text-summary'],
     },
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'unit',
+          include: ['src/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'e2e',
+          include: ['src/**/*.e2e.ts'],
+          environment: 'node',
+          testTimeout: 30_000,
+        },
+      },
+    ],
   },
 });

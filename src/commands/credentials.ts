@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 import type { AppleKey } from '@/apple/app-store-connect.js';
 import { Keychain } from '@/credentials/keychain.js';
-import { UsageError } from '@/usage-error.js';
+import { createUsageError } from '@/cli.js';
 
 export async function runCredentials(argv: string[]): Promise<void> {
   const kind = argv[0];
@@ -24,7 +24,7 @@ export async function runCredentials(argv: string[]): Promise<void> {
     return;
   }
 
-  throw new UsageError(
+  throw createUsageError(
     'launch credentials apple --key-id ID --issuer-id ID --p8 AuthKey.p8\nlaunch credentials google --package com.example.app --json play.json',
   );
 }
@@ -51,20 +51,20 @@ function readFlag(argv: string[], flagName: string): string {
   const isFlagMissing = flagIndex === -1;
 
   if (isFlagMissing) {
-    throw new UsageError(`${flagName} needs a value`);
+    throw createUsageError(`${flagName} needs a value`);
   }
 
   const flagValue = argv[flagIndex + 1];
   const isValueMissing = flagValue == null;
 
   if (isValueMissing) {
-    throw new UsageError(`${flagName} needs a value`);
+    throw createUsageError(`${flagName} needs a value`);
   }
 
   const isAnotherFlag = flagValue.startsWith('--');
 
   if (isAnotherFlag) {
-    throw new UsageError(`${flagName} needs a value`);
+    throw createUsageError(`${flagName} needs a value`);
   }
 
   return flagValue;

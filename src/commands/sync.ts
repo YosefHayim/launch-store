@@ -11,13 +11,13 @@ import {
   type StoreChange,
   type StoreSnapshot,
 } from '@/plan/plan-store.js';
-import { UsageError } from '@/usage-error.js';
+import { createUsageError } from '@/cli.js';
 
 export async function runSync(argv: string[]): Promise<void> {
   const hasExtraWords = argv.length !== 0;
 
   if (hasExtraWords) {
-    throw new UsageError('launch sync');
+    throw createUsageError('launch sync');
   }
 
   const launchFile = await loadLaunchFile();

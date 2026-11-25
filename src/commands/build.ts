@@ -3,7 +3,7 @@
 import { BuildPipeline } from '@/build/build-pipeline.js';
 import { loadLaunchFile } from '@/config/load-launch-file.js';
 import { Keychain } from '@/credentials/keychain.js';
-import { UsageError } from '@/usage-error.js';
+import { createUsageError } from '@/cli.js';
 
 export async function runBuild(argv: string[]): Promise<void> {
   const platform = readPlatform(argv, 'launch build ios   or   launch build android');
@@ -27,5 +27,5 @@ export function readPlatform(argv: string[], usage: string): 'ios' | 'android' {
     return 'android';
   }
 
-  throw new UsageError(usage);
+  throw createUsageError(usage);
 }

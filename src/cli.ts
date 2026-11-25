@@ -12,7 +12,13 @@ import { runInit } from '@/commands/init.js';
 import { runPlan } from '@/commands/plan.js';
 import { runRelease } from '@/commands/release.js';
 import { runSync } from '@/commands/sync.js';
-import { UsageError } from '@/usage-error.js';
+
+export function createUsageError(message: string): Error {
+  const error = new Error(message);
+  error.name = 'UsageError';
+
+  return error;
+}
 
 const commands: Record<string, (argv: string[]) => Promise<void>> = {
   init: runInit,
@@ -72,20 +78,10 @@ export async function main(): Promise<void> {
   try {
     await run(process.argv.slice(3));
   } catch (error) {
-    const isUsage = error instanceof UsageError;
-
-    if (isUsage) {
-      console.error(error.message);
-      process.exitCode = 2;
-
-      return;
-    }
-
     const isError = error instanceof Error;
 
     if (isError) {
-      console.error(error.message);
-      process.exitCode = 1;
+      reportCommandError(error);
 
       return;
     }
@@ -93,6 +89,20 @@ export async function main(): Promise<void> {
     console.error(String(error));
     process.exitCode = 1;
   }
+}
+
+function reportCommandError(error: Error): void {
+  const isUsage = error.name === 'UsageError';
+
+  if (isUsage) {
+    console.error(error.message);
+    process.exitCode = 2;
+
+    return;
+  }
+
+  console.error(error.message);
+  process.exitCode = 1;
 }
 
 function printCommands(): void {
